@@ -10,6 +10,7 @@ use futures::Sink;
 use bytes::BytesMut;
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
+use std::io::Error;
 use crate::CONFIGURE;
 use crate::core::rtmp;
 
@@ -114,12 +115,19 @@ impl Servers {
             Ok(())
         }));
 
-        // for callback data.
-        for received in &receiver {
+        tokio::spawn(writer.send_all(tokio::prelude::stream::iter_ok::<_, Error>(receiver).map(|bytes_mut| {
+            println!("BytesMut -> Bytes");
+            bytes_mut.freeze()
+        })).map(|_| {}).map_err(|_| {}));
 
-            // BUG: 未解决
-            writer.send(received.freeze());
-        }
+        // for callback data.
+        // for received in &receiver {
+        //     let a = received.freeze();
+        //     println!("{:?}", a);
+        //     writer.start_send(a);
+        // }
+
+        // writer.poll_complete();
     }
 
     /// Run work.
