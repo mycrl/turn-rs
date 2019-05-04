@@ -1,0 +1,8 @@
+[push]
+host = "0.0.0.0"
+port = 1935
+
+
+[server]
+host = "0.0.0.0"
+port = 8080

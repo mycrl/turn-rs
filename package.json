@@ -1,0 +1,26 @@
+{
+  "name": "live.mcu",
+  "version": "1.0.0",
+  "description": "Media streaming server written in Rust.",
+  "main": "src/main.rs",
+  "scripts": {
+    "run": "cargo run",
+    "build": "cargo build --release"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xivistudios/flv.wasm.git"
+  },
+  "keywords": [
+    "rust",
+    "live",
+    "media",
+    "server"
+  ],
+  "author": "Mr.Panda",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/xivistudios/flv.wasm/issues"
+  },
+  "homepage": "https://github.com/xivistudios/flv.wasm#readme"
+}
