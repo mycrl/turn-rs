@@ -23,7 +23,7 @@ Build a high-performance streaming distribution server with Rust's zero abstract
 
 #### Build.
 ```bash
-./build `out dir`
+./build.sh `out dir`
 ```
 
 
