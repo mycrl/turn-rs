@@ -22,15 +22,21 @@ Build a high-performance streaming distribution server with Rust's zero abstract
 ## Configure
 > path: ~/project/configure.toml
 
-### Push `push stream options`
+#### Push
+> push stream options
+
 * `host` `{String}` bind address.
 * `port` `{Number}` bind port.
 
-### Server `pull stream options`
+#### Server
+> pull stream options
+
 * `host` `{String}` bind address.
 * `port` `{Number}` bind port.
 
 
 ## License
+
 [MIT](./LICENSE)
+
 Copyright (c) 2019 Quasipaas.
