@@ -19,6 +19,14 @@ Build a high-performance streaming distribution server with Rust's zero abstract
 - Support for encoding format conversion.
 
 
+## Use
+
+#### Build.
+```bash
+./build `out dir`
+```
+
+
 ## Configure
 > path: ~/project/configure.toml
 
