@@ -1,4 +1,5 @@
-# Live Server
+![quasipaa](./static/logo.max.png)
+
 Media streaming server written in Rust.
 
 
