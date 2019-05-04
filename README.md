@@ -1,22 +1,36 @@
 ![quasipaa](./static/logo.max.png)
-
-Media streaming server written in Rust.
-
-
-# Version
-* No Version.
+Media streaming server written in Rust. 
+Build a high-performance streaming distribution server with Rust's zero abstraction and minimal runtime.
 
 
-# Supported encoding
-
-Push.
-* `RTMP`.
-
-Pull.
-* `WebSocket` `FMP4`.
+## Version
+- No Version
 
 
-# Features
-- Join support for HLS.
+## Supported encoding
+- Push [`RTMP`]
+- Pull [`WebSocket`]
+- codec [`FMP4`]
+
+
+## Features
 - Complete codec.
+- Join support for HLS.
 - Support for encoding format conversion.
+
+
+## Configure
+> path: ~/project/configure.toml
+
+### Push `push stream options`
+* `host` `{String}` bind address.
+* `port` `{Number}` bind port.
+
+### Server `pull stream options`
+* `host` `{String}` bind address.
+* `port` `{Number}` bind port.
+
+
+## License
+[MIT](./LICENSE)
+Copyright (c) 2019 Quasipaas.
