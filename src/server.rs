@@ -12,7 +12,7 @@ use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::io::Error;
 use crate::CONFIGURE;
-use crate::core::rtmp;
+use crate::rtmp::RTMP;
 
 
 /// # TCP Listener Context.
@@ -76,19 +76,6 @@ impl Servers {
         Servers { server, push }
     }
 
-    /// Decode bytes.
-    /// 
-    /// ## example
-    /// ```
-    /// Servers::decode(bytes, "");
-    /// ```
-    pub fn decode (bytes: BytesMut, sender: Sender<BytesMut>, name: &'static str) {
-        match name {
-            "push" => rtmp::decoder(bytes, sender),
-            _ => ()
-        };
-    }
-
     /// Processing socket connection.
     /// handling events and states that occur on the socket.
     /// 
@@ -96,13 +83,15 @@ impl Servers {
     /// ```
     /// Servers::process(socket, "");
     /// ```
-    pub fn process (socket: TcpStream, name: &'static str) {
+    pub fn process (socket: TcpStream, _name: &'static str) {
         let (writer, reader) = BytesCodec::new().framed(socket).split();
         let (sender, receiver) = mpsc::channel();
+        let mut codec = RTMP::new();
         
         // spawn socket data work.
         tokio::spawn(reader.for_each(move |bytes| {
-            Servers::decode(bytes, Sender::clone(&sender), name);
+            // decode bytes.
+            codec.decoder(bytes, Sender::clone(&sender));
             Ok(())
         }).and_then(|()| {
             // socket received FIN packet and closed connection.
@@ -115,24 +104,23 @@ impl Servers {
             Ok(())
         }));
 
-        tokio::spawn(
-            tokio::prelude::stream::iter_ok::<_, std::io::Error>(receiver)
-            .map(|bytes_mut| { bytes_mut.freeze() })
-            .fold(writer, |writer, bytes| {
-                writer.send(bytes)
-                .and_then(|writer| {
-                    writer.flush()
-                })
-            })
-            .and_then(|writer| {
-                drop(writer);
-                Ok(())
-            })
-            .or_else(|err| {
-                println!("{:?}", err);
-                Ok(())
-            })
-        );
+        // spawn socket write work.
+        tokio::spawn(tokio::prelude::stream::iter_ok::<_, Error>(receiver)
+        .map(|bytes_mut| {
+            // BytesMut -> Bytes.
+            bytes_mut.freeze()
+         }).fold(writer, |writer, bytes| {
+            // Bytes -> send + flush.
+            writer.send(bytes).and_then(|writer| writer.flush())
+        }).and_then(|writer| {
+            // channel receiver slose -> sink slose.
+            drop(writer);
+            Ok(())
+        }).or_else(|err| {
+            // Err -> ()
+            println!("{:?}", err);
+            Ok(())
+        }));
     }
 
     /// Run work.

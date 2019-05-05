@@ -13,9 +13,9 @@ extern crate rand;
 // mod.
 mod configure;
 mod server;
-mod core;
+mod rtmp;
 mod util;
-//mod pool;
+mod pool;
 
 
 // use.
