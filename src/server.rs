@@ -115,19 +115,24 @@ impl Servers {
             Ok(())
         }));
 
-        tokio::spawn(writer.send_all(tokio::prelude::stream::iter_ok::<_, Error>(receiver).map(|bytes_mut| {
-            println!("BytesMut -> Bytes");
-            bytes_mut.freeze()
-        })).map(|_| {}).map_err(|_| {}));
-
-        // for callback data.
-        // for received in &receiver {
-        //     let a = received.freeze();
-        //     println!("{:?}", a);
-        //     writer.start_send(a);
-        // }
-
-        // writer.poll_complete();
+        tokio::spawn(
+            tokio::prelude::stream::iter_ok::<_, std::io::Error>(receiver)
+            .map(|bytes_mut| { bytes_mut.freeze() })
+            .fold(writer, |writer, bytes| {
+                writer.send(bytes)
+                .and_then(|writer| {
+                    writer.flush()
+                })
+            })
+            .and_then(|writer| {
+                drop(writer);
+                Ok(())
+            })
+            .or_else(|err| {
+                println!("{:?}", err);
+                Ok(())
+            })
+        );
     }
 
     /// Run work.
