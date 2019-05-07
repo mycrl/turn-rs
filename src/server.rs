@@ -7,7 +7,6 @@ use futures::future::lazy;
 use futures::Stream;
 use futures::Future;
 use futures::Sink;
-use bytes::BytesMut;
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::io::Error;

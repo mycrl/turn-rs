@@ -15,7 +15,7 @@ mod configure;
 mod server;
 mod rtmp;
 mod util;
-mod pool;
+//mod pool;
 
 
 // use.

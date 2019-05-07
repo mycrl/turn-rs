@@ -1,11 +1,12 @@
-use crate::util::rand_strs;
+// use.
 use bytes::BytesMut;
+use crate::util::rand_numbers;
 
 
 /// # Handshake Info.
 pub struct Handshake {
     pub version: u8, // version
-    pub types: bool  // is ok
+    pub completed: bool  // is ok
 }
 
 
@@ -14,7 +15,7 @@ impl Handshake {
     /// # Creatd Handshake.
     /// 
     pub fn new () -> Self {
-        Handshake { version: 0, types: false }
+        Handshake { version: 0, completed: false }
     }
 
     /// # Examination Handshake Package.
@@ -23,7 +24,6 @@ impl Handshake {
         let mut is_type = false;
         let mut is_back = false;
         let mut index = 0;
-        let mut offset = 0;
 
         // examination package length.
         // C0 + C1 || S0 + S1
@@ -32,12 +32,10 @@ impl Handshake {
             // lock version number is 3
             if bytes[0] == 3 {
                 index = 5;
-                offset = 9;
                 is_back = true;
             }
         } else {
             index = 4;
-            offset = 8;
         }
 
         // C1, C2
@@ -48,9 +46,7 @@ impl Handshake {
             && bytes[index + 1] == 0 
             && bytes[index + 2] == 0 
             && bytes[index + 3] == 0 {
-                if bytes.len() - offset == 1528 {
-                    is_type = true
-                }
+                is_type = true
             }
         }
 
@@ -61,15 +57,64 @@ impl Handshake {
     /// # Create Handshake Package.
     /// S0 + S1 + S2
     /// 
-    pub fn created (&self) -> Vec<u8> {
+    pub fn created (&self) -> BytesMut {
         let mut package = vec![];
         
         // push bytes.
         package.extend_from_slice(&vec![3]); // S0
         package.extend_from_slice(&vec![0; 8]); // S0 head
-        package.extend_from_slice(&rand_strs(1528)); // S0 body
+        package.extend_from_slice(&rand_numbers(1528)); // S0 body
         package.extend_from_slice(&vec![0; 8]); // S1 head
-        package.extend_from_slice(&rand_strs(1528)); // S1 body
-        package
+        package.extend_from_slice(&rand_numbers(1528)); // S1 body
+        BytesMut::from(package)
+    }
+
+    /// # Drop Handshake Package.
+    /// 
+    pub fn drop (&self, bytes: &BytesMut) -> BytesMut {
+        let mut back: Vec<u8> = vec![];
+        let mut is_bool = false;
+        let mut is_type = false;
+        
+        // check length.
+        if bytes.len() >= 1536 {
+            let (left, _) = &bytes.split_at(1536);
+            let (types, _) = self.then(&BytesMut::from(*left));
+            is_type = types;
+        }
+
+        // check is handshake package.
+        if is_type == true {
+            let (_, right) = &bytes.split_at(1536);
+            back = Vec::from(*right);
+            is_bool = true;
+        }
+
+        // check is split.
+        match is_bool {
+            true => BytesMut::from(back),
+            false => bytes.clone()
+        }
+    }
+
+    /// # Check if need to handle the handshake.
+    /// 
+    pub fn metch (&mut self, bytes: &BytesMut) -> (BytesMut, bool) {
+        let (is_type, is_back) = self.then(&bytes);
+        let mut back = BytesMut::new();
+
+        // need callback handshake.
+        if is_type == true && is_back == true {
+            back = self.created();
+        }
+
+        // not callback handshake.
+        // drop handshake package.
+        if is_type == true && is_back == false {
+            back = self.drop(bytes);
+            self.completed = true;
+        }
+
+        (back, is_back)
     }
 }

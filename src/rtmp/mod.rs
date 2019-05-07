@@ -1,16 +1,23 @@
 // mod.
 mod handshake;
+mod message;
+mod chunk;
+mod control;
+mod amf;
 
 
 // use.
 use bytes::BytesMut;
 use std::sync::mpsc::Sender;
 use handshake::Handshake;
+use message::Message;
 
 
 /// # RTMP Control.
 pub struct RTMP {
-    pub handshake: Handshake
+    pub handshake: Handshake,
+    pub message: Message,
+    pub chunk_size: u64
 }
 
 
@@ -19,24 +26,37 @@ impl RTMP {
     /// # Create RTMP.
     /// 
     pub fn new () -> Self {
-        RTMP { handshake: Handshake::new() }
+        RTMP { 
+            handshake: Handshake::new(),
+            message: Message::new(),
+            chunk_size: 0
+        }
     }
 
     /// # Decoder Bytes.
     /// processing RTMP data.
     /// 
     pub fn decoder(&mut self, bytes: BytesMut, sender: Sender<BytesMut>) {
+        let mut bytes_copy = bytes.clone();
 
-        // check if you need to handle the handshake.
-        if self.handshake.types == false {
-            let (is_handshake_type, is_handshake_back) = self.handshake.then(&bytes);
-            if is_handshake_type {
-                if is_handshake_back {
-                    let package = self.handshake.created();
-                    let body = BytesMut::from(package);
-                    sender.send(body).unwrap();
-                }
+        // handshake.
+        if self.handshake.completed == false {
+            let (back, need) = self.handshake.metch(&bytes_copy);
+
+            // reply or rewrite the cache.
+            if need == true {
+                sender.send(back).unwrap();
+            } else {
+                bytes_copy = back;
             }
         }
+
+        // is message
+        if self.handshake.completed == true {
+            self.message.metch(&bytes_copy);
+        }
+
+        println!("bytes_copy {:?}", &bytes_copy.to_vec());
+        println!("bytes_copy len {:?}", &bytes_copy.len());
     }
 }
