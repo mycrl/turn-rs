@@ -6,7 +6,8 @@ use crate::util::rand_numbers;
 /// # Handshake Info.
 pub struct Handshake {
     pub version: u8, // version
-    pub completed: bool  // is ok
+    pub completed: bool,  // is ok
+    pub timestamp: Vec<u8> // timestamp
 }
 
 
@@ -15,18 +16,22 @@ impl Handshake {
     /// # Creatd Handshake.
     /// 
     pub fn new () -> Self {
-        Handshake { version: 0, completed: false }
+        Handshake { 
+            version: 0, 
+            completed: false,
+            timestamp: vec![]
+        }
     }
 
     /// # Examination Handshake Package.
     /// 
-    pub fn then (&self, bytes: &BytesMut) -> (bool, bool) {
+    pub fn then (&mut self, bytes: BytesMut) -> (bool, bool) {
         let mut is_type = false;
         let mut is_back = false;
         let mut index = 0;
 
         // examination package length.
-        // C0 + C1 || S0 + S1
+        // C0 + C1
         if bytes.len() == 1537 {
             // C0, S0
             // lock version number is 3
@@ -34,6 +39,11 @@ impl Handshake {
                 index = 5;
                 is_back = true;
             }
+            // parse timestamp.
+            let bytes_vec = &bytes.to_vec();
+            let (left, _) = bytes_vec.split_at(5);
+            let (_, right) = left.split_at(1);
+            self.timestamp = right.to_vec();
         } else {
             index = 4;
         }
@@ -59,27 +69,36 @@ impl Handshake {
     /// 
     pub fn created (&self) -> BytesMut {
         let mut package = vec![];
+
+        // get cache time.
+        let timestamp = match self.timestamp.len() {
+            0 => vec![0, 0, 0, 0],
+            _ => self.timestamp.clone()
+        };
         
         // push bytes.
         package.extend_from_slice(&vec![3]); // S0
-        package.extend_from_slice(&vec![0; 8]); // S0 head
-        package.extend_from_slice(&rand_numbers(1528)); // S0 body
-        package.extend_from_slice(&vec![0; 8]); // S1 head
+        package.extend_from_slice(&timestamp); // S1 timestamp
+        package.extend_from_slice(&vec![0; 4]); // S1 zero
         package.extend_from_slice(&rand_numbers(1528)); // S1 body
+        package.extend_from_slice(&timestamp); // S2 timestamp
+        package.extend_from_slice(&vec![0; 4]); // S2 zero
+        package.extend_from_slice(&rand_numbers(1528)); // S2 body
         BytesMut::from(package)
     }
 
     /// # Drop Handshake Package.
     /// 
-    pub fn drop (&self, bytes: &BytesMut) -> BytesMut {
+    pub fn drop (&mut self, bytes: &BytesMut) -> BytesMut {
         let mut back: Vec<u8> = vec![];
         let mut is_bool = false;
         let mut is_type = false;
         
         // check length.
         if bytes.len() >= 1536 {
-            let (left, _) = &bytes.split_at(1536);
-            let (types, _) = self.then(&BytesMut::from(*left));
+            let byt_cp = bytes.clone();
+            let (left, _) = byt_cp.split_at(1536);
+            let (types, _) = self.then(BytesMut::from(left));
             is_type = types;
         }
 
@@ -100,7 +119,7 @@ impl Handshake {
     /// # Check if need to handle the handshake.
     /// 
     pub fn metch (&mut self, bytes: &BytesMut) -> (BytesMut, bool) {
-        let (is_type, is_back) = self.then(&bytes);
+        let (is_type, is_back) = self.then(bytes.clone());
         let mut back = BytesMut::new();
 
         // need callback handshake.

@@ -8,6 +8,7 @@ extern crate futures;
 extern crate bytes;
 extern crate tokio_codec;
 extern crate rand;
+extern crate rml_rtmp;
 
 
 // mod.

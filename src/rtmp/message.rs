@@ -1,8 +1,5 @@
 // use.
 use bytes::BytesMut;
-use bytes::BigEndian;
-use std::io::Cursor;
-use byteorder::ReadBytesExt;
 use super::chunk::Chunk;
 use super::control::Control;
 use super::amf::AMF;
@@ -10,7 +7,7 @@ use super::amf::AMF;
 
 /// # RTMP Message.
 pub struct Message {
-    // chunk_max_size: u64
+    pub chunk_max_size: u64
 }
 
 
@@ -20,7 +17,7 @@ impl Message {
     /// 
     pub fn new () -> Self {
         Message {
-            // chunk_max_size: 0
+            chunk_max_size: 0
         }
     } 
 
@@ -28,16 +25,24 @@ impl Message {
     /// 
     pub fn split_chunk (&mut self, bytes: &BytesMut) -> BytesMut {
         let bytes_copy = bytes.clone();
+        let chunk = Chunk::packet(&bytes_copy);
         let mut back_body = BytesMut::new();
-        let mut chunk = Chunk::new();
 
-        // split packet.
         // whether the split is successful.
-        chunk.packet(&bytes_copy);
-        if chunk.is_ok == true {
+        if chunk.completed == true {
             let bytes_vec = &bytes_copy.to_vec();
-            let (_, body) = bytes_vec.split_at(12 + chunk.body_size as usize);
+            let offset = 12 + chunk.body_size as usize;
+            let (_, body) = bytes_vec.split_at(offset);
             back_body = BytesMut::from(body);
+        }
+
+        // check chunk is some.
+        if chunk.completed == true {
+            match chunk.type_id {
+                1 => { Control::create(&chunk.type_id, &chunk.body).match_type(self); },
+                20 => { AMF::create(&chunk.type_id, &chunk.body).match_type(); },
+                _ => ()
+            };
         }
 
         // return the rest.

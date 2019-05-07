@@ -56,7 +56,6 @@ impl RTMP {
             self.message.metch(&bytes_copy);
         }
 
-        println!("bytes_copy {:?}", &bytes_copy.to_vec());
         println!("bytes_copy len {:?}", &bytes_copy.len());
     }
 }

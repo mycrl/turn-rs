@@ -1,61 +1,88 @@
-const net = require("net")
+// const net = require("net")
 
 
-net.createServer(function (socket) {
-    function rand (count) {
-        let arrs = [];
-        for (let i = 0; i < count; i ++) {
-            arrs.push(Math.floor(Math.random() * 255))
-        }
-        return arrs
-    }
+// net.createServer(function (socket) {
+//     function rand (count) {
+//         let arrs = [];
+//         for (let i = 0; i < count; i ++) {
+//             arrs.push(Math.floor(Math.random() * 255))
+//         }
+//         return arrs
+//     }
 
-    socket.on("data", bytes => {
-        console.log("bytes", bytes);
-        console.log("bytes len", bytes.length);
+//     socket.on("data", bytes => {
+//         console.log("bytes", bytes);
+//         console.log("bytes len", bytes.length);
 
-        let is_type = false;
-        let is_back = false;
-        let index = 0;
-        let offset = 0;
+//         let is_type = false;
+//         let is_back = false;
+//         let index = 0;
+//         let offset = 0;
 
-        // examination package length.
-        // C0 + C1 || S0 + S1
-        if (bytes.length == 1537) {
-            // C0, S0
-            // lock version number is 3
-            if (bytes[0] == 3) {
-                index = 5;
-                offset = 9;
-                is_back = true;
-            }
-        } else {
-            index = 4;
-            offset = 8;
-        }
+//         // examination package length.
+//         // C0 + C1 || S0 + S1
+//         if (bytes.length == 1537) {
+//             // C0, S0
+//             // lock version number is 3
+//             if (bytes[0] == 3) {
+//                 index = 5;
+//                 offset = 9;
+//                 is_back = true;
+//             }
+//         } else {
+//             index = 4;
+//             offset = 8;
+//         }
 
-        // C1, C2
-        // S1, S2
-        // TODO: check only the default placeholder.
-        if (index > 0) {
-            if (bytes[index] == 0 
-            && bytes[index + 1] == 0 
-            && bytes[index + 2] == 0 
-            && bytes[index + 3] == 0) {
-                if (bytes.length - offset == 1528) {
-                    is_type = true
-                }
-            }
-        }
+//         // C1, C2
+//         // S1, S2
+//         // TODO: check only the default placeholder.
+//         if (index > 0) {
+//             if (bytes[index] == 0 
+//             && bytes[index + 1] == 0 
+//             && bytes[index + 2] == 0 
+//             && bytes[index + 3] == 0) {
+//                 if (bytes.length - offset == 1528) {
+//                     is_type = true
+//                 }
+//             }
+//         }
 
-        // callback type and back.
-        if (is_type && is_back) {
-            let body = [ 3 ];
-            body.push(...[ 0, 0, 0, 0, 0, 0, 0, 0 ]);
-            body.push(...rand(1528));
-            body.push(...[ 0, 0, 0, 0, 0, 0, 0, 0 ]);
-            body.push(...rand(1528));
-            socket.write(Buffer.from(body));
-        }
-    })
-}).listen(1935)
+//         // callback type and back.
+//         if (is_type && is_back) {
+//             let body = [ 3 ];
+//             body.push(...[ 0, 0, 0, 0, 0, 0, 0, 0 ]);
+//             body.push(...rand(1528));
+//             body.push(...[ 0, 0, 0, 0, 0, 0, 0, 0 ]);
+//             body.push(...rand(1528));
+//             socket.write(Buffer.from(body));
+//         }
+//     })
+// }).listen(1935)
+
+
+const amf = [
+    0x02, 0x00, 0x07, 0x63, 0x6f, 0x6e, 0x6e, 0x65, 
+    0x63, 0x74, 0x00, 0x3f, 0xf0, 0x00, 0x00, 0x00, 
+    0x00, 0x00, 0x00, 0x03, 0x00, 0x03, 0x61, 0x70, 
+    0x70, 0x02, 0x00, 0x04, 0x6c, 0x69, 0x76, 0x65, 
+    0x00, 0x04, 0x74, 0x79, 0x70, 0x65, 0x02, 0x00, 
+    0x0a, 0x6e, 0x6f, 0x6e, 0x70, 0x72, 0x69, 0x76, 
+    0x61, 0x74, 0x65, 0x00, 0x08, 0x66, 0x6c, 0x61, 
+    0x73, 0x68, 0x56, 0x65, 0x72, 0x02, 0x00, 0x1f, 
+    0x46, 0x4d, 0x4c, 0x45, 0x2f, 0x33, 0x2e, 0x30, 
+    0x20, 0x28, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x74, 
+    0x69, 0x62, 0x6c, 0x65, 0x3b, 0x20, 0x46, 0x4d, 
+    0x53, 0x63, 0x2f, 0x31, 0x2e, 0x30, 0x29, 0x00, 
+    0x06, 0x73, 0x77, 0x66, 0x55, 0x72, 0x6c, 0x02, 
+    0x00, 0x15, 0x72, 0x74, 0x6d, 0x70, 0x3a, 0x2f, 
+    0x2f, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x68, 0x6f, 
+    0x73, 0x74, 0x2f, 0x6c, 0x69, 0x76, 0x65, 0x00, 
+    0x05, 0x74, 0x63, 0x55, 0x72, 0x6c, 0x02, 0x00, 
+    0x15, 0x72, 0x74, 0x6d, 0x70, 0x3a, 0x2f, 0x2f, 
+    0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x68, 0x6f, 0x73, 
+    0x74, 0x2f, 0x6c, 0x69, 0x76, 0x65, 0x00, 0x00, 
+    0x09
+]
+
+console.log(Buffer.from(amf).toString())
