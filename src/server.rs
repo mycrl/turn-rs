@@ -83,9 +83,10 @@ impl Servers {
     /// Servers::process(socket, "");
     /// ```
     pub fn process (socket: TcpStream, _name: &'static str) {
+        let address = socket.peer_addr().unwrap().to_string();
         let (writer, reader) = BytesCodec::new().framed(socket).split();
         let (sender, receiver) = mpsc::channel();
-        let mut codec = RTMP::new();
+        let mut codec = RTMP::new(address.to_string());
         
         // spawn socket data work.
         tokio::spawn(reader.for_each(move |bytes| {
@@ -105,21 +106,10 @@ impl Servers {
 
         // spawn socket write work.
         tokio::spawn(tokio::prelude::stream::iter_ok::<_, Error>(receiver)
-        .map(|bytes_mut| {
-            // BytesMut -> Bytes.
-            bytes_mut.freeze()
-         }).fold(writer, |writer, bytes| {
-            // Bytes -> send + flush.
-            writer.send(bytes).and_then(|writer| writer.flush())
-        }).and_then(|writer| {
-            // channel receiver slose -> sink slose.
-            drop(writer);
-            Ok(())
-        }).or_else(|err| {
-            // Err -> ()
-            println!("{:?}", err);
-            Ok(())
-        }));
+        .map(|bytes_mut| bytes_mut.freeze()) // BytesMut -> Bytes.
+        .fold(writer, |writer, bytes| writer.send(bytes).and_then(|writer| writer.flush())) // Bytes -> send + flush.
+        .and_then(|writer| Ok({ drop(writer); })) // channel receiver slose -> sink slose.
+        .or_else(|_| Ok(()))); // drop err.
     }
 
     /// Run work.

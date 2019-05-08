@@ -7,15 +7,14 @@ extern crate toml;
 extern crate futures;
 extern crate bytes;
 extern crate tokio_codec;
-extern crate rand;
 extern crate rml_rtmp;
+extern crate uuid;
 
 
 // mod.
 mod configure;
 mod server;
 mod rtmp;
-mod util;
 //mod pool;
 
 

@@ -1,61 +1,53 @@
 // mod.
 mod handshake;
-mod message;
-mod chunk;
-mod control;
-mod amf;
+mod session;
 
 
 // use.
 use bytes::BytesMut;
 use std::sync::mpsc::Sender;
-use handshake::Handshake;
-use message::Message;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Receiver;
+use handshake::Handshakes;
+use handshake::HandshakeType;
+use session::Session;
 
 
 /// # RTMP Control.
 pub struct RTMP {
-    pub handshake: Handshake,
-    pub message: Message,
-    pub chunk_size: u64
+    pub handshake: Handshakes,
+    pub session: Session,
+    pub receiver: Receiver<Vec<u8>>
 }
 
 
 impl RTMP {
 
     /// # Create RTMP.
-    /// 
-    pub fn new () -> Self {
-        RTMP { 
-            handshake: Handshake::new(),
-            message: Message::new(),
-            chunk_size: 0
-        }
+    pub fn new (address: String) -> Self {
+        let (sender, receiver) = channel();
+        let handshake = Handshakes::new();
+        let session = Session::new(address, sender);
+        RTMP { handshake, session, receiver }
     }
 
     /// # Decoder Bytes.
     /// processing RTMP data.
-    /// 
-    pub fn decoder(&mut self, bytes: BytesMut, sender: Sender<BytesMut>) {
-        let mut bytes_copy = bytes.clone();
+    pub fn decoder(&mut self, bytes: BytesMut, sender: Sender<BytesMut>) { 
+        let mut bytes_copy = bytes.clone().to_vec();
 
         // handshake.
         if self.handshake.completed == false {
-            let (back, need) = self.handshake.metch(&bytes_copy);
-
-            // reply or rewrite the cache.
-            if need == true {
-                sender.send(back).unwrap();
-            } else {
-                bytes_copy = back;
+            if let Some(types) = self.handshake.process(bytes_copy) {
+                match types {
+                    HandshakeType::Back(bytes) => { sender.send(BytesMut::from(bytes)).unwrap(); },
+                    HandshakeType::Overflow(bytes) => { bytes_copy = bytes; }
+                }
             }
-        }
-
-        // is message
+        } else
+        // process message.
         if self.handshake.completed == true {
-            self.message.metch(&bytes_copy);
+            self.session.process(bytes_copy);
         }
-
-        println!("bytes_copy len {:?}", &bytes_copy.len());
     }
 }

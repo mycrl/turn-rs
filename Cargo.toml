@@ -16,4 +16,7 @@ bytes = "0.4"
 byteorder = "1.2.1"
 tokio-codec = "0.1.1"
 rml_rtmp = "0.3"
-rand = "0.6"
+
+[dependencies.uuid]
+version = "0.7"
+features = ["serde", "v4"]
