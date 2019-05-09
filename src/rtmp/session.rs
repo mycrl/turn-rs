@@ -1,10 +1,13 @@
 // use.
 use uuid::Uuid;
+use bytes::Bytes;
+use bytes::BytesMut;
 use rml_rtmp::sessions::ServerSession;
-// use.
 use rml_rtmp::sessions::ServerSessionConfig;
 use rml_rtmp::sessions::ServerSessionResult;
 use rml_rtmp::sessions::ServerSessionEvent;
+use rml_rtmp::sessions::StreamMetadata;
+use rml_rtmp::time::RtmpTimestamp;
 use std::sync::mpsc::Sender;
 
 
@@ -16,6 +19,13 @@ pub enum ClientAction {
 }
 
 
+/// # Matedata Type.
+pub enum ReceivedDataType {
+    Audio, // Audio data.
+    Video // Movie data.
+}
+
+
 /// # Server Session Instance.
 pub struct Session {
     pub uid: String,
@@ -23,21 +33,41 @@ pub struct Session {
     pub address: String,
     pub session: ServerSession,
     pub results: Vec<ServerSessionResult>,
-    pub sender: Sender<Vec<u8>>,
-    pub current_action: ClientAction
+    pub current_action: ClientAction,
+    pub sender: Option<Sender<BytesMut>>,
+    pub video_sequence_header: Option<Bytes>,
+    pub audio_sequence_header: Option<Bytes>
 }
 
 
 impl Session {
 
     /// # Create a session instance.
-    pub fn new (address: String, sender: Sender<Vec<u8>>) -> Self {
+    pub fn new (address: String) -> Self {
+        let sender = None;
         let name = String::new();
         let uid = Uuid::new_v4().to_string();
         let config = ServerSessionConfig::new();
         let current_action = ClientAction::Waiting;
         let (session, results) = ServerSession::new(config).unwrap();
-        Session { uid, address, session, results, sender, name, current_action }
+        let video_sequence_header = None;
+        let audio_sequence_header = None;
+        Session { uid, address, session, results, name, current_action, sender, video_sequence_header, audio_sequence_header }
+    }
+
+    /// # Check if it is video.
+    pub fn is_video_sequence_header (data: Bytes) -> bool {
+        data.len() >= 2 && data[0] == 0x17 && data[1] == 0x00
+    }
+
+    /// # Check if it is audio.
+    pub fn is_audio_sequence_header (data: Bytes) -> bool {
+        data.len() >= 2 && data[0] == 0xaf && data[1] == 0x00
+    }
+
+    /// # Check if it is video frame.
+    pub fn is_video_keyframe (data: Bytes) -> bool {
+        data.len() >= 2 && data[0] == 0x17 && data[1] != 0x00
     }
 
     /// # Accept request.
@@ -67,21 +97,24 @@ impl Session {
         self.accept_request(request_id);
     }
 
-    // TODO：need append stream in pool.
     /// Event.
-    /// # PlayStreamRequested.
-    /// The client is requesting playback of the specified stream.
-    pub fn event_play_requested (&mut self, request_id: u32, app_name: String, stream_key: String, stream_id: u32) {
-        self.name = app_name;
-        self.current_action = ClientAction::Watching {
-            stream_key: stream_key.clone(),
-            stream_id
-        };
+    /// # StreamMetadataChanged.
+    // The client is changing metadata properties of the stream being published.
+    pub fn event_metadata_received (&mut self, app_name: String, stream_key: String, metadata: StreamMetadata) {
 
-        match self.session.accept_request(request_id) {
-            Err(err) => { println!("PlayStreamRequested err {:?}", err); },
-            Ok(results) => {
+    }
 
+    pub fn event_audio_video_data_received (&mut self, app_name: String, stream_key: String, data: Bytes, timestamp: RtmpTimestamp, data_type: ReceivedDataType) {
+        match data_type {
+            ReceivedDataType::Audio => {
+                if Session::is_video_sequence_header(data.clone()) {
+                    self.video_sequence_header = Some(data.clone())
+                }
+            },
+            ReceivedDataType::Video => {
+                if Session::is_audio_sequence_header(data.clone()) {
+                    self.audio_sequence_header = Some(data.clone())
+                }
             }
         }
     }
@@ -91,16 +124,9 @@ impl Session {
         match event {
             ServerSessionEvent::ConnectionRequested { request_id, app_name } => self.event_connection_requested(request_id, app_name),
             ServerSessionEvent::PublishStreamRequested { request_id, app_name, stream_key, mode: _ } => self.event_publish_requested(request_id, app_name, stream_key),
-            ServerSessionEvent::PlayStreamRequested { request_id, app_name, stream_key, start_at: _, duration: _, reset: _, stream_id } => self.event_play_requested(request_id, app_name, stream_key, stream_id),
-            // ServerSessionEvent::StreamMetadataChanged {app_name, stream_key, metadata} => {
-            //     //self.metadata_received(app_name, stream_key, metadata, server_results);
-            // },
-            // ServerSessionEvent::VideoDataReceived {app_name: _, stream_key, data, timestamp} => {
-            //     //self.audio_video_data_received(stream_key, timestamp, data, ReceivedDataType::Video, server_results);
-            // },
-            // ServerSessionEvent::AudioDataReceived {app_name: _, stream_key, data, timestamp} => {
-            //     //self.audio_video_data_received(stream_key, timestamp, data, ReceivedDataType::Audio, server_results);
-            // },
+            ServerSessionEvent::StreamMetadataChanged { app_name, stream_key, metadata } => self.event_metadata_received(app_name, stream_key, metadata),
+            ServerSessionEvent::VideoDataReceived { app_name, stream_key, data, timestamp } => self.event_audio_video_data_received(app_name, stream_key, data, timestamp, ReceivedDataType::Video),
+            ServerSessionEvent::AudioDataReceived {app_name, stream_key, data, timestamp } => self.event_audio_video_data_received(app_name, stream_key, data, timestamp, ReceivedDataType::Audio),
             _ => ()
         }
     }
@@ -109,17 +135,31 @@ impl Session {
     pub fn session_result (&mut self, results: Vec<ServerSessionResult>) {
         for result in results {
             match result {
-                ServerSessionResult::OutboundResponse(packet) => self.sender.send(packet.bytes).unwrap(),
+                ServerSessionResult::OutboundResponse(packet) => self.sender_socket(packet.bytes),
                 ServerSessionResult::RaisedEvent(event) => self.events_match(event),
-                _ => ()
+                _ => { println!("session result no match"); }
             }
         };
+    }
+
+    /// # Write socket.
+    /// Send reply data to socket.
+    pub fn sender_socket (&mut self, bytes: Vec<u8>) {
+        if let Some(sender) = &self.sender {
+            sender.send(BytesMut::from(bytes)).unwrap();
+        }
     }
 
     /// # processing bytes.
     /// Process the data sent by the client.
     /// trigger the corresponding event.
-    pub fn process (&mut self, bytes: Vec<u8>) {
+    pub fn process (&mut self, bytes: Vec<u8>, sender: Sender<BytesMut>) {
+        if let None = &self.sender {
+            self.sender = Some(sender);
+        }
+
+        // Takes in bytes that are encoding RTMP chunks and returns 
+        // any responses or events that can be reacted to.
         match self.session.handle_input(bytes.as_slice()) {
             Ok(results) => self.session_result(results), 
             Err(err) => { println!("process err {:?}", err); }

@@ -6,8 +6,6 @@ mod session;
 // use.
 use bytes::BytesMut;
 use std::sync::mpsc::Sender;
-use std::sync::mpsc::channel;
-use std::sync::mpsc::Receiver;
 use handshake::Handshakes;
 use handshake::HandshakeType;
 use session::Session;
@@ -16,8 +14,7 @@ use session::Session;
 /// # RTMP Control.
 pub struct RTMP {
     pub handshake: Handshakes,
-    pub session: Session,
-    pub receiver: Receiver<Vec<u8>>
+    pub session: Session
 }
 
 
@@ -25,10 +22,9 @@ impl RTMP {
 
     /// # Create RTMP.
     pub fn new (address: String) -> Self {
-        let (sender, receiver) = channel();
         let handshake = Handshakes::new();
-        let session = Session::new(address, sender);
-        RTMP { handshake, session, receiver }
+        let session = Session::new(address);
+        RTMP { handshake, session }
     }
 
     /// # Decoder Bytes.
@@ -38,16 +34,17 @@ impl RTMP {
 
         // handshake.
         if self.handshake.completed == false {
-            if let Some(types) = self.handshake.process(bytes_copy) {
+            if let Some(types) = self.handshake.process(bytes_copy.clone()) {
                 match types {
-                    HandshakeType::Back(bytes) => { sender.send(BytesMut::from(bytes)).unwrap(); },
-                    HandshakeType::Overflow(bytes) => { bytes_copy = bytes; }
+                    HandshakeType::Back(x) => { sender.send(BytesMut::from(x)).unwrap(); },
+                    HandshakeType::Overflow(x) => { bytes_copy = x; }
                 }
             }
-        } else
-        // process message.
+        }
+
+        // message.
         if self.handshake.completed == true {
-            self.session.process(bytes_copy);
+            self.session.process(bytes_copy.clone(), sender);
         }
     }
 }

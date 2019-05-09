@@ -89,27 +89,25 @@ impl Servers {
         let mut codec = RTMP::new(address.to_string());
         
         // spawn socket data work.
-        tokio::spawn(reader.for_each(move |bytes| {
-            // decode bytes.
-            codec.decoder(bytes, Sender::clone(&sender));
-            Ok(())
-        }).and_then(|()| {
-            // socket received FIN packet and closed connection.
-            Ok(())
-        }).or_else(|err| {
-            // socket closed with error.
-            Err(err)
-        }).then(|_result| {
-            // socket closed with result.
-            Ok(())
-        }));
+        let socket_data_work = reader
+        .for_each(move |bytes| { Ok({ codec.decoder(bytes, Sender::clone(&sender)); }) }) // decode bytes.
+        .and_then(|()| { Ok(()) }) // socket received FIN packet and closed connection.
+        .or_else(|err| { Err(err) }) // socket closed with error.
+        .then(|_result| { Ok(()) }); // socket closed with result.
 
         // spawn socket write work.
-        tokio::spawn(tokio::prelude::stream::iter_ok::<_, Error>(receiver)
+        let socket_write_work = tokio::prelude::stream::iter_ok::<_, Error>(receiver)
         .map(|bytes_mut| bytes_mut.freeze()) // BytesMut -> Bytes.
-        .fold(writer, |writer, bytes| writer.send(bytes).and_then(|writer| writer.flush())) // Bytes -> send + flush.
+        .fold(writer, |writer, bytes| {
+            println!("发送数据");
+            writer.send(bytes).and_then(|writer| writer.flush())
+        }) // Bytes -> send + flush.
         .and_then(|writer| Ok({ drop(writer); })) // channel receiver slose -> sink slose.
-        .or_else(|_| Ok(()))); // drop err.
+        .or_else(|_| Ok(())); // drop err.
+
+        // spawn thread.
+        tokio::spawn(socket_data_work);
+        tokio::spawn(socket_write_work);
     }
 
     /// Run work.
