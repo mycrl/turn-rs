@@ -32,9 +32,9 @@ pub struct Session {
     pub name: String,
     pub address: String,
     pub session: ServerSession,
-    pub results: Vec<ServerSessionResult>,
+    pub results: Option<Vec<ServerSessionResult>>,
     pub current_action: ClientAction,
-    pub sender: Option<Sender<BytesMut>>,
+    pub sender: Sender<BytesMut>,
     pub video_sequence_header: Option<Bytes>,
     pub audio_sequence_header: Option<Bytes>
 }
@@ -43,8 +43,7 @@ pub struct Session {
 impl Session {
 
     /// # Create a session instance.
-    pub fn new (address: String) -> Self {
-        let sender = None;
+    pub fn new (address: String, sender: Sender<BytesMut>) -> Self {
         let name = String::new();
         let uid = Uuid::new_v4().to_string();
         let config = ServerSessionConfig::new();
@@ -52,7 +51,13 @@ impl Session {
         let (session, results) = ServerSession::new(config).unwrap();
         let video_sequence_header = None;
         let audio_sequence_header = None;
-        Session { uid, address, session, results, name, current_action, sender, video_sequence_header, audio_sequence_header }
+        Session { 
+            uid, address, session, name,
+            current_action, sender, 
+            video_sequence_header, 
+            audio_sequence_header,
+            results: Some(results)
+        }
     }
 
     /// # Check if it is video.
@@ -121,6 +126,7 @@ impl Session {
 
     /// # Process RTMP session event.
     pub fn events_match (&mut self, event: ServerSessionEvent) {
+        println!("触发事件 {:?}", event);
         match event {
             ServerSessionEvent::ConnectionRequested { request_id, app_name } => self.event_connection_requested(request_id, app_name),
             ServerSessionEvent::PublishStreamRequested { request_id, app_name, stream_key, mode: _ } => self.event_publish_requested(request_id, app_name, stream_key),
@@ -139,23 +145,23 @@ impl Session {
                 ServerSessionResult::RaisedEvent(event) => self.events_match(event),
                 _ => { println!("session result no match"); }
             }
-        };
+        }
     }
 
     /// # Write socket.
     /// Send reply data to socket.
     pub fn sender_socket (&mut self, bytes: Vec<u8>) {
-        if let Some(sender) = &self.sender {
-            sender.send(BytesMut::from(bytes)).unwrap();
-        }
+        println!("发送 {:?}", bytes.len());
+        self.sender.send(BytesMut::from(bytes)).unwrap();
     }
 
     /// # processing bytes.
     /// Process the data sent by the client.
     /// trigger the corresponding event.
-    pub fn process (&mut self, bytes: Vec<u8>, sender: Sender<BytesMut>) {
-        if let None = &self.sender {
-            self.sender = Some(sender);
+    pub fn process (&mut self, bytes: Vec<u8>) {
+        if let Some(x) = &self.results {
+            self.session_result(*x);
+            self.results = None;
         }
 
         // Takes in bytes that are encoding RTMP chunks and returns 

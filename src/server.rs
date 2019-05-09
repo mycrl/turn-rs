@@ -86,11 +86,11 @@ impl Servers {
         let address = socket.peer_addr().unwrap().to_string();
         let (writer, reader) = BytesCodec::new().framed(socket).split();
         let (sender, receiver) = mpsc::channel();
-        let mut codec = RTMP::new(address.to_string());
+        let mut codec = RTMP::new(address.to_string(), sender);
         
         // spawn socket data work.
         let socket_data_work = reader
-        .for_each(move |bytes| { Ok({ codec.decoder(bytes, Sender::clone(&sender)); }) }) // decode bytes.
+        .for_each(move |bytes| { Ok({ codec.decoder(bytes); }) }) // decode bytes.
         .and_then(|()| { Ok(()) }) // socket received FIN packet and closed connection.
         .or_else(|err| { Err(err) }) // socket closed with error.
         .then(|_result| { Ok(()) }); // socket closed with result.

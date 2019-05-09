@@ -14,31 +14,32 @@ use session::Session;
 /// # RTMP Control.
 pub struct RTMP {
     pub handshake: Handshakes,
-    pub session: Session
+    pub session: Session,
+    pub sender: Sender<BytesMut>
 }
 
 
 impl RTMP {
 
     /// # Create RTMP.
-    pub fn new (address: String) -> Self {
+    pub fn new (address: String, sender: Sender<BytesMut>) -> Self {
+        let session = Session::new(address, Sender::clone(&sender));
         let handshake = Handshakes::new();
-        let session = Session::new(address);
-        RTMP { handshake, session }
+        RTMP { handshake, session, sender }
     }
 
     /// # Decoder Bytes.
     /// processing RTMP data.
-    pub fn decoder(&mut self, bytes: BytesMut, sender: Sender<BytesMut>) { 
+    pub fn decoder(&mut self, bytes: BytesMut) { 
         let mut bytes_copy = bytes.clone().to_vec();
 
         // handshake.
         if self.handshake.completed == false {
             if let Some(types) = self.handshake.process(bytes_copy.clone()) {
                 match types {
-                    HandshakeType::Back(x) => { sender.send(BytesMut::from(x)).unwrap(); },
+                    HandshakeType::Back(x) => { self.sender.send(BytesMut::from(x)).unwrap(); },
                     HandshakeType::Overflow(x) => { bytes_copy = x; },
-                    HandshakeType::Drop => { bytes_copy = vec![]; }
+                    HandshakeType::Clear => { bytes_copy = vec![]; }
                 }
             }
         }
@@ -47,7 +48,7 @@ impl RTMP {
         if self.handshake.completed == true && bytes_copy.len() > 0 {
             println!("message {:?}", bytes_copy);
             println!("message len {:?}", bytes_copy.len());
-            self.session.process(bytes_copy.clone(), sender);
+            self.session.process(bytes_copy.clone());
         }
     }
 }

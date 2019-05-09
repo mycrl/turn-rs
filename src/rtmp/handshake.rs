@@ -9,7 +9,7 @@ use rml_rtmp::handshake::HandshakeProcessResult;
 pub enum HandshakeType {
     Overflow(Vec<u8>),
     Back(Vec<u8>),
-    Drop
+    Clear
 }
 
 
@@ -37,7 +37,7 @@ impl Handshakes {
     /// there is no need to externally handle this overflow.
     pub fn is_overflow (&mut self, overflow: Vec<u8>) -> Option<HandshakeType> {
         match overflow.len() {
-            0 => Some(HandshakeType::Drop),
+            0 => Some(HandshakeType::Clear),
             _ => Some(HandshakeType::Overflow(overflow))
         }
     }
