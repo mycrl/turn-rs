@@ -37,13 +37,16 @@ impl RTMP {
             if let Some(types) = self.handshake.process(bytes_copy.clone()) {
                 match types {
                     HandshakeType::Back(x) => { sender.send(BytesMut::from(x)).unwrap(); },
-                    HandshakeType::Overflow(x) => { bytes_copy = x; }
+                    HandshakeType::Overflow(x) => { bytes_copy = x; },
+                    HandshakeType::Drop => { bytes_copy = vec![]; }
                 }
             }
         }
 
         // message.
-        if self.handshake.completed == true {
+        if self.handshake.completed == true && bytes_copy.len() > 0 {
+            println!("message {:?}", bytes_copy);
+            println!("message len {:?}", bytes_copy.len());
             self.session.process(bytes_copy.clone(), sender);
         }
     }
