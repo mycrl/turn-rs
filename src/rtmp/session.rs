@@ -44,19 +44,20 @@ impl Session {
 
     /// # Create a session instance.
     pub fn new (address: String, sender: Sender<BytesMut>) -> Self {
-        let name = String::new();
         let uid = Uuid::new_v4().to_string();
         let config = ServerSessionConfig::new();
         let current_action = ClientAction::Waiting;
         let (session, results) = ServerSession::new(config).unwrap();
         let video_sequence_header = None;
         let audio_sequence_header = None;
+
         Session { 
-            uid, address, session, name,
+            uid, address, session,
             current_action, sender, 
             video_sequence_header, 
             audio_sequence_header,
-            results: Some(results)
+            results: Some(results),
+            name: String::new()
         }
     }
 
@@ -126,7 +127,6 @@ impl Session {
 
     /// # Process RTMP session event.
     pub fn events_match (&mut self, event: ServerSessionEvent) {
-        println!("触发事件 {:?}", event);
         match event {
             ServerSessionEvent::ConnectionRequested { request_id, app_name } => self.event_connection_requested(request_id, app_name),
             ServerSessionEvent::PublishStreamRequested { request_id, app_name, stream_key, mode: _ } => self.event_publish_requested(request_id, app_name, stream_key),
@@ -151,7 +151,6 @@ impl Session {
     /// # Write socket.
     /// Send reply data to socket.
     pub fn sender_socket (&mut self, bytes: Vec<u8>) {
-        println!("发送 {:?}", bytes.len());
         self.sender.send(BytesMut::from(bytes)).unwrap();
     }
 
@@ -160,7 +159,14 @@ impl Session {
     /// trigger the corresponding event.
     pub fn process (&mut self, bytes: Vec<u8>) {
         if let Some(x) = &self.results {
-            self.session_result(*x);
+            for result in x {
+                match result {
+                    ServerSessionResult::OutboundResponse(packet) => {
+                        self.sender.send(BytesMut::from(packet.bytes.clone())).unwrap();
+                    },
+                    _ => { println!("session result no match"); }
+                }
+            }
             self.results = None;
         }
 

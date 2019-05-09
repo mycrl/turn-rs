@@ -46,8 +46,6 @@ impl RTMP {
 
         // message.
         if self.handshake.completed == true && bytes_copy.len() > 0 {
-            println!("message {:?}", bytes_copy);
-            println!("message len {:?}", bytes_copy.len());
             self.session.process(bytes_copy.clone());
         }
     }
