@@ -18,6 +18,7 @@ mod rtmp;
 mod websocket;
 mod pool;
 mod distributor;
+mod pipe;
 
 
 // use.

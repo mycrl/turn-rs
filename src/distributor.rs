@@ -15,6 +15,12 @@ pub struct Matedata {
 }
 
 
+pub struct Control {
+    pub matedata: Option<Matedata>,
+    pub style: String
+}
+
+
 pub struct Channel {
     pub tx: Sender<Matedata>,
     pub rx: Receiver<Matedata>
