@@ -6,31 +6,32 @@ mod session;
 // use.
 use bytes::BytesMut;
 use std::sync::mpsc::Sender;
+use session::Session;
 use handshake::Handshakes;
 use handshake::HandshakeType;
-use session::Session;
+use crate::distributor::Codec;
 
 
 /// # RTMP Control.
-pub struct RTMP {
+pub struct Rtmp {
+    pub sender: Sender<BytesMut>,
     pub handshake: Handshakes,
-    pub session: Session,
-    pub sender: Sender<BytesMut>
+    pub session: Session
 }
 
 
-impl RTMP {
+impl Codec for Rtmp {
 
     /// # Create RTMP.
-    pub fn new (address: String, sender: Sender<BytesMut>) -> Self {
+    fn new (address: String, sender: Sender<BytesMut>) -> Self {
         let session = Session::new(address, Sender::clone(&sender));
         let handshake = Handshakes::new();
-        RTMP { handshake, session, sender }
+        Rtmp { handshake, session, sender }
     }
 
     /// # Decoder Bytes.
     /// processing RTMP data.
-    pub fn decoder(&mut self, bytes: BytesMut) { 
+    fn decoder (&mut self, bytes: BytesMut) { 
         let mut bytes_copy = bytes.clone().to_vec();
 
         // handshake.

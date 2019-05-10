@@ -15,14 +15,15 @@ extern crate uuid;
 mod configure;
 mod server;
 mod rtmp;
-//mod pool;
+mod websocket;
+mod pool;
+mod distributor;
 
 
 // use.
 use lazy_static::lazy_static;
 use configure::Config;
 use server::Servers;
-use std::io::Error;
 
 
 // global static constant.
@@ -33,7 +34,6 @@ lazy_static!{
 
 
 // main.
-fn main () -> Result<(), Error> {
-    Servers::create().work();
-    Ok(())
+fn main () {
+    //Servers::create().work();
 }

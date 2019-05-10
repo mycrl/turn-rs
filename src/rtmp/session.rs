@@ -50,7 +50,6 @@ impl Session {
         let (session, results) = ServerSession::new(config).unwrap();
         let video_sequence_header = None;
         let audio_sequence_header = None;
-
         Session { 
             uid, address, session,
             current_action, sender, 

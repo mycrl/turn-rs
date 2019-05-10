@@ -3,35 +3,29 @@ use std::io::Read;
 
 
 /// # Push Stream Config.
-/// 
-/// * `host` push stream listen host.
-/// * `port` push stream listen port.
-#[derive(Deserialize)]
-pub struct Push {
+#[derive(Deserialize, Clone)]
+pub struct Listener {
+    pub protocol: String,
+    pub genre: String,
+    pub code: String,
     pub host: String,
     pub port: u32
 }
 
 
-/// # Live Server Config.
-/// 
-/// * `host` live server listen host.
-/// * `port` live server listen port.
+/// # Live Pool
 #[derive(Deserialize)]
-pub struct Server {
-    pub host: String,
-    pub port: u32
+pub struct Pool {
+    pub bytes: u8
 }
 
 
 /// # Project Config.
-/// 
-/// * `push` `{Push}` push stream config.
-/// * `server` `{Server}` live server config.
 #[derive(Deserialize)]
 pub struct Config {
-    pub push: Push,
-    pub server: Server
+    pub push: Vec<Listener>,
+    pub server: Vec<Listener>,
+    pub pool: Pool
 }
 
 
