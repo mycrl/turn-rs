@@ -35,5 +35,5 @@ lazy_static!{
 
 // main.
 fn main () {
-    //Servers::create().work();
+    Servers::create().work();
 }

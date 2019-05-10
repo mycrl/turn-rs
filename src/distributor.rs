@@ -15,15 +15,6 @@ pub struct Matedata {
 }
 
 
-/// # Describe The Type Of Link.
-/// Currently supports rtmp and websocket.
-// pub enum ConnectionType {
-//     Rtmp(Rtmp),
-//     WebSocket(WebSocket),
-//     None
-// }
-
-
 pub struct Channel {
     pub tx: Sender<Matedata>,
     pub rx: Receiver<Matedata>
