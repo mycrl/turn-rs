@@ -13,8 +13,6 @@ use std::io::Error;
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use crate::CONFIGURE;
-use crate::distributor::Distributor;
-use crate::distributor::DataType;
 use crate::rtmp::Rtmp;
 use crate::websocket::WebSocket;
 use crate::configure::Listener;

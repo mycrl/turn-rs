@@ -1,111 +1,138 @@
-// use.
-use bytes::Bytes;
 use std::collections::HashMap;
-use std::collections::VecDeque;
-use crate::CONFIGURE;
+use std::sync::Arc;
+use parking_lot::RwLock;
+use crate::client::Client;
+use crate::stream::Stream;
 
 
-/// # Matedata Bytes.
-#[derive(Clone)]
-pub struct CacheBytes {
-    pub audio: Option<Bytes>,
-    pub video: Option<Bytes>
+/// Streaming pool pool error definition.
+pub enum PoolError {
+    NotFund         // Stream not found.
 }
 
 
-/// # Chip Frame Pool.
-#[derive(Clone)]
-pub struct BytesPool {
-    pub pool: VecDeque<CacheBytes>,
-    pub len: usize
-}
-
-
-/// # Live Information.
-#[derive(Clone)]
-pub struct Live {
-    pub name: String,
-    pub key: String,
-    pub bytes: BytesPool
-}
-
-
-/// # Live Poll And Connection Poll.
+/// Streaming pool.
 pub struct Pool {
-    pub lives: HashMap<String, Live>,
-    pub max: u8
-}
-
-
-impl BytesPool {
-
-    /// # Create bytes pool.
-    pub fn new (max: usize) -> Self {
-        BytesPool {
-            pool: VecDeque::with_capacity(max),
-            len: max
-        }
-    }
-
-    /// # Append value in bytes pool.
-    /// /// When appending, it will first check if it will exceed the boundary.
-    /// If the boundary is exceeded, the first bit is cleared first.
-    pub fn append (&mut self, bytes: CacheBytes) {
-        if self.pool.len() >= self.len {
-            self.pool.remove(1);
-        }
-
-        // append to buffer.
-        self.pool.push_back(bytes);
-    }
-
- 
-    /// # Get the first element in the buffer pool.
-    /// When fetching, the currently fetched value is cleared from the buffer.
-    pub fn get (&mut self) -> Option<CacheBytes> {
-        self.pool.remove(1)
-    }
+    pub clients: Arc<RwLock<HashMap<String, Vec<Client>>>>, // Client List.
+    pub streams: Arc<RwLock<HashMap<String, Stream>>>       // Stream list.
 }
 
 
 impl Pool {
 
-    /// # Created pool.
+    /// # Create a streaming pool.
     pub fn new () -> Self {
-        Pool { 
-            lives: HashMap::new(),
-            max: CONFIGURE.pool.bytes
+        Pool {
+            clients: Arc::new(RwLock::new(HashMap::new())),
+            streams: Arc::new(RwLock::new(HashMap::new()))
         }
     }
 
-    /// # Create new matedata pool.
-    pub fn create (&mut self, name: String, key: String) {
-        let bytes = BytesPool::new(self.max as usize);
-        let live = Live { name: name.clone(), key, bytes };
-        self.lives.insert(name, live);
+    /// # Get keywords.
+    /// Combine stream name and stream key.
+    pub fn get_key (name: &String, stream_key: &String) -> String {
+        format!("{}@{}", name, stream_key)
     }
 
-    /// # Put live.
-    /// Put the audio and video streams into the streaming media pool.
-    /// If the channel already exists, it will no longer be created.
-    pub fn put (&mut self, name: String, key: String, bytes: CacheBytes) {
-        match self.lives.get_mut(&name) {
-            Some(live) => live.bytes.append(bytes),
-            None => self.create(name, key)
+    /// # Whether the stream exists.
+    pub fn entry_stream (&self, key: String) -> bool {
+        match self.streams.read().get(&key) {
+            Some(_) => true,
+            None => false
         }
     }
 
-    /// # Get live.
-    pub fn read (&mut self, name: String, key: String) -> Option<CacheBytes> {
-        let mut value = None;
+    /// # Add client.
+    /// Add the streaming client to the client list.
+    pub fn append_client (&self, client: Client) -> Result<(), PoolError> {
+        let mut clients = self.clients.write();
+        let key = Pool::get_key(&client.name, &client.stream_key);
+        match clients.get_mut(&key) {
 
-        // check if the push stream key matches.
-        if let Some(live) = self.lives.get_mut(&name) {
-            if &live.key == &key {
-                value = live.bytes.get();
+            // If a group already exists.
+            // Add to current group.
+            Some(x) => { 
+                x.push(client); 
+            },
+
+            // If the group does not exist.
+            None => {
+
+                // First check if there is already a stream.
+                // Create a new group if there is a stream.
+                if self.entry_stream(key) {
+                    clients.insert(key, vec![ client ]); 
+                } else {
+
+                    // This is no stream.
+                    // If there is no stream.
+                    // return an error indicating that the stream was not found.
+                    Err(PoolError::NotFund);
+                }
             }
-        }
+        };
 
-        value
+        // emancipation ownership.
+        // Apply changes to the list of instances.
+        *clients;
+        Ok(())
+    }
+
+    /// # Push media.
+    /// By specified keyword.
+    /// Push streaming data to all associated clients.
+    pub fn push_matedata (&self, key: String, data: Vec<u8>) {
+        let clients = self.clients.read();
+        match clients.get(&key) {
+
+            // Client group exists.
+            // Notify all clients.
+            Some(x) => {
+                for client in x {
+
+                }
+            },
+
+            // Client group does not exist.
+            // Please note that there is no online client for the current channel.
+            // drop media data.
+            None => {
+                drop(data);
+            }
+        };
+    }
+
+    /// # Add stream.
+    /// Add a stream to the stream list.
+    pub fn append_stream (&self, stream: Stream) {
+        let mut streams = self.streams.write();
+        let key = Pool::get_key(&stream.name, &stream.stream_key);
+        streams.entry(key).or_insert(stream);
+        *streams;
+    }
+
+    /// # Close Stream.
+    /// Stream is closed.
+    pub fn drop_stream (&self, key: String) {
+        let mut streams = self.streams.write();
+        streams.remove(&key);
+        *streams;
+
+        // Notify all client streams for the current group to be closed.
+        let clients = self.clients.read();
+        match clients.get(&key) {
+            
+            // Find the current group.
+            // Notify all clients.
+            Some(x) => {
+                for client in x {
+
+                }
+            },
+
+            // If there is no group.
+            // This is ideal, don't have to do anything.
+            None => ()
+        }
     }
 }

@@ -10,6 +10,7 @@ extern crate tokio_codec;
 extern crate rml_rtmp;
 extern crate uuid;
 extern crate mse_fmp4;
+extern crate parking_lot;
 
 
 // mod.
@@ -18,7 +19,8 @@ mod server;
 mod rtmp;
 mod websocket;
 mod pool;
-mod distributor;
+mod client;
+mod stream;
 
 
 // use.

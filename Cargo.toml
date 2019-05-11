@@ -17,6 +17,7 @@ byteorder = "1.2.1"
 tokio-codec = "0.1.1"
 rml_rtmp = "0.3"
 mse_fmp4 = "0.1"
+parking_lot = "^0.7"
 
 [dependencies.uuid]
 version = "0.7"
