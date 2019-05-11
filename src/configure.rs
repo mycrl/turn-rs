@@ -3,7 +3,7 @@ use std::io::Read;
 
 
 /// # Push Stream Config.
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Listener {
     pub protocol: String,
     pub genre: String,
@@ -14,16 +14,15 @@ pub struct Listener {
 
 
 /// # Live Pool
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Pool {
     pub bytes: u8
 }
 
 
 /// # Project Config.
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Config {
-    pub push: Vec<Listener>,
     pub server: Vec<Listener>,
     pub pool: Pool
 }

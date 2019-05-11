@@ -16,15 +16,22 @@ pub struct Matedata {
 }
 
 
-pub struct Control {
-    pub matedata: Option<Matedata>,
-    pub style: String
+pub struct Crated {
+    pub name: String,
+    pub key: String 
+}
+
+
+pub enum DataType {
+    Matedata(Matedata),
+    BytesMut(BytesMut),
+    Crated(Crated)
 }
 
 
 pub struct Channel {
-    pub tx: Sender<Matedata>,
-    pub rx: Receiver<Matedata>
+    pub tx: Sender<BytesMut>,
+    pub rx: Receiver<BytesMut>
 }
 
 
@@ -32,6 +39,14 @@ pub struct Channel {
 pub struct Distributor {
     pub pool: Pool,
     pub channel: Channel
+}
+
+
+/// # Interface implemented for the encoder.
+/// All encoders must implement the same interface, the same behavior.
+pub trait Codec {
+    fn new (address: String, sender: Sender<BytesMut>) -> Self;
+    fn decoder (&mut self, bytes: BytesMut) -> ();
 }
 
 

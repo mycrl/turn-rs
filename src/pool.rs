@@ -8,8 +8,8 @@ use crate::CONFIGURE;
 /// # Matedata Bytes.
 #[derive(Clone)]
 pub struct CacheBytes {
-    pub audio: Bytes,
-    pub video: Bytes
+    pub audio: Option<Bytes>,
+    pub video: Option<Bytes>
 }
 
 
@@ -77,9 +77,8 @@ impl Pool {
     }
 
     /// # Create new matedata pool.
-    pub fn create (&mut self, name: String, key: String, cache_bytes: CacheBytes) {
+    pub fn create (&mut self, name: String, key: String) {
         let mut bytes = BytesPool::new(self.max as usize);
-        bytes.append(cache_bytes);
         let live = Live { name: name.clone(), key, bytes };
         self.lives.insert(name, live);
     }
@@ -90,7 +89,7 @@ impl Pool {
     pub fn put (&mut self, name: String, key: String, bytes: CacheBytes) {
         match self.lives.get_mut(&name) {
             Some(live) => live.bytes.append(bytes),
-            None => self.create(name, key, bytes)
+            None => self.create(name, key)
         }
     }
 

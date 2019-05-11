@@ -1,5 +1,5 @@
 [[server]]
-genre = "server"
+genre = "push"
 protocol = "rtmp"
 code = "h264"
 host = "0.0.0.0"
@@ -7,7 +7,7 @@ port = 1935
 
 
 [[server]]
-genre = "push"
+genre = "pull"
 protocol = "websocket"
 code = "fmp4"
 host = "0.0.0.0"
