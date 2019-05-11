@@ -9,6 +9,7 @@ extern crate bytes;
 extern crate tokio_codec;
 extern crate rml_rtmp;
 extern crate uuid;
+extern crate mse_fmp4;
 
 
 // mod.

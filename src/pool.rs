@@ -14,6 +14,7 @@ pub struct CacheBytes {
 
 
 /// # Chip Frame Pool.
+#[derive(Clone)]
 pub struct BytesPool {
     pub pool: VecDeque<CacheBytes>,
     pub len: usize
@@ -21,6 +22,7 @@ pub struct BytesPool {
 
 
 /// # Live Information.
+#[derive(Clone)]
 pub struct Live {
     pub name: String,
     pub key: String,
@@ -78,7 +80,7 @@ impl Pool {
 
     /// # Create new matedata pool.
     pub fn create (&mut self, name: String, key: String) {
-        let mut bytes = BytesPool::new(self.max as usize);
+        let bytes = BytesPool::new(self.max as usize);
         let live = Live { name: name.clone(), key, bytes };
         self.lives.insert(name, live);
     }

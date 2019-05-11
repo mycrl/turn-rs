@@ -111,14 +111,11 @@ impl Session {
     /// # StreamMetadataChanged.
     // The client is changing metadata properties of the stream being published.
     pub fn event_metadata_received (&mut self, app_name: String, stream_key: String, metadata: StreamMetadata) {
-        match &self.current_action {
-            ClientAction::Publishing(key) => {
-                self.sender_socket(DataType::Crated(Crated { 
-                    name: self.name.clone(), 
-                    key: key.clone()
-                }))
-            }, _ => ()
-        }
+        println!("媒体数据{:?}", metadata);
+        self.sender_socket(DataType::Crated(Crated { 
+            name: app_name, 
+            key: stream_key
+        }))
     }
 
     /// Event.

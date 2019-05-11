@@ -29,7 +29,7 @@ pub struct Servers {
 
 /// # Listener TCP Socket.
 pub trait ListenerSocket {
-    fn listener(self, sender: Sender<BytesMut>);
+    fn listener(self, sender: Sender<DataType>);
 }
 
 
@@ -37,14 +37,14 @@ impl ListenerSocket for Listener {
 
     /// tokio run worker.
     /// process socket.
-    fn listener(self, _sender: Sender<BytesMut>) {
+    fn listener(self, sender: Sender<DataType>) {
         let address_str = format!("{}:{:?}", self.host, self.port);
         let address = &address_str.parse().unwrap();
         let incoming = TcpListener::bind(address).unwrap().incoming();
         tokio::spawn(incoming.map_err(drop)
         .for_each(move |socket| {
             match self.genre.as_str() {
-                "push" => process_push(socket),
+                "push" => process_push(socket, Sender::clone(&sender)),
                 _ => process_server(socket)
             };
 
@@ -78,7 +78,7 @@ impl Servers {
 
 /// Processing socket connection.
 /// handling events and states that occur on the socket.
-fn process_push (socket: TcpStream) {
+fn process_push (socket: TcpStream, pool_sender: Sender<DataType>) {
     let address = socket.peer_addr().unwrap().to_string();
     let (writer, reader) = BytesCodec::new().framed(socket).split();
     let (socket_sender, socket_receiver) = mpsc::channel();
@@ -106,8 +106,8 @@ fn process_push (socket: TcpStream) {
         for receive in mate_receiver {
             match receive {
                 DataType::BytesMut(bytes) => { socket_sender.send(bytes).unwrap(); },
-                DataType::Matedata(_mate) => { println!("推送媒体数据"); },
-                DataType::Crated(_crated) => { println!("创建媒体数据"); }
+                DataType::Matedata(_) => { pool_sender.send(receive).unwrap(); },
+                DataType::Crated(_) => { pool_sender.send(receive).unwrap(); }
             };
         }
 

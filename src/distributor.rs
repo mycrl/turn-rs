@@ -3,6 +3,7 @@ use bytes::BytesMut;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
+use futures::future::lazy;
 use crate::pool::Pool;
 use crate::pool::CacheBytes;
 
@@ -16,12 +17,14 @@ pub struct Matedata {
 }
 
 
+#[derive(Clone)]
 pub struct Crated {
     pub name: String,
     pub key: String 
 }
 
 
+#[derive(Clone)]
 pub enum DataType {
     Matedata(Matedata),
     BytesMut(BytesMut),
@@ -30,14 +33,13 @@ pub enum DataType {
 
 
 pub struct Channel {
-    pub tx: Sender<BytesMut>,
-    pub rx: Receiver<BytesMut>
+    pub tx: Sender<DataType>,
+    pub rx: Receiver<DataType>
 }
 
 
 /// # Flow Distributor.
 pub struct Distributor {
-    pub pool: Pool,
     pub channel: Channel
 }
 
@@ -54,8 +56,22 @@ impl Distributor {
 
     /// # Create distributor.
     pub fn new () -> Self {
-        let pool = Pool::new();
         let (tx, rx) = channel();
-        Distributor { pool, channel: Channel { tx, rx } }
+        Distributor { channel: Channel { tx, rx } }
+    }
+
+    pub fn work (self) {
+        let mut pool = Pool::new();
+        tokio::run(lazy(move || {
+            for receive in &self.channel.rx {
+                match receive {
+                    DataType::Matedata(meta) => pool.put(meta.name, meta.key, meta.value),
+                    DataType::Crated(crated) => pool.create(crated.name, crated.key),
+                    _ => ()
+                }
+            }
+
+            Ok(())
+        }));
     }
 }
