@@ -8,6 +8,7 @@ use crate::pool::CacheBytes;
 
 
 /// # Media Data Transmission Interface.
+#[derive(Clone)]
 pub struct Matedata {
     pub name: String,
     pub key: String,
@@ -34,14 +35,6 @@ pub struct Distributor {
 }
 
 
-/// # Interface implemented for the encoder.
-/// All encoders must implement the same interface, the same behavior.
-pub trait Codec {
-    fn new (address: String, sender: Sender<BytesMut>) -> Self;
-    fn decoder (&mut self, bytes: BytesMut) -> ();
-}
-
-
 impl Distributor {
 
     /// # Create distributor.
@@ -49,9 +42,5 @@ impl Distributor {
         let pool = Pool::new();
         let (tx, rx) = channel();
         Distributor { pool, channel: Channel { tx, rx } }
-    }
-
-    pub fn work (&self) {
-        
     }
 }

@@ -9,7 +9,6 @@ use std::sync::mpsc::Sender;
 use session::Session;
 use handshake::Handshakes;
 use handshake::HandshakeType;
-use crate::distributor::Codec;
 
 
 /// # RTMP Control.
@@ -20,10 +19,10 @@ pub struct Rtmp {
 }
 
 
-impl Codec for Rtmp {
+impl Rtmp {
 
     /// # Create RTMP.
-    fn new (address: String, sender: Sender<BytesMut>) -> Self {
+    pub fn new (address: String, sender: Sender<BytesMut>) -> Self {
         let session = Session::new(address, Sender::clone(&sender));
         let handshake = Handshakes::new();
         Rtmp { handshake, session, sender }
@@ -31,7 +30,7 @@ impl Codec for Rtmp {
 
     /// # Decoder Bytes.
     /// processing RTMP data.
-    fn decoder (&mut self, bytes: BytesMut) { 
+    pub fn decoder (&mut self, bytes: BytesMut) { 
         let mut bytes_copy = bytes.clone().to_vec();
 
         // handshake.

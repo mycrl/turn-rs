@@ -6,6 +6,7 @@ use crate::CONFIGURE;
 
 
 /// # Matedata Bytes.
+#[derive(Clone)]
 pub struct CacheBytes {
     pub audio: Bytes,
     pub video: Bytes
