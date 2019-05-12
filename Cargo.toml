@@ -18,6 +18,9 @@ tokio-codec = "0.1.1"
 rml_rtmp = "0.3"
 mse_fmp4 = "0.1"
 parking_lot = "^0.7"
+httparse = "1.3"
+sha1 = "0.6"
+base64 = "0.10"
 
 [dependencies.uuid]
 version = "0.7"

@@ -9,7 +9,6 @@ use bytes::BytesMut;
 use std::sync::mpsc::Sender;
 use session::Session;
 use handshake::Handshakes;
-use handshake::HandshakeType;
 use rml_rtmp::sessions::StreamMetadata;
 
 
@@ -50,7 +49,7 @@ impl Rtmp {
     /// # Create RTMP.
     pub fn new (address: String, sender: Sender<Message>) -> Self {
         let session = Session::new(address, Sender::clone(&sender));
-        let handshake = Handshakes::new();
+        let handshake = Handshakes::new(Sender::clone(&sender));
         Rtmp { handshake, session, sender }
     }
 
@@ -61,13 +60,7 @@ impl Rtmp {
 
         // handshake.
         if self.handshake.completed == false {
-            if let Some(types) = self.handshake.process(bytes_copy.clone()) {
-                match types {
-                    HandshakeType::Back(x) => { self.sender.send(Message::Raw(Bytes::from(x))).unwrap(); },
-                    HandshakeType::Overflow(x) => { bytes_copy = x; },
-                    HandshakeType::Clear => { bytes_copy = vec![]; }
-                }
-            }
+            self.handshake.process(&mut bytes_copy);
         }
 
         // message.

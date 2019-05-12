@@ -1,7 +1,6 @@
 // use.
 use uuid::Uuid;
 use bytes::Bytes;
-use bytes::BytesMut;
 use rml_rtmp::sessions::ServerSession;
 use rml_rtmp::sessions::ServerSessionConfig;
 use rml_rtmp::sessions::ServerSessionResult;
@@ -154,7 +153,7 @@ impl Session {
 
         // push media data.
         match &self.current_action {
-            ClientAction::Publishing(key) => {
+            ClientAction::Publishing(_) => {
                 self.sender_socket(Message::Metadata(value));
             }, _ => ()
         };

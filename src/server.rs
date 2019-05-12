@@ -13,7 +13,7 @@ use std::io::Error;
 use std::sync::mpsc;
 use crate::CONFIGURE;
 use crate::rtmp::Rtmp;
-use crate::websocket::WebSocket;
+use crate::ws::WebSocket;
 use crate::configure::Listener;
 use crate::pool::Pool;
 use crate::rtmp::Message;

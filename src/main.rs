@@ -11,16 +11,17 @@ extern crate rml_rtmp;
 extern crate uuid;
 extern crate mse_fmp4;
 extern crate parking_lot;
+extern crate httparse;
+extern crate sha1;
+extern crate base64;
 
 
 // mod.
 mod configure;
 mod server;
 mod rtmp;
-mod websocket;
+mod ws;
 mod pool;
-mod client;
-mod stream;
 
 
 // use.

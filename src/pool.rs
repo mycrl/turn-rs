@@ -131,7 +131,13 @@ impl Pool {
             // Notify all clients.
             Some(x) => {
                 for client in x {
-
+                    let sender = client.lock();
+                    sender.send(Bytes::from(vec![
+                        0x00,
+                        0x99,
+                        0x99,
+                        0x98
+                    ])).unwrap();
                 }
             },
 
