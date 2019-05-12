@@ -11,23 +11,24 @@ use futures::Future;
 use futures::Sink;
 use std::io::Error;
 use std::sync::mpsc;
-use std::sync::mpsc::Sender;
 use crate::CONFIGURE;
 use crate::rtmp::Rtmp;
 use crate::websocket::WebSocket;
 use crate::configure::Listener;
+use crate::pool::Pool;
+use crate::rtmp::Message;
 
 
 /// # TCP Server Loop.
 pub struct Servers {
-    pub distributor: Distributor,
+    pub pool: Pool,
     pub listeners: Vec<Listener>
 }
 
 
 /// # Listener TCP Socket.
 pub trait ListenerSocket {
-    fn listener(self, sender: Sender<DataType>);
+    fn listener(self, pool: Pool);
 }
 
 
@@ -35,14 +36,14 @@ impl ListenerSocket for Listener {
 
     /// tokio run worker.
     /// process socket.
-    fn listener(self, sender: Sender<DataType>) {
+    fn listener(self, pool: Pool) {
         let address_str = format!("{}:{:?}", self.host, self.port);
         let address = &address_str.parse().unwrap();
         let incoming = TcpListener::bind(address).unwrap().incoming();
         tokio::spawn(incoming.map_err(drop)
         .for_each(move |socket| {
             match self.genre.as_str() {
-                "push" => process_push(socket, Sender::clone(&sender)),
+                "push" => process_push(socket, pool.clone()),
                 _ => process_server(socket)
             };
 
@@ -57,15 +58,15 @@ impl Servers {
     /// Create server connection loop.
     pub fn create () -> Self {
         let listeners = CONFIGURE.server.clone();
-        let distributor = Distributor::new();
-        Servers { listeners, distributor }
+        let pool = Pool::new();
+        Servers { listeners, pool }
     }
 
     /// Run work.
     pub fn work (self) {
         tokio::run(lazy(move || {
             for listen in self.listeners {
-                listen.listener(Sender::clone(&self.distributor.channel.tx));
+                listen.listener(self.pool.clone());
             }
 
             Ok(())
@@ -76,7 +77,7 @@ impl Servers {
 
 /// Processing socket connection.
 /// handling events and states that occur on the socket.
-fn process_push (socket: TcpStream, pool_sender: Sender<DataType>) {
+fn process_push (socket: TcpStream, pool: Pool) {
     let address = socket.peer_addr().unwrap().to_string();
     let (writer, reader) = BytesCodec::new().framed(socket).split();
     let (socket_sender, socket_receiver) = mpsc::channel();
@@ -92,7 +93,6 @@ fn process_push (socket: TcpStream, pool_sender: Sender<DataType>) {
 
     // spawn socket write work.
     let socket_write_work = stream::iter_ok::<_, Error>(socket_receiver)
-    .map(|bytes_mut: BytesMut| bytes_mut.freeze()) // BytesMut -> Bytes.
     .fold(writer, |writer, bytes| writer.send(bytes).and_then(|writer| writer.flush()) ) // Bytes -> send + flush.
     .and_then(|writer| Ok({ drop(writer); })) // channel receiver slose -> sink slose.
     .or_else(|_| Ok(())); // drop err.
@@ -103,9 +103,19 @@ fn process_push (socket: TcpStream, pool_sender: Sender<DataType>) {
     tokio::spawn(lazy(move || {
         for receive in mate_receiver {
             match receive {
-                DataType::BytesMut(bytes) => { socket_sender.send(bytes).unwrap(); },
-                DataType::Matedata(_) => { pool_sender.send(receive).unwrap(); },
-                DataType::Crated(_) => { pool_sender.send(receive).unwrap(); }
+                // Write data to the socket.
+                Message::Raw(bytes) => { 
+                    socket_sender.send(bytes).unwrap(); 
+                },
+                // New media data to the data pool.
+                Message::Metadata(x) => {
+                    let key = Pool::get_key(&x.name, &x.key);
+                    pool.push_matedata(key, x.data);
+                },
+                // New stream is created.
+                Message::Crated(x) => {
+                    pool.append_stream(x);
+                }
             };
         }
 

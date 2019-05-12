@@ -9,10 +9,9 @@ use rml_rtmp::sessions::ServerSessionEvent;
 use rml_rtmp::sessions::StreamMetadata;
 use rml_rtmp::time::RtmpTimestamp;
 use std::sync::mpsc::Sender;
-use crate::distributor::DataType;
-use crate::distributor::Matedata;
-use crate::distributor::Crated;
-use crate::pool::CacheBytes;
+use super::Message;
+use super::Crated;
+use super::Metadata;
 
 
 /// # Client Action Status.
@@ -37,7 +36,7 @@ pub struct Session {
     pub session: ServerSession,
     pub results: Option<Vec<ServerSessionResult>>,
     pub current_action: ClientAction,
-    pub sender: Sender<DataType>,
+    pub sender: Sender<Message>,
     pub video_sequence_header: Option<Bytes>,
     pub audio_sequence_header: Option<Bytes>,
     pub has_received_video_keyframe: bool
@@ -47,7 +46,7 @@ pub struct Session {
 impl Session {
 
     /// # Create a session instance.
-    pub fn new (address: String, sender: Sender<DataType>) -> Self {
+    pub fn new (address: String, sender: Sender<Message>) -> Self {
         let uid = Uuid::new_v4().to_string();
         let config = ServerSessionConfig::new();
         let current_action = ClientAction::Waiting;
@@ -111,10 +110,10 @@ impl Session {
     /// # StreamMetadataChanged.
     // The client is changing metadata properties of the stream being published.
     pub fn event_metadata_received (&mut self, app_name: String, stream_key: String, metadata: StreamMetadata) {
-        println!("媒体数据{:?}", metadata);
-        self.sender_socket(DataType::Crated(Crated { 
+        self.sender_socket(Message::Crated(Crated { 
             name: app_name, 
-            key: stream_key
+            key: stream_key,
+            meta: metadata
         }))
     }
 
@@ -123,7 +122,7 @@ impl Session {
     // The server has sent over video data for the stream.
     // The server has sent over audio data for the stream.
     pub fn event_audio_video_data_received (&mut self, app_name: String, stream_key: String, data: Bytes, timestamp: RtmpTimestamp, data_type: ReceivedDataType) {
-        let mut value = CacheBytes { audio: None, video: None };
+        let mut value = Metadata { name: app_name, key: stream_key, data: Bytes::new() };
 
         // if this is an audio or video sequence header we need to save it, so it can be
         // distributed to any late coming watchers
@@ -143,10 +142,10 @@ impl Session {
         // etermine what type of media data is.
         match data_type {
             ReceivedDataType::Audio => { 
-                value.audio = Some(data.clone()); 
+                value.data = data.clone(); 
             },
             ReceivedDataType::Video => {
-                value.video = Some(data.clone());
+                value.data = data.clone();
                 if Session::is_video_keyframe(data.clone()) {
                     self.has_received_video_keyframe = true;
                 }
@@ -156,11 +155,7 @@ impl Session {
         // push media data.
         match &self.current_action {
             ClientAction::Publishing(key) => {
-                self.sender_socket(DataType::Matedata(Matedata { 
-                    name: self.name.clone(), 
-                    key: key.clone(),
-                    value
-                }));
+                self.sender_socket(Message::Metadata(value));
             }, _ => ()
         };
     }
@@ -181,7 +176,7 @@ impl Session {
     pub fn session_result (&mut self, results: Vec<ServerSessionResult>) {
         for result in results {
             match result {
-                ServerSessionResult::OutboundResponse(packet) => self.sender_socket(DataType::BytesMut(BytesMut::from(packet.bytes))),
+                ServerSessionResult::OutboundResponse(packet) => self.sender_socket(Message::Raw(Bytes::from(packet.bytes))),
                 ServerSessionResult::RaisedEvent(event) => self.events_match(event),
                 _ => { println!("session result no match"); }
             }
@@ -190,7 +185,7 @@ impl Session {
 
     /// # Write socket.
     /// Send reply data to socket.
-    pub fn sender_socket (&mut self, data: DataType) {
+    pub fn sender_socket (&mut self, data: Message) {
         self.sender.send(data).unwrap();
     }
 
@@ -203,7 +198,7 @@ impl Session {
         if let Some(x) = &self.results {
             for result in x {
                 match result {
-                    ServerSessionResult::OutboundResponse(packet) => { self.sender.send(DataType::BytesMut(BytesMut::from(packet.bytes.clone()))).unwrap(); },
+                    ServerSessionResult::OutboundResponse(packet) => { self.sender.send(Message::Raw(Bytes::from(packet.bytes.clone()))).unwrap(); },
                     _ => { println!("session result no match"); }
                 }
             }
