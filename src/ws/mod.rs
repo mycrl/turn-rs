@@ -21,15 +21,19 @@ impl WebSocket {
     /// # Create WebSocket Contex.
     pub fn new (address: String, sender: Sender<BytesMut>) -> Self {
         WebSocket { 
-            address: address, 
-            sender: sender,
-            handshake: Handshake::new()
+            address: address,
+            sender: Sender::clone(&sender),
+            handshake: Handshake::new(Sender::clone(&sender))
         }
     }
 
     /// # Decoder Bytes.
     /// processing WebSocket data.
     pub fn decoder (&mut self, bytes: BytesMut) {
-        self.handshake.process(bytes.to_vec());
+
+        // handshake.
+        if self.handshake.completed == false {
+            self.handshake.process(bytes.to_vec());
+        }
     }
 }

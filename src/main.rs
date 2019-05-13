@@ -12,8 +12,9 @@ extern crate uuid;
 extern crate mse_fmp4;
 extern crate parking_lot;
 extern crate httparse;
-extern crate sha1;
+extern crate ring;
 extern crate base64;
+extern crate httpdate;
 
 
 // mod.
