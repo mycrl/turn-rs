@@ -1,0 +1,15 @@
+{
+  "name": "player",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node main.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "lazy_mod": "0.0.1",
+    "ws": "^7.0.0"
+  }
+}

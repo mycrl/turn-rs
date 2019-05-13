@@ -1,0 +1,29 @@
+<html>
+    <head>
+        <title>Player DEMO</title>
+        <style>
+            #player {
+                background-color: #000;
+            }
+        </style>
+    </head>
+    <body>
+        <p>Websocket: <span id="print"></span></p>
+        <video id="player"></video>
+    </body>
+    <script>
+        window.onload = function () {
+            let player = document.getElementById("player")
+            let print = document.getElementById("print")
+            let ws = new WebSocket("ws://localhost:8080")
+
+            ws.onopen = function () {
+                print.innerText = "open"
+            }
+
+            ws.onerror = function ({ type }) {
+                print.innerText = type
+            }
+        }
+    </script>
+</html>
