@@ -1,44 +1,35 @@
-// crate.
-#[macro_use] 
-extern crate serde_derive;
-extern crate lazy_static;
-extern crate tokio;
-extern crate toml;
-extern crate futures;
 extern crate bytes;
-extern crate tokio_codec;
+extern crate actix;
+extern crate tokio;
 extern crate rml_rtmp;
-extern crate uuid;
-extern crate mse_fmp4;
-extern crate parking_lot;
-extern crate httparse;
-extern crate ring;
-extern crate base64;
-extern crate httpdate;
 
 
 // mod.
-mod configure;
+mod stream;
+mod shared;
+mod handshake;
+mod session;
 mod server;
-mod rtmp;
-mod ws;
-mod pool;
+mod bytes_stream;
 
 
 // use.
-use lazy_static::lazy_static;
-use configure::Config;
-use server::Servers;
+use futures::sync::mpsc;
+use std::error::Error;
+use server::Server;
+use stream::Message;
+use shared::Shared;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 
-// global static constant.
-lazy_static!{
-    // project config.
-    pub static ref CONFIGURE: Config = Config::from("./configure.toml");
-}
+// type.
+pub type Tx = mpsc::UnboundedSender<Message>;
+pub type Rx = mpsc::UnboundedReceiver<Message>;
 
 
-// main.
-fn main () {
-    Servers::create().work();
+fn main() -> Result<(), Box<dyn Error>> {
+    let shared = Arc::new(Mutex::new(Shared::new()));
+    tokio::run(Server::new("0.0.0.0:1935", shared)?);
+    Ok(())
 }

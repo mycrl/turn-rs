@@ -3,9 +3,6 @@ Media streaming server written in Rust.
 Build a high-performance streaming distribution server with Rust's zero abstraction and minimal runtime.
 
 
-![quasipaa server](./static/server.png)
-
-
 ## Version
 - No Version
 

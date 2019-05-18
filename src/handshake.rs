@@ -3,8 +3,8 @@ use bytes::Bytes;
 use rml_rtmp::handshake::Handshake;
 use rml_rtmp::handshake::PeerType; 
 use rml_rtmp::handshake::HandshakeProcessResult;
-use std::sync::mpsc::Sender;
-use super::Message;
+use crate::stream::Message;
+use crate::Tx;
 
 
 /// # Handshake Type.
@@ -21,14 +21,14 @@ pub struct Handshakes {
     pub server: Handshake,  // rml_rtmp handshake instance.
     pub completed: bool,  // indicates whether the handshake is complete.
     pub status: u8,  // handshake status.
-    pub sender: Sender<Message>
+    pub sender: Tx
 }
 
 
 impl Handshakes {
 
     /// # Create Handshake Instance.
-    pub fn new (sender: Sender<Message>) -> Self {
+    pub fn new (sender: Tx) -> Self {
         Handshakes { 
             server: Handshake::new(PeerType::Server),
             completed: false,
@@ -85,9 +85,11 @@ impl Handshakes {
         // Confirm if you need to process.
         if let Some(types) = handshake_types {
             match types {
-                HandshakeType::Back(x) => { self.sender.send(Message::Raw(Bytes::from(x))).unwrap(); },
                 HandshakeType::Overflow(x) => { *bytes = x; },
-                HandshakeType::Clear => { *bytes = vec![]; }
+                HandshakeType::Clear => { *bytes = vec![]; },
+                HandshakeType::Back(x) => {
+                    self.sender.unbounded_send(Message::Raw(Bytes::from(x))).unwrap();
+                }
             }
         }
     }

@@ -5,23 +5,11 @@ authors = ["Mr.Panda <xivistudios@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-tokio = "0.1"
-toml = "0.4"
-serde = "1.0"
-serde_derive = "1.0"
-lazy_static = "1.2"
-tokio-io = "0.1"
-futures = "0.1"
-bytes = "0.4"
-byteorder = "1.2.1"
-tokio-codec = "0.1.1"
-rml_rtmp = "0.3"
-mse_fmp4 = "0.1"
-parking_lot = "^0.7"
-httparse = "1.3"
-ring = "0.14"
-base64 = "0.10"
-httpdate = "0.3.2"
+bytes = "0.4.12"
+actix = "0.7"
+tokio = "0.1.20"
+futures = "0.1.27"
+rml_rtmp = "0.3.0"
 
 [dependencies.uuid]
 version = "0.7"
