@@ -1,22 +1,18 @@
 use tokio::{ prelude::*, io };
+use tokio::net::TcpStream;
 use futures::try_ready;
 use bytes::{Bytes, BytesMut, BufMut};
 
 
-pub struct BytesStream<S>
-    where S: AsyncRead + AsyncWrite
-{
-    socket: S,
+pub struct BytesStream {
+    socket: TcpStream,
     buf_in: BytesMut,
     buf_out: BytesMut,
 }
 
 
-impl<S> BytesStream<S>
-    where S: AsyncRead + AsyncWrite
-{
-    pub fn new(socket: S) -> Self
-    {
+impl BytesStream {
+    pub fn new(socket: TcpStream) -> Self {
         Self {
             socket,
             buf_in: BytesMut::new(),
@@ -32,8 +28,9 @@ impl<S> BytesStream<S>
     pub fn poll_flush(&mut self) -> Poll<(), io::Error> {
         while !self.buf_out.is_empty() {
             let bytes_written = try_ready!(self.socket.poll_write(&self.buf_out));
-            assert!(bytes_written > 0);
-            let _ = self.buf_out.split_to(bytes_written);
+            if bytes_written > 0 {
+                self.buf_out.split_to(bytes_written);
+            }
         }
 
         Ok(Async::Ready(()))
@@ -53,9 +50,7 @@ impl<S> BytesStream<S>
 }
 
 
-impl<S> Stream for BytesStream<S>
-    where S: AsyncRead + AsyncWrite
-{
+impl Stream for BytesStream {
     type Item = Bytes;
     type Error = ();
 
@@ -68,7 +63,6 @@ impl<S> Stream for BytesStream<S>
         }
 
         if is_socket_closed {
-            // Stream is finished
             Ok(Async::Ready(None))
         } else {
             Ok(Async::NotReady)

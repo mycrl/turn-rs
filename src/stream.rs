@@ -1,6 +1,5 @@
 // use.
 use bytes::Bytes;
-use tokio::net::TcpStream;
 use rml_rtmp::sessions::StreamMetadata;
 use rml_rtmp::time::RtmpTimestamp;
 use crate::{ Rx, Tx };
@@ -31,7 +30,7 @@ pub struct Socket {
     pub write: Tx,
     pub rx: Rx,
     pub reader: Rx,
-    pub socket: BytesStream<TcpStream>,
+    pub socket: BytesStream,
     pub handshake: Handshakes,
     pub session: Session,
     pub shared: Arc<Mutex<Shared>>
@@ -39,7 +38,7 @@ pub struct Socket {
 
 
 impl Socket {
-    pub fn new (socket: BytesStream<TcpStream>, shared: Arc<Mutex<Shared>>) -> Self {
+    pub fn new (socket: BytesStream, shared: Arc<Mutex<Shared>>) -> Self {
         let (tx, rx) = mpsc::unbounded();
         let (write, reader) = mpsc::unbounded();
         let handshake = Handshakes::new(tx.clone());
@@ -120,7 +119,7 @@ impl Future for Socket {
             }
         }
 
-        let _ = self.socket.poll_flush().unwrap();
+        self.socket.poll_flush().unwrap();
         match try_ready!(self.socket.poll()) {
             Some(data) => {
                 let mut data_copy = data.to_vec();
@@ -132,9 +131,7 @@ impl Future for Socket {
                     self.session.process(data_copy);
                 }
             },
-            None => {
-                println!("未收到数据");
-            }
+            None => ()
         };
 
         Ok(Async::Ready(()))
