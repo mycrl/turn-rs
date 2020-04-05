@@ -1,35 +1,37 @@
-extern crate bytes;
-extern crate actix;
-extern crate tokio;
-extern crate rml_rtmp;
+use tokio::net::TcpListener;
+use futures::stream::StreamExt;
 
+#[tokio::main]
+async fn main() {
+    let addr = "127.0.0.1:6142";
+    let mut listener = TcpListener::bind(addr).await.unwrap();
 
-// mod.
-mod stream;
-mod shared;
-mod handshake;
-mod session;
-mod server;
-mod bytes_stream;
+    // Here we convert the `TcpListener` to a stream of incoming connections
+    // with the `incoming` method.
+    let server = async move {
+        let mut incoming = listener.incoming();
+        while let Some(socket_res) = incoming.next().await {
+            match socket_res {
+                Ok(mut socket) => {
+                    tokio::spawn(async move {
+                        let (mut reader, mut writer) = socket.split();
+                        match tokio::io::copy(&mut reader, &mut writer).await {
+                            Ok(amt) => {
+                                println!("wrote {} bytes", amt);
+                            },
+                            Err(err) => {
+                                eprintln!("IO error {:?}", err);
+                            }
+                        }
+                    });
+                }
+                Err(err) => {
+                    // Handle error by printing to STDOUT.
+                    println!("accept error = {:?}", err);
+                }
+            }
+        }
+    };
 
-
-// use.
-use futures::sync::mpsc;
-use std::error::Error;
-use server::Server;
-use stream::Message;
-use shared::Shared;
-use std::sync::Arc;
-use std::sync::Mutex;
-
-
-// type.
-pub type Tx = mpsc::UnboundedSender<Message>;
-pub type Rx = mpsc::UnboundedReceiver<Message>;
-
-
-fn main() -> Result<(), Box<dyn Error>> {
-    let shared = Arc::new(Mutex::new(Shared::new()));
-    tokio::run(Server::new("0.0.0.0:1935", shared)?);
-    Ok(())
+    server.await;
 }

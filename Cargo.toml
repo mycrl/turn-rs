@@ -5,12 +5,6 @@ authors = ["Mr.Panda <xivistudios@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-bytes = "0.4.12"
-actix = "0.7"
-tokio = "0.1.20"
-futures = "0.1.27"
+tokio = { version = "0.2", features = ["full"] }
+futures = "0.3"
 rml_rtmp = "0.3.0"
-
-[dependencies.uuid]
-version = "0.7"
-features = ["serde", "v4"]
