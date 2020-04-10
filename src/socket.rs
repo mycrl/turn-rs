@@ -12,7 +12,6 @@ pub struct Socket {
     output: BytesMut,
 }
 
-
 impl Socket {
     pub fn new (socket: TcpStream) -> Self {
         Self {
@@ -52,7 +51,6 @@ impl Socket {
         Ok(Async::Ready(()))
     }
 }
-
 
 impl Stream for Socket {
     type Item = Bytes;
