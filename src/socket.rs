@@ -4,7 +4,6 @@ use tokio::io::Error;
 use futures::try_ready;
 use bytes::BytesMut;
 use bytes::BufMut;
-use bytes::Bytes;
 
 
 /// # Socket
@@ -67,34 +66,25 @@ impl Socket {
 }
 
 
-impl Stream for Socket {
-    type Item = Bytes;
+impl Future for Socket {
+    type Item = ();
     type Error = ();
     
-    fn poll (&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll (&mut self) -> Poll<Self::Item, Self::Error> {
         let closed = self.read(4096).unwrap().is_ready();
         let result = self.input.take();
 
         // if buffer is not empty.
         // of return buffer.
         if !result.is_empty() {
-            return Ok(Async::Ready(Some(result.freeze())))
+            println!("{:?}", result.freeze());
         }
 
         // if socket is not closed.
         if closed {
-            Ok(Async::Ready(None))
+            Ok(Async::Ready(()))
         } else {
             Ok(Async::NotReady)
         }
     }
-}
-
-impl Future for Socket {
-    type Item = ();
-    type Error = ();
-    
-    fn poll (&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(Async::Ready(()))
-    } 
 }

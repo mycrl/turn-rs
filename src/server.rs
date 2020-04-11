@@ -1,10 +1,10 @@
-use tokio::net::tcp::Incoming;
 use tokio::net::TcpListener;
 use std::net::SocketAddr;
 use std::error::Error;
 use futures::prelude::*;
-use futures::try_ready;
 use crate::socket::Socket;
+use futures::try_ready;
+use tokio::net::tcp::Incoming;
 
 pub struct Server {
     pub listener: Incoming,
@@ -20,8 +20,7 @@ impl Future for Server {
     type Item = ();
     type Error = ();
     fn poll (&mut self) -> Poll<Self::Item, Self::Error> {
-        let result = self.listener.poll().unwrap();
-        while let Some(stream) = try_ready!(result) {
+        while let Some(stream) = try_ready!(self.listener.poll().map_err(drop)) {
             tokio::spawn(Socket::new(stream));
         }
 
