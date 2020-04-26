@@ -1,10 +1,10 @@
-use crate::handshake::Handshake;
 use bytes::BufMut;
 use bytes::BytesMut;
 use futures::try_ready;
 use tokio::io::Error;
 use tokio::net::TcpStream;
 use tokio::prelude::*;
+use crate::rtmp::Rtmp;
 
 /// # Socket
 /// * `socket` tcp socket connectin.
@@ -14,10 +14,11 @@ pub struct Socket {
     socket: TcpStream,
     input: BytesMut,
     output: BytesMut,
-    handshake: Handshake,
+    rtmp: Rtmp
 }
 
 impl Socket {
+    
     /// ## create tcp socket.
     ///
     pub fn new(socket: TcpStream) -> Self {
@@ -25,7 +26,7 @@ impl Socket {
             socket,
             input: BytesMut::new(),
             output: BytesMut::new(),
-            handshake: Handshake::new(),
+            rtmp: Rtmp::new(),
         }
     }
 
@@ -77,13 +78,9 @@ impl Future for Socket {
         // of return buffer.
         if !result.is_empty() {
             let data = result.freeze();
-
-            if !self.handshake.complete {
-                if let Some(resolve) = self.handshake.process(data) {
-                    self.write(&resolve);
-                    self.flush().unwrap();
-                }
-            } else {
+            for back in self.rtmp.process(data) {
+                self.write(&back[..]);
+                self.flush().unwrap();
             }
         }
 

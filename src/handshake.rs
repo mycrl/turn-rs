@@ -1,57 +1,56 @@
 use bytes::Bytes;
+use rml_rtmp::handshake::Handshake as Handshakes;
+use rml_rtmp::handshake::HandshakeProcessResult;
+use rml_rtmp::handshake::PeerType;
 
-pub enum Packet {
-    CS1,
-    CS2,
+pub enum HandshakeResult {
+    Overflow(Bytes),
+    Callback(Bytes),
 }
 
 pub struct Handshake {
-    pub complete: bool,
+    handle: Handshakes,
+    pub completed: bool
 }
 
 impl Handshake {
     pub fn new() -> Self {
-        Self { complete: false }
-    }
-
-    fn packet_type(&mut self, data: &Bytes) -> Option<Packet> {
-        if data.len() == 1537 && data[5] == 0 && data[6] == 0 && data[7] == 0 && data[8] == 0 {
-            Some(Packet::CS1)
-        } else if data.len() == 1536 {
-            Some(Packet::CS2)
-        } else {
-            None
+        Self {
+            handle: Handshakes::new(PeerType::Server),
+            completed: false
         }
     }
 
-    fn create_packet(&mut self, packet: Packet, data: &Bytes) -> Bytes {
-        let mut result = match packet {
-            Packet::CS1 => Bytes::from(vec![
-                data[0], data[1], data[2], data[3], data[4], 0, 0, 0, 0,
-            ]),
-            Packet::CS2 => Bytes::from(vec![
-                data[0], data[1], data[2], data[3], data[4], 0, 0, 0, 0,
-            ]),
-        };
+    pub fn process(&mut self, chunk: &Bytes) -> Vec<HandshakeResult> {
+        let mut results = Vec::new();
 
-        result.extend_from_slice(&[0u8; 1528]);
-        result
-    }
+        if let Ok(result) = self.handle.process_bytes(&chunk[..]) {
+            match result {
+                HandshakeProcessResult::InProgress { response_bytes } => {
+                    if response_bytes.len() > 0 {
+                        let buf = Bytes::from(&response_bytes[..]);
+                        results.push(HandshakeResult::Callback(buf));
+                    }
+                }
+                HandshakeProcessResult::Completed {
+                    response_bytes,
+                    remaining_bytes,
+                } => {
+                    self.completed = true;
 
-    pub fn process(&mut self, data: Bytes) -> Option<Bytes> {
-        match self.complete {
-            false => match self.packet_type(&data) {
-                Some(genre) => {
-                    if let Packet::CS2 = genre {
-                        self.complete = true
+                    if response_bytes.len() > 0 {
+                        let buf = Bytes::from(&response_bytes[..]);
+                        results.push(HandshakeResult::Callback(buf));
                     }
 
-                    let result = self.create_packet(genre, &data);
-                    Some(result)
-                },
-                None => None,
-            },
-            true => None,
+                    if remaining_bytes.len() > 0 {
+                        let buf = Bytes::from(&remaining_bytes[..]);
+                        results.push(HandshakeResult::Overflow(buf));
+                    }
+                }
+            };
         }
+
+        results
     }
 }
