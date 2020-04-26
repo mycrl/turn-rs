@@ -1,19 +1,18 @@
 pub mod handshake;
 pub mod session;
 
-use bytes::{ Bytes, BytesMut, BufMut };
+use bytes::{BufMut, Bytes, BytesMut};
 use handshake::Handshake;
 use handshake::HandshakeResult;
-use session::SessionResult;
 use session::Session;
+use session::SessionResult;
 
 pub struct Rtmp {
     handshake: Handshake,
-    session: Session
+    session: Session,
 }
 
 impl Rtmp {
-
     pub fn new() -> Self {
         Self {
             handshake: Handshake::new(),
@@ -43,7 +42,7 @@ impl Rtmp {
 
         if self.handshake.completed {
             if let Ok(results) = self.session.process(bytes) {
-                for result in  results {
+                for result in results {
                     match result {
                         SessionResult::Callback(data) => {
                             output.push(data);

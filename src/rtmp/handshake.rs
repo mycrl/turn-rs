@@ -10,14 +10,14 @@ pub enum HandshakeResult {
 
 pub struct Handshake {
     handle: Handshakes,
-    pub completed: bool
+    pub completed: bool,
 }
 
 impl Handshake {
     pub fn new() -> Self {
         Self {
             handle: Handshakes::new(PeerType::Server),
-            completed: false
+            completed: false,
         }
     }
 

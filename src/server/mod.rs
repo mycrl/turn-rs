@@ -1,15 +1,10 @@
 pub mod socket;
 
 use futures::prelude::*;
-
-use std::pin::Pin;
 use std::io::Error;
 use std::net::SocketAddr;
-use std::task::{
-    Poll,
-    Context
-};
-
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use socket::Socket;
 use tokio::net::TcpListener;
 
@@ -28,7 +23,7 @@ use tokio::net::TcpListener;
 ///     Ok(())
 /// }
 /// ```
-pub struct Server (TcpListener);
+pub struct Server(TcpListener);
 
 impl Server {
     
@@ -42,7 +37,7 @@ impl Server {
     /// let addr = "0.0.0.0:1935".parse().unwrap();
     /// Server::new(addr).await.unwrap();
     /// ```
-    pub async fn new (addr: SocketAddr) -> Result<Self, Box<Error>> {
+    pub async fn new(addr: SocketAddr) -> Result<Self, Box<Error>> {
         Ok(Self(TcpListener::bind(&addr).await?))
     }
 }
@@ -50,14 +45,15 @@ impl Server {
 impl Stream for Server {
     type Item = Result<(), Error>;
 
-    fn poll_next (self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
         match self.get_mut() {
             Self(listener) => match listener.poll_accept(ctx) {
                 Poll::Ready(Ok((socket, _))) => {
                     tokio::spawn(Socket::new(socket));
                     Poll::Ready(Some(Ok(())))
-                }, _ => Poll::Pending
-            }
+                }
+                _ => Poll::Pending,
+            },
         }
     }
 }

@@ -2,16 +2,16 @@ use bytes::Bytes;
 use rml_rtmp::chunk_io::Packet;
 use rml_rtmp::sessions::ServerSession;
 use rml_rtmp::sessions::ServerSessionConfig;
-use rml_rtmp::sessions::ServerSessionResult;
-use rml_rtmp::sessions::ServerSessionEvent;
 use rml_rtmp::sessions::ServerSessionError;
+use rml_rtmp::sessions::ServerSessionEvent;
+use rml_rtmp::sessions::ServerSessionResult;
 
 pub enum SessionResult {
     Callback(Bytes),
 }
 
 pub struct Session {
-    handle: ServerSession
+    handle: ServerSession,
 }
 
 impl Session {
@@ -36,23 +36,35 @@ impl Session {
         Ok(results)
     }
 
-    fn events_match (&mut self, event: ServerSessionEvent) -> Result<Vec<Bytes>, ServerSessionError> {
+    fn events_match(
+        &mut self,
+        event: ServerSessionEvent,
+    ) -> Result<Vec<Bytes>, ServerSessionError> {
         Ok(match event {
-            ServerSessionEvent::ConnectionRequested { request_id, .. } => self.accept_request(request_id)?,
-            ServerSessionEvent::PublishStreamRequested { request_id, .. } => self.accept_request(request_id)?,
-            ServerSessionEvent::PlayStreamRequested { request_id, .. } => self.accept_request(request_id)?,
-            _ => vec![]
+            ServerSessionEvent::ConnectionRequested { request_id, .. } => {
+                self.accept_request(request_id)?
+            }
+            ServerSessionEvent::PublishStreamRequested { request_id, .. } => {
+                self.accept_request(request_id)?
+            }
+            ServerSessionEvent::PlayStreamRequested { request_id, .. } => {
+                self.accept_request(request_id)?
+            }
+            _ => vec![],
         })
     }
 
-    fn process_result(&mut self, result: ServerSessionResult) -> Result<Option<SessionResult>, ServerSessionError> {
+    fn process_result(
+        &mut self,
+        result: ServerSessionResult,
+    ) -> Result<Option<SessionResult>, ServerSessionError> {
         Ok(match result {
             ServerSessionResult::OutboundResponse(packet) => {
                 Some(SessionResult::Callback(Self::packet_parse(packet)))
             }
             ServerSessionResult::RaisedEvent(_event) => {
                 // for value in self.events_match(event)? {
-                    
+
                 // }
 
                 None
