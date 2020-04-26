@@ -6,10 +6,6 @@ use tokio::net::TcpStream;
 use tokio::prelude::*;
 use crate::rtmp::Rtmp;
 
-/// # Socket
-/// * `socket` tcp socket connectin.
-/// * `input` socket message buffer.
-/// * `ouput` socket send buffer.
 pub struct Socket {
     socket: TcpStream,
     input: BytesMut,
@@ -19,8 +15,6 @@ pub struct Socket {
 
 impl Socket {
     
-    /// ## create tcp socket.
-    ///
     pub fn new(socket: TcpStream) -> Self {
         Self {
             socket,
@@ -30,15 +24,11 @@ impl Socket {
         }
     }
 
-    /// ## write buffer for socket.
-    ///
     pub fn write(&mut self, data: &[u8]) {
         self.output.reserve(data.len());
         self.output.put(data);
     }
 
-    /// ## read buffer for socket.
-    ///
     pub fn read(&mut self, size: usize) -> Poll<(), Error> {
         loop {
             self.input.reserve(size);
@@ -50,9 +40,6 @@ impl Socket {
         }
     }
 
-    /// ## flush buffer for socket.
-    /// loop for poll.
-    ///
     pub fn flush(&mut self) -> Poll<(), Error> {
         while !self.output.is_empty() {
             let result = self.socket.poll_write(&self.output);
@@ -74,8 +61,6 @@ impl Future for Socket {
         let closed = self.read(4096).unwrap().is_ready();
         let result = self.input.take();
 
-        // if buffer is not empty.
-        // of return buffer.
         if !result.is_empty() {
             let data = result.freeze();
             for back in self.rtmp.process(data) {
@@ -84,7 +69,6 @@ impl Future for Socket {
             }
         }
 
-        // if socket is not closed.
         if closed {
             Ok(Async::Ready(()))
         } else {
