@@ -1,12 +1,23 @@
 pub mod handshake;
 pub mod session;
 
-use bytes::{BufMut, Bytes, BytesMut};
 use handshake::Handshake;
-use handshake::HandshakeResult;
 use session::Session;
-use session::SessionResult;
+use bytes::Bytes;
 
+/// 处理结果.
+pub enum PorcessResult {
+    /// 有未处理完成的数据块.
+    Overflow(Bytes),
+
+    /// 有需要回复给对等端的数据块.
+    Callback(Bytes),
+}
+
+/// RTMP 协议处理.
+///
+/// 输入输出TCP数据，整个过程自动完成.
+/// 同时返回一些关键性的RTMP消息.
 pub struct Rtmp {
     handshake: Handshake,
     session: Session,
@@ -22,32 +33,23 @@ impl Rtmp {
 
     pub fn process(&mut self, chunk: Bytes) -> Vec<Bytes> {
         let mut output = Vec::new();
-        let mut bytes = chunk;
 
-        if self.handshake.completed == false {
-            for result in self.handshake.process(&bytes) {
-                match result {
-                    HandshakeResult::Overflow(data) => {
-                        let mut target = BytesMut::new();
-                        target.put(data);
-                        target.put(bytes);
-                        bytes = target.freeze();
+        if !&self.handshake.completed {
+            if let Some(results) = self.handshake.process(chunk.clone()) {
+                for value in results {
+                    if let PorcessResult::Callback(data) = value {
+                        &output.push(data);
                     }
-                    HandshakeResult::Callback(data) => {
-                        output.push(data);
-                    }
-                };
+                }
             }
         }
 
         if self.handshake.completed {
-            if let Ok(results) = self.session.process(bytes) {
-                for result in results {
-                    match result {
-                        SessionResult::Callback(data) => {
-                            output.push(data);
-                        }
-                    };
+            if let Some(results) = self.session.process(chunk) {
+                for value in results {
+                    if let PorcessResult::Callback(data) = value {
+                        &output.push(data);
+                    }
                 }
             }
         }

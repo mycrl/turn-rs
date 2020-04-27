@@ -1,9 +1,9 @@
+use crate::rtmp::Rtmp;
+use bytes::{Bytes, BytesMut};
 use futures::prelude::*;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use bytes::{Bytes, BytesMut};
 use tokio::{io::AsyncWrite, io::Error, net::TcpStream};
-use crate::rtmp::Rtmp;
 
 /// TcpSocket 会话信息.
 ///
@@ -15,7 +15,6 @@ pub struct Socket {
 }
 
 impl Socket {
-    
     /// 创建 TcpSocket.
     ///
     /// # Examples
@@ -151,7 +150,7 @@ impl Future for Socket {
                     .iter()
                     .enumerate()
                     .for_each(|(_, v)| {
-                        this.send(ctx, v);
+                        let _ = this.send(ctx, v);
                     });
                 this.flush(ctx);
                 Poll::Ready(Ok(()))

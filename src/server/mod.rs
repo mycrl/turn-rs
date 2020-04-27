@@ -1,11 +1,12 @@
 pub mod socket;
 
 use futures::prelude::*;
+use futures::future::poll_fn;
+use socket::Socket;
 use std::io::Error;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use socket::Socket;
 use tokio::net::TcpListener;
 
 /// TCP 服务器.
@@ -26,7 +27,6 @@ use tokio::net::TcpListener;
 pub struct Server(TcpListener);
 
 impl Server {
-    
     /// 创建TCP服务器.
     ///
     /// # Examples
@@ -45,14 +45,14 @@ impl Server {
 impl Stream for Server {
     type Item = Result<(), Error>;
 
+    #[rustfmt::skip]
     fn poll_next(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
         match self.get_mut() {
             Self(listener) => match listener.poll_accept(ctx) {
                 Poll::Ready(Ok((socket, _))) => {
                     tokio::spawn(Socket::new(socket));
                     Poll::Ready(Some(Ok(())))
-                }
-                _ => Poll::Pending,
+                } _ => Poll::Pending
             },
         }
     }

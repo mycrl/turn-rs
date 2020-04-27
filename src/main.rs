@@ -5,12 +5,12 @@ extern crate tokio;
 mod rtmp;
 mod server;
 
+use std::error::Error;
 use server::Server;
-use std::io::Error;
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<(), Box<dyn Error>> {
     let addr = "0.0.0.0:1935".parse().unwrap();
-    Server::new(addr).await;
+    Server::new(addr).await?;
     Ok(())
 }
