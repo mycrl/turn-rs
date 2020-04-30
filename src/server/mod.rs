@@ -1,7 +1,6 @@
 pub mod socket;
 
 use futures::prelude::*;
-use futures::future::poll_fn;
 use socket::Socket;
 use std::io::Error;
 use std::net::SocketAddr;
@@ -42,16 +41,16 @@ impl Server {
     }
 }
 
-impl Stream for Server {
-    type Item = Result<(), Error>;
+impl Future for Server {
+    type Output = Result<(), Error>;
 
     #[rustfmt::skip]
-    fn poll_next(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         match self.get_mut() {
             Self(listener) => match listener.poll_accept(ctx) {
                 Poll::Ready(Ok((socket, _))) => {
                     tokio::spawn(Socket::new(socket));
-                    Poll::Ready(Some(Ok(())))
+                    Poll::Ready(Ok(()))
                 } _ => Poll::Pending
             },
         }
