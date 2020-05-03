@@ -12,6 +12,10 @@ pub enum PorcessResult {
 
     /// 有需要回复给对等端的数据块.
     Callback(Bytes),
+
+    /// 清空缓冲区
+    /// 用于握手到会话之间的传递
+    Empty
 }
 
 /// RTMP 协议处理.
@@ -32,20 +36,30 @@ impl Rtmp {
     }
 
     pub fn process(&mut self, chunk: Bytes) -> Vec<Bytes> {
+        println!("message size {:?}", &chunk.len());
         let mut output = Vec::new();
+        let mut message = chunk.clone();
 
         if !&self.handshake.completed {
-            if let Some(results) = self.handshake.process(chunk.clone()) {
+            if let Some(results) = self.handshake.process(message.clone()) {
                 for value in results {
-                    if let PorcessResult::Callback(data) = value {
-                        &output.push(data);
+                    match value {
+                        PorcessResult::Callback(data) => {
+                            &output.push(data);
+                        },
+                        PorcessResult::Overflow(data) => {
+                            message = data;
+                        },
+                        PorcessResult::Empty => {
+                            message.clear();
+                        }
                     }
                 }
             }
         }
 
-        if self.handshake.completed {
-            if let Some(results) = self.session.process(chunk) {
+        if self.handshake.completed && !&message.is_empty() {
+            if let Some(results) = self.session.process(message) {
                 for value in results {
                     if let PorcessResult::Callback(data) = value {
                         &output.push(data);

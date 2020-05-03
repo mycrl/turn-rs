@@ -1,10 +1,10 @@
 use super::PorcessResult;
-use super::PorcessResult::{Callback, Overflow};
-use bytes::Bytes;
+use super::PorcessResult::{Callback, Overflow, Empty};
 use rml_rtmp::handshake::Handshake as Handshakes;
 use rml_rtmp::handshake::HandshakeProcessResult::Completed;
 use rml_rtmp::handshake::HandshakeProcessResult::InProgress;
 use rml_rtmp::handshake::PeerType;
+use bytes::Bytes;
 
 /// RTMP 握手处理.
 ///
@@ -60,6 +60,13 @@ impl Handshake {
         }
     }
 
+    fn is_overflow (&mut self, overflow: Vec<u8>) -> PorcessResult {
+        match &overflow.is_empty() {
+            false => Overflow(Bytes::from(overflow)),
+            true => Empty
+        }
+    }
+
     /// 握手过程中的处理.
     /// 
     /// 握手过程中会返回握手回包.
@@ -79,7 +86,7 @@ impl Handshake {
         self.completed = true;
         let mut results = Vec::new();
         if !res.is_empty() { results.push(Callback(Bytes::from(res))); }
-        if !remain.is_empty() { results.push(Overflow(Bytes::from(remain))); }
+        results.push(self.is_overflow(remain));
         match &results.is_empty() {
             false => Some(results),
             true => None,

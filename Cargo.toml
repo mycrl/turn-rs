@@ -13,6 +13,6 @@ rml_rtmp = "0.3.0"
 version = "0.2"
 features = ["full"]
 
-[dependencies.uuid]
-version = "0.7"
-features = ["serde", "v4"]
+[dependencies.tokio-util]
+version = "0.3.1"
+features = ["codec"]

@@ -1,4 +1,5 @@
 pub mod socket;
+pub mod codec;
 
 use futures::prelude::*;
 use socket::Socket;
@@ -41,16 +42,16 @@ impl Server {
     }
 }
 
-impl Future for Server {
-    type Output = Result<(), Error>;
+impl Stream for Server {
+    type Item = ();
 
     #[rustfmt::skip]
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+    fn poll_next(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
         match self.get_mut() {
             Self(listener) => match listener.poll_accept(ctx) {
                 Poll::Ready(Ok((socket, _))) => {
                     tokio::spawn(Socket::new(socket));
-                    Poll::Ready(Ok(()))
+                    Poll::Ready(Some(()))
                 } _ => Poll::Pending
             },
         }

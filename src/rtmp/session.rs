@@ -19,15 +19,20 @@ impl Session {
     pub fn process(&mut self, chunk: Bytes) -> Option<Vec<PorcessResult>> {
         let mut results = Vec::new();
         match self.session.handle_input(&chunk[..]) {
-            Ok(result) => result
+            Ok(result) => {
+                println!("results {:?}", result);
+                result
                 .iter()
                 .enumerate()
                 .for_each(|(_, v)| {
                     if let Some(mut values) = self.process_result(v) {
                         results.append(&mut values);
                     }
-                }),
-            Err(_) => ()
+                })
+            },
+            Err(e) => {
+                println!("{:?}", e);
+            }
         };
 
         match &results.is_empty() {
