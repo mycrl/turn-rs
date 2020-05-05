@@ -3,7 +3,7 @@ pub mod session;
 
 use handshake::Handshake;
 use session::Session;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut, BufMut};
 
 /// 处理结果.
 pub enum PorcessResult {
@@ -35,39 +35,38 @@ impl Rtmp {
         }
     }
 
-    pub fn process(&mut self, chunk: Bytes) -> Vec<Bytes> {
-        println!("message size {:?}", &chunk.len());
-        let mut output = Vec::new();
-        let mut message = chunk.clone();
+    pub fn process(&mut self, message: Bytes) -> Bytes {
+        let mut output = BytesMut::new();
+        let mut chunk = message.clone();
 
         if !&self.handshake.completed {
-            if let Some(results) = self.handshake.process(message.clone()) {
+            if let Some(results) = self.handshake.process(chunk.clone()) {
                 for value in results {
                     match value {
                         PorcessResult::Callback(data) => {
-                            &output.push(data);
+                            &output.put(data);
                         },
                         PorcessResult::Overflow(data) => {
-                            message = data;
+                            chunk = data;
                         },
                         PorcessResult::Empty => {
-                            message.clear();
+                            chunk.clear();
                         }
                     }
                 }
             }
         }
 
-        if self.handshake.completed && !&message.is_empty() {
-            if let Some(results) = self.session.process(message) {
+        if self.handshake.completed && !&chunk.is_empty() {
+            if let Some(results) = self.session.process(chunk) {
                 for value in results {
                     if let PorcessResult::Callback(data) = value {
-                        &output.push(data);
+                        &output.put(data);
                     }
                 }
             }
         }
 
-        output
+        output.freeze()
     }
 }

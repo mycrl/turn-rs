@@ -6,13 +6,6 @@ edition = "2018"
 
 [dependencies]
 bytes = "0.5.4"
-futures = "0.3"
+futures = "0.1.27"
 rml_rtmp = "0.3.0"
-
-[dependencies.tokio]
-version = "0.2"
-features = ["full"]
-
-[dependencies.tokio-util]
-version = "0.3.1"
-features = ["codec"]
+tokio = "0.1.22"
