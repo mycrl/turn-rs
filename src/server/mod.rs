@@ -1,10 +1,12 @@
 pub mod socket;
 
 use futures::prelude::*;
-use socket::Socket;
+use std::pin::Pin;
 use std::error::Error;
 use std::net::SocketAddr;
+use std::task::{Poll, Context};
 use tokio::net::TcpListener;
+use socket::Socket;
 
 /// TCP 服务器.
 ///
@@ -21,9 +23,10 @@ use tokio::net::TcpListener;
 ///     Ok(())
 /// }
 /// ```
-pub struct Server(TcpListener);
+pub struct Server (TcpListener);
 
 impl Server {
+    
     /// 创建TCP服务器.
     ///
     /// # Examples
@@ -34,21 +37,22 @@ impl Server {
     /// let addr = "0.0.0.0:1935".parse().unwrap();
     /// Server::new(addr).await.unwrap();
     /// ```
-    pub fn new(addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
-        Ok(Self(TcpListener::bind(&addr)?))
+    pub async fn new (addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
+        Ok(Self(TcpListener::bind(&addr).await?))
     }
 }
 
-impl Future for Server {
-    type Item = ();
-    type Error = ();
+impl Stream for Server {
+    type Item = Result<(), Box<dyn Error>>;
 
     #[rustfmt::skip]
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        while let Ok(Async::Ready((socket, _))) = self.0.poll_accept() {
-            tokio::spawn(Socket::new(socket));
+    fn poll_next (self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
+        let handle = self.get_mut();
+        match handle.0.poll_accept(ctx) {
+            Poll::Ready(Ok((socket, _))) => {
+                tokio::spawn(Socket::new(socket));
+                Poll::Ready(Some(Ok(())))
+            }, _ => Poll::Pending
         }
-
-        Ok(Async::NotReady)
     }
 }

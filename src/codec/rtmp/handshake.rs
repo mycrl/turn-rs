@@ -1,5 +1,5 @@
-use super::PorcessResult;
-use super::PorcessResult::{Callback, Overflow, Empty};
+use super::State;
+use super::State::{Callback, Overflow, Empty};
 use rml_rtmp::handshake::Handshake as Handshakes;
 use rml_rtmp::handshake::HandshakeProcessResult::Completed;
 use rml_rtmp::handshake::HandshakeProcessResult::InProgress;
@@ -52,15 +52,16 @@ impl Handshake {
     /// handshake.process(Bytes::from(b"""));
     /// ```
     #[rustfmt::skip]
-    pub fn process(&mut self, chunk: Bytes) -> Option<Vec<PorcessResult>> {
-        match self.handshakes.process_bytes(&chunk[..]) {
+    pub fn process(&mut self, buffer: Bytes) -> Option<Vec<State>> {
+        match self.handshakes.process_bytes(&buffer[..]) {
             Ok(InProgress { response_bytes }) => self.inprogress(response_bytes),
             Ok(Completed { response_bytes, remaining_bytes }) => self.completed(response_bytes, remaining_bytes),
             _ => None,
         }
     }
 
-    fn is_overflow (&mut self, overflow: Vec<u8>) -> PorcessResult {
+    /// 检查握手是否有溢出数据.
+    fn is_overflow (&mut self, overflow: Vec<u8>) -> State {
         match &overflow.is_empty() {
             false => Overflow(Bytes::from(overflow)),
             true => Empty
@@ -70,7 +71,7 @@ impl Handshake {
     /// 握手过程中的处理.
     /// 
     /// 握手过程中会返回握手回包.
-    fn inprogress(&mut self, res: Vec<u8>) -> Option<Vec<PorcessResult>> {
+    fn inprogress(&mut self, res: Vec<u8>) -> Option<Vec<State>> {
         match &res.is_empty() {
             false => Some(vec![Callback(Bytes::from(res))]),
             true => None,
@@ -82,7 +83,7 @@ impl Handshake {
     /// 到此为止，握手完成.
     /// 可能还会溢出未处理完成的数据，这时候应该继续交给下个流程进行处理.
     #[rustfmt::skip]
-    fn completed(&mut self, res: Vec<u8>, remain: Vec<u8>) -> Option<Vec<PorcessResult>> {
+    fn completed(&mut self, res: Vec<u8>, remain: Vec<u8>) -> Option<Vec<State>> {
         self.completed = true;
         let mut results = Vec::new();
         if !res.is_empty() { results.push(Callback(Bytes::from(res))); }
