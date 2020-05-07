@@ -1,6 +1,5 @@
 pub mod handshake;
 pub mod session;
-mod packet;
 
 use bytes::{BufMut, Bytes, BytesMut};
 use handshake::Handshake;
