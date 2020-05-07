@@ -8,6 +8,8 @@ edition = "2018"
 bytes = "0.5.4"
 futures = "0.3"
 rml_rtmp = "0.3.0"
+rml_amf0 = "0.1.1"
+lazy_static = "1.4.0"
 
 [dependencies.tokio]
 version = "0.2"

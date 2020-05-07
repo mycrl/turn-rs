@@ -1,12 +1,12 @@
 pub mod socket;
 
 use futures::prelude::*;
-use std::pin::Pin;
+use socket::Socket;
 use std::error::Error;
 use std::net::SocketAddr;
-use std::task::{Poll, Context};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use tokio::net::TcpListener;
-use socket::Socket;
 
 /// TCP 服务器.
 ///
@@ -23,10 +23,9 @@ use socket::Socket;
 ///     Ok(())
 /// }
 /// ```
-pub struct Server (TcpListener);
+pub struct Server(TcpListener);
 
 impl Server {
-    
     /// 创建TCP服务器.
     ///
     /// # Examples
@@ -37,7 +36,7 @@ impl Server {
     /// let addr = "0.0.0.0:1935".parse().unwrap();
     /// Server::new(addr).await.unwrap();
     /// ```
-    pub async fn new (addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
+    pub async fn new(addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
         Ok(Self(TcpListener::bind(&addr).await?))
     }
 }

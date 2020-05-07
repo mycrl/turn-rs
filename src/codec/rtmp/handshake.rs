@@ -1,10 +1,10 @@
 use super::State;
-use super::State::{Callback, Overflow, Empty};
+use super::State::{Callback, Empty, Overflow};
+use bytes::Bytes;
 use rml_rtmp::handshake::Handshake as Handshakes;
 use rml_rtmp::handshake::HandshakeProcessResult::Completed;
 use rml_rtmp::handshake::HandshakeProcessResult::InProgress;
 use rml_rtmp::handshake::PeerType;
-use bytes::Bytes;
 
 /// RTMP 握手处理.
 ///
@@ -61,15 +61,15 @@ impl Handshake {
     }
 
     /// 检查握手是否有溢出数据.
-    fn is_overflow (&mut self, overflow: Vec<u8>) -> State {
+    fn is_overflow(&mut self, overflow: Vec<u8>) -> State {
         match &overflow.is_empty() {
             false => Overflow(Bytes::from(overflow)),
-            true => Empty
+            true => Empty,
         }
     }
 
     /// 握手过程中的处理.
-    /// 
+    ///
     /// 握手过程中会返回握手回包.
     fn inprogress(&mut self, res: Vec<u8>) -> Option<Vec<State>> {
         match &res.is_empty() {

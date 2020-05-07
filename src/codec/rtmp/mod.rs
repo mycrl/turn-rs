@@ -1,9 +1,10 @@
 pub mod handshake;
 pub mod session;
+mod packet;
 
+use bytes::{BufMut, Bytes, BytesMut};
 use handshake::Handshake;
 use session::Session;
-use bytes::{Bytes, BytesMut, BufMut};
 
 /// 处理结果.
 pub enum State {
@@ -13,7 +14,7 @@ pub enum State {
     Callback(Bytes),
     /// 清空缓冲区
     /// 用于握手到会话之间的传递
-    Empty
+    Empty,
 }
 
 /// Rtmp协议处理.
@@ -26,7 +27,6 @@ pub struct Rtmp {
 }
 
 impl Rtmp {
-    
     /// 创建Rtmp处理程序.
     ///
     /// # Examples
@@ -50,23 +50,29 @@ impl Rtmp {
         println!("on data size {:?}", &chunk.len());
         let mut buffer = BytesMut::from(&chunk[..]);
         let mut receiver = BytesMut::new();
-        
+
         if self.handshake.completed == false {
             if let Some(states) = self.handshake.process(chunk) {
                 for state in states {
                     match state {
-                        State::Overflow(overflow) => { buffer = BytesMut::from(&overflow[..]); },
-                        State::Callback(callback) => { receiver.put(callback); },
-                        State::Empty => { buffer.clear(); },
+                        State::Overflow(overflow) => {
+                            buffer = BytesMut::from(&overflow[..]);
+                        }
+                        State::Callback(callback) => {
+                            receiver.put(callback);
+                        }
+                        State::Empty => {
+                            buffer.clear();
+                        }
                     }
                 }
             }
         }
 
-        println!("completed {:?}", &self.handshake.completed);
-        println!("is_empty {:?}", &buffer.is_empty());
         if self.handshake.completed == true && buffer.is_empty() == false {
-            self.session.process(buffer.freeze());
+            if let Some(data) = self.session.process(buffer.freeze()) {
+                receiver.put(data);
+            }
         }
 
         match &receiver.is_empty() {
