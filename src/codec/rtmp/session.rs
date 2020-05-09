@@ -1,4 +1,5 @@
 use super::State;
+use super::Media;
 use super::State::Callback;
 use std::collections::HashMap;
 use bytes::{BufMut, Bytes, BytesMut};
@@ -39,36 +40,40 @@ impl Session {
     /// 处理Rtmp数据包
     ///
     /// 对缓冲区进行解码，并返回需要回复到对端的数据.
-    pub fn process(&mut self, buffer: Bytes) -> Option<Bytes> {
-        let mut receiver = BytesMut::new();
-        let messages = self.parse(&buffer[..]);
-
-        for message in messages {
+    pub fn process(&mut self, buffer: Bytes) -> Option<Vec<State>> {
+        let mut receiver = Vec::new();
+        for message in self.parse(&buffer[..]) {
             match message {
                 RtmpMessage::Amf0Command { command_name, .. } => {
                     if command_name.as_str() == "connect" {
                         let results = self.get_connect_messages();
                         if let Some(data) = self.from_message(results) {
-                            receiver.put(data);
+                            receiver.push(Callback(data));
                         }
                     } else if command_name.as_str() == "createStream" {
                         let results = self.get_create_stream();
                         if let Some(data) = self.from_message(results) {
-                            receiver.put(data);
+                            receiver.push(Callback(data));
                         }
                     } else if command_name.as_str() == "publish" {
                         let results = self.get_publish();
                         if let Some(data) = self.from_message(results) {
-                            receiver.put(data);
+                            receiver.push(Callback(data));
                         }
                     }
-                }
+                },
+                RtmpMessage::AudioData { data } => {
+                    receiver.push(State::Media(Media::Audio(data)));
+                },
+                RtmpMessage::VideoData { data } => {
+                    receiver.push(State::Media(Media::Video(data)));
+                },
                 _ => (),
             }
         }
 
         match &receiver.is_empty() {
-            false => Some(receiver.freeze()),
+            false => Some(receiver),
             true => None,
         }
     }

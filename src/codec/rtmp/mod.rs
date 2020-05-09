@@ -1,9 +1,18 @@
 pub mod handshake;
 pub mod session;
 
-use bytes::{BufMut, Bytes, BytesMut};
+use super::{Codec, Packet, Transport};
+use bytes::{Bytes, BytesMut};
 use handshake::Handshake;
 use session::Session;
+
+/// 媒体数据.
+pub enum Media {
+    /// 视频数据.
+    Video(Bytes),
+    /// 音频数据.
+    Audio(Bytes)
+}
 
 /// 处理结果.
 pub enum State {
@@ -14,6 +23,8 @@ pub enum State {
     /// 清空缓冲区
     /// 用于握手到会话之间的传递
     Empty,
+    /// 多媒体数据.
+    Media(Media)
 }
 
 /// Rtmp协议处理.
@@ -23,9 +34,10 @@ pub enum State {
 pub struct Rtmp {
     handshake: Handshake,
     session: Session,
+    transport: Transport
 }
 
-impl Rtmp {
+impl Default for Rtmp {
     /// 创建Rtmp处理程序.
     ///
     /// # Examples
@@ -33,22 +45,21 @@ impl Rtmp {
     /// ```no_run
     /// use rtmp::Rtmp;
     ///
-    /// Server::new();
+    /// Server::default();
     /// ```
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             handshake: Handshake::new(),
             session: Session::new(),
+            transport: Transport::new(),
         }
     }
+}
 
-    /// 处理Rtmp数据包
-    ///
-    /// 对缓冲区进行解码，并返回需要回复到对端的数据.
-    pub fn process(&mut self, chunk: Bytes) -> Option<Bytes> {
-        println!("on data size {:?}", &chunk.len());
+impl Codec for Rtmp {
+    fn parse (&mut self, chunk: Bytes) -> Vec<Packet> {
         let mut buffer = BytesMut::from(&chunk[..]);
-        let mut receiver = BytesMut::new();
+        let mut receiver = Vec::new();
 
         if self.handshake.completed == false {
             if let Some(states) = self.handshake.process(chunk) {
@@ -56,27 +67,42 @@ impl Rtmp {
                     match state {
                         State::Overflow(overflow) => {
                             buffer = BytesMut::from(&overflow[..]);
-                        }
+                        },
                         State::Callback(callback) => {
-                            receiver.put(callback);
+                            receiver.push(Packet::Tcp(callback));
                         }
                         State::Empty => {
                             buffer.clear();
-                        }
+                        },
+                        _ => ()
                     }
                 }
             }
         }
 
         if self.handshake.completed == true && buffer.is_empty() == false {
-            if let Some(data) = self.session.process(buffer.freeze()) {
-                receiver.put(data);
+            if let Some(states) = self.session.process(buffer.freeze()) {
+                for state in states {
+                    match state {
+                        State::Callback(data) => {
+                            receiver.push(Packet::Tcp(data));
+                        },
+                        State::Media(media) => {
+                            receiver.push(Packet::Udp(match media {
+                                Media::Video(data) => {
+                                    self.transport.packet(data, 0u8).unwrap()
+                                },
+                                Media::Audio(data) => {
+                                    self.transport.packet(data, 1u8).unwrap()
+                                }
+                            }));
+                        },
+                        _ => ()
+                    }
+                } 
             }
         }
 
-        match &receiver.is_empty() {
-            false => Some(receiver.freeze()),
-            true => None,
-        }
+        receiver
     }
 }
