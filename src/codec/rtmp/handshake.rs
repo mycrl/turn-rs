@@ -1,10 +1,10 @@
 use super::State;
 use super::State::{Callback, Empty, Overflow};
-use bytes::Bytes;
 use rml_rtmp::handshake::Handshake as Handshakes;
 use rml_rtmp::handshake::HandshakeProcessResult::Completed;
 use rml_rtmp::handshake::HandshakeProcessResult::InProgress;
 use rml_rtmp::handshake::PeerType;
+use bytes::Bytes;
 
 /// RTMP 握手处理.
 ///

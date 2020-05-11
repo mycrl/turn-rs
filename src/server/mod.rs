@@ -8,10 +8,11 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
 use tokio::net::{TcpListener, UdpSocket};
-use tokio::sync::mpsc::unbounded_channel;
-use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::{UnboundedSender, UnboundedReceiver};
 use bytes::Bytes;
+
+pub type Tx = UnboundedSender<Bytes>;
+pub type Rx = UnboundedReceiver<Bytes>;
 
 pub struct ServerAddress {
     pub tcp: SocketAddr,
@@ -36,8 +37,8 @@ pub struct ServerAddress {
 pub struct Server {
     tcp: TcpListener,
     udp: UdpSocket,
-    sender: UnboundedSender<Bytes>,
-    receiver: UnboundedReceiver<Bytes>
+    sender: Tx,
+    receiver: Rx
 }
 
 impl Server {
@@ -52,7 +53,7 @@ impl Server {
     /// Server::new(addr).await.unwrap();
     /// ```
     pub async fn new(addrs: ServerAddress) -> Result<Self, Box<dyn Error>> {
-        let (sender, receiver) = unbounded_channel();
+        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
         Ok(Self {
             sender, 
             receiver,

@@ -1,21 +1,48 @@
+use super::Tx;
 use crate::codec::{Codec, Packet};
-use bytes::{Bytes, BytesMut};
 use futures::prelude::*;
 use std::pin::Pin;
 use std::marker::Unpin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, Error};
-use tokio::sync::mpsc::UnboundedSender;
 use tokio::net::TcpStream;
+use bytes::{Bytes, BytesMut};
 
+/// TcpSocket实例.
+/// 
+/// 读取写入TcpSocket并通过channel返回数据.
+/// 返回的数据为Udp数据包，为适应MTU，已完成分包.
 pub struct Socket<T> {
-    dgram: UnboundedSender<Bytes>,
     stream: TcpStream,
+    dgram: Tx,
     codec: T,
 }
 
 impl <T: Default + Codec + Unpin>Socket<T> {
-    pub fn new(stream: TcpStream, dgram: UnboundedSender<Bytes>) -> Self {
+    /// 创建TcpSocket实例.
+    /// 
+    /// 创建实例需要指定一个`Codec`做为数据编解码器.
+    /// `Codec`处理Tcp数据，并要求给出返回的Tcp数据和Udp包.
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::error::Error;
+    /// use tokio::net::TcpListener;
+    /// use socket::Socket;
+    /// use rtmp::Rtmp;
+    ///
+    /// async fn main() -> Result<(), Box<dyn Error>> {
+    ///     let addr = "0.0.0.0:1935".parse().unwrap();
+    ///     let mut listener = TcpListener::bind(&addr).await?;
+    ///     
+    ///     loop {
+    ///         let (stream, _) = listener.accept().await?;
+    ///         tokio::spawn(Socket::<Rtmp>::new(stream));
+    ///     }
+    /// }
+    /// ```
+    pub fn new(stream: TcpStream, dgram: Tx) -> Self {
         Self {
             dgram,
             stream,
@@ -23,6 +50,37 @@ impl <T: Default + Codec + Unpin>Socket<T> {
         }
     }
 
+    /// 推送消息到channel中.
+    /// 
+    /// 将Udp包推送到channel中.
+    /// 另一端需要将数据发送到远程UdpServer.
+    /// 
+    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use bytes::Bytes;
+    /// use std::error::Error;
+    /// use futures::future::poll_fn;
+    /// use tokio::net::TcpListener;
+    /// use socket::Socket;
+    /// use rtmp::Rtmp;
+    ///
+    /// async fn main() -> Result<(), Box<dyn Error>> {
+    ///     let addr = "0.0.0.0:1935".parse().unwrap();
+    ///     let mut listener = TcpListener::bind(&addr).await?;
+    ///
+    ///     loop {
+    ///         let (stream, _) = listener.accept().await?;
+    ///         let socket = Socket::<Rtmp>::new(stream);
+    ///
+    ///         poll_fn(|cx| {
+    ///             socket.push(cx, Bytes::from(b"hello"));
+    ///         });
+    ///     }
+    /// }
+    /// ```
     pub fn push(&mut self, data: Bytes) {
         loop {
             match self.dgram.send(data.clone()) {
@@ -32,21 +90,75 @@ impl <T: Default + Codec + Unpin>Socket<T> {
         }
     }
 
-    /// 发送数据到 TcpSocket.
+    /// 发送数据到TcpSocket.
+    /// 
+    /// 将Tcp数据写入到TcpSocket.
+    /// 检查是否写入完成，如果未完全写入，写入剩余部分.
+    /// 
+    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::error::Error;
+    /// use futures::future::poll_fn;
+    /// use tokio::net::TcpListener;
+    /// use socket::Socket;
+    /// use rtmp::Rtmp;
+    ///
+    /// async fn main() -> Result<(), Box<dyn Error>> {
+    ///     let addr = "0.0.0.0:1935".parse().unwrap();
+    ///     let mut listener = TcpListener::bind(&addr).await?;
+    ///
+    ///     loop {
+    ///         let (stream, _) = listener.accept().await?;
+    ///         let socket = Socket::<Rtmp>::new(stream);
+    ///
+    ///         poll_fn(|cx| {
+    ///             socket.send(cx, &[0, 1, 2]);
+    ///         });
+    ///     }
+    /// }
+    /// ```
     #[rustfmt::skip]
     pub fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) {
         let mut offset: usize = 0;
+        let length = data.len();
         loop {
             match Pin::new(&mut self.stream).poll_write(ctx, &data) {
-                Poll::Ready(Ok(size)) => {
-                    offset += size;
-                    if &offset >= &data.len() { break; }
+                Poll::Ready(Ok(s)) => match &offset + &s >= length {
+                    false => { offset += s; },
+                    true => { break; }
                 }, _ => (),
             }
         }
     }
 
-    /// 从 TcpSocket 读取数据.
+    /// 从TcpSocket读取数据.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::error::Error;
+    /// use futures::future::poll_fn;
+    /// use tokio::net::TcpListener;
+    /// use socket::Socket;
+    /// use rtmp::Rtmp;
+    ///
+    /// async fn main() -> Result<(), Box<dyn Error>> {
+    ///     let addr = "0.0.0.0:1935".parse().unwrap();
+    ///     let mut listener = TcpListener::bind(&addr).await?;
+    ///
+    ///     loop {
+    ///         let (stream, _) = listener.accept().await?;
+    ///         let socket = Socket::<Rtmp>::new(stream);
+    ///
+    ///         poll_fn(|cx| {
+    ///             socket.read(cx);
+    ///         });
+    ///     }
+    /// }
+    /// ```
     #[rustfmt::skip]
     pub fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<Bytes> {
         let mut receiver = [0u8; 2048];
@@ -56,7 +168,37 @@ impl <T: Default + Codec + Unpin>Socket<T> {
         }
     }
 
-    /// 刷新 TcpSocket 缓冲区.
+    /// 刷新TcpSocket缓冲区.
+    /// 
+    /// 将数据写入到TcpSocket之后，需要刷新缓冲区，
+    /// 将数据发送到对端.
+    /// 
+    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::error::Error;
+    /// use futures::future::poll_fn;
+    /// use tokio::net::TcpListener;
+    /// use socket::Socket;
+    /// use rtmp::Rtmp;
+    ///
+    /// async fn main() -> Result<(), Box<dyn Error>> {
+    ///     let addr = "0.0.0.0:1935".parse().unwrap();
+    ///     let mut listener = TcpListener::bind(&addr).await?;
+    ///
+    ///     loop {
+    ///         let (stream, _) = listener.accept().await?;
+    ///         let socket = Socket::<Rtmp>::new(stream);
+    ///
+    ///         poll_fn(|cx| {
+    ///             socket.read(cx, 128);
+    ///             socket.flush(cx);
+    ///         });
+    ///     }
+    /// }
+    /// ```
     #[rustfmt::skip]
     pub fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
         loop {
@@ -68,6 +210,33 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     }
 
     /// 尝试处理TcpSocket数据.
+    /// 
+    /// 使用`Codec`处理TcpSocket数据，
+    /// 并将返回的数据正确写入到TcpSocket或者UdpSocket.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::error::Error;
+    /// use futures::future::poll_fn;
+    /// use tokio::net::TcpListener;
+    /// use socket::Socket;
+    /// use rtmp::Rtmp;
+    ///
+    /// async fn main() -> Result<(), Box<dyn Error>> {
+    ///     let addr = "0.0.0.0:1935".parse().unwrap();
+    ///     let mut listener = TcpListener::bind(&addr).await?;
+    ///     
+    ///     loop {
+    ///         let (stream, _) = listener.accept().await?;
+    ///         let socket = Socket::<Rtmp>::new(stream);
+    ///
+    ///         poll_fn(|cx| {
+    ///             socket.process(cx);
+    ///         });
+    ///     }
+    /// }
+    /// ```
     pub fn process<'b>(&mut self, ctx: &mut Context<'b>) {
         while let Some(chunk) = self.read(ctx) {
             for packet in self.codec.parse(chunk) {
@@ -77,6 +246,9 @@ impl <T: Default + Codec + Unpin>Socket<T> {
                 }
             }
 
+            // 刷新TcpSocket缓冲区.
+            // 为了增加效率，将在把当前任务的所有返回数据全部
+            // 写入完成之后再统一刷新，避免不必要的频繁操作.
             self.flush(ctx);
         }
     }
