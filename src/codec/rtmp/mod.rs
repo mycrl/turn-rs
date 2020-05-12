@@ -1,5 +1,6 @@
 pub mod handshake;
 pub mod session;
+mod message;
 
 use super::{Codec, Packet};
 use bytes::{Bytes, BytesMut};

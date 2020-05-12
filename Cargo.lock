@@ -448,9 +448,9 @@ dependencies = [
 name = "quasipaa"
 version = "0.1.0"
 dependencies = [
- "byteorder",
  "bytes",
  "futures",
+ "lazy_static",
  "rml_amf0",
  "rml_rtmp",
  "tokio",

@@ -1,9 +1,8 @@
 use super::{Tx, transport::Transport};
 use crate::codec::{Codec, Packet};
 use futures::prelude::*;
-use std::pin::Pin;
-use std::marker::Unpin;
 use std::task::{Context, Poll};
+use std::{pin::Pin, marker::Unpin};
 use tokio::io::{AsyncRead, AsyncWrite, Error};
 use tokio::net::TcpStream;
 use bytes::{Bytes, BytesMut};
@@ -16,8 +15,7 @@ pub struct Socket<T> {
     transport: Transport,
     stream: TcpStream,
     dgram: Tx,
-    codec: T,
-    buffer: Vec<u8>
+    codec: T
 }
 
 impl <T: Default + Codec + Unpin>Socket<T> {
@@ -49,8 +47,7 @@ impl <T: Default + Codec + Unpin>Socket<T> {
             dgram,
             stream,
             codec: T::default(),
-            transport: Transport::new(1000),
-            buffer: Vec::with_capacity(2048)
+            transport: Transport::new(1000)
         }
     }
 
@@ -85,6 +82,7 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     ///     }
     /// }
     /// ```
+    #[rustfmt::skip]
     pub fn push(&mut self, data: Bytes, flgs: u8) {
         for chunk in self.transport.packet(data, flgs) {
             loop {
@@ -169,8 +167,9 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     /// ```
     #[rustfmt::skip]
     pub fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<Bytes> {
-        match Pin::new(&mut self.stream).poll_read(ctx, &mut self.buffer) {
-            Poll::Ready(Ok(s)) if s > 0 =>  Some(BytesMut::from(&self.buffer[0..s]).freeze()), 
+        let mut receiver = [0u8; 2048];
+        match Pin::new(&mut self.stream).poll_read(ctx, &mut receiver) {
+            Poll::Ready(Ok(s)) if s > 0 =>  Some(BytesMut::from(&receiver[0..s]).freeze()), 
             _ => None,
         }
     }
