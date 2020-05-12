@@ -1,4 +1,4 @@
-use super::Tx;
+use super::{Tx, transport::Transport};
 use crate::codec::{Codec, Packet};
 use futures::prelude::*;
 use std::pin::Pin;
@@ -13,6 +13,7 @@ use bytes::{Bytes, BytesMut};
 /// 读取写入TcpSocket并通过channel返回数据.
 /// 返回的数据为Udp数据包，为适应MTU，已完成分包.
 pub struct Socket<T> {
+    transport: Transport,
     stream: TcpStream,
     dgram: Tx,
     codec: T,
@@ -47,6 +48,7 @@ impl <T: Default + Codec + Unpin>Socket<T> {
             dgram,
             stream,
             codec: T::default(),
+            transport: Transport::new(1000),
         }
     }
 
@@ -81,11 +83,13 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     ///     }
     /// }
     /// ```
-    pub fn push(&mut self, data: Bytes) {
-        loop {
-            match self.dgram.send(data.clone()) {
-                Ok(_) => { break; },
-                _ => (),
+    pub fn push(&mut self, data: Bytes, flgs: u8) {
+        for chunk in self.transport.packet(data, flgs) {
+            loop {
+                match self.dgram.send(chunk.clone()) {
+                    Ok(_) => { break; },
+                    _ => (),
+                }
             }
         }
     }
@@ -135,6 +139,8 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     }
 
     /// 从TcpSocket读取数据.
+    /// 
+    /// TODO: 目前存在重复申请缓冲区的情况，有优化空间；
     ///
     /// # Examples
     ///
@@ -163,8 +169,8 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     pub fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<Bytes> {
         let mut receiver = [0u8; 2048];
         match Pin::new(&mut self.stream).poll_read(ctx, &mut receiver) {
-            Poll::Ready(Ok(s)) if s > 0 => Some(BytesMut::from(&receiver[0..s]).freeze()), 
-            _ => None
+            Poll::Ready(Ok(s)) if s > 0 =>  Some(BytesMut::from(&receiver[0..s]).freeze()), 
+            _ => None,
         }
     }
 
@@ -242,7 +248,7 @@ impl <T: Default + Codec + Unpin>Socket<T> {
             for packet in self.codec.parse(chunk) {
                 match packet {
                     Packet::Tcp(data) => self.send(ctx, &data),
-                    Packet::Udp(data) => self.push(data),
+                    Packet::Udp(data, flgs) => self.push(data, flgs),
                 }
             }
 
@@ -256,8 +262,6 @@ impl <T: Default + Codec + Unpin>Socket<T> {
 
 impl <T: Default + Codec + Unpin>Future for Socket<T> {
     type Output = Result<(), Error>;
-
-    #[rustfmt::skip]
     fn poll (self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         self.get_mut().process(ctx);
         Poll::Pending

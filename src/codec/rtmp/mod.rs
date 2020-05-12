@@ -1,7 +1,7 @@
 pub mod handshake;
 pub mod session;
 
-use super::{Codec, Packet, Transport};
+use super::{Codec, Packet};
 use bytes::{Bytes, BytesMut};
 use handshake::Handshake;
 use session::Session;
@@ -33,8 +33,7 @@ pub enum State {
 /// 同时返回一些关键性的RTMP消息.
 pub struct Rtmp {
     handshake: Handshake,
-    session: Session,
-    transport: Transport
+    session: Session
 }
 
 impl Default for Rtmp {
@@ -51,7 +50,6 @@ impl Default for Rtmp {
         Self {
             handshake: Handshake::new(),
             session: Session::new(),
-            transport: Transport::new(),
         }
     }
 }
@@ -88,14 +86,10 @@ impl Codec for Rtmp {
                             receiver.push(Packet::Tcp(data));
                         },
                         State::Media(media) => {
-                            receiver.push(Packet::Udp(match media {
-                                Media::Video(data) => {
-                                    self.transport.packet(data, 0u8).unwrap()
-                                },
-                                Media::Audio(data) => {
-                                    self.transport.packet(data, 1u8).unwrap()
-                                }
-                            }));
+                            receiver.push(match media {
+                                Media::Video(data) => Packet::Udp(data, 0u8),
+                                Media::Audio(data) => Packet::Udp(data, 1u8)
+                            });
                         },
                         _ => ()
                     }

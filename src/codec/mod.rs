@@ -1,12 +1,10 @@
 pub mod rtmp;
-pub mod transport;
 
 use bytes::Bytes;
-use transport::Transport;
 
 pub enum Packet {
     Tcp(Bytes),
-    Udp(Bytes)
+    Udp(Bytes, u8)
 }
 
 pub trait Codec {
