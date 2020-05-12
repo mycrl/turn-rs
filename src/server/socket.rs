@@ -17,6 +17,7 @@ pub struct Socket<T> {
     stream: TcpStream,
     dgram: Tx,
     codec: T,
+    buffer: Vec<u8>
 }
 
 impl <T: Default + Codec + Unpin>Socket<T> {
@@ -49,6 +50,7 @@ impl <T: Default + Codec + Unpin>Socket<T> {
             stream,
             codec: T::default(),
             transport: Transport::new(1000),
+            buffer: Vec::with_capacity(2048)
         }
     }
 
@@ -167,9 +169,8 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     /// ```
     #[rustfmt::skip]
     pub fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<Bytes> {
-        let mut receiver = [0u8; 2048];
-        match Pin::new(&mut self.stream).poll_read(ctx, &mut receiver) {
-            Poll::Ready(Ok(s)) if s > 0 =>  Some(BytesMut::from(&receiver[0..s]).freeze()), 
+        match Pin::new(&mut self.stream).poll_read(ctx, &mut self.buffer) {
+            Poll::Ready(Ok(s)) if s > 0 =>  Some(BytesMut::from(&self.buffer[0..s]).freeze()), 
             _ => None,
         }
     }

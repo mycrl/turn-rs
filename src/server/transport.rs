@@ -14,16 +14,22 @@ impl Transport {
     }
 
     pub fn packet (&mut self, chunk: Bytes, flgs: u8) -> Vec<Bytes> {
-        let mut package = BytesMut::new();
-        package.put_u8(flgs);
-        package.put_u32(self.index);
-        package.put_u8(index);
-        package.extend_from_slice(&chunk);
         self.index += 1;
 
-        match package.len() > self.mtu as usize {
-            true => self.package(package),
-            false => vec![ Bytes::from(package) ]
+        let size = self.mtu as usize;
+        if chunk.len() <= size {
+            return vec![chunk]
         }
+
+        let mut package = BytesMut::new();
+        let mut offset = 0;
+        // loop {
+        //     package.put_u8(flgs);
+        //     package.put_u32(self.index);
+        //     package.put_u8(index);
+        //     package.extend_from_slice(&chunk);
+        // }
+
+        vec![chunk]
     }
 }
