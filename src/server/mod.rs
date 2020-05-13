@@ -1,5 +1,6 @@
 pub mod socket;
 pub mod transport;
+pub mod dgram;
 
 use crate::codec::rtmp::Rtmp;
 use futures::prelude::*;
@@ -8,13 +9,16 @@ use std::pin::Pin;
 use std::error::Error;
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
-use tokio::net::{TcpListener, UdpSocket};
-use tokio::sync::mpsc::{UnboundedSender, UnboundedReceiver};
+use tokio::net::TcpListener;
+use tokio::sync::mpsc;
 use bytes::Bytes;
+use dgram::Dgram;
 
-pub type Tx = UnboundedSender<Bytes>;
-pub type Rx = UnboundedReceiver<Bytes>;
+/// 字节流读写管道类型.
+pub type Tx = mpsc::UnboundedSender<Bytes>;
+pub type Rx = mpsc::UnboundedReceiver<Bytes>;
 
+/// 服务器地址.
 pub struct ServerAddress {
     pub tcp: SocketAddr,
     pub udp: SocketAddr
@@ -37,9 +41,7 @@ pub struct ServerAddress {
 /// ```
 pub struct Server {
     tcp: TcpListener,
-    udp: UdpSocket,
-    sender: Tx,
-    receiver: Rx
+    sender: Tx
 }
 
 impl Server {
@@ -49,30 +51,18 @@ impl Server {
     ///
     /// ```no_run
     /// use server::Server;
+    /// use tokio::sync::mpsc;
     ///
     /// let addr = "0.0.0.0:1935".parse().unwrap();
-    /// Server::new(addr).await.unwrap();
+    /// let (sender, _) = mpsc::unbounded_channel();
+    /// 
+    /// Server::new(addr, sender).await.unwrap();
     /// ```
-    pub async fn new(addrs: ServerAddress) -> Result<Self, Box<dyn Error>> {
-        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+    pub async fn new(addr: SocketAddr, sender: Tx) -> Result<Self, Box<dyn Error>> {
         Ok(Self {
             sender, 
-            receiver,
-            tcp: TcpListener::bind(&addrs.tcp).await?,
-            udp: UdpSocket::bind(&addrs.udp).await?
+            tcp: TcpListener::bind(&addr).await?,
         })
-    }
-
-    pub async fn send(&mut self, data: &[u8]) {
-        let mut offset: usize = 0;
-        loop {
-            match self.udp.send(data).await {
-                Ok(size) => {
-                    offset += size;
-                    if &offset >= &data.len() { break; }
-                }, _ => (),
-            }
-        }
     }
 }
 
@@ -85,15 +75,18 @@ impl Stream for Server {
         match handle.tcp.poll_accept(ctx) {
             Poll::Ready(Ok((socket, _))) => {
                 tokio::spawn(Socket::<Rtmp>::new(socket, handle.sender.clone()));
-            }, _ => ()
-        }
-
-        match handle.receiver.try_recv() {
-            Ok(data) => {
-                println!("send udp data {:?}", &data.len());
-                handle.send(&data);
                 Poll::Ready(Some(Ok(())))
             }, _ => Poll::Pending
         }
     }
+}
+
+/// 快速运行服务器
+/// 
+/// 提交便捷方法，快速运行Tcp和Udp实例.
+pub async fn run(addrs: ServerAddress) -> Result<(), Box<dyn Error>> {
+    let (sender, receiver) = mpsc::unbounded_channel();
+    let mut server = Server::new(addrs.tcp, sender).await?;
+    tokio::spawn(Dgram::new(addrs.udp, receiver)?);
+    loop { server.next().await; }
 }

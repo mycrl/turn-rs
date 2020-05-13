@@ -1,63 +1,76 @@
-use tokio::sync::mpsc::unbounded_channel;
-use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::mpsc::UnboundedReceiver;
-use std::net::UdpSocket;
-use std::net::SocketAddr;
-use tokio::io::Error;
+use super::Rx;
 use futures::prelude::*;
-use bytes::Bytes;
 use std::pin::Pin;
+use std::io::Error;
 use std::task::{Context, Poll};
+use std::net::{UdpSocket, SocketAddr};
 
+/// Udp实例
+/// 
+/// 负责对外广播音视频数据和控制信息.
+/// 全局的Rtmp音视频消息都通过此模块发送到远端.
 pub struct Dgram {
+    addr: SocketAddr,
     dgram: UdpSocket,
-    sender: UnboundedSender<Bytes>,
-    receiver: UnboundedReceiver<Bytes>
+    receiver: Rx
 }
 
 impl Dgram {
-    pub fn new (addr: &SocketAddr) -> Result<Self, Error> {
-        let (sender, receiver) = unbounded_channel();
+    /// 创建Udp实例
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use dgram::Dgram;
+    /// use tokio::sync::mpsc;
+    ///
+    /// let addr = "0.0.0.0:1936".parse().unwrap();
+    /// let (_, receiver) = mpsc::unbounded_channel();
+    /// 
+    /// Dgram::new(addr, receiver).await.unwrap();
+    /// ```
+    pub fn new(addr: SocketAddr, receiver: Rx) -> Result<Self, Error> {
         Ok(Self {
-            sender, 
+            addr,
             receiver,
-            dgram: UdpSocket::bind(addr)?
+            dgram: UdpSocket::bind("0.0.0.0:0")?
         })
     }
 
-    pub fn get_sender (&mut self) -> UnboundedSender<Bytes> {
-        self.sender.clone()
-    }
-
-    pub fn send(&mut self, data: &[u8]) {
+    /// 发送数据到远端Udp服务器
+    /// 
+    /// 将Udp数据写入到UdpSocket.
+    /// 检查是否写入完成，如果未完全写入，写入剩余部分.
+    /// 
+    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环; 
+    fn send(&mut self, data: &[u8]) {
         let mut offset: usize = 0;
+        let length = data.len();
         loop {
-            match self.dgram.send(data) {
-                Ok(size) => {
-                    offset += size;
-                    if &offset >= &data.len() { break; }
+            match self.dgram.send_to(data, self.addr) {
+                Ok(s) => match &offset + &s >= length {
+                    false => { offset += s; },
+                    true => { break; }
                 }, _ => (),
             }
         }
     }
 
-    pub fn process (&mut self) {
-        match self.receiver.try_recv() {
-            Ok(data) => {
-                println!("udp data");
-                self.send(&data);
-            },
-            _ => ()
+    /// 尝试处理管道中的Udp数据包
+    /// 
+    /// 重复尝试读取管道数据，
+    /// 如读取到则发送数据包并继续尝试.
+    fn process<'b>(&mut self, ctx: &mut Context<'b>) {
+        while let Poll::Ready(Some(data)) = Pin::new(&mut self.receiver).poll_next(ctx) {
+            self.send(&data);
         }
     }
 }
 
 impl Future for Dgram {
     type Output = Result<(), Error>;
-
-    #[rustfmt::skip]
-    fn poll(self: Pin<&mut Self>, _: &mut Context) -> Poll<Self::Output> {
-        self.get_mut().process();
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+        self.get_mut().process(ctx);
         Poll::Pending
     }
 }
