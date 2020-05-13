@@ -37,16 +37,97 @@ pub struct Rtmp {
     session: Session
 }
 
-impl Default for Rtmp {
-    /// 创建Rtmp处理程序.
-    ///
+impl Rtmp {
+
+    /// 处理Rtmp握手
+    /// 
+    /// 传入可写的buffer和results，将自动完成.
+    /// 
     /// # Examples
     ///
     /// ```no_run
     /// use rtmp::Rtmp;
+    /// use bytes::BytesMut;
     ///
-    /// Server::default();
+    /// let mut rtmp = Rtmp::default();
+    /// let mut results = Vec::new();
+    /// let mut buffer = BytesMut::from(b"");
+    /// rtmp.process_handshake(&buffer, &results);
     /// ```
+    pub fn process_handshake(&mut self, buffer: &mut BytesMut, receiver: &mut Vec<Packet>) {
+        if let Some(states) = self.handshake.process(&buffer) {
+            for state in states {
+                if let Some(packet) =  self.process_state(state, buffer) {
+                    receiver.push(packet);
+                }
+            }
+        }
+    }
+
+    /// 处理Rtmp消息
+    /// 
+    /// 传入可写的buffer和results，将自动完成.
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use rtmp::Rtmp;
+    /// use bytes::BytesMut;
+    ///
+    /// let mut rtmp = Rtmp::default();
+    /// let mut results = Vec::new();
+    /// let mut buffer = BytesMut::from(b"");
+    /// rtmp.process_session(&buffer, &results);
+    /// ```
+    pub fn process_session(&mut self, buffer: &mut BytesMut, receiver: &mut Vec<Packet>) {
+        if let Some(states) = self.session.process(&buffer) {
+            for state in states {
+                if let Some(packet) =  self.process_state(state, buffer) {
+                    receiver.push(packet);
+                }
+            } 
+        }
+    }
+
+    /// 处理模块返回的操作结果
+    /// 
+    /// 结果包含多媒体数据、溢出数据、回调数据、清空控制信息.
+    fn process_state(&mut self, state: State, buffer: &mut BytesMut) -> Option<Packet> {
+        match state {
+
+            // 音频或者是视频数据
+            // 添加flg:
+            //   video: 0
+            //   audio: 1
+            State::Media(media) => match media {
+                Media::Video(data) => Some(Packet::Udp(data, 0u8)),
+                Media::Audio(data) => Some(Packet::Udp(data, 1u8))
+            },
+
+            // 溢出数据
+            // 重写缓冲区，将溢出数据传递到下个流程继续处理
+            State::Overflow(overflow) => {
+                *buffer = BytesMut::from(&overflow[..]);
+                None
+            },
+
+            // 回调数据
+            // 需要发送给对端TcpSocket的数据
+            State::Callback(callback) => {
+                Some(Packet::Tcp(callback))
+            },
+
+            // 特殊需求
+            // 清空缓冲区，没有剩下的数据需要处理
+            State::Empty => {
+                buffer.clear();
+                None
+            },
+        }
+    }
+}
+
+impl Default for Rtmp {
     fn default() -> Self {
         Self {
             handshake: Handshake::new(),
@@ -56,46 +137,19 @@ impl Default for Rtmp {
 }
 
 impl Codec for Rtmp {
-    fn parse (&mut self, chunk: Bytes) -> Vec<Packet> {
-        let mut buffer = BytesMut::from(&chunk[..]);
+    fn parse (&mut self, buffer: &mut BytesMut) -> Vec<Packet> {
         let mut receiver = Vec::new();
 
+        // 握手还未完成
+        // 交给握手模块处理Tcp数据        
         if self.handshake.completed == false {
-            if let Some(states) = self.handshake.process(chunk) {
-                for state in states {
-                    match state {
-                        State::Overflow(overflow) => {
-                            buffer = BytesMut::from(&overflow[..]);
-                        },
-                        State::Callback(callback) => {
-                            receiver.push(Packet::Tcp(callback));
-                        }
-                        State::Empty => {
-                            buffer.clear();
-                        },
-                        _ => ()
-                    }
-                }
-            }
+            self.process_handshake(buffer, &mut receiver);
         }
 
-        if self.handshake.completed == true && buffer.is_empty() == false {
-            if let Some(states) = self.session.process(buffer.freeze()) {
-                for state in states {
-                    match state {
-                        State::Callback(data) => {
-                            receiver.push(Packet::Tcp(data));
-                        },
-                        State::Media(media) => {
-                            receiver.push(match media {
-                                Media::Video(data) => Packet::Udp(data, 0u8),
-                                Media::Audio(data) => Packet::Udp(data, 1u8)
-                            });
-                        },
-                        _ => ()
-                    }
-                } 
-            }
+        // 握手已完成
+        // 处理Rtmp消息
+        if self.handshake.completed == true {
+            self.process_session(buffer, &mut receiver);
         }
 
         receiver

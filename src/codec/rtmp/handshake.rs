@@ -52,8 +52,8 @@ impl Handshake {
     /// handshake.process(Bytes::from(b"""));
     /// ```
     #[rustfmt::skip]
-    pub fn process(&mut self, buffer: Bytes) -> Option<Vec<State>> {
-        match self.handshakes.process_bytes(&buffer[..]) {
+    pub fn process(&mut self, buffer: &[u8]) -> Option<Vec<State>> {
+        match self.handshakes.process_bytes(buffer) {
             Ok(InProgress { response_bytes }) => self.inprogress(response_bytes),
             Ok(Completed { response_bytes, remaining_bytes }) => self.completed(response_bytes, remaining_bytes),
             _ => None,

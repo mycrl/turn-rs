@@ -47,7 +47,7 @@ impl <T: Default + Codec + Unpin>Socket<T> {
             dgram,
             stream,
             codec: T::default(),
-            transport: Transport::new(1000)
+            transport: Transport::new(1000),
         }
     }
 
@@ -166,10 +166,10 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     /// }
     /// ```
     #[rustfmt::skip]
-    pub fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<Bytes> {
+    pub fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<BytesMut> {
         let mut receiver = [0u8; 2048];
         match Pin::new(&mut self.stream).poll_read(ctx, &mut receiver) {
-            Poll::Ready(Ok(s)) if s > 0 =>  Some(BytesMut::from(&receiver[0..s]).freeze()), 
+            Poll::Ready(Ok(s)) if s > 0 => Some(BytesMut::from(&receiver[0..s])),
             _ => None,
         }
     }
@@ -180,7 +180,7 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     /// 将数据发送到对端.
     /// 
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
-    ///
+    ///s
     /// # Examples
     ///
     /// ```no_run
@@ -244,8 +244,8 @@ impl <T: Default + Codec + Unpin>Socket<T> {
     /// }
     /// ```
     pub fn process<'b>(&mut self, ctx: &mut Context<'b>) {
-        while let Some(chunk) = self.read(ctx) {
-            for packet in self.codec.parse(chunk) {
+        while let Some(mut chunk) = self.read(ctx) {
+            for packet in self.codec.parse(&mut chunk) {
                 match packet {
                     Packet::Tcp(data) => self.send(ctx, &data),
                     Packet::Udp(data, flgs) => self.push(data, flgs),
