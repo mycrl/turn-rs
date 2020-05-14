@@ -1,5 +1,5 @@
 // 推出事件处理函数
-type Handle = (values: Array<T>) => void
+type Handle<T> = (values: Array<T>) => void
 
 // 队列配置
 // @param {loop} 超时检查运行间隔
@@ -20,7 +20,7 @@ export class PriorityQueue<T> {
     private option: QueueOption
     private queue: Array<number>
     private stack: Map<number, T>
-    private handle?: Handle
+    private handle?: Handle<T>
     
     // @constructor
     // @param {option?} 队列配置
@@ -75,7 +75,7 @@ export class PriorityQueue<T> {
     
     // 绑定推出事件
     // @param {handle} 推出事件处理函数
-    public launch (handle: Handle) {
+    public launch (handle: Handle<T>) {
         this.handle = handle
     }
     
@@ -88,7 +88,7 @@ export class PriorityQueue<T> {
          */
         this.option.ttl && setInterval(() => {
             
-        }, this.option.loop?)
+        }, this.option.loop!)
     }
     
     // 推进堆栈处理
