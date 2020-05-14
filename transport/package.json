@@ -21,11 +21,13 @@
     ],
     "dependencies": {
         "node-nats-streaming": "^0.3.2",
-        "uuid": "^8.0.0"
+        "uuid": "^8.0.0",
+        "ws": "^7.3.0"
     },
     "devDependencies": {
         "@types/node": "^14.0.1",
         "@types/uuid": "^7.0.3",
+        "@types/ws": "^7.2.4",
         "typescript": "^3.9.2"
     }
 }

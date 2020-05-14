@@ -1,5 +1,5 @@
 import { connect, Stan } from "node-nats-streaming"
-import { Payload } from "./decode"
+import { Payload } from "./yamux"
 import { Writable } from "stream"
 
 export class Nats extends Writable {
@@ -14,7 +14,7 @@ export class Nats extends Writable {
     // @param {chunk} 消息
     // @param {callback} 回调
     public _write (chunk: Payload, _: string, callback: any): void {
-        this.stan.publish(chunk.uid, chunk.data, (err, guid) => {
+        this.stan.publish(chunk.uid, chunk.packet.data, (err, guid) => {
             console.log(guid)
             callback(err ? err : null)
         })

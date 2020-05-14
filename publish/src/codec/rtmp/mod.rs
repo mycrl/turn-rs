@@ -1,48 +1,46 @@
 pub mod handshake;
-pub mod session;
 mod message;
+pub mod session;
 
 use super::{Codec, Packet};
 use bytes::{Bytes, BytesMut};
 use handshake::Handshake;
 use session::Session;
 
-/// 媒体数据.
-pub enum Media {
-    /// 视频数据.
-    Video(Bytes),
-    /// 音频数据.
-    Audio(Bytes)
-}
+/// Message flag
+pub const Flag_Video: u8 = 0;
+pub const Flag_Audio: u8 = 1;
+pub const Flag_Frame: u8 = 2;
+pub const Flag_Publish: u8 = 3;
+pub const Flag_UnPublish: u8 = 4;
 
-/// 处理结果.
+/// process result
 pub enum State {
-    /// 有未处理完成的数据块.
+    /// There are unprocessed data blocks.
     Overflow(Bytes),
-    /// 有需要回复给对等端的数据块.
+    /// There is a data block that needs to be returned to the peer.
     Callback(Bytes),
-    /// 清空缓冲区
-    /// 用于握手到会话之间的传递
+    /// Clear buffer.
+    /// Used to transfer handshake to session.
     Empty,
-    /// 多媒体数据.
-    Media(Media)
+    /// Event message.
+    Event(Bytes, u8),
 }
 
-/// Rtmp协议处理.
+/// Rtmp protocol processing
 ///
-/// 输入输出TCP数据，整个过程自动完成.
-/// 同时返回一些关键性的RTMP消息.
+/// Input and output TCP data, the whole process is completed automatically.
+/// At the same time, some key RTMP messages are returned.
 pub struct Rtmp {
     handshake: Handshake,
-    session: Session
+    session: Session,
 }
 
 impl Rtmp {
-
-    /// 处理Rtmp握手
-    /// 
-    /// 传入可写的buffer和results，将自动完成.
-    /// 
+    /// Handle Rtmp handshake
+    ///
+    /// Incoming writeable buffers and results will be done automatically.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -57,17 +55,17 @@ impl Rtmp {
     pub fn process_handshake(&mut self, buffer: &mut BytesMut, receiver: &mut Vec<Packet>) {
         if let Some(states) = self.handshake.process(&buffer) {
             for state in states {
-                if let Some(packet) =  self.process_state(state, buffer) {
+                if let Some(packet) = self.process_state(state, buffer) {
                     receiver.push(packet);
                 }
             }
         }
     }
 
-    /// 处理Rtmp消息
-    /// 
-    /// 传入可写的buffer和results，将自动完成.
-    /// 
+    /// Processing Rtmp messages
+    ///
+    /// Incoming writeable buffers and results will be done automatically.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -82,47 +80,40 @@ impl Rtmp {
     pub fn process_session(&mut self, buffer: &mut BytesMut, receiver: &mut Vec<Packet>) {
         if let Some(states) = self.session.process(&buffer) {
             for state in states {
-                if let Some(packet) =  self.process_state(state, buffer) {
+                if let Some(packet) = self.process_state(state, buffer) {
                     receiver.push(packet);
                 }
-            } 
+            }
         }
     }
 
-    /// 处理模块返回的操作结果
-    /// 
-    /// 结果包含多媒体数据、溢出数据、回调数据、清空控制信息.
+    /// The operation result returned by the processing module
+    ///
+    /// The results include multimedia data, overflow data, 
+    /// callback data, and clear control information.
     fn process_state(&mut self, state: State, buffer: &mut BytesMut) -> Option<Packet> {
         match state {
+            // callback data
+            // Data to be sent to the peer TcpSocket.
+            State::Callback(callback) => Some(Packet::Tcp(callback)),
+            // Event message.
+            State::Event(event, flag) => Some(Packet::Udp(event, flag)),
 
-            // 音频或者是视频数据
-            // 添加flg:
-            //   video: 0
-            //   audio: 1
-            State::Media(media) => match media {
-                Media::Video(data) => Some(Packet::Udp(data, 0u8)),
-                Media::Audio(data) => Some(Packet::Udp(data, 1u8))
-            },
-
-            // 溢出数据
-            // 重写缓冲区，将溢出数据传递到下个流程继续处理
+            // overflow data
+            // Rewrite the buffer and pass the overflow data to the 
+            // next process to continue processing.
             State::Overflow(overflow) => {
                 *buffer = BytesMut::from(&overflow[..]);
                 None
-            },
+            }
 
-            // 回调数据
-            // 需要发送给对端TcpSocket的数据
-            State::Callback(callback) => {
-                Some(Packet::Tcp(callback))
-            },
-
-            // 特殊需求
-            // 清空缓冲区，没有剩下的数据需要处理
+            // Special needs
+            // Clear the buffer, no remaining data 
+            // needs to be processed.
             State::Empty => {
                 buffer.clear();
                 None
-            },
+            }
         }
     }
 }
@@ -137,17 +128,17 @@ impl Default for Rtmp {
 }
 
 impl Codec for Rtmp {
-    fn parse (&mut self, buffer: &mut BytesMut) -> Vec<Packet> {
+    fn parse(&mut self, buffer: &mut BytesMut) -> Vec<Packet> {
         let mut receiver = Vec::new();
 
-        // 握手还未完成
-        // 交给握手模块处理Tcp数据        
+        // The handshake is not yet complete,
+        // Hand over to the handshake module to process Tcp data.
         if self.handshake.completed == false {
             self.process_handshake(buffer, &mut receiver);
         }
 
-        // 握手已完成
-        // 处理Rtmp消息
+        // The handshake is completed,
+        // Process Rtmp messages.
         if self.handshake.completed == true {
             self.process_session(buffer, &mut receiver);
         }

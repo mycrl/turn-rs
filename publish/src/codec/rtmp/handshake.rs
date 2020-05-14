@@ -1,14 +1,15 @@
 use super::State;
 use super::State::{Callback, Empty, Overflow};
+use bytes::Bytes;
 use rml_rtmp::handshake::Handshake as Handshakes;
 use rml_rtmp::handshake::HandshakeProcessResult::Completed;
 use rml_rtmp::handshake::HandshakeProcessResult::InProgress;
 use rml_rtmp::handshake::PeerType;
-use bytes::Bytes;
 
-/// RTMP 握手处理.
+/// RTMP handshake processing
 ///
-/// 注意: 目前只作为服务端处理客户端握手.
+/// Note: Currently, the client handshake is 
+/// only handled as a server.
 pub struct Handshake {
     handshakes: Handshakes,
 
@@ -17,10 +18,11 @@ pub struct Handshake {
 }
 
 impl Handshake {
-    /// 创建握手处理.
+    /// Create handshake processing
     ///
-    /// 创建握手处理类型.
-    /// 通过读取 `completed` 字段可获取握手是否完成.
+    /// Create a handshake processing instance.
+    /// You can check whether the handshake is completed by 
+    /// getting the "completed" field.
     ///
     /// # Examples
     ///
@@ -37,10 +39,11 @@ impl Handshake {
         }
     }
 
-    /// 握手处理.
+    /// Handshake processing
     ///
-    /// 处理TCP数据并返回需要返回的数据或者溢出数据.
-    /// 整个握手过程将自动完成.
+    /// Process TCP data and return data that needs to 
+    /// be returned or overflow data.
+    /// The entire handshake process will be completed automatically.
     ///
     /// # Examples
     ///
@@ -60,7 +63,7 @@ impl Handshake {
         }
     }
 
-    /// 检查握手是否有溢出数据.
+    /// Check the handshake for overflow data
     fn is_overflow(&mut self, overflow: Vec<u8>) -> State {
         match &overflow.is_empty() {
             false => Overflow(Bytes::from(overflow)),
@@ -68,9 +71,9 @@ impl Handshake {
         }
     }
 
-    /// 握手过程中的处理.
+    /// Handling during the handshake
     ///
-    /// 握手过程中会返回握手回包.
+    /// During the handshake, the handshake return packet will be returned.
     fn inprogress(&mut self, res: Vec<u8>) -> Option<Vec<State>> {
         match &res.is_empty() {
             false => Some(vec![Callback(Bytes::from(res))]),
@@ -78,10 +81,11 @@ impl Handshake {
         }
     }
 
-    /// 握手完成后的处理.
+    /// Handling after completion of handshake
     ///
-    /// 到此为止，握手完成.
-    /// 可能还会溢出未处理完成的数据，这时候应该继续交给下个流程进行处理.
+    /// At this point, the handshake is complete.
+    /// There may be overflow of unprocessed data, at this time 
+    /// should continue to be handed over to the next process.
     #[rustfmt::skip]
     fn completed(&mut self, res: Vec<u8>, remain: Vec<u8>) -> Option<Vec<State>> {
         self.completed = true;

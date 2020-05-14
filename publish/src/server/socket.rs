@@ -1,29 +1,30 @@
-use super::{Tx, transport::Transport};
+use super::{transport::Transport, Tx};
 use crate::codec::{Codec, Packet};
+use bytes::{Bytes, BytesMut};
 use futures::prelude::*;
 use std::task::{Context, Poll};
-use std::{pin::Pin, marker::Unpin};
+use std::{marker::Unpin, pin::Pin};
 use tokio::io::{AsyncRead, AsyncWrite, Error};
 use tokio::net::TcpStream;
-use bytes::{Bytes, BytesMut};
 
-/// TcpSocket实例.
-/// 
-/// 读取写入TcpSocket并通过channel返回数据.
-/// 返回的数据为Udp数据包，为适应MTU，已完成分包.
+/// TcpSocket instance
+///
+/// Read and write TcpSocket and return data through channel.
+/// The returned data is a Udp data packet. In order to adapt to MTU, 
+/// the subcontracting has been completed.
 pub struct Socket<T> {
     transport: Transport,
     stream: TcpStream,
     dgram: Tx,
-    codec: T
+    codec: T,
 }
 
-impl <T: Default + Codec + Unpin>Socket<T> {
-    /// 创建TcpSocket实例.
-    /// 
-    /// 创建实例需要指定一个`Codec`做为数据编解码器.
-    /// `Codec`处理Tcp数据，并要求给出返回的Tcp数据和Udp包.
-    /// 
+impl<T: Default + Codec + Unpin> Socket<T> {
+    /// Create a TcpSocket instance
+    ///
+    /// To create an instance, you need to specify a `Codec` as the data codec.
+    /// `Codec` processes Tcp data and asks for the returned Tcp data and Udp packet.
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -51,13 +52,13 @@ impl <T: Default + Codec + Unpin>Socket<T> {
         }
     }
 
-    /// 推送消息到channel中.
-    /// 
-    /// 将Udp包推送到channel中.
-    /// 另一端需要将数据发送到远程UdpServer.
-    /// 
+    /// Push messages to channel
+    ///
+    /// Push the Udp package to the channel.
+    /// The other end needs to send data to the remote UdpServer.
+    ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -94,13 +95,14 @@ impl <T: Default + Codec + Unpin>Socket<T> {
         }
     }
 
-    /// 发送数据到TcpSocket.
-    /// 
-    /// 将Tcp数据写入到TcpSocket.
-    /// 检查是否写入完成，如果未完全写入，写入剩余部分.
-    /// 
+    /// Send data to TcpSocket
+    ///
+    /// Write Tcp data to TcpSocket.
+    /// Check whether the writing is completed, 
+    // if not completely written, write the rest.
+    ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -138,8 +140,8 @@ impl <T: Default + Codec + Unpin>Socket<T> {
         }
     }
 
-    /// 从TcpSocket读取数据.
-    /// 
+    /// Read data from TcpSocket
+    ///
     /// TODO: 目前存在重复申请缓冲区的情况，有优化空间；
     ///
     /// # Examples
@@ -174,11 +176,11 @@ impl <T: Default + Codec + Unpin>Socket<T> {
         }
     }
 
-    /// 刷新TcpSocket缓冲区.
-    /// 
-    /// 将数据写入到TcpSocket之后，需要刷新缓冲区，
-    /// 将数据发送到对端.
-    /// 
+    /// Refresh the TcpSocket buffer
+    ///
+    /// After writing data to TcpSocket, you need to refresh 
+    /// the buffer and send the data to the peer.
+    ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
     ///s
     /// # Examples
@@ -215,10 +217,10 @@ impl <T: Default + Codec + Unpin>Socket<T> {
         }
     }
 
-    /// 尝试处理TcpSocket数据.
-    /// 
-    /// 使用`Codec`处理TcpSocket数据，
-    /// 并将返回的数据正确写入到TcpSocket或者UdpSocket.
+    /// Try to process TcpSocket data
+    ///
+    /// Use `Codec` to handle TcpSocket data,
+    /// Write the returned data to TcpSocket or UdpSocket correctly.
     ///
     /// # Examples
     ///
@@ -252,17 +254,17 @@ impl <T: Default + Codec + Unpin>Socket<T> {
                 }
             }
 
-            // 刷新TcpSocket缓冲区.
-            // 为了增加效率，将在把当前任务的所有返回数据全部
-            // 写入完成之后再统一刷新，避免不必要的频繁操作.
+            // Refresh the TcpSocket buffer. In order to increase efficiency, 
+            // all the returned data of the current task will be written and 
+            // then refreshed in a unified manner to avoid unnecessary frequent operations.
             self.flush(ctx);
         }
     }
 }
 
-impl <T: Default + Codec + Unpin>Future for Socket<T> {
+impl<T: Default + Codec + Unpin> Future for Socket<T> {
     type Output = Result<(), Error>;
-    fn poll (self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
         self.get_mut().process(ctx);
         Poll::Pending
     }

@@ -26,13 +26,13 @@
 > 并且目前只考虑H264编码.</br>
 > 对于WebRTC和VP9的支持在远期计划中.</br>
 
-* [ ] Rtmp推流处理服务(Rust).</br>
-* [ ] 推流处理服务外壳(Node.Js or Go).</br>
+* [x] Rtmp推流处理(Rust).</br>
+* [x] 推流中转封装(Node.Js).</br>
 * [ ] 负载均衡核心服务(Rust).</br>
 * [ ] 负载均衡边缘节点服务(Rust).</br>
-* [ ] 多媒体处理服务(Rust and C).</br>
-* [ ] 播放推流服务(Rust).</br>
-* [ ] 静态流服务(Rust).</br>
+* [ ] 多媒体处理(Rust and C).</br>
+* [ ] 播放拉流(Rust).</br>
+* [ ] 静态流(Rust).</br>
 
 
 ### 概述

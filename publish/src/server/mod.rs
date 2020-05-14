@@ -1,32 +1,33 @@
+pub mod dgram;
 pub mod socket;
 pub mod transport;
-pub mod dgram;
 
 use crate::codec::rtmp::Rtmp;
+use bytes::Bytes;
+use dgram::Dgram;
 use futures::prelude::*;
 use socket::Socket;
-use std::pin::Pin;
 use std::error::Error;
 use std::net::SocketAddr;
+use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
-use bytes::Bytes;
-use dgram::Dgram;
 
-/// 字节流读写管道类型.
+/// Byte stream read and write pipeline type.
 pub type Tx = mpsc::UnboundedSender<Bytes>;
 pub type Rx = mpsc::UnboundedReceiver<Bytes>;
 
-/// 服务器地址.
+/// Compound server address.
 pub struct ServerAddress {
     pub tcp: SocketAddr,
-    pub udp: SocketAddr
+    pub udp: SocketAddr,
 }
 
-/// TCP 服务器.
+/// TCP Server.
 ///
-/// 创建一个TCP服务器，绑定到指定端口地址并处理RTMP协议消息.
+/// Create a TCP server, bind to the specified port 
+/// address and process RTMP protocol messages.
 ///
 /// # Examples
 ///
@@ -41,11 +42,11 @@ pub struct ServerAddress {
 /// ```
 pub struct Server {
     tcp: TcpListener,
-    sender: Tx
+    sender: Tx,
 }
 
 impl Server {
-    /// 创建TCP服务器.
+    /// Create a TCP server.
     ///
     /// # Examples
     ///
@@ -55,12 +56,12 @@ impl Server {
     ///
     /// let addr = "0.0.0.0:1935".parse().unwrap();
     /// let (sender, _) = mpsc::unbounded_channel();
-    /// 
+    ///
     /// Server::new(addr, sender).await.unwrap();
     /// ```
     pub async fn new(addr: SocketAddr, sender: Tx) -> Result<Self, Box<dyn Error>> {
         Ok(Self {
-            sender, 
+            sender,
             tcp: TcpListener::bind(&addr).await?,
         })
     }
@@ -81,12 +82,14 @@ impl Stream for Server {
     }
 }
 
-/// 快速运行服务器
-/// 
-/// 提交便捷方法，快速运行Tcp和Udp实例.
+/// Quickly run the server
+///
+/// Submit a convenient method to quickly run Tcp and Udp instances.
 pub async fn run(addrs: ServerAddress) -> Result<(), Box<dyn Error>> {
     let (sender, receiver) = mpsc::unbounded_channel();
     let mut server = Server::new(addrs.tcp, sender).await?;
     tokio::spawn(Dgram::new(addrs.udp, receiver)?);
-    loop { server.next().await; }
+    loop {
+        server.next().await;
+    }
 }

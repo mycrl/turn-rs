@@ -1,20 +1,39 @@
 import { Duplex } from "stream"
-import { RemoteInfo } from "dgram"
 import { Message } from "./dgram"
 import { v4 } from "uuid"
 
-export enum Media {
-    Video = 0,
-    Audio = 1
+// @type
+type Values<T> = { [id: number]: T }
+type MsgItem = { update: number, end: boolean, values: Values<Buffer> }
+type SesssionItem = { update: number, values: Values<MsgItem> }
+type Transfer = { [uid: string]: SesssionItem }
+
+// 标志位类型
+export enum Flag {
+    Video = 0x00,
+    Audio = 0x01,
+    Frame = 0x02,
+    Publish = 0x03,
+    UnPublish = 0x04
 }
 
+// 有效载荷类型
+// @param {uid} 会话ID
+// @param {packet} 消息信息
 export interface Payload {
     uid: string
-    data: Buffer
+    packet: Packet
 }
 
+// 消息包类型
+// @param {flag} 标志位
+// @param {mid} 消息ID
+// @param {len} 消息长度
+// @param {pid} 包ID
+// @param {end} 包是否结束
+// @param {data} 消息数据
 export interface Packet {
-    flg: Media,
+    flag: Flag
     mid: number
     len: number
     pid: number
@@ -22,60 +41,65 @@ export interface Packet {
     data: Buffer
 }
 
+// 会话信息类型
+// @param {address} 地址
+// @param {family} 协议
+// @param {port} 端口
 export interface Info {
     address: string
     family: string
     port: number
 }
 
-type Values<T> = { [id: number]: T }
-type MsgItem = { update: number, end: boolean, values: Values<Buffer> }
-type SesssionItem = { update: number, values: Values<MsgItem> }
-type Buffers = { [uid: string]: SesssionItem }
-
-export class Decode extends Duplex {
+// 多路解复用
+// @class
+export class Yamux  extends Duplex {
     private uid: Map<Info, string>
-    private buffer: Buffers
+    private transfer: Transfer
 
+    // @constructor
     constructor () {
         super({ objectMode: true })
         this.uid = new Map()
-        this.buffer = {}
+        this.transfer = {}
     }
 
     // 解码数据包
     // @param {message} 数据包
     private decode (message: Buffer): Packet {
-        let flg = message[0]
+        let flag = message[0]
         let mid = message.readIntBE(1, 4)
         let len = message.readIntBE(5, 4)
         let pid = message[9]
         let end = message[10] == 1
         let data = message.slice(11, len)
-        return { flg, mid, len, pid, end, data }
+        return <Packet>{ 
+            flag, mid, len, 
+            pid, end, data 
+        }
     }
 
     // 获取会话信息
     // 剔除消息长度变量
     // @param {session} 远程会话信息
-    private sign (session: RemoteInfo): Info {
+    private sign (session: Message["session"]): Info {
         delete session.size
         return session
     }
 
     // 获取会话ID
     // @param {session} 会话信息
-    private forwrad (session: Info): string {
+    private forward (session: Info): string {
         if (!this.uid.has(session))
             this.uid.set(session, v4())
         return <string>this.uid.get(session)
     }
 
-    // 聚合数据
-    // TODO: 未测试可靠性
-    private join (uid: string) {
-        for (let uid in this.buffer) {
-            let mids = Object.keys(this.buffer[uid].values)
+    // 跟踪数据
+    // @param {uid} 会话ID
+    private track (uid: string) {
+        for (let uid in this.transfer) {
+            let mids = Object.keys(this.transfer[uid].values)
                 .map(Number)
                 .sort((x, y) => x - y)
             for (let mid of mids) {
@@ -96,44 +120,42 @@ export class Decode extends Duplex {
         }
     }
 
-    // 处理会话数据
-    // @param {message} 会话数据
+    // 处理Udp数据包
+    // @param [message] 数据
+    // @param [session] 会话信息
     private process ({ message, session }: Message) {
-        let uid = this.forwrad(this.sign(session))
+        let uid = this.forward(this.sign(session))
         let packet = this.decode(message)
         let date = Date.now()
 
-        // 检查消息列表是否初始化
-        if (!this.buffer[uid]) {
-            this.buffer[uid] = {
+        if (!this.transfer[uid]) {
+            this.transfer[uid] = {
                 update: 0,
                 values: {}
             }
         }
 
-        // 检查包列表是否初始化
-        if (!this.buffer[uid].values[packet.mid]) {
-            this.buffer[uid].values[packet.mid] = {
+        if (!this.transfer[uid].values[packet.mid]) {
+            this.transfer[uid].values[packet.mid] = {
                 end: false,
                 update: 0,
                 values: {}
             }
         }
 
-        // 写入包数据
-        // 聚合数据
-        this.buffer[uid]
+        this.transfer[uid]
             .update = date
-        this.buffer[uid]
+        this.transfer[uid]
             .values[packet.mid]
             .update = date
-        this.buffer[uid]
+        this.transfer[uid]
             .values[packet.mid]
             .end = packet.end
-        this.buffer[uid]
+        this.transfer[uid]
             .values[packet.mid]
             .values[packet.pid] = packet.data
-        this.join(uid)
+        
+        this.track(uid)
     }
 
     // 读取

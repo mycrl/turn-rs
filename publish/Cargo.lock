@@ -530,9 +530,9 @@ dependencies = [
 
 [[package]]
 name = "rml_rtmp"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ca6045c282e429675e3732e4d0f704c339e2e60a7b41ddc11864c48694b554c"
+checksum = "44aeb0c17edea05ac62255c40b090aeb941a715476e6962c41a093ff698bd3ba"
 dependencies = [
  "byteorder",
  "bytes",

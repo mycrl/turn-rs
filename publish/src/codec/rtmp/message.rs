@@ -1,6 +1,6 @@
-use rml_rtmp::messages::{RtmpMessage, PeerBandwidthLimitType::Hard};
-use rml_amf0::Amf0Value::{Number, Utf8String, Null, Object};
 use rml_amf0::Amf0Value;
+use rml_amf0::Amf0Value::{Null, Number, Object, Utf8String};
+use rml_rtmp::messages::{PeerBandwidthLimitType::Hard, RtmpMessage};
 
 macro_rules! hashmap {
     ($( $key: expr => $val: expr ),*) => {{
