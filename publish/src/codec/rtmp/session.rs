@@ -131,7 +131,7 @@ impl Session {
     fn publish_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
             let value = BytesMut::from(stream_name.as_str()).freeze();
-            return Some(State::Event(value, super::Flag_Publish));
+            return Some(State::Event(value, super::FLAG_PUBLISH));
         }
 
         None
@@ -144,7 +144,7 @@ impl Session {
     fn unpublish_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
             let value = BytesMut::from(stream_name.as_str()).freeze();
-            return Some(State::Event(value, super::Flag_UnPublish));
+            return Some(State::Event(value, super::FLAG_UNPUBLISH));
         }
 
         None
@@ -192,7 +192,7 @@ impl Session {
             if name.as_str() == "@setDataFrame" {
                 if let Ok(vec) = serialize(&args) {
                     let value = BytesMut::from(&vec[16..]).freeze();
-                    return Some(State::Event(value, super::Flag_Frame));
+                    return Some(State::Event(value, super::FLAG_FRAME));
                 }
             }
         }
@@ -237,9 +237,9 @@ impl Session {
                 command_object: o,
                 additional_arguments: s, ..
             } => self.process_command(n.as_str(), o, s),
+            RtmpMessage::AudioData { data } => Some(State::Event(data, super::FLAG_AUDIO)),
+            RtmpMessage::VideoData { data } => Some(State::Event(data, super::FLAG_VIDEO)),
             RtmpMessage::SetChunkSize { size } => self.set_max_size(size),
-            RtmpMessage::AudioData { data } => Some(State::Event(data, super::Flag_Audio)),
-            RtmpMessage::VideoData { data } => Some(State::Event(data, super::Flag_Video)),
             RtmpMessage::Amf0Data { values } => self.process_data(values),
             _ => None,
         }

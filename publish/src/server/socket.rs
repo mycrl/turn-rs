@@ -1,4 +1,4 @@
-use super::{transport::Transport, Tx};
+use super::Tx;
 use crate::codec::{Codec, Packet};
 use bytes::{Bytes, BytesMut};
 use futures::prelude::*;
@@ -13,7 +13,6 @@ use tokio::net::TcpStream;
 /// The returned data is a Udp data packet. In order to adapt to MTU, 
 /// the subcontracting has been completed.
 pub struct Socket<T> {
-    transport: Transport,
     stream: TcpStream,
     dgram: Tx,
     codec: T,
@@ -48,14 +47,13 @@ impl<T: Default + Codec + Unpin> Socket<T> {
             dgram,
             stream,
             codec: T::default(),
-            transport: Transport::new(1000),
         }
     }
 
     /// Push messages to channel
     ///
-    /// Push the Udp package to the channel.
-    /// The other end needs to send data to the remote UdpServer.
+    /// Push the chunk package to the channel.
+    /// The other end needs to send data to the remote TcpServer.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
     ///
@@ -84,13 +82,11 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     /// }
     /// ```
     #[rustfmt::skip]
-    pub fn push(&mut self, data: Bytes, flgs: u8) {
-        for chunk in self.transport.packet(data, flgs) {
-            loop {
-                match self.dgram.send(chunk.clone()) {
-                    Ok(_) => { break; },
-                    _ => (),
-                }
+    pub fn push(&mut self, data: Bytes, flag: u8) {
+        loop {
+            match self.dgram.send((flag, data.clone())) {
+                Ok(_) => { break; },
+                _ => (),
             }
         }
     }
@@ -249,8 +245,8 @@ impl<T: Default + Codec + Unpin> Socket<T> {
         while let Some(mut chunk) = self.read(ctx) {
             for packet in self.codec.parse(&mut chunk) {
                 match packet {
-                    Packet::Tcp(data) => self.send(ctx, &data),
-                    Packet::Udp(data, flgs) => self.push(data, flgs),
+                    Packet::Peer(data) => self.send(ctx, &data),
+                    Packet::Core(data, flag) => self.push(data, flag),
                 }
             }
 

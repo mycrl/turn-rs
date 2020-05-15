@@ -1,10 +1,10 @@
-pub mod dgram;
 pub mod socket;
 pub mod transport;
+pub mod forward;
 
 use crate::codec::rtmp::Rtmp;
 use bytes::Bytes;
-use dgram::Dgram;
+use forward::Forward;
 use futures::prelude::*;
 use socket::Socket;
 use std::error::Error;
@@ -15,13 +15,13 @@ use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 
 /// Byte stream read and write pipeline type.
-pub type Tx = mpsc::UnboundedSender<Bytes>;
-pub type Rx = mpsc::UnboundedReceiver<Bytes>;
+pub type Tx = mpsc::UnboundedSender<(u8, Bytes)>;
+pub type Rx = mpsc::UnboundedReceiver<(u8, Bytes)>;
 
 /// Compound server address.
-pub struct ServerAddress {
-    pub tcp: SocketAddr,
-    pub udp: SocketAddr,
+pub struct ServerAddr {
+    pub consume: SocketAddr,
+    pub produce: SocketAddr,
 }
 
 /// TCP Server.
@@ -85,10 +85,11 @@ impl Stream for Server {
 /// Quickly run the server
 ///
 /// Submit a convenient method to quickly run Tcp and Udp instances.
-pub async fn run(addrs: ServerAddress) -> Result<(), Box<dyn Error>> {
+pub async fn run(addrs: ServerAddr) -> Result<(), Box<dyn Error>> {
     let (sender, receiver) = mpsc::unbounded_channel();
-    let mut server = Server::new(addrs.tcp, sender).await?;
-    tokio::spawn(Dgram::new(addrs.udp, receiver)?);
+    let forward = Forward::new(addrs.produce, receiver).await?;
+    let mut server = Server::new(addrs.consume, sender).await?;
+    tokio::spawn(forward);
     loop {
         server.next().await;
     }

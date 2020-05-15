@@ -1,141 +1,156 @@
-//! UDP transport module
+//! transport module
 //!
 //! ### Protocol definition
 //!
-//! |  name  |  flag  |  message id  |  len   |  package id  |  package is end  |  data  |
-//! |--------|--------|--------------|--------|--------------|------------------|--------|
-//! |  len   |  1byte |  4byte       |  4byte |  1byte       |  1byte           |  x     |
-//! |  data  |  x     |  x           |  x     |  x           |  0 | 1           |  x     |
+//! |  name  |  fixed header   |  flag   |  body len   |  body  |
+//! |--------|-----------------|---------|-------------|--------|
+//! |  len   |  4byte          |  1byte  |  4byte      |  x     |
+//! |  data  |  0x99999909     |  x      |  x          |  x     |
 //!
 //! * `flag` Flag bit, user defined.
-//! * `message id` Message ID, the serial number of the current message.
-//! * `len` Packet length.
-//! * `package id` Package ID, the serial number of the current package.
-//! * `package is end` Whether the current packet is over, not over 0, over 1.
+//! * `body len` Packet length.
 //!
-//! TODO:
-//! 消息序号最大为u32, 对端应该自动溢出归0;
+//! 
 
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-/// UDP transport module.
+/// Transport Protocol Codec
 ///
-/// Processing audio and video data, packaging audio and
-/// video data into Udp packets, and automatically processing 
-/// the maximum transmission unit limit.
+/// Implementation of internal Tcp transfer protocol,
+/// Including encoder and decoder.
+#[allow(dead_code)]
 pub struct Transport {
-    max_index: u32,
-    index: u32,
-    mtu: u32,
+    buffer: BytesMut
 }
 
 impl Transport {
-    /// Create a transport instance
-    ///
-    /// The maximum transmission unit size should be specified when initializing the instance.
-    /// Note: The maximum transmission unit size does not represent the final 
-    /// size of the data packet. The module will write some control information and 
-    /// sequence number to attach to the data packet, so pay attention to leaving 
-    /// about 12 bytes of redundancy here.
-    ///
+    /// Create a transshipment agreement example
+    /// 
     /// # Examples
     ///
     /// ```no_run
-    /// use transport::Transport;
-    ///
-    /// Transport::new(1000);
+    /// let mut transport = Transport::new();
+    /// let mut buffer = BytesMut::new();
+    /// 
+    /// buffer.put(transport.encode(Bytes::from("hello"), 1));
+    /// buffer.put(transport.encode(Bytes::from("world"), 2));
+    /// 
+    /// let result = transport.decode(buffer.freeze());
+    /// assert_eq!(result, Some(vec![
+    ///     (1, Bytes::from("hello")),
+    ///     (2, Bytes::from("world"))
+    /// ]));
     /// ```
-    pub fn new(mtu: u32) -> Self {
-        Self {
-            mtu,
-            index: 0,
-            max_index: u32::max_value(),
+    pub fn new() -> Self {
+        Self { 
+            buffer: BytesMut::new()
         }
     }
 
-    /// Create Udp packet
-    ///
-    /// According to MTU, it is automatically divided into multiple 
-    /// Udp data packets, and the packet sequence number and control 
-    /// information are marked (whether it is over).
-    ///
-    /// TODO: 未解决问题，对端会收到空包，但是长度为8;
-    ///
+    /// Encode data into protocol frames
+    /// 
+    /// The user can define the flag bit to indicate the 
+    /// type of the current data frame. It does not consider 
+    /// too many complicated implementations, but simply 
+    /// distinguishes the packet type. The actual specific 
+    /// data requires the user to decode the data frame.
+    /// 
     /// # Examples
     ///
     /// ```no_run
-    /// use transport::Transport;
-    ///
-    /// let mut transport = Transport::new(1000);
-    /// transport.packet(b"hello");
+    /// let mut transport = Transport::new();
+    /// let mut buffer = BytesMut::new();
+    /// 
+    /// transport.encoder(Bytes::from("hello"), 1)
     /// ```
-    pub fn packet(&mut self, chunk: Bytes, flgs: u8) -> Vec<Bytes> {
-        // MTU size
-        // Packet size
-        let size = self.mtu as usize;
-        let sum_size = chunk.len();
+    #[rustfmt::skip]
+    #[allow(dead_code)]
+    pub fn encoder(&mut self, chunk: Bytes, flag: u8) -> Bytes {
+        let mut packet = BytesMut::new();
+        let size = chunk.len() as u32;
 
-        // Udp package list
-        // Offset to write data
-        // Package serial number
-        let mut packets = Vec::new();
-        let mut offset: usize = 0;
-        let mut index: u8 = 0;
+        // Write fixed head
+        packet.extend_from_slice(&[
 
-        // Infinite loop
-        // Until the allocation is completed
+            // head
+            0x99, 
+            0x99,
+            0x99,
+
+            // fixed header size
+            0x09
+        ]);
+
+        // Write flag
+        // Write body length
+        packet.put_u8(flag);
+        packet.put_u32(size);
+
+        // Write body
+        packet.extend_from_slice(&chunk);
+
+        // Returns bytes
+        packet.freeze()
+    }
+
+    /// Decode protocol frames
+    /// 
+    /// Write data shards, try to decode all data shards, 
+    /// maintain a buffer internally, and automatically 
+    /// accumulate data that has not been processed for 
+    /// the next time
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let mut transport = Transport::new();
+    /// let mut buffer = BytesMut::new();
+    /// 
+    /// buffer.put(transport.encoder(Bytes::from("hello"), 1));
+    /// buffer.put(transport.encoder(Bytes::from("world"), 2));
+    /// 
+    /// transport.decoder(buffer.freeze())
+    /// ```
+    #[rustfmt::skip]
+    #[allow(dead_code)]
+    pub fn decoder(&mut self, chunk: Bytes) -> Option<Vec<(u8, Bytes)>> {
+        self.buffer.extend_from_slice(&chunk);
+        let mut receiver = Vec::new();
+
         loop {
-            let mut package = BytesMut::new();
 
-            // To avoid overflowing access to pointers
-            // If it exceeds the range, only the maximum range is specified
-            let end = if offset + size > sum_size {
-                sum_size
-            } else {
-                offset + size
-            };
-
-            // write mark bit
-            // Write message sequence number
-            // Write packet sequence number
-            package.put_u8(flgs);
-            package.put_u32(self.index);
-            package.put_u32((end - offset) as u32);
-            package.put_u8(index);
-
-            // Check if the package is over
-            // If finished, write end bit
-            if sum_size == end {
-                package.put_u8(1u8);
-            } else {
-                package.put_u8(0u8);
-            }
-
-            // Write data in the data packet range
-            // Add the packet to the list
-            package.extend_from_slice(&chunk[offset..end]);
-            packets.push(package.freeze());
-
-            // If the writing has been completed, 
-            // the loop will jump out, If the writing 
-            // is not completed, adjust the offset and 
-            // serial number.
-            if sum_size == end {
+            // Check the fixed head
+            let head = self.buffer.get_u32();
+            if head != 0x99999909 {
                 break;
-            } else {
-                index += 1;
-                offset = end;
+            }
+
+            // Get the flag
+            // Get body length
+            // Check if the body meets the length
+            let flag = self.buffer.get_u8();
+            let size = self.buffer.get_u32() as usize;
+            let last = self.buffer.remaining();
+            if last < size {
+                break;
+            }
+
+            // Get data frame
+            let body = BytesMut::from(&self.buffer[0..size]);
+            receiver.push((flag, body.freeze()));
+            self.buffer.advance(size);
+
+            // Check whether the remaining data is sufficient 
+            // to complete the next analysis, otherwise please 
+            // do not waste time.
+            if self.buffer.len() < 10 {
+                break;
             }
         }
 
-        // Check if the maximum value of U32 is exceeded
-        // If the maximum value is exceeded, then return to zero.
-        if self.index + 1 > self.max_index {
-            self.index = 0;
-        } else {
-            self.index += 1;
+        match &receiver.is_empty() {
+            false => Some(receiver),
+            true => None
         }
-
-        packets
     }
 }

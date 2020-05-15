@@ -8,11 +8,11 @@ use handshake::Handshake;
 use session::Session;
 
 /// Message flag
-pub const Flag_Video: u8 = 0;
-pub const Flag_Audio: u8 = 1;
-pub const Flag_Frame: u8 = 2;
-pub const Flag_Publish: u8 = 3;
-pub const Flag_UnPublish: u8 = 4;
+pub const FLAG_VIDEO: u8 = 0;
+pub const FLAG_AUDIO: u8 = 1;
+pub const FLAG_FRAME: u8 = 2;
+pub const FLAG_PUBLISH: u8 = 3;
+pub const FLAG_UNPUBLISH: u8 = 4;
 
 /// process result
 pub enum State {
@@ -95,9 +95,9 @@ impl Rtmp {
         match state {
             // callback data
             // Data to be sent to the peer TcpSocket.
-            State::Callback(callback) => Some(Packet::Tcp(callback)),
+            State::Callback(callback) => Some(Packet::Peer(callback)),
             // Event message.
-            State::Event(event, flag) => Some(Packet::Udp(event, flag)),
+            State::Event(event, flag) => Some(Packet::Core(event, flag)),
 
             // overflow data
             // Rewrite the buffer and pass the overflow data to the 

@@ -9,10 +9,10 @@ use bytes::{Bytes, BytesMut};
 
 /// Data packets returned by the codec
 pub enum Packet {
-    /// Tcp message
-    Tcp(Bytes),
+    /// Peer message
+    Peer(Bytes),
     /// Udp message, including flag
-    Udp(Bytes, u8),
+    Core(Bytes, u8),
 }
 
 pub trait Codec {
