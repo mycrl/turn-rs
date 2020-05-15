@@ -3,7 +3,7 @@ use super::message::{CONNECT, CREATE_STREAM, PUBLISH};
 use rml_rtmp::chunk_io::{ChunkDeserializer, ChunkSerializer, Packet};
 use rml_rtmp::{messages::RtmpMessage, time::RtmpTimestamp};
 use rml_amf0::{Amf0Value, serialize};
-use bytes::{BufMut, BytesMut};
+use bytes::{Bytes, BufMut, BytesMut};
 
 /// Handle Rtmp session information
 ///
@@ -78,9 +78,12 @@ impl Session {
     ///
     /// Consume Tcp data and get Rtmp messages.
     /// Convert Result to Option.
-    fn get_message(&mut self, chunk: &[u8]) -> Option<RtmpMessage> {
+    fn get_message(&mut self, chunk: &[u8]) -> Option<(u32, RtmpMessage)> {
         if let Ok(Some(payload)) = self.decoder.get_next_message(chunk) {
-            return payload.to_rtmp_message().ok();
+            let timestamp = payload.timestamp.value;
+            if let Ok(message) = payload.to_rtmp_message() {
+                return Some((timestamp, message));
+            }
         }
 
         None
@@ -224,21 +227,32 @@ impl Session {
         }
     }
 
+    /// Packaging media data
+    /// 
+    /// Append the timestamp to the data header 
+    /// to synchronize the timestamp of the peer.
+    fn packet_media(&mut self, timestamp: u32, payload: Bytes, flag: u8) -> Option<State> {
+        let mut package = BytesMut::new();
+        package.put_u32(timestamp);
+        package.extend_from_slice(&payload);
+        Some(State::Event(package.freeze(), flag))
+    }
+
     /// Processing Rtmp messages
     ///
     /// Currently only deals with basic messages,
     /// Only to extract audio and video data.
     ///
     /// TODO: 健壮性问题;
-    fn process_message(&mut self, message: RtmpMessage) -> Option<State> {
-        match message {
+    fn process_message(&mut self, message: (u32, RtmpMessage)) -> Option<State> {
+        match message.1 {
             RtmpMessage::Amf0Command {
                 command_name: n,
                 command_object: o,
                 additional_arguments: s, ..
             } => self.process_command(n.as_str(), o, s),
-            RtmpMessage::AudioData { data } => Some(State::Event(data, super::FLAG_AUDIO)),
-            RtmpMessage::VideoData { data } => Some(State::Event(data, super::FLAG_VIDEO)),
+            RtmpMessage::AudioData { data } => self.packet_media(message.0, data, super::FLAG_AUDIO),
+            RtmpMessage::VideoData { data } => self.packet_media(message.0, data, super::FLAG_VIDEO),
             RtmpMessage::SetChunkSize { size } => self.set_max_size(size),
             RtmpMessage::Amf0Data { values } => self.process_data(values),
             _ => None,

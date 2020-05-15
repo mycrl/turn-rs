@@ -48,8 +48,8 @@ export class Flv extends Duplex {
         tag[6] = timestamp & 0xff
         tag[7] = (timestamp >> 24) & 0xff
         tag.writeUIntBE(0, 8, 3)
-        data.copy(tag, 11)
         tag.writeUInt32BE(size, size)
+        data.copy(tag, 11)
         return tag
     }
 
@@ -82,35 +82,37 @@ export class Flv extends Duplex {
 
     // 创建媒体信息
     // @param {data} 媒体数据
-    private createMetaData (data: Buffer) {
-        return this.createFLV(data, MediaType.MetaData)
+    private createMetaData (data: Buffer, timestamp = 0) {
+        return this.createFLV(data, MediaType.MetaData, timestamp)
     }
 
     // 创建音频信息
     // @param {data} 音频数据
-    private createAudio (data: Buffer) {
-        return this.createFLV(data, MediaType.Audio)
+    private createAudio (data: Buffer, timestamp = 0) {
+        return this.createFLV(data, MediaType.Audio, timestamp)
     }
 
     // 创建视频信息
     // @param {data} 视频数据
-    private createVideo (data: Buffer) {
-        return this.createFLV(data, MediaType.Video)
+    private createVideo (data: Buffer, timestamp = 0) {
+        return this.createFLV(data, MediaType.Video, timestamp)
     }
     
     // 写入
     // @param {chunk} 消息
     // @param {callback} 回调
-    public _write (chunk: Packet, _: string, callback: any): void {
+    public _write (chunk: Packet, _: string, callback: any) {
         if (chunk.flag === FLAG_FRAME) {
             this.push(this.createHeader(HeaderType.AudioAndVideo))
             this.push(this.createMetaData(chunk.body))
         } else
         if (chunk.flag === FLAG_AUDIO) {
-            this.push(this.createAudio(chunk.body))
+            let timestamp = chunk.body.readUInt32BE(0)
+            this.push(this.createAudio(chunk.body.slice(4), timestamp))
         } else
         if (chunk.flag === FLAG_VIDEO) {
-            this.push(this.createVideo(chunk.body))
+            let timestamp = chunk.body.readUInt32BE(0)
+            this.push(this.createVideo(chunk.body.slice(4), timestamp))
         }
 
         callback(null)
@@ -118,7 +120,7 @@ export class Flv extends Duplex {
     
     // 完成
     // @param {callback} 回调
-    public _final (callback: any): void {
+    public _final (callback: any) {
         callback(null)
     }
 }
