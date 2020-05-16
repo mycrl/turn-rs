@@ -1,0 +1,15 @@
+[profile.release]
+opt-level = 3
+overflow-checks = true
+lto = true
+
+[workspace]
+members = [
+    "balance",
+    "exchange",
+    "lib/flv",
+    "lib/rtmp",
+    "lib/transport",
+    "publish",
+    "pull"
+]
