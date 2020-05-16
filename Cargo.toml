@@ -10,6 +10,7 @@ members = [
     "lib/flv",
     "lib/rtmp",
     "lib/transport",
+    "lib/configure",
     "publish",
     "pull"
 ]
