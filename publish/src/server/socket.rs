@@ -14,7 +14,7 @@ use tokio::net::TcpStream;
 /// the subcontracting has been completed.
 pub struct Socket<T> {
     stream: TcpStream,
-    dgram: Tx,
+    forward: Tx,
     codec: T,
 }
 
@@ -42,10 +42,10 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     ///     }
     /// }
     /// ```
-    pub fn new(stream: TcpStream, dgram: Tx) -> Self {
+    pub fn new(stream: TcpStream, forward: Tx) -> Self {
         Self {
-            dgram,
             stream,
+            forward,
             codec: T::default(),
         }
     }
@@ -56,35 +56,10 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     /// The other end needs to send data to the remote TcpServer.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use bytes::Bytes;
-    /// use std::error::Error;
-    /// use futures::future::poll_fn;
-    /// use tokio::net::TcpListener;
-    /// use socket::Socket;
-    /// use rtmp::Rtmp;
-    ///
-    /// async fn main() -> Result<(), Box<dyn Error>> {
-    ///     let addr = "0.0.0.0:1935".parse().unwrap();
-    ///     let mut listener = TcpListener::bind(&addr).await?;
-    ///
-    ///     loop {
-    ///         let (stream, _) = listener.accept().await?;
-    ///         let socket = Socket::<Rtmp>::new(stream);
-    ///
-    ///         poll_fn(|cx| {
-    ///             socket.push(cx, Bytes::from(b"hello"));
-    ///         });
-    ///     }
-    /// }
-    /// ```
     #[rustfmt::skip]
-    pub fn push(&mut self, data: BytesMut, flag: u8) {
+    fn push(&mut self, data: BytesMut, flag: u8) {
         loop {
-            match self.dgram.send((flag, data.clone())) {
+            match self.forward.send((flag, data.clone())) {
                 Ok(_) => { break; },
                 _ => (),
             }
@@ -98,32 +73,8 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     // if not completely written, write the rest.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use std::error::Error;
-    /// use futures::future::poll_fn;
-    /// use tokio::net::TcpListener;
-    /// use socket::Socket;
-    /// use rtmp::Rtmp;
-    ///
-    /// async fn main() -> Result<(), Box<dyn Error>> {
-    ///     let addr = "0.0.0.0:1935".parse().unwrap();
-    ///     let mut listener = TcpListener::bind(&addr).await?;
-    ///
-    ///     loop {
-    ///         let (stream, _) = listener.accept().await?;
-    ///         let socket = Socket::<Rtmp>::new(stream);
-    ///
-    ///         poll_fn(|cx| {
-    ///             socket.send(cx, &[0, 1, 2]);
-    ///         });
-    ///     }
-    /// }
-    /// ```
     #[rustfmt::skip]
-    pub fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) {
+    fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) {
         let mut offset: usize = 0;
         let length = data.len();
         loop {
@@ -139,32 +90,8 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     /// Read data from TcpSocket
     ///
     /// TODO: 目前存在重复申请缓冲区的情况，有优化空间；
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use std::error::Error;
-    /// use futures::future::poll_fn;
-    /// use tokio::net::TcpListener;
-    /// use socket::Socket;
-    /// use rtmp::Rtmp;
-    ///
-    /// async fn main() -> Result<(), Box<dyn Error>> {
-    ///     let addr = "0.0.0.0:1935".parse().unwrap();
-    ///     let mut listener = TcpListener::bind(&addr).await?;
-    ///
-    ///     loop {
-    ///         let (stream, _) = listener.accept().await?;
-    ///         let socket = Socket::<Rtmp>::new(stream);
-    ///
-    ///         poll_fn(|cx| {
-    ///             socket.read(cx);
-    ///         });
-    ///     }
-    /// }
-    /// ```
     #[rustfmt::skip]
-    pub fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<BytesMut> {
+    fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<BytesMut> {
         let mut receiver = [0u8; 2048];
         match Pin::new(&mut self.stream).poll_read(ctx, &mut receiver) {
             Poll::Ready(Ok(s)) if s > 0 => Some(BytesMut::from(&receiver[0..s])),
@@ -178,33 +105,8 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     /// the buffer and send the data to the peer.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
-    ///s
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use std::error::Error;
-    /// use futures::future::poll_fn;
-    /// use tokio::net::TcpListener;
-    /// use socket::Socket;
-    /// use rtmp::Rtmp;
-    ///
-    /// async fn main() -> Result<(), Box<dyn Error>> {
-    ///     let addr = "0.0.0.0:1935".parse().unwrap();
-    ///     let mut listener = TcpListener::bind(&addr).await?;
-    ///
-    ///     loop {
-    ///         let (stream, _) = listener.accept().await?;
-    ///         let socket = Socket::<Rtmp>::new(stream);
-    ///
-    ///         poll_fn(|cx| {
-    ///             socket.read(cx, 128);
-    ///             socket.flush(cx);
-    ///         });
-    ///     }
-    /// }
-    /// ```
     #[rustfmt::skip]
-    pub fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
+    fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
         loop {
             match Pin::new(&mut self.stream).poll_flush(ctx) {
                 Poll::Ready(Ok(_)) => { break; },
@@ -217,31 +119,8 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     ///
     /// Use `Codec` to handle TcpSocket data,
     /// Write the returned data to TcpSocket or UdpSocket correctly.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use std::error::Error;
-    /// use futures::future::poll_fn;
-    /// use tokio::net::TcpListener;
-    /// use socket::Socket;
-    /// use rtmp::Rtmp;
-    ///
-    /// async fn main() -> Result<(), Box<dyn Error>> {
-    ///     let addr = "0.0.0.0:1935".parse().unwrap();
-    ///     let mut listener = TcpListener::bind(&addr).await?;
-    ///     
-    ///     loop {
-    ///         let (stream, _) = listener.accept().await?;
-    ///         let socket = Socket::<Rtmp>::new(stream);
-    ///
-    ///         poll_fn(|cx| {
-    ///             socket.process(cx);
-    ///         });
-    ///     }
-    /// }
     /// ```
-    pub fn process<'b>(&mut self, ctx: &mut Context<'b>) {
+    fn process<'b>(&mut self, ctx: &mut Context<'b>) {
         while let Some(mut chunk) = self.read(ctx) {
             for packet in self.codec.parse(&mut chunk) {
                 match packet {

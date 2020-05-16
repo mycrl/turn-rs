@@ -17,10 +17,12 @@ This is a new attempt and a good start, Hope to rely on Rust's high performance 
                                         +---------+    +----------+    +------+
                                push ->  | publish | -> | exchange | -> | pull | -> player
                                         +---------+    +----------+    +------+
-                                                            |
-                                                        +--------+           
-                                                        | static |  
-                                                        +--------+
+                                                         
+                                                         \----------------/
+                                                                  |
+                                                             +--------+           
+                                                             | static |  
+                                                             +--------+
 ```
 
 
