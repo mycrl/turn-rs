@@ -6,6 +6,7 @@ use std::error::Error;
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
 use tokio::net::TcpListener;
+use socket::Socket;
 
 pub struct Server {
     tcp: TcpListener,
@@ -40,7 +41,7 @@ impl Stream for Server {
         let handle = self.get_mut();
         match handle.tcp.poll_accept(ctx) {
             Poll::Ready(Ok((socket, _))) => {
-                
+                tokio::spawn(Socket::new(socket));
                 Poll::Ready(Some(Ok(())))
             }, _ => Poll::Pending
         }

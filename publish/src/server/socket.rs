@@ -119,7 +119,6 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     ///
     /// Use `Codec` to handle TcpSocket data,
     /// Write the returned data to TcpSocket or UdpSocket correctly.
-    /// ```
     fn process<'b>(&mut self, ctx: &mut Context<'b>) {
         while let Some(mut chunk) = self.read(ctx) {
             for packet in self.codec.parse(&mut chunk) {
