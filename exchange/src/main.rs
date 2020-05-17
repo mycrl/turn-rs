@@ -1,5 +1,5 @@
 mod server;
-mod peer;
+mod shared;
 
 fn main() {
     println!("Hello, world!");
