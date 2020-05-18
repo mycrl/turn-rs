@@ -12,10 +12,11 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
+use transport::Flag;
 
 /// Byte stream read and write pipeline type.
-pub type Tx = mpsc::UnboundedSender<(u8, BytesMut)>;
-pub type Rx = mpsc::UnboundedReceiver<(u8, BytesMut)>;
+pub type Tx = mpsc::UnboundedSender<(Flag, BytesMut)>;
+pub type Rx = mpsc::UnboundedReceiver<(Flag, BytesMut)>;
 
 /// Compound server address.
 pub struct ServerAddr {

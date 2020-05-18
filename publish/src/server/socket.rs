@@ -6,6 +6,7 @@ use std::task::{Context, Poll};
 use std::{marker::Unpin, pin::Pin};
 use tokio::io::{AsyncRead, AsyncWrite, Error};
 use tokio::net::TcpStream;
+use transport::Flag;
 
 /// TcpSocket instance
 ///
@@ -57,7 +58,7 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
     #[rustfmt::skip]
-    fn push(&mut self, data: BytesMut, flag: u8) {
+    fn push(&mut self, data: BytesMut, flag: Flag) {
         loop {
             match self.forward.send((flag, data.clone())) {
                 Ok(_) => { break; },

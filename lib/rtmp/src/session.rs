@@ -4,6 +4,7 @@ use rml_rtmp::chunk_io::{ChunkDeserializer, ChunkSerializer, Packet};
 use rml_rtmp::{messages::RtmpMessage, time::RtmpTimestamp};
 use rml_amf0::{Amf0Value, serialize};
 use bytes::{Bytes, BufMut, BytesMut};
+use transport::*;
 
 /// Handle Rtmp session information
 ///
@@ -13,7 +14,7 @@ pub struct Session {
     decoder: ChunkDeserializer,
     encoder: ChunkSerializer,
     app: Option<String>,
-    stream: Option<String>,
+    key: Option<String>,
 }
 
 impl Session {
@@ -32,7 +33,7 @@ impl Session {
     pub fn new() -> Self {
         Self {
             app: None,
-            stream: None,
+            key: None,
             decoder: ChunkDeserializer::new(),
             encoder: ChunkSerializer::new(),
         }
@@ -79,14 +80,12 @@ impl Session {
     /// Consume Tcp data and get Rtmp messages.
     /// Convert Result to Option.
     fn get_message(&mut self, chunk: &[u8]) -> Option<(u32, RtmpMessage)> {
-        if let Ok(Some(payload)) = self.decoder.get_next_message(chunk) {
-            let timestamp = payload.timestamp.value;
-            if let Ok(message) = payload.to_rtmp_message() {
-                return Some((timestamp, message));
-            }
+        match self.decoder.get_next_message(chunk) {
+            Ok(Some(payload)) => match payload.to_rtmp_message() {
+                Ok(message) => Some((payload.timestamp.value, message)),
+                _ => None
+            }, _ => None
         }
-
-        None
     }
 
     /// Set the maximum shard size
@@ -121,7 +120,7 @@ impl Session {
     /// Get the stream name of the push stream and store it inside the instance.
     fn release_stream_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
-            self.stream = Some(stream_name.to_string());
+            self.key = Some(stream_name.to_string());
         }
 
         None
@@ -133,8 +132,11 @@ impl Session {
     /// to facilitate business backends to do push flow processing.
     fn publish_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
-            let value = BytesMut::from(stream_name.as_str());
-            return Some(State::Event(value, super::FLAG_PUBLISH));
+            let timestamp = 0;
+            let data = BytesMut::new();
+            let name = stream_name.to_string();
+            let payload = Payload { name, timestamp, data };
+            return Some(State::Event(payload, Flag::Publish));
         }
 
         None
@@ -146,8 +148,11 @@ impl Session {
     /// to facilitate business backends to do push flow processing.
     fn unpublish_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
-            let value = BytesMut::from(stream_name.as_str());
-            return Some(State::Event(value, super::FLAG_UNPUBLISH));
+            let timestamp = 0;
+            let data = BytesMut::new();
+            let name = stream_name.to_string();
+            let payload = Payload { name, timestamp, data };
+            return Some(State::Event(payload, Flag::UnPublish));
         }
 
         None
@@ -193,9 +198,12 @@ impl Session {
     fn process_data(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(name)) = args.get(0) {
             if name.as_str() == "@setDataFrame" {
-                if let Ok(vec) = serialize(&args) {
-                    let value = BytesMut::from(&vec[16..]);
-                    return Some(State::Event(value, super::FLAG_FRAME));
+                if let (Ok(vec), Some(stream_name)) = (serialize(&args), self.app.as_ref()) {
+                    let timestamp = 0;
+                    let data = BytesMut::from(&vec[16..]);
+                    let name = stream_name.to_string();
+                    let payload = Payload { name, timestamp, data };
+                    return Some(State::Event(payload, Flag::Frame));
                 }
             }
         }
@@ -231,11 +239,11 @@ impl Session {
     /// 
     /// Append the timestamp to the data header 
     /// to synchronize the timestamp of the peer.
-    fn packet_media(&mut self, timestamp: u32, payload: Bytes, flag: u8) -> Option<State> {
-        let mut package = BytesMut::new();
-        package.put_u32(timestamp);
-        package.extend_from_slice(&payload);
-        Some(State::Event(package, flag))
+    fn packet_media(&mut self, timestamp: u32, payload: Bytes, flag: Flag) -> Option<State> {
+        let data = BytesMut::from(&payload[..]);
+        let name = self.app.as_ref()?.to_string();
+        let payload = Payload { name, timestamp, data };
+        Some(State::Event(payload, flag))
     }
 
     /// Processing Rtmp messages
@@ -251,8 +259,8 @@ impl Session {
                 command_object: o,
                 additional_arguments: s, ..
             } => self.process_command(n.as_str(), o, s),
-            RtmpMessage::AudioData { data } => self.packet_media(message.0, data, super::FLAG_AUDIO),
-            RtmpMessage::VideoData { data } => self.packet_media(message.0, data, super::FLAG_VIDEO),
+            RtmpMessage::AudioData { data } => self.packet_media(message.0, data, Flag::Audio),
+            RtmpMessage::VideoData { data } => self.packet_media(message.0, data, Flag::Video),
             RtmpMessage::SetChunkSize { size } => self.set_max_size(size),
             RtmpMessage::Amf0Data { values } => self.process_data(values),
             _ => None,

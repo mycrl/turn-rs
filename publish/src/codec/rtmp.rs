@@ -1,5 +1,6 @@
 use super::{Codec, Packet};
 use rtmp::{Handshake, Session, State};
+use transport::Transport;
 use bytes::BytesMut;
 
 /// Rtmp protocol processing
@@ -70,9 +71,15 @@ impl Rtmp {
         match state {
             // callback data
             // Data to be sent to the peer TcpSocket.
-            State::Callback(callback) => Some(Packet::Peer(callback)),
+            State::Callback(callback) => {
+                Some(Packet::Peer(callback))
+            },
+
             // Event message.
-            State::Event(event, flag) => Some(Packet::Core(event, flag)),
+            State::Event(payload, flag) => {
+                let data = Transport::packet(payload);
+                Some(Packet::Core(data, flag))
+            },
 
             // overflow data
             // Rewrite the buffer and pass the overflow data to the 

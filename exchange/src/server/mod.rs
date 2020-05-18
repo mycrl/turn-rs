@@ -1,15 +1,17 @@
 pub mod socket;
 
+use crate::peer::Peer;
 use futures::prelude::*;
-use std::pin::Pin;
+use socket::Socket;
 use std::error::Error;
 use std::net::SocketAddr;
+use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::net::TcpListener;
-use socket::Socket;
 
 pub struct Server {
     tcp: TcpListener,
+    peer: Peer,
 }
 
 impl Server {
@@ -29,6 +31,7 @@ impl Server {
     pub async fn new(addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
         Ok(Self {
             tcp: TcpListener::bind(&addr).await?,
+            peer: Peer::new(),
         })
     }
 }
@@ -41,7 +44,7 @@ impl Stream for Server {
         let handle = self.get_mut();
         match handle.tcp.poll_accept(ctx) {
             Poll::Ready(Ok((socket, _))) => {
-                tokio::spawn(Socket::new(socket));
+                tokio::spawn(Socket::new(socket, handle.peer.sender.clone()));
                 Poll::Ready(Some(Ok(())))
             }, _ => Poll::Pending
         }

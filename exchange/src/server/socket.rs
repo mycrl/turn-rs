@@ -1,20 +1,33 @@
+use crate::peer::{Tx, WRx};
+use bytes::BytesMut;
 use futures::prelude::*;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, Error};
 use tokio::net::TcpStream;
-use transport::Transport;
-use bytes::BytesMut;
+use transport::*;
+
+pub enum StreamType {
+    Undefined,
+    Publish,
+    Pull,
+}
 
 pub struct Socket {
-    stream: TcpStream,
+    r#type: StreamType,
     transport: Transport,
+    stream: TcpStream,
+    receiver: Option<WRx>,
+    sender: Tx,
 }
 
 impl Socket {
-    pub fn new(stream: TcpStream) -> Self {
+    pub fn new(stream: TcpStream, sender: Tx) -> Self {
         Self {
             stream,
+            sender,
+            receiver: None,
+            r#type: StreamType::Undefined,
             transport: Transport::new(),
         }
     }
@@ -22,7 +35,7 @@ impl Socket {
     /// Send data to TcpSocket
     ///
     /// Write Tcp data to TcpSocket.
-    /// Check whether the writing is completed, 
+    /// Check whether the writing is completed,
     // if not completely written, write the rest.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
@@ -56,7 +69,7 @@ impl Socket {
 
     /// Refresh the TcpSocket buffer
     ///
-    /// After writing data to TcpSocket, you need to refresh 
+    /// After writing data to TcpSocket, you need to refresh
     /// the buffer and send the data to the peer.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
@@ -78,8 +91,29 @@ impl Socket {
     #[rustfmt::skip]
     fn process<'b>(&mut self, ctx: &mut Context<'b>) {
         while let Some(chunk) = self.read(ctx) {
-            if let Some(results) = self.transport.decoder(chunk) {
+            if let Some(result) = self.transport.decoder(chunk) {
+                for message in result {
+                    match self.r#type {
+                        StreamType::Publish => {
+                            
+                        },
+                        StreamType::Pull => {
 
+                        },
+                        StreamType::Undefined => {
+                            match message.0 {
+                                Flag::Publish => {
+                                    self.r#type = StreamType::Publish;
+                                    self.sender.send(message.1).unwrap();
+                                },
+                                Flag::Pull => {
+                                    self.r#type = StreamType::Pull;
+                                },
+                                _ => (),
+                            }
+                        }
+                    }
+                }
             }
         }
     }

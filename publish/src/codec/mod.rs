@@ -6,6 +6,7 @@
 mod rtmp;
 
 pub use self::rtmp::Rtmp;
+use transport::Flag;
 use bytes::BytesMut;
 
 /// Data packets returned by the codec
@@ -13,7 +14,7 @@ pub enum Packet {
     /// Peer message
     Peer(BytesMut),
     /// Udp message, including flag
-    Core(BytesMut, u8),
+    Core(BytesMut, Flag),
 }
 
 pub trait Codec {
