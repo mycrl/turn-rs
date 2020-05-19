@@ -1,7 +1,7 @@
 # Quasipaa
 
 Build a large-scale high-availability and high-performance streaming media cluster mainly built with Rust programming language,
-This is a new attempt and a good start, Hope to rely on Rust's high performance and elegant design to go further and further in the field of streaming media.
+This is a new attempt and a good start, Hope to rely on Rust's high performance and elegant design to go further and further in the field of streaming media.（算了，我目前决定还是部分Rust吧）
 
 
 ### Design

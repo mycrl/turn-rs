@@ -150,7 +150,7 @@ impl Transport {
     /// Write data shards, try to decode all data shards, 
     /// maintain a buffer internally, and automatically 
     /// accumulate data that has not been processed for 
-    /// the next time
+    /// the next time.
     /// 
     /// # Examples
     ///
@@ -171,14 +171,28 @@ impl Transport {
 
         loop {
 
+            // Check whether the remaining data is sufficient 
+            // to complete the next analysis, otherwise please 
+            // do not waste time.
+            if self.buffer.len() < 9 {
+                break;
+            }
+
+            // Get the fixed head
+            let head = u32::from_be_bytes([
+                self.buffer[0],
+                self.buffer[1],
+                self.buffer[2],
+                self.buffer[3]
+            ]);
+
             // Check the fixed head
-            let head = self.buffer.get_u32();
             if head != 0x99999909 {
                 break;
             }
 
             // Get the flag
-            let flag = match self.buffer.get_u8() {
+            let flag = match self.buffer[4] {
                 0 => Flag::Video,
                 1 => Flag::Audio,
                 2 => Flag::Frame,
@@ -189,24 +203,23 @@ impl Transport {
             };
 
             // Get body length
+            let size = u32::from_be_bytes([
+                self.buffer[5],
+                self.buffer[6],
+                self.buffer[7],
+                self.buffer[8]
+            ]) as usize;
+
             // Check if the body meets the length
-            let size = self.buffer.get_u32() as usize;
-            let last = self.buffer.remaining();
-            if last < size {
+            let sum_size = size + 9;
+            if sum_size > self.buffer.len() {
                 break;
             }
 
             // Get data frame
-            let body = BytesMut::from(&self.buffer[0..size]);
+            let body = BytesMut::from(&self.buffer[9..sum_size]);
             receiver.push((flag, body));
-            self.buffer.advance(size);
-
-            // Check whether the remaining data is sufficient 
-            // to complete the next analysis, otherwise please 
-            // do not waste time.
-            if self.buffer.len() < 10 {
-                break;
-            }
+            self.buffer.advance(sum_size);
         }
 
         match &receiver.is_empty() {
