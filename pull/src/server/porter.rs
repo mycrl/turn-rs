@@ -1,10 +1,10 @@
 use super::{Event, Rx, Tx};
 use bytes::BytesMut;
 use futures::prelude::*;
-use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
-use std::{io::Error, pin::Pin};
+use std::{io::Error, pin::Pin, sync::Arc};
+use std::collections::{HashMap, HashSet};
 use tokio::{io::AsyncRead, io::AsyncWrite, net::TcpStream};
 use transport::{Flag, Payload, Transport};
 
@@ -139,7 +139,7 @@ impl Porter {
                 for (flag, message) in result {
                     if let Ok(payload) = Transport::parse(message) {
                         if let Some(peer) = self.peer.get_mut(&payload.name) {
-                            Self::process_payload(peer, flag, payload);
+                            Self::process_payload(peer, flag, Arc::new(payload));
                         }
                     }
                 }
@@ -156,7 +156,7 @@ impl Porter {
     /// TODO: 目前可以优化管道传递，
     /// 可以修改为引用传递，
     /// 这样就无需每次都复制一份数据.
-    fn process_payload(peer: &mut Vec<Tx>, flag: Flag, payload: Payload) {
+    fn process_payload(peer: &mut Vec<Tx>, flag: Flag, payload: Arc<Payload>) {
         let mut failure = Vec::new();
         for (index, tx) in peer.iter().enumerate() {
             let event = Event::Bytes(flag, payload.clone());

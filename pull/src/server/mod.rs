@@ -5,6 +5,7 @@ use futures::prelude::*;
 use transport::{Flag, Payload};
 use porter::Porter;
 use socket::Socket;
+use std::sync::Arc;
 use std::{io::Error, pin::Pin};
 use std::net::{SocketAddr, TcpListener};
 use std::task::{Context, Poll};
@@ -17,7 +18,7 @@ pub type Tx = mpsc::UnboundedSender<Event>;
 /// 事件
 pub enum Event {
     Subscribe(String, Tx),
-    Bytes(Flag, Payload),
+    Bytes(Flag, Arc<Payload>),
 }
 
 /// 服务器地址

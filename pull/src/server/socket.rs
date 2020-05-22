@@ -1,5 +1,6 @@
 use super::{Event, Rx, Tx};
 use futures::prelude::*;
+use std::sync::Arc;
 use std::net::TcpStream;
 use std::task::{Context, Poll};
 use std::{error::Error, pin::Pin};
@@ -37,8 +38,8 @@ impl Socket {
     /// 打包FLV TAG
     /// 
     /// 需要指定不同的tag类型来打包数据.
-    fn packet_binary_tag(payload: Payload, tag: flv::Tag) -> Message {
-        let data = payload.data;
+    fn packet_binary_tag(payload: Arc<Payload>, tag: flv::Tag) -> Message {
+        let data = &payload.data;
         let timestamp = payload.timestamp;
         let flv_packet = flv::encode_tag(&data, tag, timestamp);
         Message::Binary(flv_packet.to_vec())
@@ -79,7 +80,7 @@ impl Socket {
     /// 并且没有处理关闭的Result，如果出现预想中的极端情况，
     /// 这里可能会有问题.
     #[rustfmt::skip]
-    fn packet(&mut self, flag: Flag, payload: Payload) {
+    fn packet(&mut self, flag: Flag, payload: Arc<Payload>) {
         let mut result = Vec::new();
 
         // flv包数据

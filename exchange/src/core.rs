@@ -1,23 +1,23 @@
 use std::collections::HashMap;
-use tokio::sync::watch;
+use tokio::sync::mpsc;
 use bytes::BytesMut;
+use std::sync::Arc;
 
-pub type Tx = watch::Sender<BytesMut>;
-pub type Rx = watch::Receiver<BytesMut>;
-
-pub struct Line {
-    receiver: Rx,
-    sender: Tx,
+/// 事件
+pub enum Event {
+    Subscribe(String, Tx),
+    Publish(String, Rx),
+    Bytes(Arc<BytesMut>),
 }
 
+/// 事件传递通道
+pub type Rx = mpsc::UnboundedReceiver<Event>;
+pub type Tx = mpsc::UnboundedSender<Event>;
+
+
+/// 核心
 pub struct Core {
-    lines: HashMap<String, Line>,
-}
-
-impl Core {
-    pub fn new() -> Self {
-        Self {
-            lines: HashMap::new(),
-        }
-    }
+    publish: HashMap<String, Rx>,
+    pull: HashMap<String, Vec<Tx>>,
+    frame: HashMap<String, BytesMut>
 }
