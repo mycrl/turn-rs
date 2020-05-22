@@ -62,7 +62,7 @@ impl Socket {
     fn accept(stream: TcpStream, sender: Tx, local_sender: Tx) ->  Result<WebSocket<TcpStream>, Box<dyn Error>> {
         Ok(accept_hdr(stream, move |req: &Request, mut response: Response| {
             let app_name = req.uri().path().to_string().split_off(1);
-            if let Err(_) = sender.send(Event::Subscribe(app_name, local_sender)) {
+            if sender.send(Event::Subscribe(app_name, local_sender)).is_err() {
                 *response.status_mut() = StatusCode::NOT_FOUND;
             }
 
@@ -107,7 +107,7 @@ impl Socket {
         // 如果发送失败，默认连接失效，
         // 这里将关闭连接.
         for message in result {
-            if let Err(_) = self.socket.write_message(message) {
+            if self.socket.write_message(message).is_err() {
                 self.socket.close(None).unwrap();
                 self.receiver.close();
             }

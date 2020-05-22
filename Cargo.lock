@@ -178,14 +178,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "events"
-version = "0.1.0"
-dependencies = [
- "futures",
- "tokio",
-]
-
-[[package]]
 name = "exchange"
 version = "0.1.0"
 dependencies = [
