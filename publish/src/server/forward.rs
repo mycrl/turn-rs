@@ -80,6 +80,22 @@ impl Forward {
         }
     }
 
+    /// Refresh the TcpSocket buffer
+    ///
+    /// After writing data to TcpSocket, you need to refresh 
+    /// the buffer and send the data to the peer.
+    ///
+    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
+    #[rustfmt::skip]
+    fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
+        loop {
+            match Pin::new(&mut self.stream).poll_flush(ctx) {
+                Poll::Ready(Ok(_)) => { break; },
+                _ => (),
+            }
+        }
+    }
+
     /// Handling pipeline messages
     /// 
     /// Try to process the backlog message in the 
