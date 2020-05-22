@@ -14,7 +14,6 @@ use transport::Transport;
 /// TODO: 单路TCP负载能力有限，
 /// 计划使用多路合并来提高传输能力;
 pub struct Forward {
-    transport: Transport,
     stream: TcpStream,
     receiver: Rx,
 }
@@ -41,7 +40,6 @@ impl Forward {
     pub async fn new(addr: SocketAddr, receiver: Rx) -> Result<Self, Error> {
         Ok(Self {
             receiver,
-            transport: Transport::new(),
             stream: TcpStream::connect(addr).await?
         })
     }
@@ -67,6 +65,22 @@ impl Forward {
         }
     }
 
+    /// Refresh the TcpSocket buffer
+    ///
+    /// After writing data to TcpSocket, you need to refresh 
+    /// the buffer and send the data to the peer.
+    ///
+    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
+    #[rustfmt::skip]
+    fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
+        loop {
+            match Pin::new(&mut self.stream).poll_flush(ctx) {
+                Poll::Ready(Ok(_)) => { break; },
+                _ => (),
+            }
+        }
+    }
+
     /// Handling pipeline messages
     /// 
     /// Try to process the backlog message in the 
@@ -76,8 +90,9 @@ impl Forward {
     #[rustfmt::skip]
     fn process<'b>(&mut self, ctx: &mut Context<'b>) {
         while let Poll::Ready(Some((flag, data))) = Pin::new(&mut self.receiver).poll_next(ctx) {
-            let buffer = self.transport.encoder(data, flag);
+            let buffer = Transport::encoder(data, flag);
             self.send(ctx, &buffer);
+            self.flush(ctx);
         }
     }
 }

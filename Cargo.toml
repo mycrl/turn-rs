@@ -9,6 +9,7 @@ members = [
     "exchange",
     "lib/flv",
     "lib/rtmp",
+    "lib/events",
     "lib/transport",
     "lib/configure",
     "publish",

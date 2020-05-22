@@ -16,7 +16,7 @@ use bytes::{Buf, BufMut, BytesMut};
 
 /// message type
 #[repr(u8)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Flag {
     Video = 0,
     Audio = 1,
@@ -28,6 +28,7 @@ pub enum Flag {
 }
 
 /// 数据包定义
+#[derive(Clone, Debug)]
 pub struct Payload {
     pub timestamp: u32,
     pub name: String,
@@ -117,7 +118,7 @@ impl Transport {
     /// ```
     #[rustfmt::skip]
     #[allow(dead_code)]
-    pub fn encoder(&mut self, chunk: BytesMut, flag: Flag) -> BytesMut {
+    pub fn encoder(chunk: BytesMut, flag: Flag) -> BytesMut {
         let mut packet = BytesMut::new();
         let size = chunk.len() as u32;
 
