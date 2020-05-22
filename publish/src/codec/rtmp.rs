@@ -115,13 +115,13 @@ impl Codec for Rtmp {
 
         // The handshake is not yet complete,
         // Hand over to the handshake module to process Tcp data.
-        if self.handshake.completed == false {
+        if !self.handshake.completed {
             self.process_handshake(buffer, &mut receiver);
         }
 
         // The handshake is completed,
         // Process Rtmp messages.
-        if self.handshake.completed == true {
+        if self.handshake.completed {
             self.process_session(buffer, &mut receiver);
         }
 

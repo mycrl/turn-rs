@@ -60,9 +60,8 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     #[rustfmt::skip]
     fn push(&mut self, data: BytesMut, flag: Flag) {
         loop {
-            match self.forward.send((flag, data.clone())) {
-                Ok(_) => { break; },
-                _ => (),
+            if self.forward.send((flag, data.clone())).is_ok() {
+                break;
             }
         }
     }
@@ -79,11 +78,11 @@ impl<T: Default + Codec + Unpin> Socket<T> {
         let mut offset: usize = 0;
         let length = data.len();
         loop {
-            match Pin::new(&mut self.stream).poll_write(ctx, &data) {
-                Poll::Ready(Ok(s)) => match &offset + &s >= length {
+            if let Poll::Ready(Ok(s)) = Pin::new(&mut self.stream).poll_write(ctx, &data) {
+                 match offset + s >= length {
                     false => { offset += s; },
                     true => { break; }
-                }, _ => (),
+                }
             }
         }
     }
@@ -109,9 +108,8 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     #[rustfmt::skip]
     fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
         loop {
-            match Pin::new(&mut self.stream).poll_flush(ctx) {
-                Poll::Ready(Ok(_)) => { break; },
-                _ => (),
+            if let Poll::Ready(Ok(_)) = Pin::new(&mut self.stream).poll_flush(ctx) {
+                break;
             }
         }
     }

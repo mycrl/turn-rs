@@ -40,6 +40,7 @@ pub struct Payload {
 /// Implementation of internal Tcp transfer protocol,
 /// Including encoder and decoder.
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct Transport {
     buffer: BytesMut
 }

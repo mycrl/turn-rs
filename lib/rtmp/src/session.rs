@@ -267,3 +267,9 @@ impl Session {
         }
     }
 }
+
+impl Default for Session {
+    fn default() -> Self {
+        Self::new()
+    }
+}

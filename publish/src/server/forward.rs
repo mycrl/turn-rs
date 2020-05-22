@@ -56,11 +56,26 @@ impl Forward {
         let mut offset: usize = 0;
         let length = data.len();
         loop {
-            match Pin::new(&mut self.stream).poll_write(ctx, &data) {
-                Poll::Ready(Ok(s)) => match &offset + &s >= length {
+            if let Poll::Ready(Ok(s)) = Pin::new(&mut self.stream).poll_write(ctx, &data) {
+                match offset + s >= length {
                     false => { offset += s; },
                     true => { break; }
-                }, _ => (),
+                }
+            }
+        }
+    }
+
+    /// Refresh the TcpSocket buffer
+    ///
+    /// After writing data to TcpSocket, you need to refresh 
+    /// the buffer and send the data to the peer.
+    ///
+    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
+    #[rustfmt::skip]
+    fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
+        loop {
+            if let Poll::Ready(Ok(_)) = Pin::new(&mut self.stream).poll_flush(ctx) {
+                break;
             }
         }
     }

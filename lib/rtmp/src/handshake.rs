@@ -98,3 +98,9 @@ impl Handshake {
         }
     }
 }
+
+impl Default for Handshake {
+    fn default() -> Self {
+        Self::new()
+    }
+}

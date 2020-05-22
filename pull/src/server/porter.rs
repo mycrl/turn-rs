@@ -64,11 +64,11 @@ impl Porter {
         let mut offset: usize = 0;
         let length = data.len();
         loop {
-            match Pin::new(&mut self.stream).poll_write(ctx, &data) {
-                Poll::Ready(Ok(s)) => match &offset + &s >= length {
+            if let Poll::Ready(Ok(s)) = Pin::new(&mut self.stream).poll_write(ctx, &data) {
+                 match offset + s >= length {
                     false => { offset += s; },
                     true => { break; }
-                }, _ => (),
+                }
             }
         }
     }
@@ -82,9 +82,8 @@ impl Porter {
     #[rustfmt::skip]
     fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
         loop {
-            match Pin::new(&mut self.stream).poll_flush(ctx) {
-                Poll::Ready(Ok(_)) => { break; },
-                _ => (),
+            if let Poll::Ready(Ok(_)) = Pin::new(&mut self.stream).poll_flush(ctx) {
+                break;
             }
         }
     }
@@ -113,7 +112,7 @@ impl Porter {
     /// 将管道和频道对应绑定.
     fn subscribe<'b>(&mut self, ctx: &mut Context<'b>, name: String, sender: Tx) {
         self.peer_subscribe(ctx, name.clone());
-        let peers = self.peer.entry(name).or_insert(Vec::new());
+        let peers = self.peer.entry(name).or_insert_with(Vec::new);
         peers.push(sender);
     }
 
@@ -161,7 +160,7 @@ impl Porter {
         let mut failure = Vec::new();
         for (index, tx) in peer.iter().enumerate() {
             let event = Event::Bytes(flag, payload.clone());
-            if let Err(_) = tx.send(event) {
+            if tx.send(event).is_err() {
                 failure.push(index);
             }
         }
