@@ -8,9 +8,14 @@ edition = "2018"
 tungstenite = "0.10.1"
 bytes = "0.5.4"
 futures = "0.3"
+http = "0.2"
 
 [dependencies.flv]
 path = "../lib/flv"
 
 [dependencies.transport]
 path = "../lib/transport"
+
+[dependencies.tokio]
+version = "0.2"
+features = ["full"]

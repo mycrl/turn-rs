@@ -1,5 +1,5 @@
 [package]
-name = "quasipaa"
+name = "publish"
 version = "0.1.0"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 edition = "2018"
