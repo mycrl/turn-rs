@@ -5,10 +5,10 @@ mod handshake;
 mod message;
 mod session;
 
+use bytes::BytesMut;
 pub use handshake::Handshake;
 pub use session::Session;
-use transport::{Payload, Flag};
-use bytes::BytesMut;
+use transport::{Flag, Payload};
 
 /// process result
 pub enum State {

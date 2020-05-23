@@ -10,7 +10,7 @@
 //! * `flag` Flag bit, user defined.
 //! * `body len` Packet length.
 //!
-//! 
+//!
 
 use bytes::{Buf, BufMut, BytesMut};
 
@@ -24,7 +24,7 @@ pub enum Flag {
     Publish = 3,
     UnPublish = 4,
     Pull = 5,
-    None
+    None,
 }
 
 /// 数据包定义
@@ -42,21 +42,21 @@ pub struct Payload {
 #[allow(dead_code)]
 #[derive(Default)]
 pub struct Transport {
-    buffer: BytesMut
+    buffer: BytesMut,
 }
 
 impl Transport {
     /// Create a transshipment agreement example
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let mut transport = Transport::new();
     /// let mut buffer = BytesMut::new();
-    /// 
+    ///
     /// buffer.put(transport.encode(BytesMut::from("hello"), 1));
     /// buffer.put(transport.encode(BytesMut::from("world"), 2));
-    /// 
+    ///
     /// let result = transport.decode(buffer.freeze());
     /// assert_eq!(result, Some(vec![
     ///     (1, BytesMut::from("hello")),
@@ -64,13 +64,13 @@ impl Transport {
     /// ]));
     /// ```
     pub fn new() -> Self {
-        Self { 
-            buffer: BytesMut::new()
+        Self {
+            buffer: BytesMut::new(),
         }
     }
 
     /// 打包RTMP数据
-    /// 
+    ///
     /// 打包RTMP数据，并包含数据的频道和时间戳信息.
     /// 注意：如果没有时间戳，应该为0.
     pub fn packet(payload: Payload) -> BytesMut {
@@ -98,23 +98,27 @@ impl Transport {
         let timestamp = buffer.get_u32();
         let data = buffer.split_off(size as usize);
         let name = String::from_utf8(buffer.to_vec())?;
-        Ok(Payload { timestamp, name, data })
+        Ok(Payload {
+            timestamp,
+            name,
+            data,
+        })
     }
 
     /// Encode data into protocol frames
-    /// 
-    /// The user can define the flag bit to indicate the 
-    /// type of the current data frame. It does not consider 
-    /// too many complicated implementations, but simply 
-    /// distinguishes the packet type. The actual specific 
+    ///
+    /// The user can define the flag bit to indicate the
+    /// type of the current data frame. It does not consider
+    /// too many complicated implementations, but simply
+    /// distinguishes the packet type. The actual specific
     /// data requires the user to decode the data frame.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let mut transport = Transport::new();
     /// let mut buffer = BytesMut::new();
-    /// 
+    ///
     /// transport.encoder(Bytes::from("hello"), 1)
     /// ```
     #[rustfmt::skip]
@@ -148,21 +152,21 @@ impl Transport {
     }
 
     /// Decode protocol frames
-    /// 
-    /// Write data shards, try to decode all data shards, 
-    /// maintain a buffer internally, and automatically 
-    /// accumulate data that has not been processed for 
+    ///
+    /// Write data shards, try to decode all data shards,
+    /// maintain a buffer internally, and automatically
+    /// accumulate data that has not been processed for
     /// the next time.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let mut transport = Transport::new();
     /// let mut buffer = BytesMut::new();
-    /// 
+    ///
     /// buffer.put(transport.encoder(Bytes::from("hello"), 1));
     /// buffer.put(transport.encoder(Bytes::from("world"), 2));
-    /// 
+    ///
     /// transport.decoder(buffer.freeze())
     /// ```
     #[rustfmt::skip]

@@ -25,6 +25,7 @@ pub enum Tag {
 /// Timestamp and TimestampExtended form the 
 /// PTS information of this TAG packet data, 
 /// PTS = Timestamp | TimestampExtended << 24.
+#[rustfmt::skip]
 pub fn encode_tag(data: &[u8], tag: Tag, timestamp: u32) -> BytesMut {
     let mut buffer = BytesMut::new();
     let data_size = data.len();
@@ -63,6 +64,7 @@ pub fn encode_tag(data: &[u8], tag: Tag, timestamp: u32) -> BytesMut {
 /// Generally, the first 13 bytes of FLV 
 /// (flv header + PreviousTagSize0) are 
 /// exactly the same.
+#[rustfmt::skip]
 pub fn encode_header(head: Header) -> BytesMut {
     let flag = match head {
         Header::Audio => 0x04,

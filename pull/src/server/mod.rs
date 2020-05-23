@@ -2,14 +2,14 @@ mod porter;
 mod socket;
 
 use futures::prelude::*;
-use transport::{Flag, Payload};
 use porter::Porter;
 use socket::Socket;
-use std::sync::Arc;
-use std::{io::Error, pin::Pin};
 use std::net::{SocketAddr, TcpListener};
+use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::{io::Error, pin::Pin};
 use tokio::sync::mpsc;
+use transport::{Flag, Payload};
 
 /// 事件传递通道
 pub type Rx = mpsc::UnboundedReceiver<Event>;
@@ -28,7 +28,7 @@ pub struct ServerAddr {
 }
 
 /// Tcp服务器
-/// 
+///
 /// 主要处理WebSocket连接,
 /// 对其他类型的不处理.
 pub struct Server {
@@ -62,7 +62,7 @@ impl Stream for Server {
 }
 
 /// 快速运行服务
-/// 
+///
 /// 提供简单方便的服务器启动入口.
 pub async fn run(addrs: ServerAddr) -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = mpsc::unbounded_channel();

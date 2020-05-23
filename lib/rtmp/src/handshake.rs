@@ -1,14 +1,14 @@
 use super::State;
 use super::State::{Callback, Empty, Overflow};
+use bytes::BytesMut;
 use rml_rtmp::handshake::Handshake as Handshakes;
 use rml_rtmp::handshake::HandshakeProcessResult::Completed;
 use rml_rtmp::handshake::HandshakeProcessResult::InProgress;
 use rml_rtmp::handshake::PeerType;
-use bytes::BytesMut;
 
 /// RTMP handshake processing
 ///
-/// Note: Currently, the client handshake is 
+/// Note: Currently, the client handshake is
 /// only handled as a server.
 pub struct Handshake {
     handshakes: Handshakes,
@@ -21,7 +21,7 @@ impl Handshake {
     /// Create handshake processing
     ///
     /// Create a handshake processing instance.
-    /// You can check whether the handshake is completed by 
+    /// You can check whether the handshake is completed by
     /// getting the "completed" field.
     ///
     /// # Examples
@@ -41,7 +41,7 @@ impl Handshake {
 
     /// Handshake processing
     ///
-    /// Process TCP data and return data that needs to 
+    /// Process TCP data and return data that needs to
     /// be returned or overflow data.
     /// The entire handshake process will be completed automatically.
     ///
@@ -84,7 +84,7 @@ impl Handshake {
     /// Handling after completion of handshake
     ///
     /// At this point, the handshake is complete.
-    /// There may be overflow of unprocessed data, at this time 
+    /// There may be overflow of unprocessed data, at this time
     /// should continue to be handed over to the next process.
     #[rustfmt::skip]
     fn completed(&mut self, res: Vec<u8>, remain: Vec<u8>) -> Option<Vec<State>> {

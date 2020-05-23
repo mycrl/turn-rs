@@ -1,7 +1,7 @@
 use super::{Codec, Packet};
+use bytes::BytesMut;
 use rtmp::{Handshake, Session, State};
 use transport::Transport;
-use bytes::BytesMut;
 
 /// Rtmp protocol processing
 ///
@@ -65,24 +65,22 @@ impl Rtmp {
 
     /// The operation result returned by the processing module
     ///
-    /// The results include multimedia data, overflow data, 
+    /// The results include multimedia data, overflow data,
     /// callback data, and clear control information.
     fn process_state(&mut self, state: State, buffer: &mut BytesMut) -> Option<Packet> {
         match state {
             // callback data
             // Data to be sent to the peer TcpSocket.
-            State::Callback(callback) => {
-                Some(Packet::Peer(callback))
-            },
+            State::Callback(callback) => Some(Packet::Peer(callback)),
 
             // Event message.
             State::Event(payload, flag) => {
                 let data = Transport::packet(payload);
                 Some(Packet::Core(data, flag))
-            },
+            }
 
             // overflow data
-            // Rewrite the buffer and pass the overflow data to the 
+            // Rewrite the buffer and pass the overflow data to the
             // next process to continue processing.
             State::Overflow(overflow) => {
                 *buffer = BytesMut::from(&overflow[..]);
@@ -90,7 +88,7 @@ impl Rtmp {
             }
 
             // Special needs
-            // Clear the buffer, no remaining data 
+            // Clear the buffer, no remaining data
             // needs to be processed.
             State::Empty => {
                 buffer.clear();
