@@ -81,6 +81,13 @@ impl Router {
                 Flag::Pull => { self.pull.entry(channel).or_insert_with(HashSet::new).insert(name); },
                 _ => (),
             };
+            
+            // 如果是负载信息，
+            // 则跳过并不广播给其他客户端，
+            // 因为这是一个交换中心自己使用的数据.
+            if let Flag::Avg = flag {
+                return;
+            }
 
             // 将打包好的消息广播到
             // 所有已订阅的节点.

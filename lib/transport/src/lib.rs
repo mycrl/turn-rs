@@ -24,6 +24,7 @@ pub enum Flag {
     Publish = 3,
     UnPublish = 4,
     Pull = 5,
+    Avg = 6,
     None,
 }
 
