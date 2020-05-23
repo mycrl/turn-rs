@@ -1,9 +1,9 @@
 use super::{Event, Rx, Tx};
 use bytes::BytesMut;
 use futures::prelude::*;
-use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
+use std::collections::{HashMap, HashSet};
 use std::{io::Error, pin::Pin, sync::Arc, io::ErrorKind};
 use tokio::{io::AsyncRead, io::AsyncWrite, net::TcpStream};
 use transport::{Flag, Payload, Transport};
