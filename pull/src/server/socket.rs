@@ -82,7 +82,7 @@ impl Socket {
     /// 并且没有处理关闭的Result，如果出现预想中的极端情况，
     /// 这里可能会有问题.
     #[rustfmt::skip]
-    fn packet(&mut self, flag: Flag, payload: Arc<Payload>) {
+    fn packet(&mut self, flag: Flag, payload: Arc<Payload>) -> Result<(), Box<dyn Error>> {
         let mut result = Vec::new();
 
         // flv包数据
@@ -110,30 +110,31 @@ impl Socket {
         // 如果发送失败，默认连接失效，
         // 这里将关闭连接.
         for message in result {
-            if self.socket.write_message(message).is_err() {
-                self.socket.close(None).unwrap();
-                self.receiver.close();
-            }
+            self.socket.write_message(message)?;
         }
+
+        Ok(())
     }
 
     /// 尝试处理返回事件
     ///
     /// 注意: 这里只处理部分事件,
     /// 比如媒体数据包事件.
-    fn process<'b>(&mut self, ctx: &mut Context<'b>) {
-        while let Poll::Ready(Some(event)) = Pin::new(&mut self.receiver).poll_next(ctx) {
+    fn process<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Box<dyn Error>> {
+        Ok(while let Poll::Ready(Some(event)) = Pin::new(&mut self.receiver).poll_next(ctx) {
             if let Event::Bytes(flag, payload) = event {
-                self.packet(flag, payload);
+                self.packet(flag, payload)?;
             }
-        }
+        })
     }
 }
 
 impl Future for Socket {
     type Output = Result<(), std::io::Error>;
     fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        self.get_mut().process(ctx);
-        Poll::Pending
+        match self.get_mut().process(ctx) {
+            Ok(_) => Poll::Pending,
+            Err(_) => Poll::Ready(Ok(()))
+        }
     }
 }
