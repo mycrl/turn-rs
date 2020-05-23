@@ -133,15 +133,11 @@ impl Session {
     /// to facilitate business backends to do push flow processing.
     fn publish_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
-            let timestamp = 0;
-            let data = BytesMut::new();
-            let name = stream_name.to_string();
-            let payload = Payload {
-                name,
-                timestamp,
-                data,
-            };
-            return Some(State::Event(payload, Flag::Publish));
+            return Some(State::Event(Payload {
+                timestamp: 0,
+                name: stream_name.to_string(),
+                data: BytesMut::new(),
+            }, Flag::Publish));
         }
 
         None
@@ -153,15 +149,11 @@ impl Session {
     /// to facilitate business backends to do push flow processing.
     fn unpublish_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
-            let timestamp = 0;
-            let data = BytesMut::new();
-            let name = stream_name.to_string();
-            let payload = Payload {
-                name,
-                timestamp,
-                data,
-            };
-            return Some(State::Event(payload, Flag::UnPublish));
+            return Some(State::Event(Payload {
+                timestamp: 0,
+                name: stream_name.to_string(),
+                data: BytesMut::new(),
+            }, Flag::UnPublish));
         }
 
         None
@@ -208,15 +200,11 @@ impl Session {
         if let Some(Amf0Value::Utf8String(name)) = args.get(0) {
             if name.as_str() == "@setDataFrame" {
                 if let (Ok(vec), Some(stream_name)) = (serialize(&args), self.app.as_ref()) {
-                    let timestamp = 0;
-                    let data = BytesMut::from(&vec[16..]);
-                    let name = stream_name.to_string();
-                    let payload = Payload {
-                        name,
-                        timestamp,
-                        data,
-                    };
-                    return Some(State::Event(payload, Flag::Frame));
+                    return Some(State::Event(Payload {
+                        timestamp: 0,
+                        name: stream_name.to_string(),
+                        data: BytesMut::from(&vec[16..]),
+                    }, Flag::Frame));
                 }
             }
         }
@@ -253,14 +241,11 @@ impl Session {
     /// Append the timestamp to the data header
     /// to synchronize the timestamp of the peer.
     fn packet_media(&mut self, timestamp: u32, payload: Bytes, flag: Flag) -> Option<State> {
-        let data = BytesMut::from(&payload[..]);
-        let name = self.app.as_ref()?.to_string();
-        let payload = Payload {
-            name,
+        Some(State::Event(Payload {
             timestamp,
-            data,
-        };
-        Some(State::Event(payload, flag))
+            name: self.app.as_ref()?.to_string(),
+            data: BytesMut::from(&payload[..]),
+        }, flag))
     }
 
     /// Processing Rtmp messages
