@@ -4,7 +4,8 @@ use bytes::BytesMut;
 use futures::prelude::*;
 use std::task::{Context, Poll};
 use std::{marker::Unpin, pin::Pin};
-use tokio::io::{AsyncRead, AsyncWrite, Error};
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{Error, ErrorKind};
 use tokio::net::TcpStream;
 use transport::Flag;
 
@@ -55,14 +56,11 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     ///
     /// Push the chunk package to the channel.
     /// The other end needs to send data to the remote TcpServer.
-    ///
-    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
     #[rustfmt::skip]
-    fn push(&mut self, data: BytesMut, flag: Flag) {
-        loop {
-            if self.forward.send((flag, data.clone())).is_ok() {
-                break;
-            }
+    fn push(&mut self, data: BytesMut, flag: Flag) -> Result<(), Error> {
+        match self.forward.send((flag, data)) {
+            Err(e) => Err(Error::new(ErrorKind::BrokenPipe, e.to_string())),
+            Ok(_) => Ok(())
         }
     }
 
@@ -71,20 +69,21 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     /// Write Tcp data to TcpSocket.
     /// Check whether the writing is completed,
     // if not completely written, write the rest.
-    ///
-    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
     #[rustfmt::skip]
-    fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) {
+    fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) -> Result<(), Error> {
         let mut offset: usize = 0;
         let length = data.len();
         loop {
-            if let Poll::Ready(Ok(s)) = Pin::new(&mut self.stream).poll_write(ctx, &data) {
-                 match offset + s >= length {
+            match Pin::new(&mut self.stream).poll_write(ctx, &data) {
+                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); }, 
+                Poll::Ready(Ok(s)) => match offset + s >= length {
                     false => { offset += s; },
                     true => { break; }
-                }
+                }, _ => (),
             }
         }
+
+        Ok(())
     }
 
     /// Read data from TcpSocket
@@ -103,42 +102,48 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     ///
     /// After writing data to TcpSocket, you need to refresh
     /// the buffer and send the data to the peer.
-    ///
-    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
     #[rustfmt::skip]
-    fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
+    fn flush<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
         loop {
-            if let Poll::Ready(Ok(_)) = Pin::new(&mut self.stream).poll_flush(ctx) {
-                break;
+            match Pin::new(&mut self.stream).poll_flush(ctx) {
+                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); },
+                Poll::Ready(Ok(_)) => { break; },
+                _ => (),
             }
         }
+
+        Ok(())
     }
 
     /// Try to process TcpSocket data
     ///
     /// Use `Codec` to handle TcpSocket data,
     /// Write the returned data to TcpSocket or UdpSocket correctly.
-    fn process<'b>(&mut self, ctx: &mut Context<'b>) {
+    fn process<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
         while let Some(mut chunk) = self.read(ctx) {
             for packet in self.codec.parse(&mut chunk) {
                 match packet {
-                    Packet::Peer(data) => self.send(ctx, &data),
-                    Packet::Core(data, flag) => self.push(data, flag),
+                    Packet::Peer(data) => self.send(ctx, &data)?,
+                    Packet::Core(data, flag) => self.push(data, flag)?,
                 }
             }
 
             // Refresh the TcpSocket buffer. In order to increase efficiency,
             // all the returned data of the current task will be written and
             // then refreshed in a unified manner to avoid unnecessary frequent operations.
-            self.flush(ctx);
+            self.flush(ctx)?;
         }
+
+        Ok(())
     }
 }
 
 impl<T: Default + Codec + Unpin> Future for Socket<T> {
     type Output = Result<(), Error>;
     fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        self.get_mut().process(ctx);
-        Poll::Pending
+        match self.get_mut().process(ctx) {
+            Ok(_) => Poll::Pending,
+            Err(_) => Poll::Ready(Ok(()))
+        }
     }
 }

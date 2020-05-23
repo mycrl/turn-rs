@@ -2,7 +2,7 @@ use super::Rx;
 use futures::prelude::*;
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
-use std::{io::Error, pin::Pin};
+use std::{io::Error, io::ErrorKind, pin::Pin};
 use tokio::{io::AsyncWrite, net::TcpStream};
 use transport::Transport;
 
@@ -49,35 +49,38 @@ impl Forward {
     /// Write Tcp data to TcpSocket.
     /// Check whether the writing is completed,
     // if not completely written, write the rest.
-    ///
-    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
     #[rustfmt::skip]
-    fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) {
+    fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) -> Result<(), Error> {
         let mut offset: usize = 0;
         let length = data.len();
         loop {
-            if let Poll::Ready(Ok(s)) = Pin::new(&mut self.stream).poll_write(ctx, &data) {
-                match offset + s >= length {
+            match Pin::new(&mut self.stream).poll_write(ctx, &data) {
+                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); }, 
+                Poll::Ready(Ok(s)) => match offset + s >= length {
                     false => { offset += s; },
                     true => { break; }
-                }
+                }, _ => (),
             }
         }
+
+        Ok(())
     }
 
     /// Refresh the TcpSocket buffer
     ///
     /// After writing data to TcpSocket, you need to refresh
     /// the buffer and send the data to the peer.
-    ///
-    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
     #[rustfmt::skip]
-    fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
+    fn flush<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
         loop {
-            if let Poll::Ready(Ok(_)) = Pin::new(&mut self.stream).poll_flush(ctx) {
-                break;
+            match Pin::new(&mut self.stream).poll_flush(ctx) {
+                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); },
+                Poll::Ready(Ok(_)) => { break; },
+                _ => (),
             }
         }
+
+        Ok(())
     }
 
     /// Handling pipeline messages
@@ -87,19 +90,23 @@ impl Forward {
     /// packet through the data transfer module to
     /// send to tcpsocket.
     #[rustfmt::skip]
-    fn process<'b>(&mut self, ctx: &mut Context<'b>) {
+    fn process<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
         while let Poll::Ready(Some((flag, data))) = Pin::new(&mut self.receiver).poll_next(ctx) {
             let buffer = Transport::encoder(data, flag);
-            self.send(ctx, &buffer);
-            self.flush(ctx);
+            self.send(ctx, &buffer)?;
+            self.flush(ctx)?;
         }
+
+        Ok(())
     }
 }
 
 impl Future for Forward {
     type Output = Result<(), Error>;
     fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        self.get_mut().process(ctx);
-        Poll::Pending
+        match self.get_mut().process(ctx) {
+            Ok(_) => Poll::Pending,
+            Err(_) => Poll::Ready(Ok(()))
+        }
     }
 }
