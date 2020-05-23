@@ -121,11 +121,13 @@ impl Socket {
     /// 注意: 这里只处理部分事件,
     /// 比如媒体数据包事件.
     fn process<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Box<dyn Error>> {
-        Ok(while let Poll::Ready(Some(event)) = Pin::new(&mut self.receiver).poll_next(ctx) {
+        while let Poll::Ready(Some(event)) = Pin::new(&mut self.receiver).poll_next(ctx) {
             if let Event::Bytes(flag, payload) = event {
                 self.packet(flag, payload)?;
             }
-        })
+        }
+
+        Ok(())
     }
 }
 
