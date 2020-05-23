@@ -6,8 +6,8 @@
 mod rtmp;
 
 pub use self::rtmp::Rtmp;
-use transport::Flag;
 use bytes::BytesMut;
+use transport::Flag;
 
 /// Data packets returned by the codec
 pub enum Packet {
@@ -19,7 +19,7 @@ pub enum Packet {
 
 pub trait Codec {
     /// Parse TcpSocket data
-    /// 
+    ///
     /// Process the data and return the response packet,
     /// The response is divided into Tcp, Udp, Tcp data is sent to the peer,
     /// Udp data will be sent to the business backend for further processing.

@@ -1,16 +1,16 @@
 use super::Rx;
 use futures::prelude::*;
 use std::net::SocketAddr;
-use std::{pin::Pin, io::Error};
 use std::task::{Context, Poll};
-use tokio::{net::TcpStream, io::AsyncWrite};
+use std::{io::Error, pin::Pin};
+use tokio::{io::AsyncWrite, net::TcpStream};
 use transport::Transport;
 
 /// Data advancement
-/// 
-/// Push the event and data of the instance 
+///
+/// Push the event and data of the instance
 /// to other business backends through TCPSocket.
-/// 
+///
 /// TODO: 单路TCP负载能力有限，
 /// 计划使用多路合并来提高传输能力;
 pub struct Forward {
@@ -20,10 +20,10 @@ pub struct Forward {
 
 impl Forward {
     /// Create an example of data advancement
-    /// 
-    /// Specify a remote address and data pipeline bus 
-    /// to create an instance, which is responsible for 
-    /// serializing the data into tcp data stream and 
+    ///
+    /// Specify a remote address and data pipeline bus
+    /// to create an instance, which is responsible for
+    /// serializing the data into tcp data stream and
     /// pushing it to other business backends.
     ///
     /// # Examples
@@ -40,14 +40,14 @@ impl Forward {
     pub async fn new(addr: SocketAddr, receiver: Rx) -> Result<Self, Error> {
         Ok(Self {
             receiver,
-            stream: TcpStream::connect(addr).await?
+            stream: TcpStream::connect(addr).await?,
         })
     }
 
     /// Send data to TcpSocket
     ///
     /// Write Tcp data to TcpSocket.
-    /// Check whether the writing is completed, 
+    /// Check whether the writing is completed,
     // if not completely written, write the rest.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
@@ -67,7 +67,7 @@ impl Forward {
 
     /// Refresh the TcpSocket buffer
     ///
-    /// After writing data to TcpSocket, you need to refresh 
+    /// After writing data to TcpSocket, you need to refresh
     /// the buffer and send the data to the peer.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
@@ -80,27 +80,11 @@ impl Forward {
         }
     }
 
-    /// Refresh the TcpSocket buffer
-    ///
-    /// After writing data to TcpSocket, you need to refresh 
-    /// the buffer and send the data to the peer.
-    ///
-    /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
-    #[rustfmt::skip]
-    fn flush<'b>(&mut self, ctx: &mut Context<'b>) {
-        loop {
-            match Pin::new(&mut self.stream).poll_flush(ctx) {
-                Poll::Ready(Ok(_)) => { break; },
-                _ => (),
-            }
-        }
-    }
-
     /// Handling pipeline messages
-    /// 
-    /// Try to process the backlog message in the 
-    /// pipeline, and serialize it into tcp protocol 
-    /// packet through the data transfer module to 
+    ///
+    /// Try to process the backlog message in the
+    /// pipeline, and serialize it into tcp protocol
+    /// packet through the data transfer module to
     /// send to tcpsocket.
     #[rustfmt::skip]
     fn process<'b>(&mut self, ctx: &mut Context<'b>) {

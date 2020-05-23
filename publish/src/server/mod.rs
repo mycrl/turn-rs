@@ -1,5 +1,5 @@
-pub mod socket;
 pub mod forward;
+pub mod socket;
 
 use crate::codec::Rtmp;
 use bytes::BytesMut;
@@ -26,7 +26,7 @@ pub struct ServerAddr {
 
 /// TCP Server.
 ///
-/// Create a TCP server, bind to the specified port 
+/// Create a TCP server, bind to the specified port
 /// address and process RTMP protocol messages.
 ///
 /// # Examples

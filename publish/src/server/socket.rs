@@ -11,7 +11,7 @@ use transport::Flag;
 /// TcpSocket instance
 ///
 /// Read and write TcpSocket and return data through channel.
-/// The returned data is a Udp data packet. In order to adapt to MTU, 
+/// The returned data is a Udp data packet. In order to adapt to MTU,
 /// the subcontracting has been completed.
 pub struct Socket<T> {
     stream: TcpStream,
@@ -69,7 +69,7 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     /// Send data to TcpSocket
     ///
     /// Write Tcp data to TcpSocket.
-    /// Check whether the writing is completed, 
+    /// Check whether the writing is completed,
     // if not completely written, write the rest.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
@@ -101,7 +101,7 @@ impl<T: Default + Codec + Unpin> Socket<T> {
 
     /// Refresh the TcpSocket buffer
     ///
-    /// After writing data to TcpSocket, you need to refresh 
+    /// After writing data to TcpSocket, you need to refresh
     /// the buffer and send the data to the peer.
     ///
     /// TODO: 异常处理未完善, 未处理意外情况，可能会出现死循环;
@@ -127,8 +127,8 @@ impl<T: Default + Codec + Unpin> Socket<T> {
                 }
             }
 
-            // Refresh the TcpSocket buffer. In order to increase efficiency, 
-            // all the returned data of the current task will be written and 
+            // Refresh the TcpSocket buffer. In order to increase efficiency,
+            // all the returned data of the current task will be written and
             // then refreshed in a unified manner to avoid unnecessary frequent operations.
             self.flush(ctx);
         }

@@ -1,15 +1,18 @@
+#[rustfmt::skip]
+
 use super::{Event, Rx, Tx};
 use futures::prelude::*;
+use http::StatusCode;
 use std::net::TcpStream;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{error::Error, pin::Pin};
 use transport::{Flag, Payload};
-use http::StatusCode;
 use tungstenite::{
-    handshake::server::Response,
-    handshake::server::Request,
+    handshake::server::Request, 
+    handshake::server::Response, 
     protocol::WebSocket,
-    server::accept_hdr,
+    server::accept_hdr, 
     Message,
 };
 
@@ -22,7 +25,7 @@ pub struct Socket {
 
 impl Socket {
     /// 从TcpSocket创建新的WebSocket实例
-    /// 
+    ///
     /// 注意：目前这个实例会不拒绝未发布的频道，
     /// 对于未发布的频道，也会一直等待发布.
     pub fn new(stream: TcpStream, sender: Tx) -> Result<Self, Box<dyn Error>> {
@@ -35,17 +38,17 @@ impl Socket {
     }
 
     /// 打包FLV TAG
-    /// 
+    ///
     /// 需要指定不同的tag类型来打包数据.
-    fn packet_binary_tag(payload: Payload, tag: flv::Tag) -> Message {
-        let data = payload.data;
+    fn packet_binary_tag(payload: Arc<Payload>, tag: flv::Tag) -> Message {
+        let data = &payload.data;
         let timestamp = payload.timestamp;
         let flv_packet = flv::encode_tag(&data, tag, timestamp);
         Message::Binary(flv_packet.to_vec())
     }
 
     /// 打包FLV HEADER
-    /// 
+    ///
     /// TODO：这是一个固定的头，
     /// 后期可以优化为常量避免重复分配.
     fn packet_binary_header() -> Message {
@@ -54,7 +57,7 @@ impl Socket {
     }
 
     /// 尝试接受TcpSocket
-    /// 
+    ///
     /// 这里将尝试把TcpSocket转换为WebSocket，
     /// 如果中途出现错误，或者出现其他意外情况，
     /// 这里将中断握手并返回404状态码.
@@ -71,15 +74,15 @@ impl Socket {
     }
 
     /// 将单个负载打包成FLV数据
-    /// 
+    ///
     /// 这里将检查是否为第一条数据，
     /// 如果为首次发送数据，则先发送flv头信息，
-    /// 
+    ///
     /// 注意：这里如果发送不成功，将关闭当前的websocket，
     /// 并且没有处理关闭的Result，如果出现预想中的极端情况，
     /// 这里可能会有问题.
     #[rustfmt::skip]
-    fn packet(&mut self, flag: Flag, payload: Payload) {
+    fn packet(&mut self, flag: Flag, payload: Arc<Payload>) {
         let mut result = Vec::new();
 
         // flv包数据
@@ -115,7 +118,7 @@ impl Socket {
     }
 
     /// 尝试处理返回事件
-    /// 
+    ///
     /// 注意: 这里只处理部分事件,
     /// 比如媒体数据包事件.
     fn process<'b>(&mut self, ctx: &mut Context<'b>) {

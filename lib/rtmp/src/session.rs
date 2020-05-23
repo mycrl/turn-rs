@@ -1,14 +1,14 @@
-use super::{State::Callback, State};
 use super::message::{CONNECT, CREATE_STREAM, PUBLISH};
+use super::{State, State::Callback};
+use bytes::{BufMut, Bytes, BytesMut};
+use rml_amf0::{serialize, Amf0Value};
 use rml_rtmp::chunk_io::{ChunkDeserializer, ChunkSerializer, Packet};
 use rml_rtmp::{messages::RtmpMessage, time::RtmpTimestamp};
-use rml_amf0::{Amf0Value, serialize};
-use bytes::{Bytes, BufMut, BytesMut};
 use transport::*;
 
 /// Handle Rtmp session information
 ///
-/// Decode Rtmp buffer and encode Rtmp data 
+/// Decode Rtmp buffer and encode Rtmp data
 /// block to reply to the peer.
 pub struct Session {
     decoder: ChunkDeserializer,
@@ -20,7 +20,7 @@ pub struct Session {
 impl Session {
     /// Create Rtmp session information
     ///
-    /// Handle Rtmp's session flow, including stream 
+    /// Handle Rtmp's session flow, including stream
     /// push disconnection, permission control, etc.
     ///
     /// # Examples
@@ -41,7 +41,7 @@ impl Session {
 
     /// Processing Rtmp packets
     ///
-    /// Decode the buffer and return the data that 
+    /// Decode the buffer and return the data that
     /// needs to be returned to the peer.
     ///
     /// # Examples
@@ -60,7 +60,7 @@ impl Session {
         // Get and process the message
         // Get the call result and push it to the return result list
         // Only deal with getting messages
-        // If the acquisition fails, jump out of the loop, indicating 
+        // If the acquisition fails, jump out of the loop, indicating
         // that the current consumption has been completed.
         while let Some(message) = self.get_message(if is_first { buffer } else { &[] }) {
             is_first = false;
@@ -83,8 +83,9 @@ impl Session {
         match self.decoder.get_next_message(chunk) {
             Ok(Some(payload)) => match payload.to_rtmp_message() {
                 Ok(message) => Some((payload.timestamp.value, message)),
-                _ => None
-            }, _ => None
+                _ => None,
+            },
+            _ => None,
         }
     }
 
@@ -102,7 +103,7 @@ impl Session {
     }
 
     /// Handling connection events
-    /// 
+    ///
     /// Get the application name of the push stream and store it inside the instance.
     /// Return the subsequent return event package.
     fn connect_event(&mut self, object: Amf0Value) -> Option<State> {
@@ -116,7 +117,7 @@ impl Session {
     }
 
     /// Handling release stream events
-    /// 
+    ///
     /// Get the stream name of the push stream and store it inside the instance.
     fn release_stream_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
@@ -127,15 +128,19 @@ impl Session {
     }
 
     /// Handling push events
-    /// 
-    /// Send push events to other business backends through Udp 
+    ///
+    /// Send push events to other business backends through Udp
     /// to facilitate business backends to do push flow processing.
     fn publish_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
             let timestamp = 0;
             let data = BytesMut::new();
             let name = stream_name.to_string();
-            let payload = Payload { name, timestamp, data };
+            let payload = Payload {
+                name,
+                timestamp,
+                data,
+            };
             return Some(State::Event(payload, Flag::Publish));
         }
 
@@ -143,15 +148,19 @@ impl Session {
     }
 
     /// Handling stop push events
-    /// 
-    /// Send stop push events to other business backends through Udp 
+    ///
+    /// Send stop push events to other business backends through Udp
     /// to facilitate business backends to do push flow processing.
     fn unpublish_event(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
             let timestamp = 0;
             let data = BytesMut::new();
             let name = stream_name.to_string();
-            let payload = Payload { name, timestamp, data };
+            let payload = Payload {
+                name,
+                timestamp,
+                data,
+            };
             return Some(State::Event(payload, Flag::UnPublish));
         }
 
@@ -174,8 +183,8 @@ impl Session {
 
     /// Create Rtmp message data
     ///
-    /// Usually, there is not necessarily only one Rtmp message for an 
-    /// interaction, so multiple Rtmp messages are assembled here, 
+    /// Usually, there is not necessarily only one Rtmp message for an
+    /// interaction, so multiple Rtmp messages are assembled here,
     /// and merged and returned to the peer through TcpSocket.
     fn from_message(&mut self, messages: Vec<RtmpMessage>) -> Option<State> {
         let mut buffer = BytesMut::new();
@@ -190,10 +199,10 @@ impl Session {
             true => None,
         }
     }
-    
+
     /// Processing AMF data
     ///
-    /// Here only to get the media wrapper information, 
+    /// Here only to get the media wrapper information,
     /// send the original data of the information to the business backend.
     fn process_data(&mut self, args: Vec<Amf0Value>) -> Option<State> {
         if let Some(Amf0Value::Utf8String(name)) = args.get(0) {
@@ -202,7 +211,11 @@ impl Session {
                     let timestamp = 0;
                     let data = BytesMut::from(&vec[16..]);
                     let name = stream_name.to_string();
-                    let payload = Payload { name, timestamp, data };
+                    let payload = Payload {
+                        name,
+                        timestamp,
+                        data,
+                    };
                     return Some(State::Event(payload, Flag::Frame));
                 }
             }
@@ -213,8 +226,8 @@ impl Session {
 
     /// Handle Rtmp control messages
     ///
-    /// Currently only the connection, create flow, and push flow events 
-    /// are processed, because currently only basic messages are processed 
+    /// Currently only the connection, create flow, and push flow events
+    /// are processed, because currently only basic messages are processed
     /// to make push flow normal.
     ///
     /// TODO: 处理不健壮，而且没有将推流的session信息广播出去;
@@ -236,13 +249,17 @@ impl Session {
     }
 
     /// Packaging media data
-    /// 
-    /// Append the timestamp to the data header 
+    ///
+    /// Append the timestamp to the data header
     /// to synchronize the timestamp of the peer.
     fn packet_media(&mut self, timestamp: u32, payload: Bytes, flag: Flag) -> Option<State> {
         let data = BytesMut::from(&payload[..]);
         let name = self.app.as_ref()?.to_string();
-        let payload = Payload { name, timestamp, data };
+        let payload = Payload {
+            name,
+            timestamp,
+            data,
+        };
         Some(State::Event(payload, flag))
     }
 
@@ -257,7 +274,8 @@ impl Session {
             RtmpMessage::Amf0Command {
                 command_name: n,
                 command_object: o,
-                additional_arguments: s, ..
+                additional_arguments: s,
+                ..
             } => self.process_command(n.as_str(), o, s),
             RtmpMessage::AudioData { data } => self.packet_media(message.0, data, Flag::Audio),
             RtmpMessage::VideoData { data } => self.packet_media(message.0, data, Flag::Video),
