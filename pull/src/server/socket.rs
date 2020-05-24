@@ -111,7 +111,7 @@ impl Socket {
         self.process_timestamp(timestamp);
         self.timestamp_offset = timestamp;
 
-        // flv包数据
+        // 媒体数据
         let packet = match flag {
             Flag::Audio => Some(self.packet_tag(payload, Tag::Audio)),
             Flag::Video => Some(self.packet_tag(payload, Tag::Video)),

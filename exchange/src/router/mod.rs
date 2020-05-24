@@ -1,3 +1,5 @@
+mod stack;
+
 use bytes::BytesMut;
 use futures::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -19,6 +21,8 @@ pub type Tx = mpsc::UnboundedSender<Event>;
 
 /// 核心路由
 pub struct Router {
+    video_frame: HashMap<String, BytesMut>,
+    audio_frame: HashMap<String, BytesMut>,
     frame: HashMap<String, BytesMut>,
     publish: HashMap<String, Arc<String>>,
     pull: HashMap<String, HashSet<Arc<String>>>,
@@ -38,6 +42,8 @@ impl Router {
             frame: HashMap::new(),
             socket: HashMap::new(),
             publish: HashMap::new(),
+            video_frame: HashMap::new(),
+            audio_frame: HashMap::new(),
         }
     }
 
@@ -91,9 +97,31 @@ impl Router {
 
             // 处理事件
             match flag {
-                Flag::Publish => { self.publish.insert(channel, name); },
-                Flag::Frame => { self.frame.insert(channel, data.clone()); },
-                Flag::Pull => { self.pull.entry(channel).or_insert_with(HashSet::new).insert(name); },
+                Flag::Publish => { 
+                    self.frame.remove(&channel);
+                    self.audio_frame.remove(&channel);
+                    self.video_frame.remove(&channel);
+                    self.publish.insert(channel, name);
+                },
+                Flag::Frame => { 
+                    self.frame.insert(channel, data.clone()); 
+                },
+                Flag::Video => {
+                    if !self.video_frame.contains_key(&channel) {
+                        self.video_frame.insert(channel, data.clone());
+                    }
+                },
+                Flag::Audio => {
+                    if !self.audio_frame.contains_key(&channel) {
+                        self.audio_frame.insert(channel, data.clone());
+                    }
+                },
+                Flag::Pull => { 
+                    self.pull
+                        .entry(channel)
+                        .or_insert_with(HashSet::new)
+                        .insert(name); 
+                },
                 _ => (),
             };
             
