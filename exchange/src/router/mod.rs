@@ -19,9 +19,10 @@ pub type Tx = mpsc::UnboundedSender<Event>;
 
 /// 核心路由
 pub struct Router {
-    frame: HashMap<String, BytesMut>,
-    publish: HashMap<String, Arc<String>>,
     pull: HashMap<String, HashSet<Arc<String>>>,
+    video_frame: HashMap<String, BytesMut>,
+    audio_frame: HashMap<String, BytesMut>,
+    frame: HashMap<String, BytesMut>,
     socket: HashMap<Arc<String>, Tx>,
     receiver: Rx,
 }
@@ -37,7 +38,8 @@ impl Router {
             pull: HashMap::new(),
             frame: HashMap::new(),
             socket: HashMap::new(),
-            publish: HashMap::new(),
+            video_frame: HashMap::new(),
+            audio_frame: HashMap::new(),
         }
     }
 
@@ -63,6 +65,7 @@ impl Router {
             // 队列中删除管道.
             for addr in failure {
                 pull.remove(&addr);
+                self.socket.remove(&addr);
             }
         }
     }
@@ -81,34 +84,85 @@ impl Router {
             // 如果一个客户端已经订阅了该频道并且获得了信息，
             // 则没有必要再次为该客户端推送frame信息.
             if let Flag::Pull = flag {
-                if let Some(chunk) = self.frame.get(&channel) {
-                    match self.pull.get(&channel) {
-                        Some(pull) if pull.contains(&name) => (),
-                        _ => message.push((Flag::Frame, chunk.clone()))
+                match self.pull.get(&channel) {
+                    Some(pull) if pull.contains(&name) => (),
+                    _ => if let Some(frame) = self.frame.get(&channel) {
+                        if let Some(audio) = self.audio_frame.get(&channel) {
+                            if let Some(video) = self.video_frame.get(&channel) {
+                                message.push((Flag::Frame, frame.clone()));
+                                message.push((Flag::Audio, audio.clone()));
+                                message.push((Flag::Video, video.clone()));
+                            }
+                        }
                     }
                 }
             }
 
-            // 处理事件
+            // 处理掉一部分内部
+            // 需要管理的消息
             match flag {
-                Flag::Publish => { self.publish.insert(channel, name); },
-                Flag::Frame => { self.frame.insert(channel, data.clone()); },
-                Flag::Pull => { self.pull.entry(channel).or_insert_with(HashSet::new).insert(name); },
-                _ => (),
-            };
-            
+                
+                // 音视频媒体信息
+                // 写入暂存区待后续使用
+                Flag::Frame => {
+                    self.frame.insert(channel, data.clone());
+                },
+
+                // 拉流事件
+                // 有客户端拉流
+                // 将客户端和频道关联起来
+                Flag::Pull => {
+                    self.pull
+                        .entry(channel)
+                        .or_insert_with(HashSet::new)
+                        .insert(name);
+                },
+
+                // 推流事件
+                // 如果当前频道出现新的推流
+                // 这时候应该将暂存区的缓存全部清空
+                // 等待下次再次拿到对应数据的时候填充
+                Flag::Publish => {
+                    self.frame.remove(&channel);
+                    self.audio_frame.remove(&channel);
+                    self.video_frame.remove(&channel);
+                },
+
+                // 视频帧
+                // 检查是否存在首个视频帧
+                // 如果不存在则缓存首个帧
+                // TODO: 此处主要是为了解决FLV
+                // 头帧要求的问题
+                Flag::Video => {
+                    if !self.video_frame.contains_key(&channel) {
+                        self.video_frame.insert(channel, data.clone());
+                    }
+                },
+
+                // 音频帧
+                // 检查是否存在首个音频帧
+                // 如果不存在则缓存首个帧
+                // TODO: 此处主要是为了解决FLV
+                // 头帧要求的问题
+                Flag::Audio => {
+                    if !self.audio_frame.contains_key(&channel) {
+                        self.audio_frame.insert(channel, data.clone());
+                    }
+                },
+
+                // 其他不处理
+                _ => ()
+            }
+
             // 如果是负载信息，
             // 则跳过并不广播给其他客户端，
             // 因为这是一个交换中心自己使用的数据.
-            if let Flag::Avg = flag {
-                return;
-            }
-
             // 拉流事件没必要广播
             match flag {
                 Flag::Pull => (),
+                Flag::Avg => (),
                 _ => message.push((flag, data))
-            };
+            }
 
             // 将打包好的消息广播到
             // 所有已订阅的节点.

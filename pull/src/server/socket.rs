@@ -23,12 +23,14 @@ pub struct Socket {
     timestamp_offset: u32,
     completed: bool,
     timestamp: u32,
+    send_queue: u8,
     receiver: Rx,
 }
 
 impl Socket {
-    /// 从TcpSocket创建新的WebSocket实例
+    /// 创建WebSocket实例
     ///
+    /// 从TcpSocket创建新的WebSocket实例，
     /// 注意：目前这个实例会不拒绝未发布的频道，
     /// 对于未发布的频道，也会一直等待发布.
     pub fn new(stream: TcpStream, sender: Tx) -> Result<Self, Box<dyn Error>> {
@@ -36,6 +38,7 @@ impl Socket {
         Ok(Self {
             receiver,
             timestamp: 0,
+            send_queue: 0,
             completed: false,
             timestamp_offset: 0,
             socket: Self::accept(stream, sender, local)?,
@@ -110,8 +113,9 @@ impl Socket {
         // 上次的时间戳计算偏移量.
         self.process_timestamp(timestamp);
         self.timestamp_offset = timestamp;
+        self.send_queue += 1;
 
-        // flv包数据
+        // 媒体数据
         let packet = match flag {
             Flag::Audio => Some(self.packet_tag(payload, Tag::Audio)),
             Flag::Video => Some(self.packet_tag(payload, Tag::Video)),
@@ -137,6 +141,13 @@ impl Socket {
         // 这里将关闭连接.
         for message in result {
             self.socket.write_message(message)?;
+        }
+        
+        // 当达到写入一定量消息之后，
+        // 清空缓冲区并将所有挂起的消息都处理掉.
+        if self.send_queue > 5 {
+            self.socket.write_pending()?;
+            self.send_queue = 0;
         }
 
         Ok(())
