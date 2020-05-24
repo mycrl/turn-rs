@@ -1,5 +1,3 @@
-mod stack;
-
 use bytes::BytesMut;
 use futures::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -87,10 +85,18 @@ impl Router {
             // 如果一个客户端已经订阅了该频道并且获得了信息，
             // 则没有必要再次为该客户端推送frame信息.
             if let Flag::Pull = flag {
-                if let Some(chunk) = self.frame.get(&channel) {
-                    match self.pull.get(&channel) {
-                        Some(pull) if pull.contains(&name) => (),
-                        _ => message.push((Flag::Frame, chunk.clone()))
+                match self.pull.get(&channel) {
+                    Some(pull) if pull.contains(&name) => (),
+                    _ => {
+                        if let Some(frame) = self.frame.get(&channel) {
+                            if let Some(audio) = self.audio_frame.get(&channel) {
+                                if let Some(video) = self.video_frame.get(&channel) {
+                                    message.push((Flag::Frame, frame.clone()));
+                                    message.push((Flag::Audio, audio.clone()));
+                                    message.push((Flag::Video, video.clone()));
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -103,38 +109,31 @@ impl Router {
                     self.video_frame.remove(&channel);
                     self.publish.insert(channel, name);
                 },
-                Flag::Frame => { 
-                    self.frame.insert(channel, data.clone()); 
-                },
-                Flag::Video => {
-                    if !self.video_frame.contains_key(&channel) {
-                        self.video_frame.insert(channel, data.clone());
-                    }
-                },
-                Flag::Audio => {
-                    if !self.audio_frame.contains_key(&channel) {
-                        self.audio_frame.insert(channel, data.clone());
-                    }
-                },
                 Flag::Pull => { 
                     self.pull
                         .entry(channel)
                         .or_insert_with(HashSet::new)
-                        .insert(name); 
+                        .insert(name);
+                },
+                Flag::Frame => { 
+                    self.frame.insert(channel, data.clone()); 
+                },
+                Flag::Video if !self.video_frame.contains_key(&channel) => {
+                    self.video_frame.insert(channel, data.clone());
+                },
+                Flag::Audio if !self.audio_frame.contains_key(&channel) => {
+                    self.audio_frame.insert(channel, data.clone());
                 },
                 _ => (),
             };
-            
+
             // 如果是负载信息，
             // 则跳过并不广播给其他客户端，
             // 因为这是一个交换中心自己使用的数据.
-            if let Flag::Avg = flag {
-                return;
-            }
-
             // 拉流事件没必要广播
             match flag {
                 Flag::Pull => (),
+                Flag::Avg => (),
                 _ => message.push((flag, data))
             };
 
