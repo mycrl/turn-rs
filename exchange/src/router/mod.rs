@@ -87,45 +87,74 @@ impl Router {
             if let Flag::Pull = flag {
                 match self.pull.get(&channel) {
                     Some(pull) if pull.contains(&name) => (),
-                    _ => {
-                        if let Some(frame) = self.frame.get(&channel) {
-                            if let Some(audio) = self.audio_frame.get(&channel) {
-                                if let Some(video) = self.video_frame.get(&channel) {
-                                    message.push((Flag::Frame, frame.clone()));
-                                    message.push((Flag::Audio, audio.clone()));
-                                    message.push((Flag::Video, video.clone()));
-                                }
+                    _ => if let Some(frame) = self.frame.get(&channel) {
+                        if let Some(audio) = self.audio_frame.get(&channel) {
+                            if let Some(video) = self.video_frame.get(&channel) {
+                                message.push((Flag::Frame, frame.clone()));
+                                message.push((Flag::Audio, audio.clone()));
+                                message.push((Flag::Video, video.clone()));
                             }
                         }
                     }
                 }
             }
 
-            // 处理事件
+            // 处理掉一部分内部
+            // 需要管理的消息
             match flag {
-                Flag::Publish => { 
-                    self.frame.remove(&channel);
-                    self.audio_frame.remove(&channel);
-                    self.video_frame.remove(&channel);
-                    self.publish.insert(channel, name);
+                
+                // 音视频媒体信息
+                // 写入暂存区待后续使用
+                Flag::Frame => {
+                    self.frame.insert(channel, data.clone());
                 },
-                Flag::Pull => { 
+
+                // 拉流事件
+                // 有客户端拉流
+                // 将客户端和频道关联起来
+                Flag::Pull => {
                     self.pull
                         .entry(channel)
                         .or_insert_with(HashSet::new)
                         .insert(name);
                 },
-                Flag::Frame => { 
-                    self.frame.insert(channel, data.clone()); 
+
+                // 推流事件
+                // 如果当前频道出现新的推流
+                // 这时候应该将暂存区的缓存全部清空
+                // 等待下次再次拿到对应数据的时候填充
+                Flag::Publish => {
+                    self.frame.remove(&channel);
+                    self.audio_frame.remove(&channel);
+                    self.video_frame.remove(&channel);
+                    self.publish.insert(channel, name);
                 },
-                Flag::Video if !self.video_frame.contains_key(&channel) => {
-                    self.video_frame.insert(channel, data.clone());
+
+                // 视频帧
+                // 检查是否存在首个视频帧
+                // 如果不存在则缓存首个帧
+                // TODO: 此处主要是为了解决FLV
+                // 头帧要求的问题
+                Flag::Video => {
+                    if !self.video_frame.contains_key(&channel) {
+                        self.video_frame.insert(channel, data.clone());
+                    }
                 },
-                Flag::Audio if !self.audio_frame.contains_key(&channel) => {
-                    self.audio_frame.insert(channel, data.clone());
+
+                // 音频帧
+                // 检查是否存在首个音频帧
+                // 如果不存在则缓存首个帧
+                // TODO: 此处主要是为了解决FLV
+                // 头帧要求的问题
+                Flag::Audio => {
+                    if !self.audio_frame.contains_key(&channel) {
+                        self.audio_frame.insert(channel, data.clone());
+                    }
                 },
-                _ => (),
-            };
+
+                // 其他不处理
+                _ => ()
+            }
 
             // 如果是负载信息，
             // 则跳过并不广播给其他客户端，
@@ -135,7 +164,7 @@ impl Router {
                 Flag::Pull => (),
                 Flag::Avg => (),
                 _ => message.push((flag, data))
-            };
+            }
 
             // 将打包好的消息广播到
             // 所有已订阅的节点.
