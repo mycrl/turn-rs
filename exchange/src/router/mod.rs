@@ -19,11 +19,10 @@ pub type Tx = mpsc::UnboundedSender<Event>;
 
 /// 核心路由
 pub struct Router {
+    pull: HashMap<String, HashSet<Arc<String>>>,
     video_frame: HashMap<String, BytesMut>,
     audio_frame: HashMap<String, BytesMut>,
     frame: HashMap<String, BytesMut>,
-    publish: HashMap<String, Arc<String>>,
-    pull: HashMap<String, HashSet<Arc<String>>>,
     socket: HashMap<Arc<String>, Tx>,
     receiver: Rx,
 }
@@ -39,7 +38,6 @@ impl Router {
             pull: HashMap::new(),
             frame: HashMap::new(),
             socket: HashMap::new(),
-            publish: HashMap::new(),
             video_frame: HashMap::new(),
             audio_frame: HashMap::new(),
         }
@@ -67,6 +65,7 @@ impl Router {
             // 队列中删除管道.
             for addr in failure {
                 pull.remove(&addr);
+                self.socket.remove(&addr);
             }
         }
     }
@@ -127,7 +126,6 @@ impl Router {
                     self.frame.remove(&channel);
                     self.audio_frame.remove(&channel);
                     self.video_frame.remove(&channel);
-                    self.publish.insert(channel, name);
                 },
 
                 // 视频帧
