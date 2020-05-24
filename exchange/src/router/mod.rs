@@ -19,8 +19,8 @@ pub type Tx = mpsc::UnboundedSender<Event>;
 
 /// 核心路由
 pub struct Router {
+    frame: HashMap<String, BytesMut>,
     publish: HashMap<String, Arc<String>>,
-    frame: HashMap<String, Arc<BytesMut>>,
     pull: HashMap<String, HashSet<Arc<String>>>,
     socket: HashMap<Arc<String>, Tx>,
     receiver: Rx,
@@ -75,9 +75,24 @@ impl Router {
     fn process_bytes(&mut self, name: Arc<String>, flag: Flag, data: BytesMut) {
         if let Ok(payload) = Transport::parse(data.clone()) {
             let channel = payload.name.clone();
+            let mut message = Vec::new();
+
+            // 处理订阅事件
+            // 如果一个客户端已经订阅了该频道并且获得了信息，
+            // 则没有必要再次为该客户端推送frame信息.
+            if let Flag::Pull = flag {
+                if let Some(chunk) = self.frame.get(&channel) {
+                    match self.pull.get(&channel) {
+                        Some(pull) if pull.contains(&name) => (),
+                        _ => message.push((Flag::Frame, chunk.clone()))
+                    }
+                }
+            }
+
+            // 处理事件
             match flag {
                 Flag::Publish => { self.publish.insert(channel, name); },
-                Flag::Frame => { self.frame.insert(channel, Arc::new(payload.data)); },
+                Flag::Frame => { self.frame.insert(channel, data.clone()); },
                 Flag::Pull => { self.pull.entry(channel).or_insert_with(HashSet::new).insert(name); },
                 _ => (),
             };
@@ -89,9 +104,18 @@ impl Router {
                 return;
             }
 
+            // 拉流事件没必要广播
+            match flag {
+                Flag::Pull => (),
+                _ => message.push((flag, data))
+            };
+
             // 将打包好的消息广播到
             // 所有已订阅的节点.
-            self.broadcast(payload.name, flag, data);
+            for (flag, value) in message {
+                let name = payload.name.clone();
+                self.broadcast(name, flag, value);
+            }
         }
     }
 

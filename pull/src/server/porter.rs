@@ -8,6 +8,9 @@ use std::{io::Error, pin::Pin, sync::Arc, io::ErrorKind};
 use tokio::{io::AsyncRead, io::AsyncWrite, net::TcpStream};
 use transport::{Flag, Payload, Transport};
 
+// type
+type Frame = HashMap<String, Arc<Payload>>;
+
 /// 数据搬运
 ///
 /// 用于处理和交换中心之间的通讯，
@@ -21,6 +24,7 @@ pub struct Porter {
     transport: Transport,
     stream: TcpStream,
     receiver: Rx,
+    frame: Frame,
 }
 
 impl Porter {
@@ -32,6 +36,7 @@ impl Porter {
         Ok(Self {
             receiver,
             peer: HashMap::new(),
+            frame: HashMap::new(),
             channel: HashSet::new(),
             transport: Transport::new(),
             stream: TcpStream::connect(addr).await?,
@@ -116,9 +121,47 @@ impl Porter {
     /// 将管道和频道对应绑定.
     fn subscribe<'b>(&mut self, ctx: &mut Context<'b>, name: String, sender: Tx) -> Result<(), Error> {
         self.peer_subscribe(ctx, name.clone())?;
-        let peers = self.peer.entry(name).or_insert_with(Vec::new);
-        peers.push(sender);
+        if let Some(payload) = self.frame.get(&name) {
+            let event = Event::Bytes(Flag::Frame, payload.clone());
+            sender.send(event).map_err(drop).unwrap();
+        }
+
+        self.peer
+            .entry(name)
+            .or_insert_with(Vec::new)
+            .push(sender);
         Ok(())
+    }
+
+    /// 处理数据负载
+    ///
+    /// 将数据负载发送给每个订阅了此频道的管道,
+    /// 如果发送失败，这个地方目前当失效处理，
+    /// 直接从订阅列表中删除这个管道.
+    #[rustfmt::skip]
+    fn process_payload(frame: &mut Frame, peer: &mut Vec<Tx>, flag: Flag, payload: Arc<Payload>) {
+        let mut failure = Vec::new();
+        if let Flag::Frame = flag {
+            frame.entry(payload.name.clone()).or_insert_with(|| {
+                payload.clone()
+            });
+        }
+
+        // 遍历所有的客户端，
+        // 将消息路由到相应的客户端.
+        for (index, tx) in peer.iter().enumerate() {
+            if tx.send(Event::Bytes(flag, payload.clone())).is_err() {
+                failure.push(index);
+            }
+        }
+
+        // 删除失效的管道
+        // 因为这里没法确定管道是因为
+        // 什么原因也失效，也没必要知道，
+        // 直接删除掉无法工作的管道即可.
+        for index in failure {
+            peer.remove(index);
+        }
     }
 
     /// 处理读取管道
@@ -140,36 +183,18 @@ impl Porter {
     /// 这里将数据从TcpSocket中读取处理，
     /// 并解码数据，直到拆分成单个负载，
     /// 然后再进行相应的处理.
+    #[rustfmt::skip]
     fn process_socket<'b>(&mut self, ctx: &mut Context<'b>) {
         while let Some(chunk) = self.read(ctx) {
             if let Some(result) = self.transport.decoder(chunk) {
                 for (flag, message) in result {
                     if let Ok(payload) = Transport::parse(message) {
                         if let Some(peer) = self.peer.get_mut(&payload.name) {
-                            Self::process_payload(peer, flag, Arc::new(payload));
+                            Self::process_payload(&mut self.frame, peer, flag, Arc::new(payload));
                         }
                     }
                 }
             }
-        }
-    }
-
-    /// 处理数据负载
-    ///
-    /// 将数据负载发送给每个订阅了此频道的管道,
-    /// 如果发送失败，这个地方目前当失效处理，
-    /// 直接从订阅列表中删除这个管道.
-    fn process_payload(peer: &mut Vec<Tx>, flag: Flag, payload: Arc<Payload>) {
-        let mut failure = Vec::new();
-        for (index, tx) in peer.iter().enumerate() {
-            let event = Event::Bytes(flag, payload.clone());
-            if tx.send(event).is_err() {
-                failure.push(index);
-            }
-        }
-
-        for index in failure {
-            peer.remove(index);
         }
     }
 
