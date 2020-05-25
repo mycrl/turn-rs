@@ -22,9 +22,11 @@ pub struct Porter {
     peer: HashMap<String, Vec<Tx>>,
     channel: HashSet<String>,
     transport: Transport,
+    video_frame: Frame,
+    audio_frame: Frame,
     stream: TcpStream,
     receiver: Rx,
-    frame: Frame,
+    frame: Frame
 }
 
 impl Porter {
@@ -39,6 +41,8 @@ impl Porter {
             frame: HashMap::new(),
             channel: HashSet::new(),
             transport: Transport::new(),
+            video_frame: HashMap::new(),
+            audio_frame: HashMap::new(),
             stream: TcpStream::connect(addr).await?,
         })
     }
@@ -121,13 +125,35 @@ impl Porter {
     /// 将管道和频道对应绑定.
     fn subscribe<'b>(&mut self, ctx: &mut Context<'b>, name: String, sender: Tx) -> Result<(), Error> {
         self.peer_subscribe(ctx, name.clone())?;
+
+        // 发送媒体信息
+        // FLV的特殊处理，
+        // FLV需要这个信息完成播放.
         if let Some(payload) = self.frame.get(&name) {
             let event = Event::Bytes(Flag::Frame, payload.clone());
             sender.send(event).map_err(drop).unwrap();
         }
 
-        self.peer
-            .entry(name)
+        // 发送首帧视频
+        // FLV的特殊处理，
+        // FLV头帧视频需要H264的配置信息.
+        if let Some(payload) = self.video_frame.get(&name) {
+            let event = Event::Bytes(Flag::Video, payload.clone());
+            sender.send(event).map_err(drop).unwrap();
+        }
+
+        // 发送首帧音频
+        // FLV的特殊处理，
+        // FLV头帧音频需要H264的配置信息.
+        if let Some(payload) = self.audio_frame.get(&name) {
+            let event = Event::Bytes(Flag::Audio, payload.clone());
+            sender.send(event).map_err(drop).unwrap();
+        }
+
+        // 将客户端和频道绑定，
+        // 方便后续频道的操作直接对应到
+        // 客户端，失效时删除即可.
+        self.peer.entry(name)
             .or_insert_with(Vec::new)
             .push(sender);
         Ok(())
