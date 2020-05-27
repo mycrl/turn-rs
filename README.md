@@ -22,6 +22,7 @@
 
 ### 版本
 开发阶段 </br>
+项目进度更新在 [项目看板](https://github.com/quasipaas/Quasipaa/projects/1)，可以随时跟踪.</br>
 
 
 ### 支持的编码器
