@@ -1,3 +1,8 @@
+mod exp_golomb;
+mod audio;
+mod video;
+mod sps;
+
 use bytes::BytesMut;
 use bytes::BufMut; 
 use bytes::Bytes;
@@ -20,6 +25,20 @@ pub enum Tag {
     Script,
     Audio,
     Video
+}
+
+/// 媒体信息
+#[derive(Debug)]
+pub struct Metadata {
+    pub track_id: u8,
+    pub timescale: u32,
+    pub duration: u32,
+    pub audio_sample_rate: u32,
+    pub channel_count: u8,
+    pub codec: String,
+    pub original_codec: String,
+    pub config: Bytes,
+    pub ref_sample_duration: u32
 }
 
 /// Create FLV frame
