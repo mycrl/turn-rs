@@ -1,4 +1,6 @@
-use bytes::{BytesMut, BufMut};
+use bytes::BytesMut;
+use bytes::BufMut; 
+use bytes::Bytes;
 
 /// Flv header type.
 ///
@@ -26,7 +28,7 @@ pub enum Tag {
 /// PTS information of this TAG packet data, 
 /// PTS = Timestamp | TimestampExtended << 24.
 #[rustfmt::skip]
-pub fn encode_tag(data: &[u8], tag: Tag, timestamp: u32) -> BytesMut {
+pub fn encode_tag(data: &[u8], tag: Tag, timestamp: u32) -> Bytes {
     let mut buffer = BytesMut::new();
     let data_size = data.len();
     let size = data_size + 11;
@@ -56,7 +58,7 @@ pub fn encode_tag(data: &[u8], tag: Tag, timestamp: u32) -> BytesMut {
     buffer.extend_from_slice(data);
     buffer.put_u32(size as u32);
 
-    buffer
+    buffer.freeze()
 }
 
 /// Create FLV header
@@ -65,7 +67,7 @@ pub fn encode_tag(data: &[u8], tag: Tag, timestamp: u32) -> BytesMut {
 /// (flv header + PreviousTagSize0) are 
 /// exactly the same.
 #[rustfmt::skip]
-pub fn encode_header(head: Header) -> BytesMut {
+pub fn encode_header(head: Header) -> Bytes {
     let flag = match head {
         Header::Audio => 0x04,
         Header::Video => 0x01,
@@ -73,7 +75,7 @@ pub fn encode_header(head: Header) -> BytesMut {
     };
 
     BytesMut::from([
-        
+
         // "FLV"
         0x46, 
         0x4c,
@@ -94,4 +96,5 @@ pub fn encode_header(head: Header) -> BytesMut {
         // size
         0, 0, 0, 0
     ].to_vec().as_slice())
+        .freeze()
 }

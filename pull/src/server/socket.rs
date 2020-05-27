@@ -117,9 +117,9 @@ impl Socket {
 
         // 媒体数据
         let packet = match flag {
-            Flag::Audio => Some(self.packet_tag(payload, Tag::Audio)),
-            Flag::Video => Some(self.packet_tag(payload, Tag::Video)),
-            Flag::Frame if !self.completed => Some(self.packet_tag(payload, Tag::Script)), 
+            Flag::FlvAudio => Some(self.packet_tag(payload, Tag::Audio)),
+            Flag::FlvVideo => Some(self.packet_tag(payload, Tag::Video)),
+            Flag::FlvFrame if !self.completed => Some(self.packet_tag(payload, Tag::Script)), 
             _ => None,
         };
 
