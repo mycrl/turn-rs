@@ -5,12 +5,12 @@ lto = true
 
 [workspace]
 members = [
-    "exchange",
     "lib/flv",
     "lib/rtmp",
     "lib/balance",
     "lib/transport",
     "lib/configure",
+    "exchange",
     "publish",
     "pull"
 ]

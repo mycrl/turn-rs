@@ -18,12 +18,12 @@ use bytes::{Buf, BufMut, BytesMut};
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
 pub enum Flag {
-    Video = 0,
-    Audio = 1,
-    Frame = 2,
-    Publish = 3,
-    UnPublish = 4,
-    Pull = 5,
+    FlvVideo = 0,
+    FlvAudio = 1,
+    FlvFrame = 2,
+    FlvPublish = 3,
+    FlvUnPublish = 4,
+    FlvPull = 5,
     Avg = 6,
     None,
 }
@@ -200,12 +200,12 @@ impl Transport {
 
             // Get the flag
             let flag = match self.buffer[4] {
-                0 => Flag::Video,
-                1 => Flag::Audio,
-                2 => Flag::Frame,
-                3 => Flag::Publish,
-                4 => Flag::UnPublish,
-                5 => Flag::Pull,
+                0 => Flag::FlvVideo,
+                1 => Flag::FlvAudio,
+                2 => Flag::FlvFrame,
+                3 => Flag::FlvPublish,
+                4 => Flag::FlvUnPublish,
+                5 => Flag::FlvPull,
                 _ => Flag::None
             };
 
