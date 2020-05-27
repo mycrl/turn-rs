@@ -24,6 +24,27 @@
 开发阶段 </br>
 
 
+### 支持的编码器
+
+* [x] H264</br>
+* [ ] H265</br>
+* [ ] VP9</br>
+* [ ] AV1</br>
+* [x] AAC</br>
+* [ ] MP3</br>
+* [ ] WAV</br>
+
+
+### 支持的协议
+
+* [x] HTTP-FLV</br>
+* [x] RTMP</br>
+* [ ] RTSP</br>
+* [ ] WebRTC</br>
+* [ ] HLS</br>
+* [ ] DASH FMP4</br>
+
+
 ### 计划
 > 早期计划仅支持RTMP，HLS，HttpFLV协议，目前仅考虑H264编码，在接下来的计划中支持WebRTC和VP9.</br>
 
