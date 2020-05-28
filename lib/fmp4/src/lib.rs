@@ -1,27 +1,9 @@
 use bytes::{BufMut, Bytes, BytesMut};
-
-pub enum Type {
-    Audio,
-    Video,
-}
+use flv::{Metadata, Tag};
 
 pub enum Codec {
     MP3,
     AAC,
-}
-
-pub struct Metadata {
-    pub flag: Type,
-    pub codec: Codec,
-    pub track_id: u32,
-    pub timescale: u32,
-    pub duration: u32,
-    pub width: u16,
-    pub height: u16,
-    pub channel_count: u8,
-    pub audio_sample_rate: u8,
-    pub config: Bytes,
-    pub avcc: Bytes,
 }
 
 pub struct Flags {
@@ -72,6 +54,17 @@ pub fn packet_box(name: &[u8], data: Vec<Bytes>) -> Bytes {
     packet.freeze()
 }
 
+pub fn ftyp() -> Bytes {
+    packet_box(b"ftyp", vec![
+        Bytes::from([
+            0x69, 0x73, 0x6F, 0x6D,  // major_brand: isom
+            0x0,  0x0,  0x0,  0x1,   // minor_version: 0x01
+            0x69, 0x73, 0x6F, 0x6D,  // isom
+            0x61, 0x76, 0x63, 0x31   // avc1
+        ].to_vec())
+    ])
+}
+
 pub fn moov(meta: &Metadata) -> Bytes {
     packet_box(b"moov", vec![mvhd(meta), trak(meta), mvex(meta)])
 }
@@ -118,7 +111,7 @@ pub fn tkhd(meta: &Metadata) -> Bytes {
         0x00, 0x00, 0x00, 0x00, // modification_time
     ]);
 
-    packet.put_u32(meta.track_id);
+    packet.put_u32(meta.track_id as u32);
     packet.put_u32(0);
     packet.put_u32(meta.duration);
 
@@ -133,9 +126,9 @@ pub fn tkhd(meta: &Metadata) -> Bytes {
         0x00, 0x00, // ----end composition matrix----
     ]);
 
-    packet.put_u16(meta.width);
+    packet.put_u16(meta.present_width as u16);
     packet.put_u16(0);
-    packet.put_u16(meta.height);
+    packet.put_u16(meta.present_height as u16);
     packet.put_u16(0);
 
     packet_box(b"tkhd", vec![packet.freeze()])
@@ -168,7 +161,7 @@ pub fn mdhd(meta: &Metadata) -> Bytes {
 pub fn hdlr(meta: &Metadata) -> Bytes {
     let mut packet = BytesMut::new();
 
-    if let Type::Audio = meta.flag {
+    if let Tag::Audio = meta.tag {
         packet.put_slice(&[
             0x00, 0x00, 0x00, 0x00, // version(0) + flags
             0x00, 0x00, 0x00, 0x00, // pre_defined
@@ -192,7 +185,7 @@ pub fn hdlr(meta: &Metadata) -> Bytes {
 }
 
 pub fn minf(meta: &Metadata) -> Bytes {
-    if let Type::Audio = meta.flag {
+    if let Tag::Audio = meta.tag {
         packet_box(b"minf", vec![smhd(), dinf(), stbl(meta)])
     } else {
         packet_box(b"minf", vec![vmhd(), dinf(), stbl(meta)])
@@ -305,36 +298,20 @@ pub fn stco() -> Bytes {
 }
 
 pub fn stsd(meta: &Metadata) -> Bytes {
-    if let Type::Audio = meta.flag {
-        if let Codec::MP3 = meta.codec {
-            packet_box(
-                b"stsd",
-                vec![
-                    Bytes::from(
-                        [
-                            0x00, 0x00, 0x00, 0x00, // version(0) + flags
-                            0x00, 0x00, 0x00, 0x01, // entry_count
-                        ]
-                        .to_vec(),
-                    ),
-                    mp3(meta),
-                ],
-            )
-        } else {
-            packet_box(
-                b"stsd",
-                vec![
-                    Bytes::from(
-                        [
-                            0x00, 0x00, 0x00, 0x00, // version(0) + flags
-                            0x00, 0x00, 0x00, 0x01, // entry_count
-                        ]
-                        .to_vec(),
-                    ),
-                    mp4a(meta),
-                ],
-            )
-        }
+    if let Tag::Audio = meta.tag {
+        packet_box(
+            b"stsd",
+            vec![
+                Bytes::from(
+                    [
+                        0x00, 0x00, 0x00, 0x00, // version(0) + flags
+                        0x00, 0x00, 0x00, 0x01, // entry_count
+                    ]
+                    .to_vec(),
+                ),
+                mp4a(meta),
+            ],
+        )
     } else {
         packet_box(
             b"stsd",
@@ -444,8 +421,8 @@ pub fn avc1(meta: &Metadata) -> Bytes {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ]);
 
-    packet.put_u16(meta.width); // width: 2 bytes
-    packet.put_u16(meta.height); // width: 2 bytes
+    packet.put_u16(meta.codec_width as u16); // width: 2 bytes
+    packet.put_u16(meta.codec_height as u16); // width: 2 bytes
 
     packet.put_slice(&[
         0x00, 0x48, 0x00, 0x00, // horizresolution: 4 bytes
@@ -477,7 +454,7 @@ pub fn trex(meta: &Metadata) -> Bytes {
     let mut packet = BytesMut::new();
 
     packet.put_u32(0x00); // version(0) + flags
-    packet.put_u32(meta.track_id); // track_ID
+    packet.put_u32(meta.track_id as u32); // track_ID
     packet.put_slice(&[
         0x00, 0x00, 0x00, 0x01, // default_sample_description_index
         0x00, 0x00, 0x00, 0x00, // default_sample_duration

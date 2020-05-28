@@ -1,11 +1,12 @@
 use bytes::{Bytes, BytesMut};
-use super::Metadata;
+use super::{Metadata, Tag};
 
 /// 解析音频帧
 /// 
 /// 注意: 只支持AAC.
 /// 输入音频帧获得音频帧信息.
 pub fn decoder(data: BytesMut) -> Metadata {
+    let mut meta = Metadata::default();
     let audio_object_type = data[2] >> 3;
     let sampling_index = ((data[2] & 0x07) << 1) | (data[3] >> 7);
     let sampling_frequence = match sampling_index {
@@ -39,15 +40,15 @@ pub fn decoder(data: BytesMut) -> Metadata {
     config[2] |= (extension_sampling & 0x01) << 7;
     config[2] |= 2 << 2;
 
-    Metadata {
-        track_id: 2,
-        duration: 0,
-        timescale: 1000,
-        audio_sample_rate: sampling_frequence,
-        channel_count: channel_config,
-        codec: "mp4a.40.5".to_string(),
-        original_codec: "mp4a.40.5".to_string(),
-        config: Bytes::from(config.to_vec()),
-        ref_sample_duration: 1024 / sampling_frequence * 1000
-    }
+    meta.tag = Tag::Audio;
+    meta.track_id = 2;
+    meta.duration = 0;
+    meta.timescale = 1000;
+    meta.audio_sample_rate = sampling_frequence;
+    meta.channel_count = channel_config;
+    meta.codec = "mp4a.40.5".to_string();
+    meta.original_codec = "mp4a.40.5".to_string();
+    meta.config = Bytes::from(config.to_vec());
+    meta.ref_sample_duration = 1024 / sampling_frequence * 1000;
+    meta
 }

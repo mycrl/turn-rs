@@ -289,6 +289,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fmp4"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "flv",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1173,6 +1181,14 @@ dependencies = [
  "redox_syscall",
  "remove_dir_all",
  "winapi 0.3.8",
+]
+
+[[package]]
+name = "testing"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "flv",
 ]
 
 [[package]]

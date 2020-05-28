@@ -7,10 +7,12 @@ lto = true
 members = [
     "lib/flv",
     "lib/rtmp",
+    "lib/fmp4",
     "lib/balance",
     "lib/transport",
     "lib/configure",
     "exchange",
     "publish",
+    "testing",
     "pull"
 ]

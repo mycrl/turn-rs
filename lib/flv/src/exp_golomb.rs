@@ -36,7 +36,7 @@ impl ExpGolomb {
     #[rustfmt::skip]
     fn skip_leading_zero(&mut self) -> usize {
         let mut zero_count = 0;
-        for _ in zero_count..(self.current_word_bits_left - 1) {
+        for _ in zero_count..self.current_word_bits_left {
             if self.current_word & (0x80000000 >> zero_count) != 0 {
                 self.current_word <<= zero_count;
                 self.current_word_bits_left -= zero_count;
