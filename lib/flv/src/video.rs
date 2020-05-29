@@ -1,19 +1,28 @@
 use super::sps::sps_parse;
-use super::{Metadata, FrameRate, Tag};
+use super::{Metadata, FrameRate, Tag, DecoerResult, VideoSample};
 use bytes::{BytesMut, Buf};
 
 /// 解析视频帧
 /// 
 /// 注意: 只支持H264
 #[allow(dead_code)]
-pub fn decoder(mut data: BytesMut) -> Metadata {
+pub fn decoder(mut data: BytesMut, naluLengthSize: usize, timestamp: u32) -> DecoerResult {
     let avcc = data.clone();
-    let video_spec = data.get_u8();
-    let video_frame = (video_spec & 240) >> 4;
-    let codec_id = video_spec & 15;
+    let spec = data.get_u8();
+    let frame_type = (spec & 240) >> 4;
+    let codec_id = spec & 15;
     let packet_type = data.get_u8();
     let cts_unsigned = data.get_u32() & 0x00FFFFFF;
     let cts = (cts_unsigned << 8) >> 8;
+
+    // 非关键帧
+    // 拆分视频轨道
+    if packet_type == 1 {
+        return parse_avc_data(data, naluLengthSize, timestamp, cts);
+    }
+
+    // 关键帧
+    // 获取关键帧数据
     let version = data.get_u8();
     let avc_profile = data.get_u8();
     let profile_compatibility = data.get_u8();

@@ -25,7 +25,7 @@
 项目进度更新在 [项目看板](https://github.com/quasipaas/Quasipaa/projects/1)，可以随时跟踪.</br>
 
 
-### 支持的编码器
+### 支持的编码
 
 * [x] H264</br>
 * [ ] H265</br>

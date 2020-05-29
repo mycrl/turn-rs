@@ -470,6 +470,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bcc8e0c9bce37868955864dbecd2b1ab2bdf967e6f28066d65aaac620444b65c"
 
 [[package]]
+name = "golomb"
+version = "0.1.0"
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1181,14 +1185,6 @@ dependencies = [
  "redox_syscall",
  "remove_dir_all",
  "winapi 0.3.8",
-]
-
-[[package]]
-name = "testing"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "flv",
 ]
 
 [[package]]

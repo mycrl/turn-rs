@@ -1,4 +1,4 @@
-use bytes::{BytesMut, BufMut, Buf};
+use bytes::{BytesMut, Buf};
 use std::cmp;
 
 pub struct ExpGolomb {
