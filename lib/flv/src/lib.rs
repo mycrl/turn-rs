@@ -1,4 +1,3 @@
-mod exp_golomb;
 mod sps;
 
 use bytes::BytesMut;
@@ -285,15 +284,20 @@ impl Flv {
     /// 
     /// 解析视频编码配置信息
     #[allow(dead_code)]
-    fn parseAVCDecoderConfigurationRecord(&mut self, mut data: BytesMut) -> DecoderResult {
+    fn parseAVCDecoderConfigurationRecord(&mut self, mut data: BytesMut) {
         let version = data.get_u8();
         let avc_profile = data.get_u8();
         let profile_compatibility = data.get_u8();
         let avclevel = data.get_u8();
-        let nalu_length_size = (data.get_u8() & 3) + 1;
-        let sps_count = data.get_u8() & 31;
+        self.nalu_length_size = ((data.get_u8() & 3) + 1) as usize;
 
-        self.nalu_length_size = nalu_length_size as usize;
+        let sps_count = data.get_u8() & 31;
+        for _ in 0..sps_count {
+            let len = data.get_u16();
+            if len == 0 {
+                continue;
+            }
+        }
     }
 
     /// 解析视频帧数据

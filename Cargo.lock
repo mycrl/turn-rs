@@ -286,6 +286,7 @@ name = "flv"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "golomb",
 ]
 
 [[package]]
