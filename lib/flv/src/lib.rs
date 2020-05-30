@@ -31,23 +31,23 @@ pub enum Tag {
 pub struct FrameRate {
     pub fixed: bool,
     pub fps: f64,
-    pub fps_den: usize,
-    pub fps_num: usize
+    pub fps_den: u32,
+    pub fps_num: u32
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Size {
-    pub width: usize,
-    pub height: usize
+    pub width: u32,
+    pub height: u32
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct SPS {
     pub profile_string: String,  // baseline, high, high10, ...
     pub level_string: String,  // 3, 3.1, 4, 4.1, 5, 5.1, ...
-    pub bit_depth: usize,  // 8bit, 10bit, ...
-    pub ref_frames: usize,
-    pub chroma_format: usize,  // 4:2:0, 4:2:2, ...
+    pub bit_depth: u32,  // 8bit, 10bit, ...
+    pub ref_frames: u32,
+    pub chroma_format: u32,  // 4:2:0, 4:2:2, ...
     pub chroma_format_string: String,
     pub frame_rate: FrameRate,
     pub sar_ratio: Size,
@@ -68,29 +68,30 @@ pub struct Metadata {
     pub original_codec: String,
     pub config: Bytes,
     pub ref_sample_duration: u32,
-    pub codec_width: usize,
-    pub codec_height: usize,
-    pub present_width: usize,
-    pub present_height: usize,
+    pub codec_width: u32,
+    pub codec_height: u32,
+    pub present_width: u32,
+    pub present_height: u32,
     pub profile: String,
     pub level: String,
-    pub bit_depth: usize,
-    pub chroma_format: usize,
+    pub bit_depth: u32,
+    pub chroma_format: u32,
     pub sar_ratio: Size,
     pub frame_rate: FrameRate,
     pub avcc: Bytes
 }
 
 pub struct VideoSample {
-    units: Vec<(usize, BytesMut)>,
-    dts: u32,
-    cts: u32,
-    pts: u32
+    pub units: Vec<(usize, BytesMut)>,
+    pub dts: u32,
+    pub cts: u32,
+    pub pts: u32
 }
 
 pub enum DecoderResult {
-    Metadata(Metadata),
+    AudioMetadata(Metadata),
     AudioTrack((u32, BytesMut)),
+    VideoMetadata(Metadata),
     VideoTrack(VideoSample)
 }
 
@@ -253,18 +254,15 @@ impl Flv {
         meta.original_codec = "mp4a.40.5".to_string();
         meta.config = Bytes::from(config.to_vec());
         meta.ref_sample_duration = 1024 / sampling_frequence * 1000;
-        DecoderResult::Metadata(meta)
+        DecoderResult::AudioMetadata(meta)
     }
 
     /// 解析视频帧
     /// 
     /// 注意: 只支持H264
     #[rustfmt::skip]
-    pub fn decoder_video(&mut self, mut data: BytesMut, timestamp: u32) -> DecoderResult {
-        let avcc = data.clone();
-        let spec = data.get_u8();
-        let frame_type = (spec & 240) >> 4;
-        let codec_id = spec & 15;
+    pub fn decoder_video(&mut self, data: &mut BytesMut, timestamp: u32) -> DecoderResult {
+        data.advance(1);
         let packet_type = data.get_u8();
         let cts_unsigned = data.get_u32() & 0x00FFFFFF;
         let cts = (cts_unsigned << 8) >> 8;
@@ -283,29 +281,80 @@ impl Flv {
     /// 解析视频关键帧
     /// 
     /// 解析视频编码配置信息
-    #[allow(dead_code)]
-    fn parseAVCDecoderConfigurationRecord(&mut self, mut data: BytesMut) {
-        let version = data.get_u8();
-        let avc_profile = data.get_u8();
-        let profile_compatibility = data.get_u8();
-        let avclevel = data.get_u8();
+    #[allow(bad_style)]
+    fn parseAVCDecoderConfigurationRecord(&mut self, data: &mut BytesMut) -> DecoderResult {
+        let avcc = data.clone();
+        let mut meta = Metadata::default();
+        data.advance(4);
+
+        meta.tag = Tag::Video;
+        meta.track_id = 1;
+        meta.duration = 0;
+        meta.timescale = 1000;
         self.nalu_length_size = ((data.get_u8() & 3) + 1) as usize;
 
         let sps_count = data.get_u8() & 31;
-        for _ in 0..sps_count {
+        for i in 0..sps_count {
             let len = data.get_u16();
             if len == 0 {
                 continue;
             }
+
+            let sps = data.split_to(len.into());
+            let config = sps::sps_parse(&sps);
+            if i != 0 {
+                continue;
+            }
+
+            meta.codec_width = config.codec_size.width;
+            meta.codec_height = config.codec_size.height;
+            meta.present_width = config.present_size.width;
+            meta.present_height = config.present_size.height;
+            meta.profile = config.profile_string;
+            meta.level = config.level_string;
+            meta.bit_depth = config.bit_depth;
+            meta.chroma_format = config.chroma_format;
+            meta.sar_ratio = config.sar_ratio;
+            meta.frame_rate = config.frame_rate;
+
+            let fif = meta.frame_rate.fixed == false;
+            let fiz = meta.frame_rate.fps_num == 0;
+            let fpiz = meta.frame_rate.fps_den == 0;
+            if fif || fiz || fpiz {
+                meta.frame_rate = FrameRate {
+                    fixed: true,
+                    fps: 23.976,
+                    fps_num: 23976,
+                    fps_den: 1000
+                };
+            }
+
+            let fps_den = meta.frame_rate.fps_den;
+            let fps_num = meta.frame_rate.fps_num;
+            meta.ref_sample_duration = meta.timescale * (fps_den / fps_num);
+
+            let code_array = &sps[1..4];
+            meta.codec = String::from("avc1.");
+            for i in 0..3 {
+                let mut hex = format!("{:x}", code_array[i]);
+                if hex.len() < 2 {
+                    hex.insert(0, '0');
+                }
+
+                meta.codec.push_str(&hex);
+            }
         }
+
+        meta.avcc = avcc.freeze();
+        DecoderResult::VideoMetadata(meta)
     }
 
     /// 解析视频帧数据
     /// 
     /// 非关键帧数据
     /// 拆分出视频轨道数据
-    #[allow(dead_code)]
-    fn parseAVCVideoData(&self, mut data: BytesMut, timestamp: u32, cts: u32) -> DecoderResult {
+    #[allow(bad_style)]
+    fn parseAVCVideoData(&self, data: &mut BytesMut, timestamp: u32, cts: u32) -> DecoderResult {
         let data_size = data.len();
         let mut units = Vec::new();
         let mut offset = 0;
@@ -318,20 +367,20 @@ impl Flv {
             }
 
             // Nalu with length-header (AVC1)
-            let mut naluSize = data.get_u32() as usize;
+            let mut nalu_size = data.get_u32() as usize;
             if self.nalu_length_size == 3 {
-                naluSize >>= 8;
+                nalu_size >>= 8;
             }
 
             // 检查是否解析完成
-            if naluSize > data_size - self.nalu_length_size {
+            if nalu_size > data_size - self.nalu_length_size {
                 break;
             }
 
             // NAL包类型
-            let unitType = data.get_u8() & 0x1F;
-            units.push((unitType as usize, data));
-            offset += self.nalu_length_size + naluSize;
+            let unit_type = data.get_u8() & 0x1F;
+            units.push((unit_type as usize, data.clone()));
+            offset += self.nalu_length_size + nalu_size;
         }
 
         // 返回视频单元和控制信息
