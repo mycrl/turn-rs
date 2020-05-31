@@ -1,4 +1,3 @@
-mod codec;
 mod server;
 
 use server::ServerAddr;

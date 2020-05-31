@@ -1,5 +1,5 @@
 use bytes::{BufMut, Bytes, BytesMut};
-use flv::{Metadata, Tag};
+use super::{Metadata, Tag};
 
 pub enum Codec {
     MP3,

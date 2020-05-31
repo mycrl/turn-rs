@@ -131,6 +131,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
+name = "codec"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "lazy_static",
+ "rml_amf0",
+ "rml_rtmp",
+ "transport",
+]
+
+[[package]]
 name = "configure"
 version = "0.1.0"
 
@@ -280,22 +291,6 @@ name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
-
-[[package]]
-name = "flv"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "golomb",
-]
-
-[[package]]
-name = "fmp4"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "flv",
-]
 
 [[package]]
 name = "fnv"
@@ -668,6 +663,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "multiplexer"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "golomb",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -842,8 +845,8 @@ name = "publish"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "codec",
  "futures",
- "rtmp",
  "tokio",
  "transport",
 ]
@@ -853,9 +856,9 @@ name = "pull"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "flv",
  "futures",
  "http",
+ "multiplexer",
  "tokio",
  "transport",
  "tungstenite",
@@ -1020,17 +1023,6 @@ dependencies = [
  "rand 0.3.23",
  "rml_amf0",
  "sha2",
-]
-
-[[package]]
-name = "rtmp"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "lazy_static",
- "rml_amf0",
- "rml_rtmp",
- "transport",
 ]
 
 [[package]]

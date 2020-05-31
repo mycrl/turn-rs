@@ -1,7 +1,7 @@
 pub mod forward;
 pub mod socket;
 
-use crate::codec::Rtmp;
+use codec::Rtmp;
 use bytes::BytesMut;
 use forward::Forward;
 use futures::prelude::*;
