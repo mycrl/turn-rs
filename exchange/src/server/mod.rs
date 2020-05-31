@@ -1,12 +1,12 @@
 mod socket;
 
-use super::router::{Router, Tx};
-use futures::prelude::*;
+use crate::router::{Router, Tx};
+
 use socket::Socket;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::{io::Error, pin::Pin};
+
+use std::io::Error;
 use tokio::net::TcpListener;
 
 /// TCP服务器
@@ -29,22 +29,16 @@ impl Server {
             listener: TcpListener::bind(addr).await?,
         })
     }
-}
 
-impl Stream for Server {
-    type Item = Result<(), Error>;
-
-    #[rustfmt::skip]
-    fn poll_next (self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
-        let handle = self.get_mut();
-        match handle.listener.poll_accept(ctx) {
-            Poll::Ready(Ok((socket, addr))) => {
-                let addr_str = Arc::new(addr.to_string());
-                let sender = handle.sender.clone();
-                tokio::spawn(Socket::new(socket, addr_str, sender));
-                Poll::Ready(Some(Ok(())))
-            }, _ => Poll::Pending
+    pub async fn handle(mut self) {
+        while let Ok((socket, addr)) = self.listener.accept().await {
+            let addr_str = Arc::new(addr.to_string());
+            let sender = self.sender.clone();
+            tokio::spawn(Socket::new(socket, addr_str, sender));
         }
+
+        // 是否需要提前关闭 sender？
+        // drop(self.sender);
     }
 }
 
@@ -53,9 +47,9 @@ impl Stream for Server {
 /// 提供简单方便的服务器启动入口.
 pub async fn run(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-    let mut server = Server::new(addr, sender).await?;
+    let server = Server::new(addr, sender).await?;
+    tokio::spawn(server.handle());
     tokio::spawn(Router::new(receiver));
-    loop {
-        server.next().await;
-    }
+
+    Ok(())
 }
