@@ -1,10 +1,11 @@
 mod flv;
 mod fmp4;
-mod h264;
+mod aac;
+mod avc;
 
 pub use flv::Flv;
-
 use bytes::{BytesMut, Bytes};
+use transport::Flag;
 
 /// Flv header type.
 ///
@@ -94,12 +95,24 @@ pub struct VideoSample {
     pub pts: u32
 }
 
+/// 解码器解码结果
+pub enum DecoderResult {
+    AudioMetadata(Metadata),
+    AudioTrack((u32, BytesMut)),
+    VideoMetadata(Metadata),
+    VideoTrack(VideoSample)
+}
+
 impl Default for Tag {
     fn default() -> Self {
         Self::Audio
     }
 }
 
-pub trait Multiplexer {
-    
+pub fn to_fmp4(flag: Flag, data: BytesMut, timestamp: u32) {
+    if let Flag::FlvAudio = flag {
+        if let DecoderResult::AudioMetadata(meta) = aac::decoder(data, timestamp) {
+            
+        }
+    }
 }

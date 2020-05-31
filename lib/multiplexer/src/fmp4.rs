@@ -1,11 +1,6 @@
 use bytes::{BufMut, Bytes, BytesMut};
 use super::{Metadata, Tag};
 
-pub enum Codec {
-    MP3,
-    AAC,
-}
-
 pub struct Flags {
     pub is_leading: u8,
     pub is_depended_on: u8,

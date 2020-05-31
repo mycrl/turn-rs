@@ -1,4 +1,4 @@
-use super::{SPS, FrameRate, Size};
+use crate::{SPS, FrameRate, Size};
 use bytes::{BytesMut, BufMut, Bytes};
 use golomb::ExpGolomb;
 
@@ -7,7 +7,7 @@ const SAR_HEIGHT_TABLE: [u8; 16] = [1, 11, 11, 11, 33, 11, 11, 11, 33, 11, 11, 3
 const PROFILE_IDCS: [u8; 11] = [ 44, 83, 86, 100, 110, 122, 244, 118, 128, 138, 144];
 const CHROMA_FORMAT_TABLE: [u32; 4] = [0, 420, 422, 444];
 
-pub fn ebsp_rbsp(data: &[u8]) -> Bytes {
+fn ebsp_rbsp(data: &[u8]) -> Bytes {
     let mut buffer = BytesMut::new();
     let mut index = 0;
     for i in 0..data.len() {

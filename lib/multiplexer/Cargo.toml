@@ -9,3 +9,6 @@ bytes = "0.5.4"
 
 [dependencies.golomb]
 path = "../golomb"
+
+[dependencies.transport]
+path = "../transport"
