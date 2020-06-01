@@ -10,7 +10,7 @@ members = [
     "lib/balance",
     "lib/transport",
     "lib/configure",
-    "lib/multiplexer",
+    "lib/transmuxer",
     "exchange",
     "publish",
     "pull"

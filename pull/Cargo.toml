@@ -10,8 +10,8 @@ bytes = "0.5.4"
 futures = "0.3"
 http = "0.2"
 
-[dependencies.multiplexer]
-path = "../lib/multiplexer"
+[dependencies.transmuxer]
+path = "../lib/transmuxer"
 
 [dependencies.transport]
 path = "../lib/transport"

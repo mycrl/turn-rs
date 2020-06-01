@@ -663,15 +663,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "multiplexer"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "golomb",
- "transport",
-]
-
-[[package]]
 name = "native-tls"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -859,8 +850,8 @@ dependencies = [
  "bytes",
  "futures",
  "http",
- "multiplexer",
  "tokio",
+ "transmuxer",
  "transport",
  "tungstenite",
 ]
@@ -1214,6 +1205,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "transmuxer"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "golomb",
+ "transport",
 ]
 
 [[package]]
