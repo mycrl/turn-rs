@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{io::Error, pin::Pin};
 use tokio::net::TcpListener;
+use configure::ConfigureModel;
 
 /// TCP服务器
 ///
@@ -51,9 +52,9 @@ impl Stream for Server {
 /// 快速运行服务
 ///
 /// 提供简单方便的服务器启动入口.
-pub async fn run(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run(configure: ConfigureModel) -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-    let mut server = Server::new(addr, sender).await?;
+    let mut server = Server::new(configure.exchange.to_addr(), sender).await?;
     tokio::spawn(Router::new(receiver));
     loop {
         server.next().await;

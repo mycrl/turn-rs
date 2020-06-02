@@ -10,6 +10,7 @@ use std::task::{Context, Poll};
 use std::{io::Error, pin::Pin};
 use tokio::sync::mpsc;
 use transport::{Flag, Payload};
+use configure::ConfigureModel;
 
 /// 事件传递通道
 pub type Rx = mpsc::UnboundedReceiver<Event>;
@@ -19,12 +20,6 @@ pub type Tx = mpsc::UnboundedSender<Event>;
 pub enum Event {
     Subscribe(String, Tx),
     Bytes(Flag, Arc<Payload>),
-}
-
-/// 服务器地址
-pub struct ServerAddr {
-    pub consume: SocketAddr,
-    pub produce: SocketAddr,
 }
 
 /// Tcp服务器
@@ -64,10 +59,10 @@ impl Stream for Server {
 /// 快速运行服务
 ///
 /// 提供简单方便的服务器启动入口.
-pub async fn run(addrs: ServerAddr) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run(configure: ConfigureModel) -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = mpsc::unbounded_channel();
-    let poter = Porter::new(addrs.produce, receiver).await?;
-    let mut server = Server::new(addrs.consume, sender)?;
+    let poter = Porter::new(configure.exchange.to_addr(), receiver).await?;
+    let mut server = Server::new(configure.pull.to_addr(), sender)?;
     tokio::spawn(poter);
     loop {
         server.next().await;
