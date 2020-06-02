@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{error::Error, pin::Pin};
 use transport::{Flag, Payload};
-use flv::Tag;
+use flv::{Tag, Flv, Header};
 use tungstenite::{
     handshake::server::Request, 
     handshake::server::Response, 
@@ -51,7 +51,7 @@ impl Socket {
     /// 并处理时间戳问题.
     #[rustfmt::skip]
     fn packet_tag(&mut self, payload: Arc<Payload>, tag: Tag) -> Message {
-        let flv_packet = flv::encode_tag(&payload.data, tag, self.timestamp);
+        let flv_packet = Flv::encode_tag(&payload.data, tag, self.timestamp);
         Message::Binary(flv_packet.to_vec())
     }
 
@@ -60,7 +60,7 @@ impl Socket {
     /// TODO：这是一个固定的头，
     /// 后期可以优化为常量避免重复分配.
     fn packet_header() -> Message {
-        let flv_packet = flv::encode_header(flv::Header::Full);
+        let flv_packet = Flv::encode_header(Header::Full);
         Message::Binary(flv_packet.to_vec())
     }
 
@@ -117,9 +117,9 @@ impl Socket {
 
         // 媒体数据
         let packet = match flag {
-            Flag::FlvAudio => Some(self.packet_tag(payload, Tag::Audio)),
-            Flag::FlvVideo => Some(self.packet_tag(payload, Tag::Video)),
-            Flag::FlvFrame if !self.completed => Some(self.packet_tag(payload, Tag::Script)), 
+            Flag::Audio => Some(self.packet_tag(payload, Tag::Audio)),
+            Flag::Video => Some(self.packet_tag(payload, Tag::Video)),
+            Flag::Frame if !self.completed => Some(self.packet_tag(payload, Tag::Script)), 
             _ => None,
         };
 

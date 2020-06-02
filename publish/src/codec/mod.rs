@@ -2,10 +2,12 @@
 //!
 //! All codec instances must implement the `Codec` and` Default` traits.
 //! Provide an abstract interface for the TcpSocket instance to use.
+//!
 
 mod rtmp;
 
-pub use self::rtmp::Rtmp;
+pub use rtmp::Rtmp;
+
 use bytes::BytesMut;
 use transport::Flag;
 

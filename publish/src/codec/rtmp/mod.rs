@@ -1,7 +1,25 @@
+mod handshake;
+mod message;
+mod session;
+
 use super::{Codec, Packet};
 use bytes::BytesMut;
-use rtmp::{Handshake, Session, State};
-use transport::Transport;
+pub use session::Session;
+pub use handshake::Handshake;
+use transport::{Flag, Payload, Transport};
+
+/// process result
+pub enum State {
+    /// There are unprocessed data blocks.
+    Overflow(BytesMut),
+    /// There is a data block that needs to be returned to the peer.
+    Callback(BytesMut),
+    /// Clear buffer.
+    /// Used to transfer handshake to session.
+    Empty,
+    /// Event message.
+    Event(Payload, Flag),
+}
 
 /// Rtmp protocol processing
 ///

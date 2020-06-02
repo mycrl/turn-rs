@@ -2,9 +2,9 @@
 # It is not intended for manual editing.
 [[package]]
 name = "addr2line"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "456d75cbb82da1ad150c8a9d97285ffcd21c9931dcb11e995903e7d75141b38b"
+checksum = "a49806b9dadc843c61e7c97e72490ad7f7220ae249012fbda9ad0609457c0543"
 dependencies = [
  "gimli",
 ]
@@ -462,6 +462,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bcc8e0c9bce37868955864dbecd2b1ab2bdf967e6f28066d65aaac620444b65c"
 
 [[package]]
+name = "golomb"
+version = "0.1.0"
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -830,7 +834,9 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "futures",
- "rtmp",
+ "lazy_static",
+ "rml_amf0",
+ "rml_rtmp",
  "tokio",
  "transport",
 ]
@@ -1007,17 +1013,6 @@ dependencies = [
  "rand 0.3.23",
  "rml_amf0",
  "sha2",
-]
-
-[[package]]
-name = "rtmp"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "lazy_static",
- "rml_amf0",
- "rml_rtmp",
- "transport",
 ]
 
 [[package]]
