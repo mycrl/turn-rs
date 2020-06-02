@@ -6,8 +6,8 @@ use std::{thread, time};
 use std::net::UdpSocket;
 use std::task::{Context, Poll};
 use std::{io::Error, pin::Pin, io::ErrorKind};
-use performance::Performance;
 use transport::{Transport, Payload, Flag};
+use performance::Performance;
 
 /// 负载均衡
 /// 

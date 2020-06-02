@@ -6,6 +6,7 @@ lto = true
 [workspace]
 members = [
     "lib/flv",
+    "lib/stun",
     "lib/golomb",
     "lib/balance",
     "lib/transport",
