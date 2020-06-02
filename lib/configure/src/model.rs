@@ -20,6 +20,7 @@ impl Exchange {
     /// 注意: 如果转换不成功将直接panic.
     pub fn to_addr(&self) -> SocketAddr {
         let mut addr = self.addr.clone();
+        addr.push(':');
         addr.push_str(&self.port.to_string());
         addr.parse().unwrap()
     }
@@ -66,6 +67,7 @@ impl Publish {
     /// 注意: 如果转换不成功将直接panic.
     pub fn to_addr(&self) -> SocketAddr {
         let mut addr = self.addr.clone();
+        addr.push(':');
         addr.push_str(&self.port.to_string());
         addr.parse().unwrap()
     }
@@ -112,6 +114,7 @@ impl Pull {
     /// 注意: 如果转换不成功将直接panic.
     pub fn to_addr(&self) -> SocketAddr {
         let mut addr = self.addr.clone();
+        addr.push(':');
         addr.push_str(&self.port.to_string());
         addr.parse().unwrap()
     }
