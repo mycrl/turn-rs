@@ -134,9 +134,8 @@ impl Router {
                 // TODO: 此处主要是为了解决FLV
                 // 头帧要求的问题
                 Flag::Video => {
-                    if !self.video_frame.contains_key(&channel) {
-                        self.video_frame.insert(channel, data.clone());
-                    }
+                    self.video_frame.entry(channel)
+                        .or_insert_with(|| data.clone());
                 },
 
                 // 音频帧
@@ -145,9 +144,8 @@ impl Router {
                 // TODO: 此处主要是为了解决FLV
                 // 头帧要求的问题
                 Flag::Audio => {
-                    if !self.audio_frame.contains_key(&channel) {
-                        self.audio_frame.insert(channel, data.clone());
-                    }
+                    self.audio_frame.entry(channel)
+                        .or_insert_with(|| data.clone());
                 },
 
                 // 其他不处理

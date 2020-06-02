@@ -12,17 +12,12 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
+use configure::ConfigureModel;
 use transport::Flag;
 
 /// Byte stream read and write pipeline type.
 pub type Tx = mpsc::UnboundedSender<(Flag, BytesMut)>;
 pub type Rx = mpsc::UnboundedReceiver<(Flag, BytesMut)>;
-
-/// Compound server address.
-pub struct ServerAddr {
-    pub consume: SocketAddr,
-    pub produce: SocketAddr,
-}
 
 /// TCP Server.
 ///
@@ -85,10 +80,10 @@ impl Stream for Server {
 /// Quickly run the server
 ///
 /// Submit a convenient method to quickly run Tcp and Udp instances.
-pub async fn run(addrs: ServerAddr) -> Result<(), Box<dyn Error>> {
+pub async fn run(configure: ConfigureModel) -> Result<(), Box<dyn Error>> {
     let (sender, receiver) = mpsc::unbounded_channel();
-    let forward = Forward::new(addrs.produce, receiver).await?;
-    let mut server = Server::new(addrs.consume, sender).await?;
+    let forward = Forward::new(configure.exchange.to_addr(), receiver).await?;
+    let mut server = Server::new(configure.publish.to_addr(), sender).await?;
     tokio::spawn(forward);
     loop {
         server.next().await;

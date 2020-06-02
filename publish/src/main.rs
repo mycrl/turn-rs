@@ -4,14 +4,11 @@ extern crate lazy_static;
 mod server;
 mod codec;
 
-use server::ServerAddr;
 use std::error::Error;
+use configure::Configure;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    Ok(server::run(ServerAddr {
-        consume: "0.0.0.0:1935".parse().unwrap(),
-        produce: "127.0.0.1:1936".parse().unwrap(),
-    })
-    .await?)
+    let configure = Configure::generate();
+    Ok(server::run(configure).await?)
 }

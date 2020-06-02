@@ -13,6 +13,9 @@ http = "0.2"
 [dependencies.flv]
 path = "../lib/flv"
 
+[dependencies.configure]
+path = "../lib/configure"
+
 [dependencies.transport]
 path = "../lib/transport"
 
