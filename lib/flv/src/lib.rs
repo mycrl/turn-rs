@@ -1,7 +1,29 @@
-pub mod Flv {
-    use crate::{Tag, Header};
-    use bytes::{BytesMut, BufMut, Bytes};
+use bytes::{BytesMut, Bytes, BufMut};
 
+/// Flv header type.
+///
+/// audio or video or all.
+#[derive(Debug)]
+pub enum Header {
+    Audio,
+    Video,
+    Full
+}
+
+/// Flv tag type
+///
+/// script(amf),
+/// audio tag,
+/// video tag.
+#[derive(Debug, Clone)]
+pub enum Tag {
+    Script,
+    Audio,
+    Video
+}
+
+pub struct Flv;
+impl Flv {
     /// Create FLV frame
     ///
     /// Timestamp and TimestampExtended form the 
@@ -77,5 +99,5 @@ pub mod Flv {
             0, 0, 0, 0
         ].to_vec().as_slice())
             .freeze()
-    }   
+    }
 }

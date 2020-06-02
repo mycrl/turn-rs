@@ -10,8 +10,8 @@ bytes = "0.5.4"
 futures = "0.3"
 http = "0.2"
 
-[dependencies.transmuxer]
-path = "../lib/transmuxer"
+[dependencies.flv]
+path = "../lib/flv"
 
 [dependencies.transport]
 path = "../lib/transport"

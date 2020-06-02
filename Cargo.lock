@@ -2,9 +2,9 @@
 # It is not intended for manual editing.
 [[package]]
 name = "addr2line"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "456d75cbb82da1ad150c8a9d97285ffcd21c9931dcb11e995903e7d75141b38b"
+checksum = "a49806b9dadc843c61e7c97e72490ad7f7220ae249012fbda9ad0609457c0543"
 dependencies = [
  "gimli",
 ]
@@ -129,17 +129,6 @@ name = "cfg-if"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
-
-[[package]]
-name = "codec"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "lazy_static",
- "rml_amf0",
- "rml_rtmp",
- "transport",
-]
 
 [[package]]
 name = "configure"
@@ -291,6 +280,13 @@ name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
+
+[[package]]
+name = "flv"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+]
 
 [[package]]
 name = "fnv"
@@ -837,8 +833,10 @@ name = "publish"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "codec",
  "futures",
+ "lazy_static",
+ "rml_amf0",
+ "rml_rtmp",
  "tokio",
  "transport",
 ]
@@ -848,10 +846,10 @@ name = "pull"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "flv",
  "futures",
  "http",
  "tokio",
- "transmuxer",
  "transport",
  "tungstenite",
 ]
@@ -1205,15 +1203,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "transmuxer"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "golomb",
- "transport",
 ]
 
 [[package]]

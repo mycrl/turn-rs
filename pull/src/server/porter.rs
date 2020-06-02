@@ -114,7 +114,7 @@ impl Porter {
             name,
             timestamp: 0,
             data: BytesMut::new(),
-        }), Flag::FlvPull))?;
+        }), Flag::Pull))?;
         self.flush(ctx)?;
         Ok(())
     }
@@ -130,7 +130,7 @@ impl Porter {
         // FLV的特殊处理，
         // FLV需要这个信息完成播放.
         if let Some(payload) = self.frame.get(&name) {
-            let event = Event::Bytes(Flag::FlvFrame, payload.clone());
+            let event = Event::Bytes(Flag::Frame, payload.clone());
             sender.send(event).map_err(drop).unwrap();
         }
 
@@ -138,7 +138,7 @@ impl Porter {
         // FLV的特殊处理，
         // FLV头帧视频需要H264的配置信息.
         if let Some(payload) = self.video_frame.get(&name) {
-            let event = Event::Bytes(Flag::FlvVideo, payload.clone());
+            let event = Event::Bytes(Flag::Video, payload.clone());
             sender.send(event).map_err(drop).unwrap();
         }
 
@@ -146,7 +146,7 @@ impl Porter {
         // FLV的特殊处理，
         // FLV头帧音频需要H264的配置信息.
         if let Some(payload) = self.audio_frame.get(&name) {
-            let event = Event::Bytes(Flag::FlvAudio, payload.clone());
+            let event = Event::Bytes(Flag::Audio, payload.clone());
             sender.send(event).map_err(drop).unwrap();
         }
 
@@ -167,7 +167,7 @@ impl Porter {
     #[rustfmt::skip]
     fn process_payload(frame: &mut Frame, peer: &mut Vec<Tx>, flag: Flag, payload: Arc<Payload>) {
         let mut failure = Vec::new();
-        if let Flag::FlvFrame = flag {
+        if let Flag::Frame = flag {
             frame.entry(payload.name.clone()).or_insert_with(|| {
                 payload.clone()
             });

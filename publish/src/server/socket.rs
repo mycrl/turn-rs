@@ -1,5 +1,5 @@
 use super::Tx;
-use codec::{Codec, Packet};
+use crate::codec::{Codec, Packet};
 use bytes::BytesMut;
 use futures::prelude::*;
 use std::task::{Context, Poll};

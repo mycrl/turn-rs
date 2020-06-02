@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{error::Error, pin::Pin};
 use transport::{Flag, Payload};
-use transmuxer::{Tag, Flv, Header};
+use flv::{Tag, Flv, Header};
 use tungstenite::{
     handshake::server::Request, 
     handshake::server::Response, 
@@ -117,9 +117,9 @@ impl Socket {
 
         // 媒体数据
         let packet = match flag {
-            Flag::FlvAudio => Some(self.packet_tag(payload, Tag::Audio)),
-            Flag::FlvVideo => Some(self.packet_tag(payload, Tag::Video)),
-            Flag::FlvFrame if !self.completed => Some(self.packet_tag(payload, Tag::Script)), 
+            Flag::Audio => Some(self.packet_tag(payload, Tag::Audio)),
+            Flag::Video => Some(self.packet_tag(payload, Tag::Video)),
+            Flag::Frame if !self.completed => Some(self.packet_tag(payload, Tag::Script)), 
             _ => None,
         };
 

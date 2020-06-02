@@ -137,7 +137,7 @@ impl Session {
                 timestamp: 0,
                 name: stream_name.to_string(),
                 data: BytesMut::new(),
-            }, Flag::FlvPublish));
+            }, Flag::Publish));
         }
 
         None
@@ -153,7 +153,7 @@ impl Session {
                 timestamp: 0,
                 name: stream_name.to_string(),
                 data: BytesMut::new(),
-            }, Flag::FlvUnPublish));
+            }, Flag::UnPublish));
         }
 
         None
@@ -204,7 +204,7 @@ impl Session {
                         timestamp: 0,
                         name: stream_name.to_string(),
                         data: BytesMut::from(&vec[16..]),
-                    }, Flag::FlvFrame));
+                    }, Flag::Frame));
                 }
             }
         }
@@ -262,8 +262,8 @@ impl Session {
                 additional_arguments: s,
                 ..
             } => self.process_command(n.as_str(), o, s),
-            RtmpMessage::AudioData { data } => self.packet_media(message.0, data, Flag::FlvAudio),
-            RtmpMessage::VideoData { data } => self.packet_media(message.0, data, Flag::FlvVideo),
+            RtmpMessage::AudioData { data } => self.packet_media(message.0, data, Flag::Audio),
+            RtmpMessage::VideoData { data } => self.packet_media(message.0, data, Flag::Video),
             RtmpMessage::SetChunkSize { size } => self.set_max_size(size),
             RtmpMessage::Amf0Data { values } => self.process_data(values),
             _ => None,
