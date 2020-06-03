@@ -1,8 +1,16 @@
 [package]
 name = "exchange"
 version = "0.1.0"
-authors = ["Mr.Panda <xivistudios@gmail.com>"]
+authors = [
+    "Mr.Panda <xivistudios@gmail.com>",
+    "huangjj27 <huangjj.27@qq.com>",
+]
 edition = "2018"
+
+[profile.release]
+opt-level = 3
+overflow-checks = true
+lto = true
 
 [dependencies]
 bytes = "0.5.4"

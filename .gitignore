@@ -1,4 +1,3 @@
 /target
 **/*.rs.bk
-/lib/ffmpeg
 /demo
