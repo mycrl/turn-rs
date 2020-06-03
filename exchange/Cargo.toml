@@ -1,7 +1,10 @@
 [package]
 name = "exchange"
 version = "0.1.0"
-authors = ["Mr.Panda <xivistudios@gmail.com>"]
+authors = [
+    "Mr.Panda <xivistudios@gmail.com>",
+    "huangjj27 <huangjj.27@qq.com>",
+]
 edition = "2018"
 
 [profile.release]
