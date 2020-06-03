@@ -1235,7 +1235,10 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 name = "stun"
 version = "0.1.0"
 dependencies = [
+ "bytecodec",
+ "bytes",
  "stun_codec",
+ "tokio",
 ]
 
 [[package]]
@@ -1308,8 +1311,7 @@ dependencies = [
 name = "testing"
 version = "0.1.0"
 dependencies = [
- "bytecodec",
- "stun_codec",
+ "stun",
  "tokio",
 ]
 
