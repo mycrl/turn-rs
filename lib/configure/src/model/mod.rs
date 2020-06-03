@@ -3,7 +3,6 @@ mod publish;
 mod pull;
 
 use serde_derive::Deserialize;
-use std::net::SocketAddr;
 use exchange::Exchange;
 use publish::Publish;
 use pull::Pull;
