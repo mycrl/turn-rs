@@ -4,7 +4,6 @@ use crate::router::Router;
 
 use socket::Socket;
 use std::io;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use configure::ConfigureModel;

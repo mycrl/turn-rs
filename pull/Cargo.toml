@@ -4,11 +4,6 @@ version = "0.1.0"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 edition = "2018"
 
-[profile.release]
-opt-level = 3
-overflow-checks = true
-lto = true
-
 [dependencies]
 tungstenite = "0.10.1"
 bytes = "0.5.4"

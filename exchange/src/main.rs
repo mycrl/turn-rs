@@ -1,11 +1,11 @@
 mod router;
 mod server;
 
-use std::error::Error;
+use std::io::Error;
 use configure::Configure;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), Error> {
     let configure = Configure::generate();
     server::run(configure).await
 }
