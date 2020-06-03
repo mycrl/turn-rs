@@ -1,15 +1,14 @@
 [package]
-name = "rtmp"
+name = "stun"
 version = "0.1.0"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 bytes = "0.5.4"
-rml_rtmp = "0.3.2"
-rml_amf0 = "0.1.1"
-lazy_static = "1.4.0"
+stun_codec = "0.1.12"
+bytecodec = "0.4.13"
 
-
-[dependencies.transport]
-path = "../transport"
+[dependencies.tokio]
+version = "0.2"
+features = ["full"]

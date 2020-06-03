@@ -150,7 +150,7 @@ impl<'a> ExpGolomb<'a> {
     #[allow(bad_style)]
     fn fill_current_word(&mut self) {
         let bufferBytesLeft = self.totalBytes - self.bufferIndex;
-        if bufferBytesLeft <= 0 { return; }
+        if bufferBytesLeft == 0 { return; }
         let bytesRead = cmp::min(4, bufferBytesLeft);
         let mut buffer = [0u8; 4];
         let end_index = self.bufferIndex + bytesRead;

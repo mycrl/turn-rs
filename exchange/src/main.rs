@@ -1,7 +1,11 @@
 mod router;
 mod server;
 
+use std::error::Error;
+use configure::Configure;
+
 #[tokio::main]
-async fn main() -> Result<(), std::io::Error> {
-    server::run("127.0.0.1:1936".parse().unwrap()).await
+async fn main() -> Result<(), Box<dyn Error>> {
+    let configure = Configure::generate();
+    server::run(configure).await
 }

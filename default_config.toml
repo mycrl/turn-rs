@@ -1,0 +1,11 @@
+[exchange]
+addr = "127.0.0.1"
+port = 1936
+
+[publish]
+addr = "0.0.0.0"
+port = 1935
+
+[pull]
+addr = "0.0.0.0"
+port = 8088

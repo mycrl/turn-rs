@@ -114,7 +114,7 @@ impl Porter {
             name,
             timestamp: 0,
             data: BytesMut::new(),
-        }), Flag::FlvPull))?;
+        }), Flag::Pull))?;
         self.flush(ctx)?;
         Ok(())
     }
@@ -130,7 +130,7 @@ impl Porter {
         // FLV的特殊处理，
         // FLV需要这个信息完成播放.
         if let Some(payload) = self.frame.get(&name) {
-            let event = Event::Bytes(Flag::FlvFrame, payload.clone());
+            let event = Event::Bytes(Flag::Frame, payload.clone());
             sender.send(event).map_err(drop).unwrap();
         }
 
@@ -138,7 +138,7 @@ impl Porter {
         // FLV的特殊处理，
         // FLV头帧视频需要H264的配置信息.
         if let Some(payload) = self.video_frame.get(&name) {
-            let event = Event::Bytes(Flag::FlvVideo, payload.clone());
+            let event = Event::Bytes(Flag::Video, payload.clone());
             sender.send(event).map_err(drop).unwrap();
         }
 
@@ -146,7 +146,7 @@ impl Porter {
         // FLV的特殊处理，
         // FLV头帧音频需要H264的配置信息.
         if let Some(payload) = self.audio_frame.get(&name) {
-            let event = Event::Bytes(Flag::FlvAudio, payload.clone());
+            let event = Event::Bytes(Flag::Audio, payload.clone());
             sender.send(event).map_err(drop).unwrap();
         }
 
@@ -165,28 +165,60 @@ impl Porter {
     /// 如果发送失败，这个地方目前当失效处理，
     /// 直接从订阅列表中删除这个管道.
     #[rustfmt::skip]
-    fn process_payload(frame: &mut Frame, peer: &mut Vec<Tx>, flag: Flag, payload: Arc<Payload>) {
-        let mut failure = Vec::new();
-        if let Flag::FlvFrame = flag {
-            frame.entry(payload.name.clone()).or_insert_with(|| {
-                payload.clone()
-            });
-        }
+    fn process_payload(&mut self, flag: Flag, payload: Arc<Payload>) {
+        if let Some(peer) = self.peer.get_mut(&payload.name) {
+            let mut failure = Vec::new();
 
-        // 遍历所有的客户端，
-        // 将消息路由到相应的客户端.
-        for (index, tx) in peer.iter().enumerate() {
-            if tx.send(Event::Bytes(flag, payload.clone())).is_err() {
-                failure.push(index);
+            // 处理掉一部分内部
+            // 需要管理的消息
+            match flag {
+                
+                // 音视频媒体信息
+                // 写入暂存区待后续使用
+                Flag::Frame => {
+                    self.frame.entry(payload.name.clone())
+                        .or_insert_with(|| payload.clone());
+                },
+
+                // 视频帧
+                // 检查是否存在首个视频帧
+                // 如果不存在则缓存首个帧
+                // TODO: 此处主要是为了解决FLV
+                // 头帧要求的问题
+                Flag::Video => {
+                    self.video_frame.entry(payload.name.clone())
+                        .or_insert_with(|| payload.clone());
+                },
+
+                // 音频帧
+                // 检查是否存在首个音频帧
+                // 如果不存在则缓存首个帧
+                // TODO: 此处主要是为了解决FLV
+                // 头帧要求的问题
+                Flag::Audio => {
+                    self.audio_frame.entry(payload.name.clone())
+                        .or_insert_with(|| payload.clone());
+                },
+
+                // 其他不处理
+                _ => ()
             }
-        }
 
-        // 删除失效的管道
-        // 因为这里没法确定管道是因为
-        // 什么原因也失效，也没必要知道，
-        // 直接删除掉无法工作的管道即可.
-        for index in failure {
-            peer.remove(index);
+            // 遍历所有的客户端，
+            // 将消息路由到相应的客户端.
+            for (index, tx) in peer.iter().enumerate() {
+                if tx.send(Event::Bytes(flag, payload.clone())).is_err() {
+                    failure.push(index);
+                }
+            }
+
+            // 删除失效的管道
+            // 因为这里没法确定管道是因为
+            // 什么原因也失效，也没必要知道，
+            // 直接删除掉无法工作的管道即可.
+            for index in failure {
+                peer.remove(index);
+            }             
         }
     }
 
@@ -215,9 +247,7 @@ impl Porter {
             if let Some(result) = self.transport.decoder(chunk) {
                 for (flag, message) in result {
                     if let Ok(payload) = Transport::parse(message) {
-                        if let Some(peer) = self.peer.get_mut(&payload.name) {
-                            Self::process_payload(&mut self.frame, peer, flag, Arc::new(payload));
-                        }
+                        self.process_payload(flag, Arc::new(payload));
                     }
                 }
             }

@@ -3,8 +3,8 @@ use futures::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::task::{Context, Poll};
 use std::{io::Error, pin::Pin, sync::Arc};
-use tokio::sync::mpsc;
 use transport::{Flag, Transport};
+use tokio::sync::mpsc;
 
 /// 事件
 pub enum Event {
@@ -83,15 +83,15 @@ impl Router {
             // 处理订阅事件
             // 如果一个客户端已经订阅了该频道并且获得了信息，
             // 则没有必要再次为该客户端推送frame信息.
-            if let Flag::FlvPull = flag {
+            if let Flag::Pull = flag {
                 match self.pull.get(&channel) {
                     Some(pull) if pull.contains(&name) => (),
                     _ => if let Some(frame) = self.frame.get(&channel) {
                         if let Some(audio) = self.audio_frame.get(&channel) {
                             if let Some(video) = self.video_frame.get(&channel) {
-                                message.push((Flag::FlvFrame, frame.clone()));
-                                message.push((Flag::FlvAudio, audio.clone()));
-                                message.push((Flag::FlvVideo, video.clone()));
+                                message.push((Flag::Frame, frame.clone()));
+                                message.push((Flag::Audio, audio.clone()));
+                                message.push((Flag::Video, video.clone()));
                             }
                         }
                     }
@@ -104,14 +104,14 @@ impl Router {
                 
                 // 音视频媒体信息
                 // 写入暂存区待后续使用
-                Flag::FlvFrame => {
+                Flag::Frame => {
                     self.frame.insert(channel, data.clone());
                 },
 
                 // 拉流事件
                 // 有客户端拉流
                 // 将客户端和频道关联起来
-                Flag::FlvPull => {
+                Flag::Pull => {
                     self.pull
                         .entry(channel)
                         .or_insert_with(HashSet::new)
@@ -122,7 +122,7 @@ impl Router {
                 // 如果当前频道出现新的推流
                 // 这时候应该将暂存区的缓存全部清空
                 // 等待下次再次拿到对应数据的时候填充
-                Flag::FlvPublish => {
+                Flag::Publish => {
                     self.frame.remove(&channel);
                     self.audio_frame.remove(&channel);
                     self.video_frame.remove(&channel);
@@ -133,10 +133,9 @@ impl Router {
                 // 如果不存在则缓存首个帧
                 // TODO: 此处主要是为了解决FLV
                 // 头帧要求的问题
-                Flag::FlvVideo => {
-                    if !self.video_frame.contains_key(&channel) {
-                        self.video_frame.insert(channel, data.clone());
-                    }
+                Flag::Video => {
+                    self.video_frame.entry(channel)
+                        .or_insert_with(|| data.clone());
                 },
 
                 // 音频帧
@@ -144,10 +143,9 @@ impl Router {
                 // 如果不存在则缓存首个帧
                 // TODO: 此处主要是为了解决FLV
                 // 头帧要求的问题
-                Flag::FlvAudio => {
-                    if !self.audio_frame.contains_key(&channel) {
-                        self.audio_frame.insert(channel, data.clone());
-                    }
+                Flag::Audio => {
+                    self.audio_frame.entry(channel)
+                        .or_insert_with(|| data.clone());
                 },
 
                 // 其他不处理
@@ -159,7 +157,7 @@ impl Router {
             // 因为这是一个交换中心自己使用的数据.
             // 拉流事件没必要广播
             match flag {
-                Flag::FlvPull => (),
+                Flag::Pull => (),
                 Flag::Avg => (),
                 _ => message.push((flag, data))
             }

@@ -6,6 +6,3 @@ edition = "2018"
 
 [dependencies]
 bytes = "0.5.4"
-
-[dependencies.golomb]
-path = "../golomb"

@@ -7,9 +7,17 @@ authors = [
 ]
 edition = "2018"
 
+[profile.release]
+opt-level = 3
+overflow-checks = true
+lto = true
+
 [dependencies]
 bytes = "0.5.4"
 futures = "0.3"
+
+[dependencies.configure]
+path = "../lib/configure"
 
 [dependencies.transport]
 path = "../lib/transport"
