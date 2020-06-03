@@ -1,0 +1,13 @@
+[package]
+name = "testing"
+version = "0.1.0"
+authors = ["Mr.Panda <xivistudios@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+stun_codec = "0.1.12"
+bytecodec = "0.4.13"
+
+[dependencies.tokio]
+version = "0.2"
+features = ["full"]
