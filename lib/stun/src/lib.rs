@@ -79,6 +79,20 @@ impl STUN {
         })
     }
 
+    /// 处理STUN服务器任务
+    /// 
+    /// TODO: 目前只处理了请求消息，未处理其他消息，
+    /// 对于客户端绑定请求，暂时未处理，后续看情况判断是否添加.
+    pub async fn process(&mut self) -> Result<(), Error> {
+        if let Some((message, addr)) = self.recv_message().await {
+            if let Some(response) = self.into_success_message(message, addr) {
+                self.socket.send_to(&response, addr).await?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// 读取消息
     /// 
     /// 尝试从UDP Server中读取消息，
@@ -118,20 +132,6 @@ impl STUN {
             Ok(buffer) => Some(Bytes::from(buffer)),
             _ => None
         }
-    }
-
-    /// 处理STUN服务器任务
-    /// 
-    /// TODO: 目前只处理了请求消息，未处理其他消息，
-    /// 对于客户端绑定请求，暂时未处理，后续看情况判断是否添加.
-    async fn process(&mut self) -> Result<(), Error> {
-        if let Some((message, addr)) = self.recv_message().await {
-            if let Some(response) = self.into_success_message(message, addr) {
-                self.socket.send_to(&response, addr).await?;
-            }
-        }
-
-        Ok(())
     }
 }
 
