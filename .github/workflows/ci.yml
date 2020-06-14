@@ -1,9 +1,9 @@
 name: CI
 on:
-    push:
-        branches: [ master ]
     pull_request:
-        branches: [ master ]
+        branches:
+        - master
+        - nightly
 env:
     CARGO_TERM_COLOR: always
 jobs:
@@ -12,4 +12,4 @@ jobs:
         steps:
         - uses: actions/checkout@v2
         - name: Run tests
-            run: cargo test --verbose
+          run: cargo test --verbose
