@@ -1,9 +1,6 @@
 use super::Rx;
-use futures::prelude::*;
-use std::net::SocketAddr;
-use std::task::{Context, Poll};
-use std::{io::Error, io::ErrorKind, pin::Pin};
-use tokio::{io::AsyncWrite, net::TcpStream};
+use std::{io::Error, net::SocketAddr};
+use tokio::{io::AsyncWriteExt, net::TcpStream};
 use transport::Transport;
 
 /// Data advancement
@@ -44,69 +41,19 @@ impl Forward {
         })
     }
 
-    /// Send data to TcpSocket
-    ///
-    /// Write Tcp data to TcpSocket.
-    /// Check whether the writing is completed,
-    // if not completely written, write the rest.
-    #[rustfmt::skip]
-    fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) -> Result<(), Error> {
-        let mut offset: usize = 0;
-        let length = data.len();
-        loop {
-            match Pin::new(&mut self.stream).poll_write(ctx, &data) {
-                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); }, 
-                Poll::Ready(Ok(s)) => match offset + s >= length {
-                    false => { offset += s; },
-                    true => { break; }
-                }, _ => (),
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Refresh the TcpSocket buffer
-    ///
-    /// After writing data to TcpSocket, you need to refresh
-    /// the buffer and send the data to the peer.
-    #[rustfmt::skip]
-    fn flush<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
-        loop {
-            match Pin::new(&mut self.stream).poll_flush(ctx) {
-                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); },
-                Poll::Ready(Ok(_)) => { break; },
-                _ => (),
-            }
-        }
-
-        Ok(())
-    }
-
     /// Handling pipeline messages
     ///
     /// Try to process the backlog message in the
     /// pipeline, and serialize it into tcp protocol
     /// packet through the data transfer module to
     /// send to tcpsocket.
-    #[rustfmt::skip]
-    fn process<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
-        while let Poll::Ready(Some((flag, data))) = Pin::new(&mut self.receiver).poll_next(ctx) {
+    pub async fn process(&mut self) -> Result<(), Error> {
+        if let Some((flag, data)) = self.receiver.recv().await {
             let buffer = Transport::encoder(data, flag);
-            self.send(ctx, &buffer)?;
-            self.flush(ctx)?;
+            self.stream.write_all(&buffer).await?;
+            self.stream.flush().await?;
         }
 
         Ok(())
-    }
-}
-
-impl Future for Forward {
-    type Output = Result<(), Error>;
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        match self.get_mut().process(ctx) {
-            Ok(_) => Poll::Pending,
-            Err(_) => Poll::Ready(Ok(()))
-        }
     }
 }

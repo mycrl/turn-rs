@@ -1,11 +1,9 @@
 use super::{Event, Rx, Tx};
 use bytes::BytesMut;
-use futures::prelude::*;
 use std::net::SocketAddr;
-use std::task::{Context, Poll};
+use std::{io::Error, sync::Arc};
 use std::collections::{HashMap, HashSet};
-use std::{io::Error, pin::Pin, sync::Arc, io::ErrorKind};
-use tokio::{io::AsyncRead, io::AsyncWrite, net::TcpStream};
+use tokio::{io::AsyncReadExt, io::AsyncWriteExt, net::TcpStream};
 use transport::{Flag, Payload, Transport};
 
 // type
@@ -47,59 +45,6 @@ impl Porter {
         })
     }
 
-    /// 从TcpSocket读取数据
-    ///
-    /// 单次最大从缓冲区获取2048字节，
-    /// 并转换为BytesMut返回.
-    ///
-    /// TODO: 目前存在重复申请缓冲区的情况，有优化空间；
-    #[rustfmt::skip]
-    fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<BytesMut> {
-        let mut receiver = [0u8; 2048];
-        match Pin::new(&mut self.stream).poll_read(ctx, &mut receiver) {
-            Poll::Ready(Ok(s)) if s > 0 => Some(BytesMut::from(&receiver[0..s])),
-            _ => None,
-        }
-    }
-
-    /// 发送数据到TcpSocket
-    ///
-    /// 如果出现未完全写入的情况，
-    /// 这里将重复重试，直到写入完成.
-    #[rustfmt::skip]
-    fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) -> Result<(), Error> {
-        let mut offset: usize = 0;
-        let length = data.len();
-        loop {
-            match Pin::new(&mut self.stream).poll_write(ctx, &data) {
-                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); }, 
-                Poll::Ready(Ok(s)) => match offset + s >= length {
-                    false => { offset += s; },
-                    true => { break; }
-                }, _ => (),
-            }
-        }
-
-        Ok(())
-    }
-
-    /// 刷新缓冲区并将Tcp数据推送到远端
-    ///
-    /// 重复尝试刷新，
-    /// 直到数据完全发送到对端.
-    #[rustfmt::skip]
-    fn flush<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
-        loop {
-            match Pin::new(&mut self.stream).poll_flush(ctx) {
-                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); },
-                Poll::Ready(Ok(_)) => { break; },
-                _ => (),
-            }
-        }
-
-        Ok(())
-    }
-
     /// 处理远程订阅
     ///
     /// 将订阅事件发送到交换中心，
@@ -107,15 +52,15 @@ impl Porter {
     /// 这里需要注意的是，如果已经订阅的频道，
     /// 这个地方将跳过，不需要重复订阅.
     #[rustfmt::skip]
-    fn peer_subscribe<'b>(&mut self, ctx: &mut Context<'b>, name: String) -> Result<(), Error> {
+    async fn peer_subscribe(&mut self, name: String) -> Result<(), Error> {
         if self.channel.contains(&name) { return Ok(()); }
         self.channel.insert(name.clone());
-        self.send(ctx, &Transport::encoder(Transport::packet(Payload {
+        self.stream.write_all(&Transport::encoder(Transport::packet(Payload {
             name,
             timestamp: 0,
             data: BytesMut::new(),
-        }), Flag::Pull))?;
-        self.flush(ctx)?;
+        }), Flag::Pull)).await?;
+        self.stream.flush().await?;
         Ok(())
     }
 
@@ -123,8 +68,8 @@ impl Porter {
     ///
     /// 将外部可写管道添加到频道列表中，
     /// 将管道和频道对应绑定.
-    fn subscribe<'b>(&mut self, ctx: &mut Context<'b>, name: String, sender: Tx) -> Result<(), Error> {
-        self.peer_subscribe(ctx, name.clone())?;
+    async fn subscribe(&mut self, name: String, sender: Tx) -> Result<(), Error> {
+        self.peer_subscribe(name.clone()).await?;
 
         // 发送媒体信息
         // FLV的特殊处理，
@@ -226,11 +171,9 @@ impl Porter {
     ///
     /// 处理外部传入的相关事件，
     /// 处理到内部，比如订阅频道.
-    fn process_receiver<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
-        while let Poll::Ready(Some(event)) = Pin::new(&mut self.receiver).poll_next(ctx) {
-            if let Event::Subscribe(name, sender) = event {
-                self.subscribe(ctx, name, sender)?;
-            }
+    async fn poll_receiver(&mut self) -> Result<(), Error> {
+        while let Some(Event::Subscribe(name, sender)) = self.receiver.recv().await {
+            self.subscribe(name, sender).await?;
         }
 
         Ok(())
@@ -242,36 +185,28 @@ impl Porter {
     /// 并解码数据，直到拆分成单个负载，
     /// 然后再进行相应的处理.
     #[rustfmt::skip]
-    fn process_socket<'b>(&mut self, ctx: &mut Context<'b>) {
-        while let Some(chunk) = self.read(ctx) {
-            if let Some(result) = self.transport.decoder(chunk) {
-                for (flag, message) in result {
-                    if let Ok(payload) = Transport::parse(message) {
-                        self.process_payload(flag, Arc::new(payload));
-                    }
+    async fn poll_socket(&mut self) -> Result<(), Error> {
+        let mut receiver = [0u8; 2048];
+        let size = self.stream.read(&mut receiver).await?;
+        let chunk = BytesMut::from(&receiver[0..size]);
+        if let Some(result) = self.transport.decoder(chunk) {
+            for (flag, message) in result {
+                if let Ok(payload) = Transport::parse(message) {
+                    self.process_payload(flag, Arc::new(payload));
                 }
             }
         }
+
+        Ok(())
     }
 
     /// 顺序处理多个任务
     ///
     /// 处理外部的事件通知，
     /// 处理内部TcpSocket数据.
-    #[rustfmt::skip]
-    fn process<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
-        self.process_receiver(ctx)?;
-        self.process_socket(ctx);
+    pub async fn process(&mut self) -> Result<(), Error> {
+        self.poll_receiver().await?;
+        self.poll_socket().await?;
         Ok(())
-    }
-}
-
-impl Future for Porter {
-    type Output = Result<(), Error>;
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        match self.get_mut().process(ctx) {
-            Ok(_) => Poll::Pending,
-            Err(_) => Poll::Ready(Ok(()))
-        }
     }
 }

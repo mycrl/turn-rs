@@ -315,7 +315,6 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "configure",
- "futures",
  "tokio",
  "transport",
 ]
@@ -916,7 +915,6 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "configure",
- "futures",
  "lazy_static",
  "rml_amf0",
  "rml_rtmp",
@@ -1239,6 +1237,7 @@ dependencies = [
  "bytes",
  "stun_codec",
  "tokio",
+ "webrtc-sdp",
 ]
 
 [[package]]
@@ -1484,6 +1483,16 @@ name = "wasi"
 version = "0.9.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
+
+[[package]]
+name = "webrtc-sdp"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22ca3fe7f015c28dcfbea0b0e05fbcb1a26ed902f80509dd0a4bf40556e73f58"
+dependencies = [
+ "log",
+ "url",
+]
 
 [[package]]
 name = "winapi"
