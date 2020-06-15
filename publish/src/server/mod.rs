@@ -4,12 +4,9 @@ pub mod socket;
 use crate::codec::Rtmp;
 use bytes::BytesMut;
 use forward::Forward;
-use futures::prelude::*;
 use socket::Socket;
-use std::error::Error;
+use std::io::Error;
 use std::net::SocketAddr;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use configure::ConfigureModel;
@@ -18,6 +15,34 @@ use transport::Flag;
 /// Byte stream read and write pipeline type.
 pub type Tx = mpsc::UnboundedSender<(Flag, BytesMut)>;
 pub type Rx = mpsc::UnboundedReceiver<(Flag, BytesMut)>;
+
+/// 运行推送服务
+///
+/// 推送服务将音视频数据推送到远端交换中心.
+#[allow(warnings)]
+async fn run_forward(addr: SocketAddr, receiver: Rx) -> Result<(), Error> {
+    let mut forward = Forward::new(addr, receiver).await?;
+    tokio::spawn(async move {
+        loop { forward.process().await?;}
+        Ok::<(), Error>(())
+    });
+
+    Ok(())
+}
+
+/// 运行TCP服务器
+/// 
+/// 维护和处理TCP Socket链接与数据.
+#[allow(warnings)]
+async fn run_server(mut listener: TcpListener, sender: Tx) {
+    while let Ok((stream, _)) = listener.accept().await {
+        let mut socket = Socket::<Rtmp>::new(stream, sender.clone());
+        tokio::spawn(async move {
+            loop { socket.process().await?; }
+            Ok::<(), Error>(())
+        });
+    }
+}
 
 /// TCP Server.
 ///
@@ -35,57 +60,14 @@ pub type Rx = mpsc::UnboundedReceiver<(Flag, BytesMut)>;
 ///     Ok(())
 /// }
 /// ```
-pub struct Server {
-    tcp: TcpListener,
-    sender: Tx,
-}
-
-impl Server {
-    /// Create a TCP server.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use server::Server;
-    /// use tokio::sync::mpsc;
-    ///
-    /// let addr = "0.0.0.0:1935".parse().unwrap();
-    /// let (sender, _) = mpsc::unbounded_channel();
-    ///
-    /// Server::new(addr, sender).await.unwrap();
-    /// ```
-    pub async fn new(addr: SocketAddr, sender: Tx) -> Result<Self, Box<dyn Error>> {
-        Ok(Self {
-            sender,
-            tcp: TcpListener::bind(&addr).await?,
-        })
-    }
-}
-
-impl Stream for Server {
-    type Item = Result<(), Box<dyn Error>>;
-
-    #[rustfmt::skip]
-    fn poll_next (self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Option<Self::Item>> {
-        let handle = self.get_mut();
-        match handle.tcp.poll_accept(ctx) {
-            Poll::Ready(Ok((socket, _))) => {
-                tokio::spawn(Socket::<Rtmp>::new(socket, handle.sender.clone()));
-                Poll::Ready(Some(Ok(())))
-            }, _ => Poll::Pending
-        }
-    }
-}
-
+/// 
 /// Quickly run the server
-///
 /// Submit a convenient method to quickly run Tcp and Udp instances.
-pub async fn run(configure: ConfigureModel) -> Result<(), Box<dyn Error>> {
+#[rustfmt::skip]
+pub async fn run(configure: ConfigureModel) -> Result<(), Error> {
     let (sender, receiver) = mpsc::unbounded_channel();
-    let forward = Forward::new(configure.exchange.to_addr(), receiver).await?;
-    let mut server = Server::new(configure.publish.to_addr(), sender).await?;
-    tokio::spawn(forward);
-    loop {
-        server.next().await;
-    }
+    let listener = TcpListener::bind(configure.publish.to_addr()).await?;
+    run_forward(configure.exchange.to_addr(), receiver).await?;
+    run_server(listener, sender).await;
+    Ok(())
 }

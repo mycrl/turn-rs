@@ -4,8 +4,8 @@ mod socket;
 use futures::prelude::*;
 use porter::Porter;
 use socket::Socket;
-use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
+use std::net::{SocketAddr, TcpListener};
 use std::task::{Context, Poll};
 use std::{io::Error, pin::Pin};
 use tokio::sync::mpsc;
@@ -56,14 +56,26 @@ impl Stream for Server {
     }
 }
 
-/// 快速运行服务
+/// 运行接收服务
 ///
+/// 接收和拉取交换中心的音视频数据.
+#[allow(warnings)]
+async fn run_poter(addr: SocketAddr, receiver: Rx) -> Result<(), Error> {
+    let mut poter = Porter::new(addr, receiver).await?;
+    tokio::spawn(async move {
+        loop { poter.process().await?;}
+        Ok::<(), Error>(())
+    });
+
+    Ok(())
+}
+
+/// 快速运行服务
 /// 提供简单方便的服务器启动入口.
-pub async fn run(configure: ConfigureModel) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run(configure: ConfigureModel) -> Result<(), Error> {
     let (sender, receiver) = mpsc::unbounded_channel();
-    let poter = Porter::new(configure.exchange.to_addr(), receiver).await?;
     let mut server = Server::new(configure.pull.to_addr(), sender)?;
-    tokio::spawn(poter);
+    run_poter(configure.exchange.to_addr(), receiver).await?;
     loop {
         server.next().await;
     }

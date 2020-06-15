@@ -1,8 +1,6 @@
+use std::sync::Arc;
 use bytes::BytesMut;
-use futures::prelude::*;
 use std::collections::{HashMap, HashSet};
-use std::task::{Context, Poll};
-use std::{io::Error, pin::Pin, sync::Arc};
 use transport::{Flag, Transport};
 use tokio::sync::mpsc;
 
@@ -188,17 +186,9 @@ impl Router {
     ///
     /// 处理外部的事件通知，
     /// 处理内部TcpSocket数据.
-    fn process<'b>(&mut self, ctx: &mut Context<'b>) {
-        while let Poll::Ready(Some(event)) = Pin::new(&mut self.receiver).poll_next(ctx) {
+    pub async fn process(&mut self) {
+        if let Some(event) = self.receiver.recv().await {
             self.process_event(event);
         }
-    }
-}
-
-impl Future for Router {
-    type Output = Result<(), Error>;
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        self.get_mut().process(ctx);
-        Poll::Pending
     }
 }

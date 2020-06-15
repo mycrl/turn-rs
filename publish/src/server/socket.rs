@@ -1,10 +1,8 @@
 use super::Tx;
 use crate::codec::{Codec, Packet};
 use bytes::BytesMut;
-use futures::prelude::*;
-use std::task::{Context, Poll};
-use std::{marker::Unpin, pin::Pin};
-use tokio::io::{AsyncRead, AsyncWrite};
+use std::marker::Unpin;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::io::{Error, ErrorKind};
 use tokio::net::TcpStream;
 use transport::Flag;
@@ -64,86 +62,25 @@ impl<T: Default + Codec + Unpin> Socket<T> {
         }
     }
 
-    /// Send data to TcpSocket
-    ///
-    /// Write Tcp data to TcpSocket.
-    /// Check whether the writing is completed,
-    // if not completely written, write the rest.
-    #[rustfmt::skip]
-    fn send<'b>(&mut self, ctx: &mut Context<'b>, data: &[u8]) -> Result<(), Error> {
-        let mut offset: usize = 0;
-        let length = data.len();
-        loop {
-            match Pin::new(&mut self.stream).poll_write(ctx, &data) {
-                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); }, 
-                Poll::Ready(Ok(s)) => match offset + s >= length {
-                    false => { offset += s; },
-                    true => { break; }
-                }, _ => (),
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Read data from TcpSocket
-    ///
-    /// TODO: 目前存在重复申请缓冲区的情况，有优化空间；
-    #[rustfmt::skip]
-    fn read<'b>(&mut self, ctx: &mut Context<'b>) -> Option<BytesMut> {
-        let mut receiver = [0u8; 2048];
-        match Pin::new(&mut self.stream).poll_read(ctx, &mut receiver) {
-            Poll::Ready(Ok(s)) if s > 0 => Some(BytesMut::from(&receiver[0..s])),
-            _ => None,
-        }
-    }
-
-    /// Refresh the TcpSocket buffer
-    ///
-    /// After writing data to TcpSocket, you need to refresh
-    /// the buffer and send the data to the peer.
-    #[rustfmt::skip]
-    fn flush<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
-        loop {
-            match Pin::new(&mut self.stream).poll_flush(ctx) {
-                Poll::Ready(Err(e)) => { return Err(Error::new(ErrorKind::NotConnected, e)); },
-                Poll::Ready(Ok(_)) => { break; },
-                _ => (),
-            }
-        }
-
-        Ok(())
-    }
-
     /// Try to process TcpSocket data
     ///
     /// Use `Codec` to handle TcpSocket data,
     /// Write the returned data to TcpSocket or UdpSocket correctly.
-    fn process<'b>(&mut self, ctx: &mut Context<'b>) -> Result<(), Error> {
-        while let Some(mut chunk) = self.read(ctx) {
-            for packet in self.codec.parse(&mut chunk) {
-                match packet {
-                    Packet::Peer(data) => self.send(ctx, &data)?,
-                    Packet::Core(data, flag) => self.push(data, flag)?,
-                }
+    pub async fn process(&mut self) -> Result<(), Error> {
+        let mut receiver = [0u8; 2048];
+        let size = self.stream.read(&mut receiver).await?;
+        let mut chunk = BytesMut::from(&receiver[0..size]);
+        for packet in self.codec.parse(&mut chunk) {
+            match packet {
+                Packet::Peer(data) => self.stream.write_all(&data).await?,
+                Packet::Core(data, flag) => self.push(data, flag)?,
             }
-
-            // Refresh the TcpSocket buffer. In order to increase efficiency,
-            // all the returned data of the current task will be written and
-            // then refreshed in a unified manner to avoid unnecessary frequent operations.
-            self.flush(ctx)?;
         }
 
+        // Refresh the TcpSocket buffer. In order to increase efficiency,
+        // all the returned data of the current task will be written and
+        // then refreshed in a unified manner to avoid unnecessary frequent operations.
+        self.stream.flush().await?;
         Ok(())
-    }
-}
-
-impl<T: Default + Codec + Unpin> Future for Socket<T> {
-    type Output = Result<(), Error>;
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
-        match self.get_mut().process(ctx) {
-            Ok(_) => Poll::Pending,
-            Err(_) => Poll::Ready(Ok(()))
-        }
     }
 }

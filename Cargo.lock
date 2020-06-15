@@ -315,7 +315,6 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "configure",
- "futures",
  "tokio",
  "transport",
 ]
@@ -916,7 +915,6 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "configure",
- "futures",
  "lazy_static",
  "rml_amf0",
  "rml_rtmp",
