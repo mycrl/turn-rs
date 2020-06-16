@@ -1,11 +1,15 @@
 # Quasipaa
 
-![starts](https://badgen.net/github/stars/micromatch/micromatch)
-![forks](https://badgen.net/github/forks/micromatch/micromatch)
-![open issues](https://badgen.net/github/open-issues/micromatch/micromatch)
-![commits](https://badgen.net/github/commits/micromatch/micromatch)
-![license](https://badgen.net/github/license/micromatch/micromatch)
-![last commit](https://badgen.net/github/last-commit/micromatch/micromatch)
+![ci](https://img.shields.io/github/workflow/status/quasipaas/quasipaa/CI)
+![languages](https://img.shields.io/github/languages/top/quasipaas/quasipaa)
+![open issues](https://img.shields.io/github/issues/quasipaas/quasipaa)
+![pull requests](https://img.shields.io/github/issues-pr/quasipaas/quasipaa)
+![license](https://img.shields.io/github/license/quasipaas/quasipaa)
+![forks](https://img.shields.io/github/forks/quasipaas/quasipaa)
+![stars](https://img.shields.io/github/stars/quasipaas/quasipaa)
+![release](https://img.shields.io/github/v/release/quasipaas/quasipaa)
+![last commit](https://img.shields.io/github/last-commit/quasipaas/quasipaa)
+![author](https://img.shields.io/badge/author-Mr.Panda-read)
 
 这是一个主要使用Rust编程语言构建的实时音视频流服务集群，这是新的尝试和良好的开端.
 希望依靠Rust的高性能和优雅的设计在流媒体领域中越走越远.
