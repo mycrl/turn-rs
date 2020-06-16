@@ -10,6 +10,9 @@ bytes = "0.5.4"
 [dependencies.transport]
 path = "../lib/transport"
 
+[dependencies.balance]
+path = "../lib/balance"
+
 [dependencies.tokio]
 version = "0.2"
 features = ["full"]

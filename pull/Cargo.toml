@@ -19,6 +19,9 @@ path = "../lib/configure"
 [dependencies.transport]
 path = "../lib/transport"
 
+[dependencies.balance]
+path = "../lib/balance"
+
 [dependencies.tokio]
 version = "0.2"
 features = ["full"]

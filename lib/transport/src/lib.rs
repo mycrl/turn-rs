@@ -14,6 +14,7 @@
 //! * `body len` Packet length.
 //!
 
+use std::error::Error;
 use std::mem::transmute;
 use bytes::{Buf, BufMut, BytesMut};
 
@@ -107,7 +108,7 @@ impl Transport {
     /// 解包打包完成的RTMP数据
     ///
     /// 解包出RTMP数据和频道名和时间戳.
-    pub fn parse(mut buffer: BytesMut) -> Result<Payload, Box<dyn std::error::Error>> {
+    pub fn parse(mut buffer: BytesMut) -> Result<Payload, Box<dyn Error>> {
         let size = buffer.get_u8();
         let timestamp = buffer.get_u32();
         let codec = unsafe { transmute::<u8, Codec>(buffer.get_u8()) };

@@ -201,6 +201,7 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 name = "core"
 version = "0.1.0"
 dependencies = [
+ "balance",
  "bytes",
  "tokio",
  "transport",
@@ -322,6 +323,7 @@ checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 name = "exchange"
 version = "0.1.0"
 dependencies = [
+ "balance",
  "bytes",
  "configure",
  "tokio",
@@ -922,6 +924,7 @@ dependencies = [
 name = "publish"
 version = "0.1.0"
 dependencies = [
+ "balance",
  "bytes",
  "configure",
  "lazy_static",
@@ -935,6 +938,7 @@ dependencies = [
 name = "pull"
 version = "0.1.0"
 dependencies = [
+ "balance",
  "bytes",
  "configure",
  "flv",
