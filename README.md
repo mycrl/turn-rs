@@ -1,18 +1,32 @@
 # Quasipaa
 
+![starts](https://badgen.net/github/stars/micromatch/micromatch)
+![forks](https://badgen.net/github/forks/micromatch/micromatch)
+![open issues](https://badgen.net/github/open-issues/micromatch/micromatch)
+![commits](https://badgen.net/github/commits/micromatch/micromatch)
+![license](https://badgen.net/github/license/micromatch/micromatch)
+![last commit](https://badgen.net/github/last-commit/micromatch/micromatch)
+
 这是一个主要使用Rust编程语言构建的实时音视频流服务集群，这是新的尝试和良好的开端.
 希望依靠Rust的高性能和优雅的设计在流媒体领域中越走越远.
-
-
-### 设计
-> 包括推流处理，媒体协议处理，实时点播服务，并包括为多服务集群提供高可用性的负载均衡服务.
-
-![design](./design.png)
 
 
 ### 版本
 开发阶段 </br>
 项目进度更新在 [项目看板](https://github.com/quasipaas/Quasipaa/projects/1)，可以随时跟踪.</br>
+
+
+### 设计
+![design](./design.svg)
+
+
+### 概述
+Quasipaa是使用Rust编程语言编写的流媒体服务集群，其中包括可以水平扩展的多个独立服务:
+* 流推送服务，用于处理实时流推送.</br>
+* 媒体数据交换中心处理混合来源.</br>
+* 控制中心，为多个水平服务提供负载平衡和群集管理.</br>
+* 静态文件和直播回放服务.</br>
+* 多协议直播流推送处理服务.</br>
 
 
 ### 计划
@@ -25,15 +39,6 @@
 * [x] 直播服务</br>
 * [ ] 直播回放和静态文件支持</br>
 * [ ] WebRTC TURN支持</br>
-
-
-### 概述
-Quasipaa是使用Rust编程语言编写的流媒体服务集群，其中包括可以水平扩展的多个独立服务:
-* 流推送服务，用于处理实时流推送.</br>
-* 媒体数据交换中心处理混合来源.</br>
-* 控制中心，为多个水平服务提供负载平衡和群集管理.</br>
-* 静态文件和直播回放服务.</br>
-* 多协议直播流推送处理服务.</br>
 
 
 ### 展望
