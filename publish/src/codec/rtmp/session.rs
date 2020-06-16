@@ -135,6 +135,7 @@ impl Session {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
             return Some(State::Event(Payload {
                 timestamp: 0,
+                codec: Codec::Flv,
                 name: stream_name.to_string(),
                 data: BytesMut::new(),
             }, Flag::Publish));
@@ -151,6 +152,7 @@ impl Session {
         if let Some(Amf0Value::Utf8String(stream_name)) = args.get(0) {
             return Some(State::Event(Payload {
                 timestamp: 0,
+                codec: Codec::Flv,
                 name: stream_name.to_string(),
                 data: BytesMut::new(),
             }, Flag::UnPublish));
@@ -202,6 +204,7 @@ impl Session {
                 if let (Ok(vec), Some(stream_name)) = (serialize(&args), self.app.as_ref()) {
                     return Some(State::Event(Payload {
                         timestamp: 0,
+                        codec: Codec::Flv,
                         name: stream_name.to_string(),
                         data: BytesMut::from(&vec[16..]),
                     }, Flag::Frame));
@@ -243,6 +246,7 @@ impl Session {
     fn packet_media(&mut self, timestamp: u32, payload: Bytes, flag: Flag) -> Option<State> {
         Some(State::Event(Payload {
             timestamp,
+            codec: Codec::Flv,
             name: self.app.as_ref()?.to_string(),
             data: BytesMut::from(&payload[..]),
         }, flag))

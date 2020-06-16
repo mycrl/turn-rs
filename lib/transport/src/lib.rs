@@ -1,37 +1,49 @@
 //! transport module
 //!
 //! ### Protocol definition
-//!
-//! |  name  |  fixed header   |  flag   |  body len   |  body  |
-//! |--------|-----------------|---------|-------------|--------|
-//! |  len   |  4byte          |  1byte  |  4byte      |  x     |
-//! |  data  |  0x99999909     |  x      |  x          |  x     |
+//! |-------------------------------------------------------------------------------------------------|
+//! |                    header               |                            body                       |
+//! |-----------------|---------|-------------|-------------|-------------|---------|--------|--------|
+//! |  fixed header   |  flag   |  body len   |  name size  |  timestamp  |  codec  |  name  |  data  |
+//! |-----------------------------------------|-------------|-------------|---------|--------|--------|
+//! |  4byte          |  1byte  |  4byte      |  1byte      |  4byte      |  1byte  |  x     |  x     |
+//! |  0x99999909     |  x      |  x          |  x          |  x          |  x      |  x     |  x     |
+//! |-------------------------------------------------------------------------------------------------|
 //!
 //! * `flag` Flag bit, user defined.
 //! * `body len` Packet length.
 //!
-//!
 
+use std::mem::transmute;
 use bytes::{Buf, BufMut, BytesMut};
 
-/// message type
+/// Message type
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
 pub enum Flag {
-    Video = 0,
-    Audio = 1,
-    Frame = 2,
-    Publish = 3,
-    UnPublish = 4,
-    Pull = 5,
-    Avg = 6,
-    None,
+    Unknown = 0,
+    Video = 1,
+    Audio = 2,
+    Frame = 3,
+    Publish = 4,
+    UnPublish = 5,
+    Pull = 6,
+    Avg = 7,
 }
 
-/// 数据包定义
+// Media codec type
+#[repr(u8)]
+#[derive(Copy, Clone, Debug)]
+pub enum Codec {
+    Unknown = 0,
+    Flv = 1,
+}
+
+/// Data payload
 #[derive(Clone, Debug)]
 pub struct Payload {
     pub timestamp: u32,
+    pub codec: Codec,
     pub name: String,
     pub data: BytesMut,
 }
@@ -82,6 +94,7 @@ impl Transport {
         // 写入时间戳
         packet.put_u8(size);
         packet.put_u32(payload.timestamp);
+        packet.put_u8(payload.codec as u8);
 
         // 写入频道名
         // 写入音视频数据
@@ -97,13 +110,10 @@ impl Transport {
     pub fn parse(mut buffer: BytesMut) -> Result<Payload, Box<dyn std::error::Error>> {
         let size = buffer.get_u8();
         let timestamp = buffer.get_u32();
+        let codec = unsafe { transmute::<u8, Codec>(buffer.get_u8()) };
         let data = buffer.split_off(size as usize);
         let name = String::from_utf8(buffer.to_vec())?;
-        Ok(Payload {
-            timestamp,
-            name,
-            data,
-        })
+        Ok(Payload { timestamp, codec, name, data })
     }
 
     /// Encode data into protocol frames
@@ -175,7 +185,6 @@ impl Transport {
     pub fn decoder(&mut self, chunk: BytesMut) -> Option<Vec<(Flag, BytesMut)>> {
         self.buffer.extend_from_slice(&chunk);
         let mut receiver = Vec::new();
-
         loop {
 
             // Check whether the remaining data is sufficient 
@@ -199,17 +208,8 @@ impl Transport {
             }
 
             // Get the flag
-            let flag = match self.buffer[4] {
-                0 => Flag::Video,
-                1 => Flag::Audio,
-                2 => Flag::Frame,
-                3 => Flag::Publish,
-                4 => Flag::UnPublish,
-                5 => Flag::Pull,
-                _ => Flag::None
-            };
-
             // Get body length
+            let flag = unsafe { transmute::<u8, Flag>(self.buffer[4]) };
             let size = u32::from_be_bytes([
                 self.buffer[5],
                 self.buffer[6],

@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::{io::Error, sync::Arc};
 use std::collections::{HashMap, HashSet};
 use tokio::{io::AsyncReadExt, io::AsyncWriteExt, net::TcpStream};
-use transport::{Flag, Payload, Transport};
+use transport::{Flag, Payload, Transport, Codec};
 
 // type
 type Frame = HashMap<String, Arc<Payload>>;
@@ -58,6 +58,7 @@ impl Porter {
         self.stream.write_all(&Transport::encoder(Transport::packet(Payload {
             name,
             timestamp: 0,
+            codec: Codec::Flv,
             data: BytesMut::new(),
         }), Flag::Pull)).await?;
         self.stream.flush().await?;
