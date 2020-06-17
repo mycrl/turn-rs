@@ -42,8 +42,8 @@ impl Socket {
     async fn poll_socket(&mut self) -> Result<(), Error> {
         let mut receiver = [0u8; 2048];
         let size = self.socket.read(&mut receiver).await?;
-        let chunk = BytesMut::from(&receiver[0..size]);
-        if let Some(result) = self.transport.decoder(chunk) {
+        self.transport.push(BytesMut::from(&receiver[0..size]));
+        while let Some(result) = self.transport.decoder() {
             for (flag, message) in result {
                 let event = Event::Bytes(self.addr.clone(), flag, message);
                 if let Err(e) = self.sender.send(event) {

@@ -23,28 +23,30 @@ use bytes::{Buf, BufMut, BytesMut};
 #[derive(Copy, Clone, Debug)]
 pub enum Flag {
     Unknown = 0,
-    Video = 1,
-    Audio = 2,
-    Frame = 3,
-    Publish = 4,
-    UnPublish = 5,
-    Pull = 6,
-    Avg = 7,
+    Video = 1,  // 视频数据
+    Audio = 2,  // 音频数据
+    Frame = 3,  // 媒体规格数据
+    Publish = 4,  // 推送事件
+    UnPublish = 5,  // 停止推送事件
+    Pull = 6,  // 获取事件
+    Control = 7,  // 控制信息
 }
 
-// Media codec type
+// Events
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
-pub enum Codec {
+pub enum Event {
     Unknown = 0,
-    Flv = 1,
+    Avg = 1,  // 负载数据
+    Register = 2,  // 注册事件
+    Flv = 3,
 }
 
 /// Data payload
 #[derive(Clone, Debug)]
 pub struct Payload {
     pub timestamp: u32,
-    pub codec: Codec,
+    pub event: Event,
     pub name: String,
     pub data: BytesMut,
 }
@@ -95,7 +97,7 @@ impl Transport {
         // 写入时间戳
         packet.put_u8(size);
         packet.put_u32(payload.timestamp);
-        packet.put_u8(payload.codec as u8);
+        packet.put_u8(payload.event as u8);
 
         // 写入频道名
         // 写入音视频数据
@@ -111,10 +113,10 @@ impl Transport {
     pub fn parse(mut buffer: BytesMut) -> Result<Payload, Box<dyn Error>> {
         let size = buffer.get_u8();
         let timestamp = buffer.get_u32();
-        let codec = unsafe { transmute::<u8, Codec>(buffer.get_u8()) };
+        let event = unsafe { transmute::<u8, Event>(buffer.get_u8()) };
         let data = buffer.split_off(size as usize);
         let name = String::from_utf8(buffer.to_vec())?;
-        Ok(Payload { timestamp, codec, name, data })
+        Ok(Payload { timestamp, event, name, data })
     }
 
     /// Encode data into protocol frames
@@ -163,6 +165,24 @@ impl Transport {
         packet
     }
 
+    /// 推入新的分片
+    /// 
+    /// 将接收到的缓冲区推入到内部缓冲区，
+    /// 等待下次解码并消费掉;
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let mut transport = Transport::new();
+    /// 
+    /// transport.push(transport.encoder(Bytes::from("hello"), 1).freeze());
+    /// transport.push(transport.encoder(Bytes::from("world"), 2).freeze());
+    /// transport.decoder()
+    /// ```
+    pub fn push(&mut self, chunk: BytesMut) {
+        self.buffer.extend_from_slice(&chunk);
+    }
+
     /// Decode protocol frames
     ///
     /// Write data shards, try to decode all data shards,
@@ -179,12 +199,12 @@ impl Transport {
     /// buffer.put(transport.encoder(Bytes::from("hello"), 1));
     /// buffer.put(transport.encoder(Bytes::from("world"), 2));
     ///
-    /// transport.decoder(buffer.freeze())
+    /// transport.push(buffer.freeze());
+    /// transport.decoder()
     /// ```
     #[rustfmt::skip]
     #[allow(dead_code)]
-    pub fn decoder(&mut self, chunk: BytesMut) -> Option<Vec<(Flag, BytesMut)>> {
-        self.buffer.extend_from_slice(&chunk);
+    pub fn decoder(&mut self) -> Option<Vec<(Flag, BytesMut)>> {
         let mut receiver = Vec::new();
         loop {
 

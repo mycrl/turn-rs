@@ -6,8 +6,8 @@ use std::{thread, time};
 use std::net::UdpSocket;
 use std::task::{Context, Poll};
 use std::{io::Error, pin::Pin, io::ErrorKind};
-use transport::{Transport, Payload, Flag, Codec};
-use performance::Performance;
+use transport::{Transport, Payload, Flag, Event};
+pub use performance::Performance;
 
 /// 负载均衡
 /// 
@@ -60,10 +60,10 @@ impl Balance {
         thread::sleep(time::Duration::from_secs(10));
         self.send(&Transport::encoder(Transport::packet(Payload {
             timestamp: 0,
-            codec: Codec::Unknown,
+            event: Event::Avg,
             name: "".to_string(),
             data: Performance::new().as_bytes()
-        }), Flag::Avg))?;
+        }), Flag::Control))?;
         Ok(())
     }
 }

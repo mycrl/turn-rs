@@ -1,5 +1,5 @@
 use sysinfo::{ProcessorExt, System, SystemExt};
-use bytes::{BytesMut, BufMut};
+use bytes::{BytesMut, BufMut, Buf};
 
 /// 性能
 /// 
@@ -31,9 +31,23 @@ impl Performance {
         }
     }
 
+    /// 从缓冲器从解码实例
+    /// 用于解码网络传输值.
+    pub fn from(mut data: BytesMut) -> Self {
+        let cpu = data.get_u8();
+        let memory = data.get_u8();
+        let average = data.get_u8();
+        Self {
+            cpu,
+            memory,
+            average
+        }
+    }
+
     /// 将性能数据转换成字节组
     /// 此功能用于将数据在网络中传输.
-    /// /// # Examples
+    /// 
+    /// # Examples
     ///
     /// ```no_run
     /// use performance::Performance;

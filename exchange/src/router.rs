@@ -150,13 +150,9 @@ impl Router {
                 _ => ()
             }
 
-            // 如果是负载信息，
-            // 则跳过并不广播给其他客户端，
-            // 因为这是一个交换中心自己使用的数据.
             // 拉流事件没必要广播
             match flag {
                 Flag::Pull => (),
-                Flag::Avg => (),
                 _ => message.push((flag, data))
             }
 

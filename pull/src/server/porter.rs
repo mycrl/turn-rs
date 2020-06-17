@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::{io::Error, sync::Arc};
 use std::collections::{HashMap, HashSet};
 use tokio::{io::AsyncReadExt, io::AsyncWriteExt, net::TcpStream};
-use transport::{Flag, Payload, Transport, Codec};
+use transport::{Flag, Payload, Transport, Event as TEvent};
 
 // type
 type Frame = HashMap<String, Arc<Payload>>;
@@ -58,7 +58,7 @@ impl Porter {
         self.stream.write_all(&Transport::encoder(Transport::packet(Payload {
             name,
             timestamp: 0,
-            codec: Codec::Flv,
+            event: TEvent::Flv,
             data: BytesMut::new(),
         }), Flag::Pull)).await?;
         self.stream.flush().await?;
@@ -189,8 +189,8 @@ impl Porter {
     async fn poll_socket(&mut self) -> Result<(), Error> {
         let mut receiver = [0u8; 2048];
         let size = self.stream.read(&mut receiver).await?;
-        let chunk = BytesMut::from(&receiver[0..size]);
-        if let Some(result) = self.transport.decoder(chunk) {
+        self.transport.push(BytesMut::from(&receiver[0..size]));
+        while let Some(result) = self.transport.decoder() {
             for (flag, message) in result {
                 if let Ok(payload) = Transport::parse(message) {
                     self.process_payload(flag, Arc::new(payload));
