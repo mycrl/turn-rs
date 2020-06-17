@@ -39,7 +39,8 @@ pub enum Event {
     Unknown = 0,
     Avg = 1,  // 负载数据
     Register = 2,  // 注册事件
-    Flv = 3,
+    Connection = 3,  // 连接事件 
+    Flv = 4,
 }
 
 /// Data payload
@@ -254,5 +255,17 @@ impl Transport {
             false => Some(receiver),
             true => None
         }
+    }
+}
+
+impl PartialEq for Flag {
+    fn eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+impl PartialEq for Event {
+    fn eq(&self, other: &Self) -> bool {
+        self == other
     }
 }
