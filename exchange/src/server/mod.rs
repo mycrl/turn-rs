@@ -38,9 +38,9 @@ async fn run_server(mut listener: TcpListener, sender: Tx) {
 ///
 /// 提供简单方便的服务器启动入口.
 #[rustfmt::skip]
-pub async fn run(configure: ConfigureModel) -> Result<(), Error> {
+pub async fn run(_configure: ConfigureModel) -> Result<(), Error> {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-    let listener = TcpListener::bind(configure.exchange.to_addr()).await?;
+    let listener = TcpListener::bind("0.0.0.0:1936".parse::<std::net::SocketAddr>().unwrap()).await?;
     run_router(receiver);
     run_server(listener, sender).await;
     Ok(())

@@ -112,6 +112,7 @@ impl Transport {
     ///
     /// 解包出RTMP数据和频道名和时间戳.
     pub fn parse(mut buffer: BytesMut) -> Result<Payload, Box<dyn Error>> {
+        assert!(buffer.len() >= 6);
         let size = buffer.get_u8();
         let timestamp = buffer.get_u32();
         let event = unsafe { transmute::<u8, Event>(buffer.get_u8()) };

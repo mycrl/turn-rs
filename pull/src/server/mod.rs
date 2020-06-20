@@ -72,10 +72,10 @@ async fn run_poter(addr: SocketAddr, receiver: Rx) -> Result<(), Error> {
 
 /// 快速运行服务
 /// 提供简单方便的服务器启动入口.
-pub async fn run(configure: ConfigureModel) -> Result<(), Error> {
+pub async fn run(_configure: ConfigureModel) -> Result<(), Error> {
     let (sender, receiver) = mpsc::unbounded_channel();
-    let mut server = Server::new(configure.pull.to_addr(), sender)?;
-    run_poter(configure.exchange.to_addr(), receiver).await?;
+    let mut server = Server::new("0.0.0.0:8080".parse::<std::net::SocketAddr>().unwrap(), sender)?;
+    run_poter("0.0.0.0:1936".parse::<std::net::SocketAddr>().unwrap(), receiver).await?;
     loop {
         server.next().await;
     }
