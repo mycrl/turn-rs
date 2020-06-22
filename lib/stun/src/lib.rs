@@ -49,12 +49,15 @@
 //! 值小于或等于0x7fff的属性是强制理解的，即除非理解该属性，否则客户或服务器就不能处理该消息.
 //! 
 
+mod payload;
+
 use std::{io::Error, net::SocketAddr};
 use tokio::net::{UdpSocket, ToSocketAddrs};
-use stun_codec::{Message, MessageEncoder, MessageDecoder, MessageClass};
-use stun_codec::rfc5389::{Attribute, attributes::XorMappedAddress};
+use stun_codec::{Message, MessageEncoder, MessageDecoder};
+use stun_codec::rfc5389::Attribute;
 use bytecodec::{DecodeExt, EncodeExt};
 use bytes::{Bytes, BytesMut};
+pub use payload::Payload;
 
 /// STUN服务器
 /// 
@@ -85,8 +88,10 @@ impl STUN {
     /// 对于客户端绑定请求，暂时未处理，后续看情况判断是否添加.
     pub async fn process(&mut self) -> Result<(), Error> {
         if let Some((message, addr)) = self.recv_message().await {
-            if let Some(response) = self.into_success_message(message, addr) {
-                self.socket.send_to(&response, addr).await?;
+            if let Ok(response) = Payload::process(message, addr) {
+                if let Ok(buffer) = self.encoder.encode_into_bytes(response) {
+                    self.socket.send_to(&buffer, addr).await?;
+                }
             }
         }
 
@@ -111,26 +116,9 @@ impl STUN {
     async fn recv_message(&mut self) -> Option<(Message<Attribute>, SocketAddr)> {
         match self.read().await {
             Ok((buffer, addr)) => match self.decoder.decode_from_bytes(&buffer) {
-                Ok(Ok(message)) if message.attributes().count() > 0 => Some((message, addr)),
+                Ok(Ok(message)) => Some((message, addr)),
                 _ => None
             }, _ => None
-        }
-    }
-
-    /// 转换确认消息
-    /// 
-    /// 尝试把STUN消息序列化为字节缓冲区，
-    /// 这里为确定客户端请求，将外网地址和端口回复给客户端.
-    fn into_success_message(&mut self, message: Message<Attribute>, addr: SocketAddr) -> Option<Bytes> {
-        let method = message.method();
-        let id = message.transaction_id();
-        let class = MessageClass::SuccessResponse;
-        let mut response = Message::<Attribute>::new(class, method, id);
-        let address = Attribute::XorMappedAddress(XorMappedAddress::new(addr));
-        response.add_attribute(address);
-        match self.encoder.encode_into_bytes(response) {
-            Ok(buffer) => Some(Bytes::from(buffer)),
-            _ => None
         }
     }
 }
