@@ -50,6 +50,7 @@
 //! 
 
 mod payload;
+mod codec;
 
 use std::{io::Error, net::SocketAddr};
 use tokio::net::{UdpSocket, ToSocketAddrs};
@@ -57,7 +58,6 @@ use stun_codec::{Message, MessageEncoder, MessageDecoder};
 use stun_codec::rfc5389::Attribute;
 use bytecodec::{DecodeExt, EncodeExt};
 use bytes::{Bytes, BytesMut};
-pub use payload::Payload;
 
 /// STUN服务器
 /// 
@@ -67,6 +67,7 @@ pub struct STUN {
     socket: UdpSocket,
     decoder: MessageDecoder<Attribute>,
     encoder: MessageEncoder<Attribute>,
+    // payload: Payload
 }
 
 impl STUN {
@@ -79,6 +80,7 @@ impl STUN {
             decoder: MessageDecoder::new(),
             encoder: MessageEncoder::new(),
             socket: UdpSocket::bind(addr).await?,
+            // payload: Payload::new(),
         })
     }
 
@@ -88,11 +90,11 @@ impl STUN {
     /// 对于客户端绑定请求，暂时未处理，后续看情况判断是否添加.
     pub async fn process(&mut self) -> Result<(), Error> {
         if let Some((message, addr)) = self.recv_message().await {
-            if let Ok(response) = Payload::process(message, addr) {
-                if let Ok(buffer) = self.encoder.encode_into_bytes(response) {
-                    self.socket.send_to(&buffer, addr).await?;
-                }
-            }
+            // if let Ok(response) = self.payload.process(message, addr) {
+            //     if let Ok(buffer) = self.encoder.encode_into_bytes(response) {
+            //         self.socket.send_to(&buffer, addr).await?;
+            //     }
+            // }
         }
 
         Ok(())
