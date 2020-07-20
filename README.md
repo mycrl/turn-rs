@@ -11,46 +11,56 @@
 ![last commit](https://img.shields.io/github/last-commit/quasipaas/quasipaa)
 ![author](https://img.shields.io/badge/author-Mr.Panda-read)
 
-这是一个主要使用Rust编程语言构建的实时音视频流服务集群，这是新的尝试和良好的开端.
-希望依靠Rust的高性能和优雅的设计在流媒体领域中越走越远.
+Quasipaa is an open source, distributed real-time audio and video server. Unlike other solutions, this is not a library that can be embedded in your own program, but a full-fledged cluster of services, Quasipaa not only provides basic streaming media server, but also includes load balancing, external control API interface. Quasipaa by Rust to build, the use of Rust outstanding performance and excellent engineering became a robust system.
+
+Quasipaa（[Quasipaa spinosa](https://en.wikipedia.org/wiki/Quasipaa_spinosa) is a species of frog in the family Dicroglossidae）The project was originally created to address the Rust's lack of audio and video servers, and when the author started the project, the area was virtually empty.
 
 
-### 版本
-开发阶段 </br>
-项目进度更新在 [项目看板](https://github.com/quasipaas/Quasipaa/projects/1)，可以随时跟踪.</br>
+### Version
+Development stage</br>
+The progress of the project is in the [project dashboard](https://github.com/quasipaas/Quasipaa/projects/1), you can check it at any timeoi.
+
+> **Note:**
+>
+> Due to the limited ability of the author, the early plan only supports RTMP, WebRTC and HttpFLV protocols. I will try to improve the support for different protocols and codes in the later stage.
 
 
-### 设计
+### Overview
 ![design](./design.svg)
 
-
-### 概述
-Quasipaa是使用Rust编程语言编写的流媒体服务集群，其中包括可以水平扩展的多个独立服务:
-* 流推送服务，用于处理实时流推送.</br>
-* 媒体数据交换中心处理混合来源.</br>
-* 控制中心，为多个水平服务提供负载平衡和群集管理.</br>
-* 静态文件和直播回放服务.</br>
-* 多协议直播流推送处理服务.</br>
-
-
-### 计划
-> 早期计划仅支持RTMP，WebRTC，HttpFLV协议.</br>
-
-* [x] rtmp推送流处理</br>
-* [x] 流交换中心</br>
-* [x] 负载均衡服务</br>
-* [ ] 音视频数据处理</br>
-* [x] 直播服务</br>
-* [ ] 直播回放和静态文件支持</br>
-* [ ] WebRTC TURN支持</br>
+Quasipaa is a streaming media service cluster, which contains multiple independent services, which can be scaled horizontally:
+- **Publish:** 
+    The data pushed through various protocols will be pushed to the exchange after processing and demultiplexing.
+- **Exchange:** 
+    The exchange further processes the Publish data, such as secondary compression, saving as static files, encoding conversion......
+- **Core:** 
+    控Controls all nodes of the cluster, including load balancing, dynamic scheduling,  authority control, coding and protocol control.
+* **Object Storage:** 
+    Storing log data and live replay as static files......
+* **Pull:** 
+    The data is repackaged into multiple protocols and distributed to clients.
 
 
-### 展望
-* 推流SDK.</br>
-* 自主开发的流协议.</br>
-* 支持尽可能多的现有协议.</br>
-* 尽可能好的表现.</br>
-* 自适应多重编码.</br>
+### Deployment
+It is currently in development and has not completed all the features of stage 1, so actual deployment is not supported.
+
+
+### Plan
+* [x] RTMP protocol support.
+* [x] Exchange.
+* [x] Load balancing.
+* [ ] Audio video data codec.
+* [x] Live service.
+* [ ] Live playback and static file support.
+* [ ] WebRTC TURN support.
+
+
+### Roadmap
+* WebAssembly SDK.
+* Independently developed live protocols.
+* Support existing protocols wherever possible.
+* Best performance possible.
+* Adaptive multiple codec.
 
 
 ### License
