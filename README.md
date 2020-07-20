@@ -18,7 +18,7 @@ Quasipaa（[Quasipaa spinosa](https://en.wikipedia.org/wiki/Quasipaa_spinosa) is
 
 ### Version
 Development stage</br>
-The progress of the project is in the [project dashboard](https://github.com/quasipaas/Quasipaa/projects/1), you can check it at any timeoi.
+The progress of the project is in the [project dashboard](https://github.com/quasipaas/Quasipaa/projects/1), you can view it at any time.
 
 > **Note:**
 >
