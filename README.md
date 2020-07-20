@@ -29,15 +29,15 @@ The progress of the project is in the [project dashboard](https://github.com/qua
 ![design](./design.svg)
 
 Quasipaa is a streaming media service cluster, which contains multiple independent services, which can be scaled horizontally:
-- **Publish:** 
+- **Publish:** </br>
     The data pushed through various protocols will be pushed to the exchange after processing and demultiplexing.
-- **Exchange:** 
+- **Exchange:**  </br>
     The exchange further processes the Publish data, such as secondary compression, saving as static files, encoding conversion......
-- **Core:** 
+- **Core:**  </br>
     Controls all nodes of the cluster, including load balancing, dynamic scheduling,  authority control, coding and protocol control.
-* **Object Storage:** 
+* **Object Storage:**  </br>
     Storing log data and live replay as static files......
-* **Pull:** 
+* **Pull:**  </br>
     The data is repackaged into multiple protocols and distributed to clients.
 
 
