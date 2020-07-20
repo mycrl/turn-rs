@@ -34,7 +34,7 @@ Quasipaa is a streaming media service cluster, which contains multiple independe
 - **Exchange:** 
     The exchange further processes the Publish data, such as secondary compression, saving as static files, encoding conversion......
 - **Core:** 
-    控Controls all nodes of the cluster, including load balancing, dynamic scheduling,  authority control, coding and protocol control.
+    Controls all nodes of the cluster, including load balancing, dynamic scheduling,  authority control, coding and protocol control.
 * **Object Storage:** 
     Storing log data and live replay as static files......
 * **Pull:** 
