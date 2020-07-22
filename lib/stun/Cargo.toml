@@ -8,7 +8,6 @@ edition = "2018"
 bytes = "0.5.4"
 stun_codec = "0.1.12"
 bytecodec = "0.4.13"
-webrtc-sdp = "0.3.6"
 
 [dependencies.tokio]
 version = "0.2"

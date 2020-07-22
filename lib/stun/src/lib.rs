@@ -25,7 +25,6 @@ pub struct STUN {
     socket: UdpSocket,
     decoder: MessageDecoder<Attribute>,
     encoder: MessageEncoder<Attribute>,
-    // payload: Payload
 }
 
 impl STUN {
@@ -38,18 +37,17 @@ impl STUN {
             decoder: MessageDecoder::new(),
             encoder: MessageEncoder::new(),
             socket: UdpSocket::bind(addr).await?,
-            // payload: Payload::new(),
         })
     }
 
     /// 处理STUN服务器任务
     pub async fn process(&mut self) -> Result<(), Error> {
         if let Some((message, addr)) = self.recv_message().await {
-            // if let Ok(response) = self.payload.process(message, addr) {
-            //     if let Ok(buffer) = self.encoder.encode_into_bytes(response) {
-            //         self.socket.send_to(&buffer, addr).await?;
-            //     }
-            // }
+            if let Ok(response) = payload::process(addr, message) {
+                if let Ok(buffer) = self.encoder.encode_into_bytes(response) {
+                    self.socket.send_to(&buffer, addr).await?;
+                }
+            }
         }
 
         Ok(())

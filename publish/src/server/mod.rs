@@ -9,7 +9,6 @@ use std::io::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
-use configure::ConfigureModel;
 use transport::Flag;
 
 /// Byte stream read and write pipeline type.
@@ -64,7 +63,7 @@ async fn run_server(mut listener: TcpListener, sender: Tx) {
 /// Quickly run the server
 /// Submit a convenient method to quickly run Tcp and Udp instances.
 #[rustfmt::skip]
-pub async fn run(_configure: ConfigureModel) -> Result<(), Error> {
+pub async fn run() -> Result<(), Error> {
     let (sender, receiver) = mpsc::unbounded_channel();
     let listener = TcpListener::bind("0.0.0.0:1935".parse::<std::net::SocketAddr>().unwrap()).await?;
     run_forward("0.0.0.0:1936".parse::<std::net::SocketAddr>().unwrap(), receiver).await?;

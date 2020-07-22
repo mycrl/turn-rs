@@ -4,7 +4,6 @@ use crate::router::Router;
 use crate::router::{Rx, Tx};
 use std::{io::Error, sync::Arc};
 use tokio::net::TcpListener;
-use configure::ConfigureModel;
 use socket::Socket;
 
 /// 运行路由服务
@@ -38,7 +37,7 @@ async fn run_server(mut listener: TcpListener, sender: Tx) {
 ///
 /// 提供简单方便的服务器启动入口.
 #[rustfmt::skip]
-pub async fn run(_configure: ConfigureModel) -> Result<(), Error> {
+pub async fn run() -> Result<(), Error> {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
     let listener = TcpListener::bind("0.0.0.0:1936".parse::<std::net::SocketAddr>().unwrap()).await?;
     run_router(receiver);
