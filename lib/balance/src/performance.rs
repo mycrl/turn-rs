@@ -109,3 +109,9 @@ impl Performance {
         value as u8
     }
 }
+
+impl Default for Performance {
+    fn default() -> Self {
+        Self::new()
+    }
+}
