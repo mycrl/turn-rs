@@ -24,6 +24,10 @@ The progress of the project is in the [project dashboard](https://github.com/qua
 > Due to the limited ability of the author, the early plan only supports RTMP, WebRTC and HttpFLV protocols. I will try to improve the support for different protocols and codec in the later stage.
 
 
+### Deployment
+It is currently in development and has not completed all the features of stage 1, so actual deployment is not supported.
+
+
 ### Overview
 ![design](./design.svg)
 
@@ -35,10 +39,6 @@ Quasipaa is a streaming media service cluster, which contains multiple independe
 * `Pull:` The data is repackaged into multiple protocols and distributed to clients.
 
 
-### Deployment
-It is currently in development and has not completed all the features of stage 1, so actual deployment is not supported.
-
-
 ### Plan
 * [x] RTMP protocol support.
 * [x] Exchange.
@@ -46,6 +46,7 @@ It is currently in development and has not completed all the features of stage 1
 * [ ] Audio video data codec.
 * [x] Live service.
 * [ ] Live playback and static file support.
+* [x] WebRTC STUN support.
 * [ ] WebRTC TURN support.
 
 
