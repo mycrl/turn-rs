@@ -1,4 +1,5 @@
 mod payload;
+mod codec;
 
 use bytecodec::{DecodeExt, EncodeExt, Result};
 use bytes::Bytes;

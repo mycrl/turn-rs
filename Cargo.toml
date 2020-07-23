@@ -7,7 +7,6 @@ lto = true
 members = [
     "lib/flv",
     "lib/stun",
-    "lib/turn",
     "lib/golomb",
     "lib/balance",
     "lib/transport",

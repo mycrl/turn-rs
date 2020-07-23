@@ -1476,15 +1476,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "turn"
-version = "0.1.0"
-dependencies = [
- "bytecodec",
- "bytes",
- "stun_codec",
-]
-
-[[package]]
 name = "typenum"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
