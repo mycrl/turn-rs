@@ -1300,7 +1300,6 @@ dependencies = [
  "bytecodec",
  "bytes",
  "stun_codec",
- "tokio",
 ]
 
 [[package]]
@@ -1378,14 +1377,6 @@ dependencies = [
  "redox_syscall",
  "remove_dir_all",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "testing"
-version = "0.1.0"
-dependencies = [
- "stun",
- "tokio",
 ]
 
 [[package]]
@@ -1482,6 +1473,15 @@ dependencies = [
  "sha-1",
  "url",
  "utf-8",
+]
+
+[[package]]
+name = "turn"
+version = "0.1.0"
+dependencies = [
+ "bytecodec",
+ "bytes",
+ "stun_codec",
 ]
 
 [[package]]

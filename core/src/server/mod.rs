@@ -4,7 +4,6 @@ use std::io::Error;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::io::{AsyncReadExt};
-use transport::Transport;
 use bytes::BytesMut;
 
 #[allow(warnings)]
