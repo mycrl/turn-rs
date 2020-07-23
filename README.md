@@ -21,7 +21,6 @@ Development stage</br>
 The progress of the project is in the [project dashboard](https://github.com/quasipaas/Quasipaa/projects/1), you can view it at any time.
 
 > **Note:**
->
 > Due to the limited ability of the author, the early plan only supports RTMP, WebRTC and HttpFLV protocols. I will try to improve the support for different protocols and codec in the later stage.
 
 
@@ -29,16 +28,11 @@ The progress of the project is in the [project dashboard](https://github.com/qua
 ![design](./design.svg)
 
 Quasipaa is a streaming media service cluster, which contains multiple independent services, which can be scaled horizontally:
-- **Publish:** </br>
-    The data pushed through various protocols will be pushed to the exchange after processing and demultiplexing.
-- **Exchange:**  </br>
-    The exchange further processes the Publish data, such as secondary compression, saving as static files, encoding conversion.
-- **Core:**  </br>
-    Controls all nodes of the cluster, including load balancing, dynamic scheduling,  authority control, coding and protocol control.
-* **Object Storage:**  </br>
-    Storing log data and live replay as static files.
-* **Pull:**  </br>
-    The data is repackaged into multiple protocols and distributed to clients.
+* `Publish:` The data pushed through various protocols will be pushed to the exchange after processing and demultiplexing.
+* `Exchange:` The exchange further processes the Publish data, such as secondary compression, saving as static files, encoding conversion.
+* `Core:` Controls all nodes of the cluster, including load balancing, dynamic scheduling,  authority control, coding and protocol control.
+* `Object Storage:` Storing log data and live replay as static files.
+* `Pull:` The data is repackaged into multiple protocols and distributed to clients.
 
 
 ### Deployment
