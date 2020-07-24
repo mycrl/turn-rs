@@ -1,11 +1,9 @@
-mod payload;
 mod codec;
+// mod payload;
 
-use bytecodec::{DecodeExt, EncodeExt, Result};
-use bytes::Bytes;
+use anyhow::Result;
+use bytes::BytesMut;
 use std::net::SocketAddr;
-use stun_codec::rfc5389::Attribute;
-use stun_codec::{MessageDecoder, MessageEncoder};
 
 /// STUN
 /// (Simple Traversal of User Datagram Protocol Through Network Address Translators)
@@ -16,10 +14,7 @@ use stun_codec::{MessageDecoder, MessageEncoder};
 /// STUN是一种Client/Server的协议，也是一种Request/Response的协议，
 /// 默认端口号是3478.
 #[derive(Debug)]
-pub struct STUN {
-    decoder: MessageDecoder<Attribute>,
-    encoder: MessageEncoder<Attribute>,
-}
+pub struct STUN {}
 
 impl STUN {
     /// 创建STUN服务器
@@ -27,20 +22,16 @@ impl STUN {
     /// 通过给定的地址创建STUN服务器，
     /// 该服务器下层实现为UDP Server.
     pub fn new() -> Self {
-        Self {
-            decoder: MessageDecoder::new(),
-            encoder: MessageEncoder::new(),
-        }
+        Self {}
     }
 
     /// 处理stun数据包
     ///
     /// 不做任何处理，直接返回响应.
-    pub async fn process(&mut self, buffer: Bytes, addr: SocketAddr) -> Result<Bytes> {
-        let message = self.decoder.decode_from_bytes(&buffer)??;
-        let response = payload::process(addr, message)?;
-        let result = self.encoder.encode_into_bytes(response)?;
-        Ok(Bytes::from(result))
+    pub async fn process(&mut self, buffer: BytesMut, addr: SocketAddr) -> Result<()> {
+        let message = codec::decoder(buffer)?;
+        // let response = payload::process(addr, message)?;
+        Ok(())
     }
 }
 

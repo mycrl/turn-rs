@@ -1,11 +1,5 @@
-use bytecodec::Result;
+use super::codec::Message;
 use std::net::SocketAddr;
-use stun_codec::rfc5389::attributes::{MappedAddress, Software, XorMappedAddress};
-use stun_codec::rfc5389::Attribute;
-use stun_codec::{MessageClass, Method, TransactionId};
-
-/// 消息类型
-type Message = stun_codec::Message<Attribute>;
 
 /// 返回响应
 ///
