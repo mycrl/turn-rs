@@ -9,6 +9,7 @@ use num_enum::TryFromPrimitive;
 use std::cmp::{Eq, PartialEq};
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use bytes::BytesMut;
 
 /// 交易ID
 pub type Transaction = [u8; 12];
@@ -30,9 +31,9 @@ pub fn pad_size(size: usize) -> usize {
 /// sutn message.
 #[derive(Clone, Debug)]
 pub struct Message {
-    flag: Flag,
-    transaction: Transaction,
-    attributes: HashMap<Attributes, Attribute>,
+    pub flag: Flag,
+    pub transaction: Transaction,
+    pub attributes: HashMap<Attributes, Attribute>,
 }
 
 /// message type.
@@ -77,22 +78,73 @@ pub enum Attribute {
     Software(String)
 }
 
-impl Attribute {
-    pub fn from(key: Attributes, value: Vec<u8>) -> Result<Self> {
-        Ok(match key {
-            Attributes::UserName => Self::UserName(String::from_utf8(value)?),
-            Attributes::Realm => Self::Realm(String::from_utf8(value)?),
-            Attributes::Nonce => Self::Nonce(String::from_utf8(value)?),
-        })
+impl Message {
+    /// 创建消息
+    /// 
+    /// 指定消息类型和交易号创建空属性类型.
+    pub fn new(flag: Flag, transaction: Transaction) -> Self {
+        Self {
+            flag,
+            transaction,
+            attributes: HashMap::new(),
+        }
+    }
+
+    /// 添加属性
+    /// 
+    /// 添加属性到消息中的属性列表.
+    pub fn add_attr(&mut self, key: Attributes, value: Attribute) -> bool {
+        self.attributes.insert(key, value).is_some()
     }
 }
 
 impl Attribute {
-    pub fn into(self) -> &'static [u8] {
+    /// SocketAddr
+    /// 添加填充位
+    /// 
+    /// 协议规定需要填充0x00到头部.
+    fn addr_pad(buffer: BytesMut) -> BytesMut {
+        let pad_buffer = BytesMut::from(&[0x00][..]);
+        pad_buffer.extend_from_slice(&buffer);
+        pad_buffer
+    }
+
+    /// SocketAddr
+    /// 删除填充位
+    /// 
+    /// 移除头部的默认填充位.
+    fn addr_remove(buffer: Vec<u8>) -> Vec<u8> {
+        buffer.remove(0);
+        buffer
+    }
+
+    /// 属性转缓冲区
+    /// 
+    /// 将属性转换为缓冲器类型便于传输.
+    pub fn into(self, id: Transaction) -> &'static [u8] {
         match self {
             Self::UserName(username) => username.as_bytes(),
             Self::Realm(realm) => realm.as_bytes(),
             Self::Nonce(nonce) => nonce.as_bytes(),
+            Self::XorMappedAddress(addr) => &Self::addr_pad(net::encoder(addr, id)),
+            Self::MappedAddress(addr) => &Self::addr_pad(net::encoder(addr, id)),
+            Self::ResponseOrigin(addr) => &Self::addr_pad(net::encoder(addr, id)),
+            Self::Software(value) => value.as_bytes(),
         }
+    }
+
+    /// 缓冲区转属性
+    /// 
+    /// 将缓冲区转换为本地类型.
+    pub fn from(key: Attributes, id: Transaction, value: Vec<u8>) -> Result<Self> {
+        Ok(match key {
+            Attributes::UserName => Self::UserName(String::from_utf8(value)?),
+            Attributes::Realm => Self::Realm(String::from_utf8(value)?),
+            Attributes::Nonce => Self::Nonce(String::from_utf8(value)?),
+            XorMappedAddress => Self::XorMappedAddress(net::decoder(Self::addr_remove(value), id)),
+            MappedAddress => Self::MappedAddress(net::decoder(Self::addr_remove(value), id)),
+            ResponseOrigin => Self::ResponseOrigin(net::decoder(Self::addr_remove(value), id)),
+            Software => Self::Software(String::from_utf8(value)?),
+        })
     }
 }

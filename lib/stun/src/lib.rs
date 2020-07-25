@@ -1,5 +1,5 @@
 mod codec;
-// mod payload;
+mod payload;
 
 use anyhow::Result;
 use bytes::BytesMut;
@@ -28,10 +28,10 @@ impl STUN {
     /// 处理stun数据包
     ///
     /// 不做任何处理，直接返回响应.
-    pub async fn process(&mut self, buffer: BytesMut, addr: SocketAddr) -> Result<()> {
+    pub async fn process(&mut self, buffer: BytesMut, addr: SocketAddr) -> Result<BytesMut> {
         let message = codec::decoder(buffer)?;
-        // let response = payload::process(addr, message)?;
-        Ok(())
+        let response = payload::process(addr, message);
+        Ok(codec::encoder(response))
     }
 }
 

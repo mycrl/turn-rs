@@ -14,7 +14,7 @@ pub fn encoder(message: Message) -> BytesMut {
         // 值类型转换
         // 值长度
         // 值填充长度
-        let value = v.into();
+        let value = v.into(message.transaction);
         let size = value.len();
         let psize = super::pad_size(size);
 

@@ -54,7 +54,7 @@ pub fn decoder(buffer: BytesMut) -> Result<Message> {
         // 和受支持的内容，则写入
         // 到属性列表.
         if let Ok(flag) = Attributes::try_from(key) {
-            if let Ok(attribute) = Attribute::from(flag, value) {
+            if let Ok(attribute) = Attribute::from(flag, transaction, value) {
                 attributes.insert(flag, attribute);
             }
         }
