@@ -8,6 +8,7 @@ pub use encoder::encoder;
 use num_enum::TryFromPrimitive;
 use std::cmp::{Eq, PartialEq};
 use std::collections::HashMap;
+use std::net::SocketAddr;
 
 /// 交易ID
 pub type Transaction = [u8; 12];
@@ -51,6 +52,10 @@ pub enum Attributes {
     UserName = 0x0006,
     Realm = 0x0014,
     Nonce = 0x0015,
+    XorMappedAddress = 0x0020,
+    MappedAddress = 0x0001,
+    ResponseOrigin = 0x802B,
+    Software = 0x8022
 }
 
 impl Eq for Attributes {}
@@ -66,17 +71,23 @@ pub enum Attribute {
     UserName(String),
     Realm(String),
     Nonce(String),
+    XorMappedAddress(SocketAddr),
+    MappedAddress(SocketAddr),
+    ResponseOrigin(SocketAddr),
+    Software(String)
 }
 
 impl Attribute {
     pub fn from(key: Attributes, value: Vec<u8>) -> Result<Self> {
-        match key {
-            Attributes::UserName => Ok(Attribute::UserName(String::from_utf8(value)?)),
-            Attributes::Realm => Ok(Attribute::Realm(String::from_utf8(value)?)),
-            Attributes::Nonce => Ok(Attribute::Nonce(String::from_utf8(value)?)),
-        }
+        Ok(match key {
+            Attributes::UserName => Self::UserName(String::from_utf8(value)?),
+            Attributes::Realm => Self::Realm(String::from_utf8(value)?),
+            Attributes::Nonce => Self::Nonce(String::from_utf8(value)?),
+        })
     }
+}
 
+impl Attribute {
     pub fn into(self) -> &'static [u8] {
         match self {
             Self::UserName(username) => username.as_bytes(),
