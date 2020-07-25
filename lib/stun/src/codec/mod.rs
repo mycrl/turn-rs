@@ -56,7 +56,7 @@ pub enum Attributes {
     XorMappedAddress = 0x0020,
     MappedAddress = 0x0001,
     ResponseOrigin = 0x802B,
-    Software = 0x8022
+    Software = 0x8022,
 }
 
 impl Eq for Attributes {}
@@ -75,7 +75,7 @@ pub enum Attribute {
     XorMappedAddress(SocketAddr),
     MappedAddress(SocketAddr),
     ResponseOrigin(SocketAddr),
-    Software(String)
+    Software(String),
 }
 
 impl Message {
@@ -98,13 +98,13 @@ impl Message {
     }
 }
 
-impl Attribute {
+impl <'a>Attribute {
     /// SocketAddr
     /// 添加填充位
     /// 
     /// 协议规定需要填充0x00到头部.
     fn addr_pad(buffer: BytesMut) -> BytesMut {
-        let pad_buffer = BytesMut::from(&[0x00][..]);
+        let mut pad_buffer = BytesMut::from(&[0x00][..]);
         pad_buffer.extend_from_slice(&buffer);
         pad_buffer
     }
@@ -113,7 +113,7 @@ impl Attribute {
     /// 删除填充位
     /// 
     /// 移除头部的默认填充位.
-    fn addr_remove(buffer: Vec<u8>) -> Vec<u8> {
+    fn addr_remove(mut buffer: Vec<u8>) -> Vec<u8> {
         buffer.remove(0);
         buffer
     }
@@ -121,14 +121,14 @@ impl Attribute {
     /// 属性转缓冲区
     /// 
     /// 将属性转换为缓冲器类型便于传输.
-    pub fn into(self, id: Transaction) -> &'static [u8] {
+    pub fn parse(&'a self, id: Transaction) -> &'a [u8] {
         match self {
             Self::UserName(username) => username.as_bytes(),
             Self::Realm(realm) => realm.as_bytes(),
             Self::Nonce(nonce) => nonce.as_bytes(),
-            Self::XorMappedAddress(addr) => &Self::addr_pad(net::encoder(addr, id)),
-            Self::MappedAddress(addr) => &Self::addr_pad(net::encoder(addr, id)),
-            Self::ResponseOrigin(addr) => &Self::addr_pad(net::encoder(addr, id)),
+            Self::XorMappedAddress(addr) => &Self::addr_pad(net::encoder(&addr, id)),
+            Self::MappedAddress(addr) => &Self::addr_pad(net::encoder(&addr, id)),
+            Self::ResponseOrigin(addr) => &Self::addr_pad(net::encoder(&addr, id)),
             Self::Software(value) => value.as_bytes(),
         }
     }
@@ -141,10 +141,10 @@ impl Attribute {
             Attributes::UserName => Self::UserName(String::from_utf8(value)?),
             Attributes::Realm => Self::Realm(String::from_utf8(value)?),
             Attributes::Nonce => Self::Nonce(String::from_utf8(value)?),
-            XorMappedAddress => Self::XorMappedAddress(net::decoder(Self::addr_remove(value), id)),
-            MappedAddress => Self::MappedAddress(net::decoder(Self::addr_remove(value), id)),
-            ResponseOrigin => Self::ResponseOrigin(net::decoder(Self::addr_remove(value), id)),
-            Software => Self::Software(String::from_utf8(value)?),
+            Attributes::XorMappedAddress => Self::XorMappedAddress(net::decoder(Self::addr_remove(value), id)?),
+            Attributes::MappedAddress => Self::MappedAddress(net::decoder(Self::addr_remove(value), id)?),
+            Attributes::ResponseOrigin => Self::ResponseOrigin(net::decoder(Self::addr_remove(value), id)?),
+            Attributes::Software => Self::Software(String::from_utf8(value)?),
         })
     }
 }

@@ -1,7 +1,6 @@
 mod codec;
 mod payload;
 
-use anyhow::Result;
 use bytes::BytesMut;
 use std::net::SocketAddr;
 
@@ -14,29 +13,28 @@ use std::net::SocketAddr;
 /// STUN是一种Client/Server的协议，也是一种Request/Response的协议，
 /// 默认端口号是3478.
 #[derive(Debug)]
-pub struct STUN {}
+pub struct STUN {
+    local: SocketAddr
+}
 
 impl STUN {
     /// 创建STUN服务器
     ///
     /// 通过给定的地址创建STUN服务器，
     /// 该服务器下层实现为UDP Server.
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(local: SocketAddr) -> Self {
+        Self { local }
     }
 
     /// 处理stun数据包
     ///
     /// 不做任何处理，直接返回响应.
-    pub async fn process(&mut self, buffer: BytesMut, addr: SocketAddr) -> Result<BytesMut> {
-        let message = codec::decoder(buffer)?;
-        let response = payload::process(addr, message);
-        Ok(codec::encoder(response))
-    }
-}
-
-impl Default for STUN {
-    fn default() -> Self {
-        Self::new()
+    pub fn process(self, buffer: BytesMut, addr: SocketAddr) -> Option<BytesMut> {
+        match codec::decoder(buffer) {
+            Ok(message) => match payload::process(self.local, addr, message) {
+                Some(response) => Some(codec::encoder(response)),
+                _ => None
+            }, _ => None
+        }
     }
 }

@@ -9,7 +9,7 @@ use std::convert::TryFrom;
 ///
 /// 仅支持部分类型的消息，
 /// 如果遇到不支持的消息将发生错误.
-pub fn decoder(buffer: BytesMut) -> Result<Message> {
+pub fn decoder(mut buffer: BytesMut) -> Result<Message> {
     assert_eq!(buffer.len() >= 20, true);
     let mut attributes = HashMap::new();
 

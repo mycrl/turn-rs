@@ -11,10 +11,10 @@ pub fn encoder(message: Message) -> BytesMut {
     // 遍历所有属性值,
     // 将所有属性值转换为缓冲区.
     for (k, v) in message.attributes {
-        // 值类型转换
+        let value = v.parse(message.transaction);
+
         // 值长度
         // 值填充长度
-        let value = v.into(message.transaction);
         let size = value.len();
         let psize = super::pad_size(size);
 
@@ -23,12 +23,13 @@ pub fn encoder(message: Message) -> BytesMut {
         // 属性值
         attributes.put_u16(k as u16);
         attributes.put_u16(size as u16);
-        attributes.put(value);
+        attributes.put(&value[..]);
 
         // 如果需要填充，
         // 则填充指定位0.
         if psize > 0 {
-            attributes.put(vec![0u8; psize]);
+            let pad = vec![0u8; psize];
+            attributes.put(&pad[..]);
         }
     }
 
