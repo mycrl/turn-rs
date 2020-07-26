@@ -1,0 +1,16 @@
+[package]
+name = "testing"
+version = "0.1.0"
+authors = ["Mr.Panda <xivistudios@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bytes = "0.5.4"
+anyhow = "1.0"
+
+[dependencies.stun]
+path = "../lib/stun"
+
+[dependencies.tokio]
+version = "0.2"
+features = ["full"]

@@ -30,7 +30,7 @@ impl STUN {
     ///
     /// 不做任何处理，直接返回响应.
     #[rustfmt::skip]
-    pub fn process(self, buffer: BytesMut, addr: SocketAddr) -> Option<BytesMut> {
+    pub fn process(&self, buffer: BytesMut, addr: SocketAddr) -> Option<BytesMut> {
         match codec::decoder(buffer) {
             Ok(message) => match payload::process(self.local, addr, message) {
                 Some(response) => Some(codec::encoder(response)),

@@ -67,32 +67,29 @@ fn from(addr: &SocketAddr, id: Transaction) -> SocketAddr {
     }
 }
 
+/// 将Addr编码为缓冲区
+#[rustfmt::skip]
+pub fn encoder(addr: SocketAddr, id: Transaction, xor: bool) -> Vec<u8> {
+    let mut buffer = Vec::new();
+    let xor_addr = if xor { from(&addr, id) } else { addr };
+    buffer.put_u8(if xor_addr.is_ipv4() { FAMILY_IPV4 } else { FAMILY_IPV6 });
+    buffer.put_u16(xor_addr.port());
+    if let IpAddr::V4(ip) = xor_addr.ip() { buffer.put(&ip.octets()[..]); }
+    if let IpAddr::V6(ip) = xor_addr.ip() { buffer.put(&ip.octets()[..]); }
+    buffer
+}
+
 /// 将缓冲区解码为Addr
-pub fn decoder(buf: Vec<u8>, id: Transaction) -> Result<SocketAddr> {
+pub fn decoder(buf: Vec<u8>, id: Transaction, xor: bool) -> Result<SocketAddr> {
     let mut buffer = BytesMut::from(&buf[..]);
     let family = buffer.get_u8();
     let port = buffer.get_u16();
-    Ok(from(
-        &SocketAddr::new(
-            match family {
-                FAMILY_IPV4 => IpAddr::V4(copy_v4(buffer).into()),
-                FAMILY_IPV6 => IpAddr::V6(copy_v6(buffer).into()),
-                _ => return Err(anyhow!("missing family")),
-            },
-            port,
-        ),
-        id,
-    ))
-}
+    let ip = match family {
+        FAMILY_IPV4 => IpAddr::V4(copy_v4(buffer).into()),
+        FAMILY_IPV6 => IpAddr::V6(copy_v6(buffer).into()),
+        _ => return Err(anyhow!("missing family")),
+    };
 
-/// 将Addr编码为缓冲区
-#[rustfmt::skip]
-pub fn encoder(addr: &SocketAddr, id: Transaction) -> Vec<u8> {
-    let mut buffer = Vec::new();
-    let xor_addr = from(addr, id);
-    buffer.put_u8(if xor_addr.is_ipv4() { FAMILY_IPV4 } else { FAMILY_IPV6 });
-    if let IpAddr::V4(ip) = xor_addr.ip() { buffer.put(&ip.octets()[..]); }
-    if let IpAddr::V6(ip) = xor_addr.ip() { buffer.put(&ip.octets()[..]); }
-    buffer.put_u16(xor_addr.port());
-    buffer
+    let addr = SocketAddr::new(ip, port);
+    Ok(if xor { from(&addr, id) } else { addr })
 }

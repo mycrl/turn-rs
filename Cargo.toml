@@ -15,4 +15,6 @@ members = [
     "publish",
     "pull",
     "core"
+
+    , "testing"
 ]

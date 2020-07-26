@@ -102,8 +102,8 @@ impl Attribute {
     /// 添加填充位
     ///
     /// 协议规定需要填充0x00到头部.
-    fn addr_handle(addr: &SocketAddr, id: Transaction) -> Vec<u8> {
-        let mut buffer = net::encoder(&addr, id);
+    fn addr_handle(addr: SocketAddr, id: Transaction, xor: bool) -> Vec<u8> {
+        let mut buffer = net::encoder(addr, id, xor);
         buffer.insert(0x00, 0);
         buffer
     }
@@ -117,9 +117,9 @@ impl Attribute {
             Self::UserName(username) => username.into_bytes(),
             Self::Realm(realm) => realm.into_bytes(),
             Self::Nonce(nonce) => nonce.into_bytes(),
-            Self::XorMappedAddress(addr) => Self::addr_handle(&addr, id),
-            Self::MappedAddress(addr) => Self::addr_handle(&addr, id),
-            Self::ResponseOrigin(addr) => Self::addr_handle(&addr, id),
+            Self::XorMappedAddress(addr) => Self::addr_handle(addr, id, true),
+            Self::MappedAddress(addr) => Self::addr_handle(addr, id, false),
+            Self::ResponseOrigin(addr) => Self::addr_handle(addr, id, false),
             Self::Software(value) => value.into_bytes(),
         }
     }
@@ -132,9 +132,9 @@ impl Attributes {
     /// 删除填充位
     ///
     /// 移除头部的默认填充位.
-    fn addr_handle(mut buffer: Vec<u8>, id: Transaction) -> Result<SocketAddr> {
+    fn addr_handle(mut buffer: Vec<u8>, id: Transaction, xor: bool) -> Result<SocketAddr> {
         buffer.remove(0);
-        Ok(net::decoder(buffer, id)?)
+        Ok(net::decoder(buffer, id, xor)?)
     }
 
     /// 缓冲区转属性
@@ -146,9 +146,9 @@ impl Attributes {
             Self::UserName => Attribute::UserName(String::from_utf8(value)?),
             Self::Realm => Attribute::Realm(String::from_utf8(value)?),
             Self::Nonce => Attribute::Nonce(String::from_utf8(value)?),
-            Self::XorMappedAddress => Attribute::XorMappedAddress(Self::addr_handle(value, id)?),
-            Self::MappedAddress => Attribute::MappedAddress(Self::addr_handle(value, id)?),
-            Self::ResponseOrigin => Attribute::ResponseOrigin(Self::addr_handle(value, id)?),
+            Self::XorMappedAddress => Attribute::XorMappedAddress(Self::addr_handle(value, id, true)?),
+            Self::MappedAddress => Attribute::MappedAddress(Self::addr_handle(value, id, false)?),
+            Self::ResponseOrigin => Attribute::ResponseOrigin(Self::addr_handle(value, id, false)?),
             Self::Software => Attribute::Software(String::from_utf8(value)?),
         })
     }
