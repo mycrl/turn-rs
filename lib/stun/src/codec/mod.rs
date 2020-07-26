@@ -102,17 +102,9 @@ impl Attribute {
     /// 添加填充位
     ///
     /// 协议规定需要填充0x00到头部.
-    fn addr_pad(mut buffer: Vec<u8>) -> Vec<u8> {
+    fn addr_handle(addr: &SocketAddr, id: Transaction) -> Vec<u8> {
+        let mut buffer = net::encoder(&addr, id);
         buffer.insert(0x00, 0);
-        buffer
-    }
-
-    /// SocketAddr
-    /// 删除填充位
-    ///
-    /// 移除头部的默认填充位.
-    fn addr_remove(mut buffer: Vec<u8>) -> Vec<u8> {
-        buffer.remove(0);
         buffer
     }
 
@@ -125,26 +117,39 @@ impl Attribute {
             Self::UserName(username) => username.into_bytes(),
             Self::Realm(realm) => realm.into_bytes(),
             Self::Nonce(nonce) => nonce.into_bytes(),
-            Self::XorMappedAddress(addr) => Self::addr_pad(net::encoder(&addr, id)),
-            Self::MappedAddress(addr) => Self::addr_pad(net::encoder(&addr, id)),
-            Self::ResponseOrigin(addr) => Self::addr_pad(net::encoder(&addr, id)),
+            Self::XorMappedAddress(addr) => Self::addr_handle(&addr, id),
+            Self::MappedAddress(addr) => Self::addr_handle(&addr, id),
+            Self::ResponseOrigin(addr) => Self::addr_handle(&addr, id),
             Self::Software(value) => value.into_bytes(),
         }
+    }
+
+    
+}
+
+impl Attributes {
+    /// SocketAddr
+    /// 删除填充位
+    ///
+    /// 移除头部的默认填充位.
+    fn addr_handle(mut buffer: Vec<u8>, id: Transaction) -> Result<SocketAddr> {
+        buffer.remove(0);
+        Ok(net::decoder(buffer, id)?)
     }
 
     /// 缓冲区转属性
     ///
     /// 将缓冲区转换为本地类型.
     #[rustfmt::skip]
-    pub fn from(key: Attributes, id: Transaction, value: Vec<u8>) -> Result<Self> {
-        Ok(match key {
-            Attributes::UserName => Self::UserName(String::from_utf8(value)?),
-            Attributes::Realm => Self::Realm(String::from_utf8(value)?),
-            Attributes::Nonce => Self::Nonce(String::from_utf8(value)?),
-            Attributes::XorMappedAddress => Self::XorMappedAddress(net::decoder(Self::addr_remove(value), id)?),
-            Attributes::MappedAddress => Self::MappedAddress(net::decoder(Self::addr_remove(value), id)?),
-            Attributes::ResponseOrigin => Self::ResponseOrigin(net::decoder(Self::addr_remove(value), id)?),
-            Attributes::Software => Self::Software(String::from_utf8(value)?),
+    pub fn from(self, id: Transaction, value: Vec<u8>) -> Result<Attribute> {
+        Ok(match self {
+            Self::UserName => Attribute::UserName(String::from_utf8(value)?),
+            Self::Realm => Attribute::Realm(String::from_utf8(value)?),
+            Self::Nonce => Attribute::Nonce(String::from_utf8(value)?),
+            Self::XorMappedAddress => Attribute::XorMappedAddress(Self::addr_handle(value, id)?),
+            Self::MappedAddress => Attribute::MappedAddress(Self::addr_handle(value, id)?),
+            Self::ResponseOrigin => Attribute::ResponseOrigin(Self::addr_handle(value, id)?),
+            Self::Software => Attribute::Software(String::from_utf8(value)?),
         })
     }
 }

@@ -1,5 +1,5 @@
 use super::MAGIC_COOKIE;
-use super::{Attribute, Attributes, Flag, Message};
+use super::{Attributes, Flag, Message};
 use anyhow::Result;
 use bytes::{Buf, BytesMut};
 use std::collections::HashMap;
@@ -53,9 +53,9 @@ pub fn decoder(mut buffer: BytesMut) -> Result<Message> {
         // 如果是受支持的类型，
         // 和受支持的内容，则写入
         // 到属性列表.
-        if let Ok(flag) = Attributes::try_from(key) {
-            if let Ok(attribute) = Attribute::from(flag, transaction, value) {
-                attributes.insert(flag, attribute);
+        if let Ok(dyn_attribute) = Attributes::try_from(key) {
+            if let Ok(attribute) = dyn_attribute.from(transaction, value) {
+                attributes.insert(dyn_attribute, attribute);
             }
         }
     }
