@@ -9,7 +9,6 @@ use num_enum::TryFromPrimitive;
 use std::cmp::{Eq, PartialEq};
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use bytes::BytesMut;
 
 /// 交易ID
 pub type Transaction = [u8; 12];
@@ -80,7 +79,7 @@ pub enum Attribute {
 
 impl Message {
     /// 创建消息
-    /// 
+    ///
     /// 指定消息类型和交易号创建空属性类型.
     pub fn new(flag: Flag, transaction: Transaction) -> Self {
         Self {
@@ -91,27 +90,26 @@ impl Message {
     }
 
     /// 添加属性
-    /// 
+    ///
     /// 添加属性到消息中的属性列表.
     pub fn add_attr(&mut self, key: Attributes, value: Attribute) -> bool {
         self.attributes.insert(key, value).is_some()
     }
 }
 
-impl <'a>Attribute {
+impl Attribute {
     /// SocketAddr
     /// 添加填充位
-    /// 
+    ///
     /// 协议规定需要填充0x00到头部.
-    fn addr_pad(buffer: BytesMut) -> BytesMut {
-        let mut pad_buffer = BytesMut::from(&[0x00][..]);
-        pad_buffer.extend_from_slice(&buffer);
-        pad_buffer
+    fn addr_pad(mut buffer: Vec<u8>) -> Vec<u8> {
+        buffer.insert(0x00, 0);
+        buffer
     }
 
     /// SocketAddr
     /// 删除填充位
-    /// 
+    ///
     /// 移除头部的默认填充位.
     fn addr_remove(mut buffer: Vec<u8>) -> Vec<u8> {
         buffer.remove(0);
@@ -119,23 +117,25 @@ impl <'a>Attribute {
     }
 
     /// 属性转缓冲区
-    /// 
+    ///
     /// 将属性转换为缓冲器类型便于传输.
-    pub fn parse(&'a self, id: Transaction) -> &'a [u8] {
+    #[rustfmt::skip]
+    pub fn parse(self, id: Transaction) -> Vec<u8> {
         match self {
-            Self::UserName(username) => username.as_bytes(),
-            Self::Realm(realm) => realm.as_bytes(),
-            Self::Nonce(nonce) => nonce.as_bytes(),
-            Self::XorMappedAddress(addr) => &Self::addr_pad(net::encoder(&addr, id)),
-            Self::MappedAddress(addr) => &Self::addr_pad(net::encoder(&addr, id)),
-            Self::ResponseOrigin(addr) => &Self::addr_pad(net::encoder(&addr, id)),
-            Self::Software(value) => value.as_bytes(),
+            Self::UserName(username) => username.into_bytes(),
+            Self::Realm(realm) => realm.into_bytes(),
+            Self::Nonce(nonce) => nonce.into_bytes(),
+            Self::XorMappedAddress(addr) => Self::addr_pad(net::encoder(&addr, id)),
+            Self::MappedAddress(addr) => Self::addr_pad(net::encoder(&addr, id)),
+            Self::ResponseOrigin(addr) => Self::addr_pad(net::encoder(&addr, id)),
+            Self::Software(value) => value.into_bytes(),
         }
     }
 
     /// 缓冲区转属性
-    /// 
+    ///
     /// 将缓冲区转换为本地类型.
+    #[rustfmt::skip]
     pub fn from(key: Attributes, id: Transaction, value: Vec<u8>) -> Result<Self> {
         Ok(match key {
             Attributes::UserName => Self::UserName(String::from_utf8(value)?),

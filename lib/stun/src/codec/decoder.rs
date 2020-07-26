@@ -1,5 +1,5 @@
-use super::{Attribute, Attributes, Flag, Message};
 use super::MAGIC_COOKIE;
+use super::{Attribute, Attributes, Flag, Message};
 use anyhow::Result;
 use bytes::{Buf, BytesMut};
 use std::collections::HashMap;

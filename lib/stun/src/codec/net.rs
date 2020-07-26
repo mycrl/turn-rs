@@ -17,10 +17,10 @@
 //! ```
 
 use super::{Transaction, MAGIC_COOKIE};
+use anyhow::{anyhow, Result};
+use bytes::{Buf, BufMut, BytesMut};
 use std::net::{IpAddr, SocketAddr};
 use std::net::{Ipv4Addr, Ipv6Addr};
-use bytes::{BytesMut, Buf, BufMut};
-use anyhow::{Result, anyhow};
 
 /// 协议类型
 const FAMILY_IPV4: u8 = 0x01;
@@ -59,35 +59,40 @@ fn parse_ipv6(id: Transaction, ip: Ipv6Addr, xor_port: u16) -> SocketAddr {
 
 /// 将本地Addr类型，
 /// 转为Xor类型.
-#[rustfmt::skip]
 fn from(addr: &SocketAddr, id: Transaction) -> SocketAddr {
-    match (addr.ip(), addr.port() ^ (MAGIC_COOKIE >> 16) as u16) {
-        (IpAddr::V4(ip), port) => parse_ipv4(ip, port),
-        (IpAddr::V6(ip), port) => parse_ipv6(id, ip, port)
+    let port = addr.port() ^ (MAGIC_COOKIE >> 16) as u16;
+    match addr.ip() {
+        IpAddr::V4(ip) => parse_ipv4(ip, port),
+        IpAddr::V6(ip) => parse_ipv6(id, ip, port),
     }
 }
 
 /// 将缓冲区解码为Addr
-#[rustfmt::skip]
 pub fn decoder(buf: Vec<u8>, id: Transaction) -> Result<SocketAddr> {
     let mut buffer = BytesMut::from(&buf[..]);
     let family = buffer.get_u8();
     let port = buffer.get_u16();
-    Ok(from(&SocketAddr::new(match family {
-        FAMILY_IPV4 => IpAddr::V4(copy_v4(buffer).into()),
-        FAMILY_IPV6 => IpAddr::V6(copy_v6(buffer).into()),
-        _ => { return Err(anyhow!("missing family")) }
-    }, port), id))
+    Ok(from(
+        &SocketAddr::new(
+            match family {
+                FAMILY_IPV4 => IpAddr::V4(copy_v4(buffer).into()),
+                FAMILY_IPV6 => IpAddr::V6(copy_v6(buffer).into()),
+                _ => return Err(anyhow!("missing family")),
+            },
+            port,
+        ),
+        id,
+    ))
 }
 
 /// 将Addr编码为缓冲区
 #[rustfmt::skip]
-pub fn encoder(addr: &SocketAddr, id: Transaction) -> BytesMut {
+pub fn encoder(addr: &SocketAddr, id: Transaction) -> Vec<u8> {
+    let mut buffer = Vec::new();
     let xor_addr = from(addr, id);
-    let mut buffer = BytesMut::new();
     buffer.put_u8(if xor_addr.is_ipv4() { FAMILY_IPV4 } else { FAMILY_IPV6 });
     if let IpAddr::V4(ip) = xor_addr.ip() { buffer.put(&ip.octets()[..]); }
     if let IpAddr::V6(ip) = xor_addr.ip() { buffer.put(&ip.octets()[..]); }
-    buffer.put_u16(addr.port());
+    buffer.put_u16(xor_addr.port());
     buffer
 }
