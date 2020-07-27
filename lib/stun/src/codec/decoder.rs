@@ -1,6 +1,6 @@
 use super::MAGIC_COOKIE;
 use super::{Attributes, Flag, Message};
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use bytes::{Buf, BytesMut};
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -9,8 +9,9 @@ use std::convert::TryFrom;
 ///
 /// 仅支持部分类型的消息，
 /// 如果遇到不支持的消息将发生错误.
+#[rustfmt::skip]
 pub fn decoder(mut buffer: BytesMut) -> Result<Message> {
-    assert_eq!(buffer.len() >= 20, true);
+    if buffer.len() < 20 { return Err(anyhow!("message len < 20")) }
     let mut attributes = HashMap::new();
 
     // 消息类型
@@ -20,8 +21,8 @@ pub fn decoder(mut buffer: BytesMut) -> Result<Message> {
 
     // 检查固定Cookie
     // 检查长度是否足够
-    assert_eq!(buffer.get_u32(), MAGIC_COOKIE);
-    assert_eq!(buffer.remaining() >= size + 12, true);
+    if buffer.get_u32() != MAGIC_COOKIE { return Err(anyhow!("missing cookie")) }
+    if buffer.remaining() < size + 12 { return Err(anyhow!("missing len")) }
 
     // 获取交易号
     let mut transaction = [0u8; 12];
