@@ -126,6 +126,13 @@ impl Message {
     pub fn add_attr(&mut self, key: Attributes, value: Attribute) -> bool {
         self.attributes.insert(key, value).is_some()
     }
+
+    /// 获取属性
+    ///
+    /// 从消息中的属性列表获取属性.
+    pub fn get_attr(&mut self, key: &Attributes) -> Option<&Attribute> {
+        self.attributes.get(key)
+    }
 }
 
 impl Attribute {

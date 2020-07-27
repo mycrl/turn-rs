@@ -9,7 +9,7 @@ pub fn process(local: SocketAddr, source: SocketAddr, message: Message) -> Optio
     match message.flag {
         Flag::BindingReq => Some(binding_request(local, source, message)),
         Flag::AllocateReq => Some(allocate_request(message)),
-        _ => return None,
+        _ => None,
     }
 }
 
@@ -29,5 +29,8 @@ fn binding_request(local: SocketAddr, source: SocketAddr, message: Message) -> M
 
 /// 处理分配请求
 fn allocate_request(message: Message) -> Message {
+    let username = message.get_attr(&Attributes::UserName);
+    let nonce = message.get_attr(&Attributes::Nonce);
+    let integrity = message.get_attr(&Attributes::MessageIntegrity);
     
 }
