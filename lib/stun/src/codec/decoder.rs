@@ -1,5 +1,4 @@
-use super::MAGIC_COOKIE;
-use super::{Attributes, Flag, Message};
+use super::{attribute::Attribute, Flag, Message, util, MAGIC_COOKIE};
 use anyhow::{Result, anyhow};
 use bytes::{Buf, BytesMut};
 use std::collections::HashMap;
@@ -39,7 +38,7 @@ pub fn decoder(mut buffer: BytesMut) -> Result<Message> {
         // 获取属性长度
         let key = buffer.get_u16();
         let size = buffer.get_u16() as usize;
-        let psize = super::pad_size(size);
+        let psize = util::pad_size(size);
 
         // 获取属性内容
         let mut value = vec![0u8; size];
@@ -54,7 +53,7 @@ pub fn decoder(mut buffer: BytesMut) -> Result<Message> {
         // 如果是受支持的类型，
         // 和受支持的内容，则写入
         // 到属性列表.
-        if let Ok(dyn_attribute) = Attributes::try_from(key) {
+        if let Ok(dyn_attribute) = Attribute::try_from(key) {
             if let Ok(attribute) = dyn_attribute.from(transaction, value) {
                 attributes.insert(dyn_attribute, attribute);
             }

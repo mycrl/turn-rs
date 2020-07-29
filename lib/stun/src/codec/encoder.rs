@@ -1,4 +1,4 @@
-use super::{Message, MAGIC_COOKIE};
+use super::{Message, MAGIC_COOKIE, util};
 use bytes::{BufMut, BytesMut};
 
 /// 编码消息
@@ -16,7 +16,7 @@ pub fn encoder(message: Message) -> BytesMut {
         // 值长度
         // 值填充长度
         let size = value.len();
-        let psize = super::pad_size(size);
+        let psize = util::pad_size(size);
 
         // 属性类型
         // 属性值长度

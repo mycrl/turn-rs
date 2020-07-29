@@ -15,6 +15,7 @@ use std::net::SocketAddr;
 #[derive(Debug)]
 pub struct STUN {
     local: SocketAddr,
+    realm: String
 }
 
 impl STUN {
@@ -22,8 +23,8 @@ impl STUN {
     ///
     /// 通过给定的地址创建STUN服务器，
     /// 该服务器下层实现为UDP Server.
-    pub fn new(local: SocketAddr) -> Self {
-        Self { local }
+    pub fn new(local: SocketAddr, realm: String) -> Self {
+        Self { local, realm }
     }
 
     /// 处理stun数据包
@@ -32,7 +33,7 @@ impl STUN {
     #[rustfmt::skip]
     pub fn process(&self, buffer: BytesMut, addr: SocketAddr) -> Option<BytesMut> {
         match codec::decoder(buffer) {
-            Ok(message) => match payload::process(self.local, addr, message) {
+            Ok(message) => match payload::process(self.local, addr, &self.realm, message) {
                 Some(response) => Some(codec::encoder(response)),
                 _ => None,
             }, _ => None,
