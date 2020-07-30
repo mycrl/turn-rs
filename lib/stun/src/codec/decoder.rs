@@ -1,4 +1,4 @@
-use super::{attribute::Attribute, Flag, Message, util, MAGIC_COOKIE};
+use super::{attribute::Code, Flag, Message, util, MAGIC_COOKIE};
 use anyhow::{Result, anyhow};
 use bytes::{Buf, BytesMut};
 use std::collections::HashMap;
@@ -53,7 +53,7 @@ pub fn decoder(mut buffer: BytesMut) -> Result<Message> {
         // 如果是受支持的类型，
         // 和受支持的内容，则写入
         // 到属性列表.
-        if let Ok(dyn_attribute) = Attribute::try_from(key) {
+        if let Ok(dyn_attribute) = Code::try_from(key) {
             if let Ok(attribute) = dyn_attribute.from(transaction, value) {
                 attributes.insert(dyn_attribute, attribute);
             }

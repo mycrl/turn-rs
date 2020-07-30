@@ -1,6 +1,6 @@
 use crate::codec::{Flag, Message, util};
-use crate::codec::attribute::{Attribute, Value};
-use crate::codec::error::{Error, Code};
+use crate::codec::attribute::{Attribute, Code};
+use crate::codec::error;
 use std::net::SocketAddr;
 
 /// 返回错误响应
@@ -8,20 +8,20 @@ use std::net::SocketAddr;
 /// 返回固定认证错误响应.
 fn reject(realm: &String, message: Message) -> Message {
     let mut response = Message::new(Flag::AllocateErrRes, message.transaction);
-    response.add_attr(Value::ErrorCode(Error::new(Code::Unauthorized)));
-    response.add_attr(Value::Nonce(util::rand_string(16)));
-    response.add_attr(Value::Software("None".to_string()));
-    response.add_attr(Value::Realm(realm.clone()));
+    response.add_attr(Attribute::ErrorCode(error::Error::new(error::Code::Unauthorized)));
+    response.add_attr(Attribute::Nonce(util::rand_string(16)));
+    response.add_attr(Attribute::Software("None".to_string()));
+    response.add_attr(Attribute::Realm(realm.clone()));
     response
 }
 
 /// 分配成功
 fn resolve(local: SocketAddr, source: SocketAddr, message: Message) -> Message {
     let mut response = Message::new(Flag::AllocateRes, message.transaction);
-    response.add_attr(Value::XorMappedAddress(local));
-    response.add_attr(Value::XorMappedAddress(source));
-    response.add_attr(Value::Lifetime(600));
-    response.add_attr(Value::Software("None".to_string()));
+    response.add_attr(Attribute::XorMappedAddress(local));
+    response.add_attr(Attribute::XorMappedAddress(source));
+    response.add_attr(Attribute::Lifetime(600));
+    response.add_attr(Attribute::Software("None".to_string()));
     response
 }
 
@@ -31,9 +31,9 @@ fn resolve(local: SocketAddr, source: SocketAddr, message: Message) -> Message {
 /// 如认证错误则返回错误响应.
 #[rustfmt::skip]
 pub fn handle(local: SocketAddr, source: SocketAddr, realm: &String, message: Message) -> Message {
-    let username = message.get_attr(&Attribute::UserName);
-    let source_realm = message.get_attr(&Attribute::Realm);
-    let integrity = message.get_attr(&Attribute::MessageIntegrity);
+    let username = message.get_attr(&Code::UserName);
+    let source_realm = message.get_attr(&Code::Realm);
+    let integrity = message.get_attr(&Code::MessageIntegrity);
 
     // 检查属性的完整性
     if let None = username { return reject(realm, message) }

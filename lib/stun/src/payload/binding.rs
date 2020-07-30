@@ -1,4 +1,4 @@
-use crate::codec::{Flag, Message, attribute::Value};
+use crate::codec::{Flag, Message, attribute::Attribute};
 use std::net::SocketAddr;
 
 /// 处理绑定请求
@@ -8,9 +8,9 @@ use std::net::SocketAddr;
 #[rustfmt::skip]
 pub fn handle(local: SocketAddr, source: SocketAddr, message: Message) -> Message {
     let mut message = Message::new(Flag::BindingRes, message.transaction);
-    message.add_attr(Value::XorMappedAddress(source));
-    message.add_attr(Value::MappedAddress(source));
-    message.add_attr(Value::ResponseOrigin(local));
-    message.add_attr(Value::Software("None".to_string()));
+    message.add_attr(Attribute::XorMappedAddress(source));
+    message.add_attr(Attribute::MappedAddress(source));
+    message.add_attr(Attribute::ResponseOrigin(local));
+    message.add_attr(Attribute::Software("None".to_string()));
     message
 }

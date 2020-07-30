@@ -8,7 +8,7 @@ use bytes::BufMut;
 /// message attribute type.
 #[repr(u16)]
 #[derive(Hash, Copy, Clone, Debug, TryFromPrimitive)]
-pub enum Attribute {
+pub enum Code {
     UserName = 0x0006,
     Realm = 0x0014,
     Nonce = 0x0015,
@@ -22,8 +22,8 @@ pub enum Attribute {
     Lifetime = 0x000D,
 }
 
-impl Eq for Attribute {}
-impl PartialEq for Attribute {
+impl Eq for Code {}
+impl PartialEq for Code {
     fn eq(&self, other: &Self) -> bool {
         self == other
     }
@@ -31,7 +31,7 @@ impl PartialEq for Attribute {
 
 /// message attribute value.
 #[derive(Clone, Debug)]
-pub enum Value {
+pub enum Attribute {
     UserName(String),
     Realm(String),
     Nonce(String),
@@ -45,7 +45,7 @@ pub enum Value {
     Lifetime(u16)
 }
 
-impl Value {
+impl Attribute {
     /// SocketAddr
     /// 添加填充位
     ///
@@ -86,7 +86,7 @@ impl Value {
     
 }
 
-impl Attribute {
+impl Code {
     /// SocketAddr
     /// 删除填充位
     ///
@@ -100,19 +100,19 @@ impl Attribute {
     ///
     /// 将缓冲区转换为本地类型.
     #[rustfmt::skip]
-    pub fn from(self, id: Transaction, value: Vec<u8>) -> Result<Value> {
+    pub fn from(self, id: Transaction, value: Vec<u8>) -> Result<Attribute> {
         Ok(match self {
-            Self::UserName => Value::UserName(String::from_utf8(value)?),
-            Self::Realm => Value::Realm(String::from_utf8(value)?),
-            Self::Nonce => Value::Nonce(String::from_utf8(value)?),
-            Self::XorRelayedAddress => Value::XorRelayedAddress(Self::addr_handle(value, id, true)?),
-            Self::XorMappedAddress => Value::XorMappedAddress(Self::addr_handle(value, id, true)?),
-            Self::MappedAddress => Value::MappedAddress(Self::addr_handle(value, id, false)?),
-            Self::ResponseOrigin => Value::ResponseOrigin(Self::addr_handle(value, id, false)?),
-            Self::Software => Value::Software(String::from_utf8(value)?),
-            Self::MessageIntegrity => Value::MessageIntegrity(String::from_utf8(value)?),
-            Self::ErrorCode => Value::ErrorCode(error::Error::from(value)?),
-            Self::Lifetime => Value::Lifetime(u16::from_be_bytes([ value[0], value[1] ])),
+            Self::UserName => Attribute::UserName(String::from_utf8(value)?),
+            Self::Realm => Attribute::Realm(String::from_utf8(value)?),
+            Self::Nonce => Attribute::Nonce(String::from_utf8(value)?),
+            Self::XorRelayedAddress => Attribute::XorRelayedAddress(Self::addr_handle(value, id, true)?),
+            Self::XorMappedAddress => Attribute::XorMappedAddress(Self::addr_handle(value, id, true)?),
+            Self::MappedAddress => Attribute::MappedAddress(Self::addr_handle(value, id, false)?),
+            Self::ResponseOrigin => Attribute::ResponseOrigin(Self::addr_handle(value, id, false)?),
+            Self::Software => Attribute::Software(String::from_utf8(value)?),
+            Self::MessageIntegrity => Attribute::MessageIntegrity(String::from_utf8(value)?),
+            Self::ErrorCode => Attribute::ErrorCode(error::Error::from(value)?),
+            Self::Lifetime => Attribute::Lifetime(u16::from_be_bytes([ value[0], value[1] ])),
         })
     }
 }
