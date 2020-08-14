@@ -1,5 +1,4 @@
 use crate::router::{Event, Rx, Tx};
-use bytes::BytesMut;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::io::{Error, ErrorKind};
@@ -40,9 +39,7 @@ impl Socket {
     /// 这里将数据从TcpSocket中读取处理，
     /// 并解码数据，将消息通过管道传递到核心路由.
     async fn poll_socket(&mut self) -> Result<(), Error> {
-        let mut receiver = [0u8; 2048];
-        let size = self.socket.read(&mut receiver).await?;
-        self.transport.push(BytesMut::from(&receiver[0..size]));
+        self.socket.read_buf(&mut self.transport.buffer).await?;
         while let Some(result) = self.transport.decoder() {
             for (flag, message) in result {
                 let event = Event::Bytes(self.addr.clone(), flag, message);

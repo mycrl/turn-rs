@@ -67,9 +67,8 @@ impl<T: Default + Codec + Unpin> Socket<T> {
     /// Use `Codec` to handle TcpSocket data,
     /// Write the returned data to TcpSocket or UdpSocket correctly.
     pub async fn process(&mut self) -> Result<(), Error> {
-        let mut receiver = [0u8; 2048];
-        let size = self.stream.read(&mut receiver).await?;
-        let mut chunk = BytesMut::from(&receiver[0..size]);
+        let mut chunk = BytesMut::new();
+        self.stream.read_buf(&mut chunk).await?;
         for packet in self.codec.parse(&mut chunk) {
             match packet {
                 Packet::Peer(data) => self.stream.write_all(&data).await?,

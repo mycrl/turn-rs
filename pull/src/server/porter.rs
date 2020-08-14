@@ -187,9 +187,7 @@ impl Porter {
     /// 然后再进行相应的处理.
     #[rustfmt::skip]
     async fn poll_socket(&mut self) -> Result<(), Error> {
-        let mut receiver = [0u8; 2048];
-        let size = self.stream.read(&mut receiver).await?;
-        self.transport.push(BytesMut::from(&receiver[0..size]));
+        self.stream.read_buf(&mut self.transport.buffer).await?;
         while let Some(result) = self.transport.decoder() {
             for (flag, message) in result {
                 if let Ok(payload) = Transport::parse(message) {

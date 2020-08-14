@@ -8,8 +8,8 @@
 //! +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //! |  fixed header   |  flag   |  body len   |  name size  |  timestamp  |  codec  |  name  |  data   |
 //! +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//! |  4byte          |  1byte  |  4byte      |  1byte      |  4byte      |  1byte  |  x     |  x      |
-//! |  0x99999909     |  x      |  x          |  x          |  x          |  x      |  x     |  x      |
+//! |  4byte          |  1byte  |  4byte      |  1byte      |  4byte      |  1byte  |  *     |  *      |
+//! |  0x99999909     |  *      |  *          |  *          |  *          |  *      |  *     |  *      |
 //! +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //! ```
 //! 
@@ -62,7 +62,7 @@ pub struct Payload {
 #[allow(dead_code)]
 #[derive(Default)]
 pub struct Transport {
-    buffer: BytesMut,
+    pub buffer: BytesMut,
 }
 
 impl Transport {
@@ -168,24 +168,6 @@ impl Transport {
 
         // Returns bytes
         packet
-    }
-
-    /// 推入新的分片
-    /// 
-    /// 将接收到的缓冲区推入到内部缓冲区，
-    /// 等待下次解码并消费掉;
-    /// 
-    /// # Examples
-    ///
-    /// ```no_run
-    /// let mut transport = Transport::new();
-    /// 
-    /// transport.push(transport.encoder(Bytes::from("hello"), 1).freeze());
-    /// transport.push(transport.encoder(Bytes::from("world"), 2).freeze());
-    /// transport.decoder()
-    /// ```
-    pub fn push(&mut self, chunk: BytesMut) {
-        self.buffer.extend_from_slice(&chunk);
     }
 
     /// Decode protocol frames
