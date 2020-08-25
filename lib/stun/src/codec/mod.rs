@@ -22,7 +22,8 @@ pub const MAGIC_COOKIE: u32 = 0x2112A442;
 pub struct Message {
     pub flag: Flag,
     pub transaction: Transaction,
-    pub attributes: HashMap<Code, Attribute>,
+    reader: HashMap<Code, Attribute>,
+    writer: Vec<(Code, Attribute)>
 }
 
 /// message type.
@@ -44,33 +45,22 @@ impl Message {
         Self {
             flag,
             transaction,
-            attributes: HashMap::new(),
+            reader: HashMap::new(),
+            writer: Vec::new(),
         }
     }
 
     /// 添加属性
     ///
     /// 添加属性到消息中的属性列表.
-    pub fn add_attr(&mut self, value: Attribute) -> bool {
-        self.attributes.insert(match &value {
-            Attribute::UserName(_) => Code::UserName,
-            Attribute::Realm(_) => Code::Realm,
-            Attribute::Nonce(_) => Code::Nonce,
-            Attribute::XorRelayedAddress(_) => Code::XorRelayedAddress,
-            Attribute::XorMappedAddress(_) => Code::XorMappedAddress,
-            Attribute::MappedAddress(_) => Code::MappedAddress,
-            Attribute::ResponseOrigin(_) => Code::ResponseOrigin,
-            Attribute::Software(_) => Code::Software,
-            Attribute::MessageIntegrity(_) => Code::MessageIntegrity,
-            Attribute::ErrorCode(_) => Code::ErrorCode,
-            Attribute::Lifetime(_) => Code::Lifetime,
-        }, value).is_some()
+    pub fn add_attr(&mut self, value: Attribute) {
+        self.writer.push((value.into_code(), value))
     }
 
     /// 获取属性
     ///
     /// 从消息中的属性列表获取属性.
     pub fn get_attr(&self, key: &Code) -> Option<&Attribute> {
-        self.attributes.get(key)
+        self.reader.get(key)
     }
 }

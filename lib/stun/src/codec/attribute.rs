@@ -83,7 +83,24 @@ impl Attribute {
         }
     }
 
-    
+    /// 属性转编码
+    /// 
+    /// 根据属性获取编码.
+    pub fn into_code(&self) -> Code {
+        match self {
+            Self::UserName(_) => Code::UserName,
+            Self::Realm(_) => Code::Realm,
+            Self::Nonce(_) => Code::Nonce,
+            Self::XorRelayedAddress(_) => Code::XorRelayedAddress,
+            Self::XorMappedAddress(_) => Code::XorMappedAddress,
+            Self::MappedAddress(_) => Code::MappedAddress,
+            Self::ResponseOrigin(_) => Code::ResponseOrigin,
+            Self::Software(_) => Code::Software,
+            Self::MessageIntegrity(_) => Code::MessageIntegrity,
+            Self::ErrorCode(_) => Code::ErrorCode,
+            Self::Lifetime(_) => Code::Lifetime,
+        }
+    }
 }
 
 impl Code {

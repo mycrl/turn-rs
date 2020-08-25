@@ -10,7 +10,7 @@ pub fn encoder(message: Message) -> BytesMut {
 
     // 遍历所有属性值,
     // 将所有属性值转换为缓冲区.
-    for (k, v) in message.attributes {
+    for (k, v) in message.writer {
         let value = v.into_bytes(message.transaction);
 
         // 值长度

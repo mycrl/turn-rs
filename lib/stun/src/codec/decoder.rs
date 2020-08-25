@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 #[rustfmt::skip]
 pub fn decoder(mut buffer: BytesMut) -> Result<Message> {
     if buffer.len() < 20 { return Err(anyhow!("message len < 20")) }
-    let mut attributes = HashMap::new();
+    let mut reader = HashMap::new();
 
     // 消息类型
     // 消息长度
@@ -55,14 +55,15 @@ pub fn decoder(mut buffer: BytesMut) -> Result<Message> {
         // 到属性列表.
         if let Ok(dyn_attribute) = Code::try_from(key) {
             if let Ok(attribute) = dyn_attribute.from(transaction, value) {
-                attributes.insert(dyn_attribute, attribute);
+                reader.insert(dyn_attribute, attribute);
             }
         }
     }
 
     Ok(Message {
         flag,
+        reader,
         transaction,
-        attributes,
+        writer: Vec::new()
     })
 }

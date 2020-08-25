@@ -53,9 +53,7 @@ impl Socket {
     }
 
     pub async fn process(&mut self) -> Result<(), Error> {
-        let mut buffer = [0u8; 2048];
-        let size = self.stream.read(&mut buffer).await?;
-        self.transport.push(BytesMut::from(&buffer[0..size]));
+        self.stream.read(&mut self.transport.buffer).await?;
         while let Some(result) = self.transport.decoder() {
             for (flag, data) in result {
                 if flag == Flag::Control {
