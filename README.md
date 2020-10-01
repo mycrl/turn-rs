@@ -1,14 +1,14 @@
 # Quasipaa
 
-![ci](https://img.shields.io/github/workflow/status/quasipaas/quasipaa/CI)
-![languages](https://img.shields.io/github/languages/top/quasipaas/quasipaa)
-![open issues](https://img.shields.io/github/issues/quasipaas/quasipaa)
-![pull requests](https://img.shields.io/github/issues-pr/quasipaas/quasipaa)
-![license](https://img.shields.io/github/license/quasipaas/quasipaa)
-![forks](https://img.shields.io/github/forks/quasipaas/quasipaa)
-![stars](https://img.shields.io/github/stars/quasipaas/quasipaa)
-![release](https://img.shields.io/github/v/release/quasipaas/quasipaa)
-![last commit](https://img.shields.io/github/last-commit/quasipaas/quasipaa)
+![ci](https://img.shields.io/github/workflow/status/quasipaa/Spinosa/CI)
+![languages](https://img.shields.io/github/languages/top/quasipaa/Spinosa)
+![open issues](https://img.shields.io/github/issues/quasipaa/Spinosa)
+![pull requests](https://img.shields.io/github/issues-pr/quasipaa/Spinosa)
+![license](https://img.shields.io/github/license/quasipaa/Spinosa)
+![forks](https://img.shields.io/github/forks/quasipaa/Spinosa)
+![stars](https://img.shields.io/github/stars/quasipaa/Spinosa)
+![release](https://img.shields.io/github/v/release/quasipaa/Spinosa)
+![last commit](https://img.shields.io/github/last-commit/quasipaa/Spinosa)
 ![author](https://img.shields.io/badge/author-Mr.Panda-read)
 
 Quasipaa is an open source, distributed real-time audio and video server. Unlike other solutions, this is not a library that can be embedded in your own program, but a full-fledged cluster of services, Quasipaa not only provides basic streaming media server, but also includes load balancing, external control API interface. Quasipaa by Rust to build, the use of Rust outstanding performance and excellent engineering became a robust system.

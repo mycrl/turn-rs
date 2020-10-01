@@ -8,9 +8,9 @@ use std::net::SocketAddr;
 #[rustfmt::skip]
 pub fn handle(local: SocketAddr, source: SocketAddr, message: Message) -> Message {
     let mut message = Message::new(Flag::BindingRes, message.transaction);
+    message.add_attr(Attribute::Software(String::from("None")));
     message.add_attr(Attribute::XorMappedAddress(source));
     message.add_attr(Attribute::MappedAddress(source));
     message.add_attr(Attribute::ResponseOrigin(local));
-    message.add_attr(Attribute::Software("None".to_string()));
     message
 }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use super::util::key_sign;
 use super::{Transaction, address, error};
 use num_enum::TryFromPrimitive;
 use std::cmp::{Eq, PartialEq};
@@ -91,8 +92,8 @@ impl Attribute {
             Self::UserName(_) => Code::UserName,
             Self::Realm(_) => Code::Realm,
             Self::Nonce(_) => Code::Nonce,
-            Self::XorRelayedAddress(_) => Code::XorRelayedAddress,
             Self::XorMappedAddress(_) => Code::XorMappedAddress,
+            Self::XorRelayedAddress(_) => Code::XorRelayedAddress,
             Self::MappedAddress(_) => Code::MappedAddress,
             Self::ResponseOrigin(_) => Code::ResponseOrigin,
             Self::Software(_) => Code::Software,
@@ -132,4 +133,11 @@ impl Code {
             Self::Lifetime => Attribute::Lifetime(u16::from_be_bytes([ value[0], value[1] ])),
         })
     }
+}
+
+/// 消息完整性
+/// 
+/// 对消息进行摘要, 防止被篡改.
+pub fn compute_integrity(size: u16, ) {
+
 }

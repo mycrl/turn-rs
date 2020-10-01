@@ -89,6 +89,6 @@ pub fn rand_string(size: usize) -> String {
 /// the end of the MESSAGE-INTEGRITY attribute prior to calculating the
 /// HMAC.  Such adjustment is necessary when attributes, such as
 /// FINGERPRINT, appear after MESSAGE-INTEGRITY.
-pub fn sign(username: String, realm: String, key: String) -> String {
+pub fn key_sign(username: String, realm: String, key: String) -> String {
     format!("{:x}", md5::compute([username, realm, key].join(":")))
 }

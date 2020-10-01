@@ -10,7 +10,7 @@ fn reject(realm: &String, message: Message) -> Message {
     let mut response = Message::new(Flag::AllocateErrRes, message.transaction);
     response.add_attr(Attribute::ErrorCode(error::Error::new(error::Code::Unauthorized)));
     response.add_attr(Attribute::Nonce(util::rand_string(16)));
-    response.add_attr(Attribute::Software("None".to_string()));
+    response.add_attr(Attribute::Software(String::from("None")));
     response.add_attr(Attribute::Realm(realm.clone()));
     response
 }
@@ -18,10 +18,10 @@ fn reject(realm: &String, message: Message) -> Message {
 /// 分配成功
 fn resolve(local: SocketAddr, source: SocketAddr, message: Message) -> Message {
     let mut response = Message::new(Flag::AllocateRes, message.transaction);
+    response.add_attr(Attribute::Software(String::from("None")));
     response.add_attr(Attribute::XorMappedAddress(local));
     response.add_attr(Attribute::XorMappedAddress(source));
     response.add_attr(Attribute::Lifetime(600));
-    response.add_attr(Attribute::Software("None".to_string()));
     response
 }
 
