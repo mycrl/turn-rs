@@ -1,13 +1,11 @@
 # Quasipaa
 
-![ci](https://img.shields.io/github/workflow/status/quasipaa/Spinosa/CI)
 ![languages](https://img.shields.io/github/languages/top/quasipaa/Spinosa)
 ![open issues](https://img.shields.io/github/issues/quasipaa/Spinosa)
 ![pull requests](https://img.shields.io/github/issues-pr/quasipaa/Spinosa)
 ![license](https://img.shields.io/github/license/quasipaa/Spinosa)
 ![forks](https://img.shields.io/github/forks/quasipaa/Spinosa)
 ![stars](https://img.shields.io/github/stars/quasipaa/Spinosa)
-![release](https://img.shields.io/github/v/release/quasipaa/Spinosa)
 ![last commit](https://img.shields.io/github/last-commit/quasipaa/Spinosa)
 ![author](https://img.shields.io/badge/author-Mr.Panda-read)
 
