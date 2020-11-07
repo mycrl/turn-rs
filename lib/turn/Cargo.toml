@@ -1,5 +1,5 @@
 [package]
-name = "stun"
+name = "turn"
 version = "0.1.0"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 edition = "2018"
@@ -7,6 +7,6 @@ edition = "2018"
 [dependencies]
 bytes = "0.5.4"
 anyhow = "1.0"
+rand = "0.7"
 num_enum = "0.5.0"
 md5 = "0.7.0"
-rand = "0.7"

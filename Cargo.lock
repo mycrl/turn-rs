@@ -1308,17 +1308,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "stun"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytes",
- "md5",
- "num_enum",
- "rand 0.7.3",
-]
-
-[[package]]
 name = "syn"
 version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1465,6 +1454,17 @@ dependencies = [
  "sha-1",
  "url",
  "utf-8",
+]
+
+[[package]]
+name = "turn"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "md5",
+ "num_enum",
+ "rand 0.7.3",
 ]
 
 [[package]]
