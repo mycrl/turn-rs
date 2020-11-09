@@ -8,7 +8,6 @@ use rand::{
 ///
 /// RFC5766规定属性内容是4的倍数，
 /// 所以此处是为了计算出填充位的长度.
-
 pub fn pad_size(size: usize) -> usize {
     let range = size % 4;
     if size == 0 || range == 0 {

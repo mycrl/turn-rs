@@ -193,49 +193,49 @@ impl Transport {
     #[allow(dead_code)]
     pub fn decoder(&mut self) -> Option<Vec<(Flag, BytesMut)>> {
         let mut receiver = Vec::new();
-        loop {
+    loop {
 
-            // Check whether the remaining data is sufficient 
-            // to complete the next analysis, otherwise please 
-            // do not waste time.
-            if self.buffer.len() < 9 {
-                break;
-            }
-
-            // Get the fixed head
-            let head = u32::from_be_bytes([
-                self.buffer[0],
-                self.buffer[1],
-                self.buffer[2],
-                self.buffer[3]
-            ]);
-
-            // Check the fixed head
-            if head != 0x99999909 {
-                break;
-            }
-
-            // Get the flag
-            // Get body length
-            let flag = unsafe { transmute::<u8, Flag>(self.buffer[4]) };
-            let size = u32::from_be_bytes([
-                self.buffer[5],
-                self.buffer[6],
-                self.buffer[7],
-                self.buffer[8]
-            ]) as usize;
-
-            // Check if the body meets the length
-            let sum_size = size + 9;
-            if sum_size > self.buffer.len() {
-                break;
-            }
-
-            // Get data frame
-            let body = BytesMut::from(&self.buffer[9..sum_size]);
-            receiver.push((flag, body));
-            self.buffer.advance(sum_size);
+        // Check whether the remaining data is sufficient 
+        // to complete the next analysis, otherwise please 
+        // do not waste time.
+        if self.buffer.len() < 9 {
+            break;
         }
+
+        // Get the fixed head
+        let head = u32::from_be_bytes([
+            self.buffer[0],
+            self.buffer[1],
+            self.buffer[2],
+            self.buffer[3]
+        ]);
+
+        // Check the fixed head
+        if head != 0x99999909 {
+            break;
+        }
+
+        // Get the flag
+        // Get body length
+        let flag = unsafe { transmute::<u8, Flag>(self.buffer[4]) };
+        let size = u32::from_be_bytes([
+            self.buffer[5],
+            self.buffer[6],
+            self.buffer[7],
+            self.buffer[8]
+        ]) as usize;
+
+        // Check if the body meets the length
+        let sum_size = size + 9;
+        if sum_size > self.buffer.len() {
+            break;
+        }
+
+        // Get data frame
+        let body = BytesMut::from(&self.buffer[9..sum_size]);
+        receiver.push((flag, body));
+        self.buffer.advance(sum_size);
+    }
 
         match &receiver.is_empty() {
             false => Some(receiver),

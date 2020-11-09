@@ -29,7 +29,7 @@ use bytes::{
 ///
 #[rustfmt::skip]
 pub fn decoder<'a>(buffer: &'a [u8]) -> Result<Message<'a>> {
-    ensure!(buffer.len() < 20, "message len < 20");
+    ensure!(buffer.len() > 20, "message len < 20");
     let mut reader = HashMap::new();
 
     // 消息类型
@@ -54,7 +54,7 @@ pub fn decoder<'a>(buffer: &'a [u8]) -> Result<Message<'a>> {
 
     // 检查固定Cookie
     // 检查长度是否足够
-    ensure!(cookie != MAGIC_COOKIE, "missing cookie");
+    ensure!(cookie == MAGIC_COOKIE, "missing cookie");
     ensure!(buffer.len() >= size + 20, "missing len");
 
     // 获取交易号
@@ -77,21 +77,22 @@ loop {
     ]);
 
     // 获取属性长度
-    let size = util::pad_size(u16::from_be_bytes([
-        buffer[offset],
-        buffer[offset + 1]
-    ]) as usize);
+    let size = u16::from_be_bytes([
+        buffer[offset + 2],
+        buffer[offset + 3]
+    ]) as usize;
 
     // 获取属性内容
+    let psize = util::pad_size(size);
     let value = &buffer[
-        offset + 2..
-        offset + 2 + size
+        offset + 4..
+        offset + 4 + size + psize
     ];
 
     // 此处为了兼容填充位，将
     // 消耗掉填充位.
     if size > 0 {
-        offset += size;
+        offset += size + 4 + psize;
     }
 
     // 如果是受支持的类型
