@@ -9,7 +9,7 @@
 ![last commit](https://img.shields.io/github/last-commit/quasipaa/Spinosa)
 ![author](https://img.shields.io/badge/author-Mr.Panda-read)
 
-##### My current work is focused on the WebRTC server. I temporarily put this project on hold and will re-plan the project after completing the above work.
+#### My current work is focused on the WebRTC server. I temporarily put this project on hold and will re-plan the project after completing the above work.
 
 Quasipaa is an open source, distributed real-time audio and video server. Unlike other solutions, this is not a library that can be embedded in your own program, but a full-fledged cluster of services, Quasipaa not only provides basic streaming media server, but also includes load balancing, external control API interface. Quasipaa by Rust to build, the use of Rust outstanding performance and excellent engineering became a robust system.
 
