@@ -5,6 +5,7 @@
     <strong>Rust ❤️ WebRTC STUN/TURN Server</strong>
 </div>
 <div align="center">
+    <img src="https://img.shields.io/github/workflow/status/Mycrl/Mysticeti/Mysticeti Tests"/>
     <img src="https://img.shields.io/github/languages/top/Mycrl/Mysticeti"/>
     <img src="https://img.shields.io/github/license/Mycrl/Mysticeti"/>
     <img src="https://img.shields.io/badge/author-Mr.Panda-read"/>
