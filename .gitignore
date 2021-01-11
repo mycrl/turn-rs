@@ -1,4 +1,5 @@
 /target
-**/*.rs.bk
-/demo
-**/.DS_Store
+.vs
+.vscode
+/dist
+Cargo.lock

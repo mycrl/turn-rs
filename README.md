@@ -1,62 +1,68 @@
-# Quasipaa
+<h1 align="center">
+    <img src="./material/logo.svg" width="300px"/>
+</h1>
+<div align="center">
+    <strong>Rust ❤️ WebRTC STUN/TURN Server</strong>
+</div>
+<div align="center">
+    <img src="https://img.shields.io/github/languages/top/kpinosa/Mysticeti"/>
+    <img src="https://img.shields.io/github/license/kpinosa/Mysticeti"/>
+    <img src="https://img.shields.io/badge/author-Mr.Panda-read"/>
+</div>
+<br/>
+<br/>
 
-![languages](https://img.shields.io/github/languages/top/quasipaa/Spinosa)
-![open issues](https://img.shields.io/github/issues/quasipaa/Spinosa)
-![pull requests](https://img.shields.io/github/issues-pr/quasipaa/Spinosa)
-![license](https://img.shields.io/github/license/quasipaa/Spinosa)
-![forks](https://img.shields.io/github/forks/quasipaa/Spinosa)
-![stars](https://img.shields.io/github/stars/quasipaa/Spinosa)
-![last commit](https://img.shields.io/github/last-commit/quasipaa/Spinosa)
-![author](https://img.shields.io/badge/author-Mr.Panda-read)
-
-#### My current work is focused on the WebRTC server. I temporarily put this project on hold and will re-plan the project after completing the above work.
-
-Quasipaa is an open source, distributed real-time audio and video server. Unlike other solutions, this is not a library that can be embedded in your own program, but a full-fledged cluster of services, Quasipaa not only provides basic streaming media server, but also includes load balancing, external control API interface. Quasipaa by Rust to build, the use of Rust outstanding performance and excellent engineering became a robust system.
-
-Quasipaa（[Quasipaa spinosa](https://en.wikipedia.org/wiki/Quasipaa_spinosa) is a species of frog in the family Dicroglossidae）The project was originally created to address the Rust's lack of audio and video servers, and when the author started the project, the area was virtually empty.
-
-
-### Version
-Development stage</br>
-The progress of the project is in the [project dashboard](https://github.com/quasipaas/Quasipaa/projects/1), you can view it at any time.
-
-> **Note:**
-> Due to the limited ability of the author, the early plan only supports RTMP, WebRTC and HttpFLV protocols. I will try to improve the support for different protocols and codec in the later stage.
+The project does not intend to support the complete RFC specification, and some changes and simplifications have been made to some specifications to facilitate implement, Internal TURN is just to ensure full support of WebRTC. 
+It should be noted that only the UDP protocol is supported in the short term. Currently, DTLS/TLS (WebRTC's low latency requirements) has not been considered, and other functions may be added in the future, This is an experimental project, There is no plan to meet the production level requirements in the short term, More purpose is to realize and explore.
 
 
-### Deployment
-It is currently in development and has not completed all the features of stage 1, so actual deployment is not supported.
+### Reference
+
+- [RFC 5389](https://tools.ietf.org/html/rfc5389) - Session Traversal Utilities for NAT (STUN)
+- [RFC 5766](https://tools.ietf.org/html/rfc5766) - Traversal Using Relays around NAT (TURN)
+- [RFC 8489](https://tools.ietf.org/html/rfc8489) - Session Traversal Utilities for NAT (STUN)
+- [RFC 8656](https://tools.ietf.org/html/rfc8656) -  Traversal Using Relays around NAT (TURN)
 
 
-### Overview
-![design](./design.svg)
+### Installation
 
-Quasipaa is a streaming media service cluster, which contains multiple independent services, which can be scaled horizontally:
-* `Publish:` The data pushed through various protocols will be pushed to the exchange after processing and demultiplexing.
-* `Exchange:` The exchange further processes the Publish data, such as secondary compression, saving as static files, encoding conversion.
-* `Core:` Controls all nodes of the cluster, including load balancing, dynamic scheduling,  authority control, coding and protocol control.
-* `Object Storage:` Storing log data and live replay as static files.
-* `Pull:` The data is repackaged into multiple protocols and distributed to clients.
+first, you need to clone source code from repo:
+```bash
+git clone https://github.com/Mycrl/Mysticeti.git
+```
 
+docker image is the recommended way:
+```bash
+cd Mysticeti
+docker build --tag=mysticeti:latest .
+```
 
-### Plan
-* [x] RTMP protocol support.
-* [x] Exchange.
-* [x] Load balancing.
-* [ ] Audio video data codec.
-* [x] Live service.
-* [ ] Live playback and static file support.
-* [x] WebRTC STUN support.
-* [ ] WebRTC TURN support.
+runing the image:
+```bash
+docker run -d --name mysticeti-service mysticeti:latest 
+```
 
+you can specify a custom configuration file by passing the `MYSTICETI_CONFIG` environment variable:
+```bash
+docker run -d -e MYSTICETI_CONFIG=./config.toml --name mysticeti-service mysticeti:latest 
+```
 
-### Roadmap
-* WebAssembly SDK.
-* Independently developed live protocols.
-* Support existing protocols wherever possible.
-* Best performance possible.
-* Adaptive multiple codec.
+or, you can choose to build from source code:
+```bash
+cd Mysticeti
+cargo build --release
+cp ./target/release/mysticeti /usr/local/bin/Mysticeti
+chmod +x /usr/local/bin/Mysticeti
+Mysticeti --help
+```
 
+### Testing
+
+Because this project uses automated scripts to generate unit tests, you cannot directly use "cargo test" to run tests. You need to perform automated tests through internal scripts:
+```bash
+cd ./tests
+npm run unit-tests
+```
 
 ### License
 [GPL](./LICENSE)

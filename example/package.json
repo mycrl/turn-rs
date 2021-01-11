@@ -1,0 +1,11 @@
+{
+    "scripts": {
+        "dev": "node index.js",
+        "sev": "node center.js"
+    },
+    "dependencies": {
+        "express": "^4.17.1",
+        "uuid": "^8.3.1",
+        "ws": "^7.4.0"
+    }
+}

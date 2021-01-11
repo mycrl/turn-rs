@@ -1,18 +1,31 @@
+[package]
+name = "mysticeti"
+version = "0.1.0"
+authors = ["Mr.Panda <xivistudios@gmail.com>"]
+edition = "2018"
+
 [profile.release]
+codegen-units = 1
+overflow-checks = false
+panic = "abort"
 opt-level = 3
-overflow-checks = true
+debug = false
 lto = true
 
-[workspace]
-members = [
-    "lib/flv",
-    "lib/turn",
-    "lib/golomb",
-    "lib/balance",
-    "lib/transport",
-    "lib/configure",
-    "exchange",
-    "publish",
-    "pull",
-    "core"
-]
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = { git = "https://github.com/seanmonstar/reqwest.git", features = ["json"] }
+structopt = { version = "0.3", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+env_logger = "0.8.2"
+num_cpus = "1.13.0"
+toml = "0.5.7"
+bytes = "0.6.0"
+anyhow = "1.0"
+rand = "0.7"
+num_enum = "0.5.0"
+md5 = "0.7.0"
+hmac = "0.10.1"
+sha-1 = "0.9.2"
+crc = "1.8.1"
+log = "0.4.11"
