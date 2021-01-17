@@ -1,6 +1,5 @@
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::controls::Auth;
 use super::{
     Context, 
     Response
@@ -45,11 +44,11 @@ fn resolve<'a>(
     ctx: &Context, 
     message: &Message<'a>, 
     u: &str, 
-    a: &Auth, 
+    p: &str, 
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     let pack = message.extends(Kind::CreatePermissionResponse);
-    pack.try_into(w, Some((u, &a.password, &ctx.conf.realm)))?;
+    pack.try_into(w, Some((u, p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -102,26 +101,25 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         _ => return reject(ctx, m, w, BadRequest)
     };
 
-    let a = match ctx.get_auth(u).await {
+    let key = match ctx.get_auth(u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
 
-    if !m.verify((u, &a.password, &ctx.conf.realm))? {
+    if !m.verify((u, &key, &ctx.conf.realm))? {
         return reject(ctx, m, w, Unauthorized);
     }
 
-    if ctx.state.reflect_from_port(&ctx.addr, p).await.is_none() {
+    if !ctx.state.bind_peer(&ctx.addr, p).await {
         return reject(ctx, m, w, AllocationMismatch);
     }
 
     log::info!(
-        "{:?} [{:?}] bind peer={} group={}", 
+        "{:?} [{:?}] bind peer={}", 
         &ctx.addr,
         u,
         p,
-        a.group
     );
 
-    resolve(&ctx, &m, u, &a, w)
+    resolve(&ctx, &m, u, &key, w)
 }

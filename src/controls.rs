@@ -13,7 +13,6 @@ use std::sync::Arc;
 pub struct Auth {
     pub password: String,
     pub group: u32,
-    pub port: u16,
 }
 
 /// 控制器

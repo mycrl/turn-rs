@@ -1,5 +1,4 @@
 use crate::payload::ErrKind::Unauthorized;
-use crate::controls::Auth;
 use bytes::BytesMut;
 use anyhow::Result;
 use super::{
@@ -40,12 +39,12 @@ pub fn resolve<'a>(
     message: &Message<'a>, 
     lifetime: u32,
     u: &str,
-    a: &Auth,
+    p: &str,
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     let mut pack = message.extends(Kind::RefreshResponse);
     pack.append(Property::Lifetime(lifetime));
-    pack.try_into(w, Some((u, &a.password, &ctx.conf.realm)))?;
+    pack.try_into(w, Some((u, p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -99,23 +98,22 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         _ => 600,
     };
 
-    let a = match ctx.get_auth(u).await {
+    let key = match ctx.get_auth(u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
 
-    if !m.verify((u, &a.password, &ctx.conf.realm))? {
+    if !m.verify((u, &key, &ctx.conf.realm))? {
         return reject(ctx, m, w, Unauthorized);
     }
     
     log::info!(
-        "{:?} [{:?}] refresh timeout={} group={}", 
+        "{:?} [{:?}] refresh timeout={}", 
         &ctx.addr,
         u,
         l,
-        a.group
     );
 
     ctx.state.refresh(&ctx.addr, l).await;
-    resolve(&ctx, &m, l, u, &a, w)
+    resolve(&ctx, &m, l, u, &key, w)
 }
