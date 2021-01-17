@@ -1,65 +1,65 @@
 * {
-    margin: 0;
-    padding: 0;
-    font-size: 12px;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
 }
 
 .Login {
-    background-color: #fff;
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
-    z-index: 10;
+  background-color: #fff;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  z-index: 10;
 }
 
 .Login .Box {
-    width: 300px;
-    border: 1px solid #eee;
-    margin: 0 auto;
-    margin-top: 35vh;
-    padding: 20px;
-    border-radius: 5px;
+  width: 300px;
+  border: 1px solid #eee;
+  margin: 0 auto;
+  margin-top: 35vh;
+  padding: 20px;
+  border-radius: 5px;
 }
 
 .Login .Box .Title {
-    font-size: 20px;
-    font-weight: bold;
-    color: #555;
-    margin-bottom: 20px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #555;
+  margin-bottom: 20px;
 }
 
 .Login .Box input {
-    width: 100%;
-    height: 35px;
-    margin-top: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    text-indent: 10px;
+  width: 100%;
+  height: 35px;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  text-indent: 10px;
 }
 
 .Login .Box button {
-    width: 100%;
-    height: 35px;
-    border: 0;
-    border-radius: 5px;
-    margin-top: 30px;
-    background-color: #0c9cf8;
-    color: #fff;
+  width: 100%;
+  height: 35px;
+  border: 0;
+  border-radius: 5px;
+  margin-top: 30px;
+  background-color: #0c9cf8;
+  color: #fff;
 }
 
 .Room {
-    background-color: #000;
-    position: absolute;
-    display: table;
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
+  background-color: #000;
+  position: absolute;
+  display: table;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
 }
 
 .Room video,
 .Room #self {
-    float: left;
+  float: left;
 }
