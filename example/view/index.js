@@ -13,21 +13,18 @@ const OPTIONS = {
 window.onload = () => new Vue({
     el: "#App",
     data: {
-        index: 0,
-        rtc: null,
-        streams: [],
+        peers: {},
+        room: null,
+        users: [],
         login: true,
         username: null,
         password: null,
-        socket: new WebSocket("ws://localhost")
+        localStream: null,
+        socket: new WebSocket("ws://localhost"),
+        uid: String(Date.now())
     },
     watch: {
-        rtc(handle) {
-            handle.addEventListener("track", this.track.bind(this))
-            handle.addEventListener("icecandidate", this.icecandidate.bind(this))
-            handle.addEventListener("connectionstatechange", this.connectionstatechange.bind(this))
-        },
-        async streams(handle) {
+        async users(handle) {
             await this.delay(500)
             this.layout(handle.length)
         }
@@ -36,75 +33,80 @@ window.onload = () => new Vue({
         async start() {
             OPTIONS.iceServers[0].username = this.username
             OPTIONS.iceServers[0].credential = this.password
-            
-            const localStream = await navigator.mediaDevices.getDisplayMedia()
-            this.rtc = new RTCPeerConnection(OPTIONS)
-            this.socket.onmessage = this.message.bind(this)
+            this.localStream = await navigator.mediaDevices.getDisplayMedia()
+            document.getElementById("self").srcObject = this.localStream
             this.login = false
-            
-            document.getElementById("self").srcObject = localStream
-            localStream.getTracks().forEach(track => {
-                this.rtc.addTrack(track, localStream)
-            })
-
-            this.send({
-                username: this.username,
-                type: "connection"
+            this.emit({
+                type: "connected",
+                broadcast: true,
             })
         },
-        track(event) {
-            const remoteStream = new MediaStream()
-            remoteStream.addTrack(event.track, remoteStream)
-            this.append(remoteStream)
-        },
-        icecandidate(event) {
-            event.candidate && this.send({
-                iceCandidate: event.candidate,
-                type: "iceCandidate"
-            })
-        },
-        connectionstatechange(event) {
-            if (this.rtc.connectionState === "connected") {
-                
+        async onmessage({ data }) {
+            let packet = JSON.parse(data)
+            console.log(packet)
+            if (packet.type === "users") {
+                for (let u of packet.users) {
+                    this.createOffer(u)   
+                }
+            } else
+            if (packet.type === "icecandidate") {
+                this.onIcecandidate(packet)
+            } else
+            if (packet.type === "answer") {
+                this.onAnswer(packet)
+            } else
+            if (packet.type === "offer") {
+                this.onOffer(packet)
             }
         },
-        message({ data }) {
-            const payload = JSON.parse(data)
-            this["on" + payload.type](payload)
+        emit(payload) {
+            this.socket.send(JSON.stringify({
+                from: this.uid,
+                ...payload
+            }))
         },
-        send(payload) {
-            this.socket.send(JSON.stringify(payload))
+        async onIcecandidate({ from, candidate }) {
+            this.peers[from].addIceCandidate(candidate)
         },
-        async onconnection({ username }) {
-            const offer = await this.rtc.createOffer()
-            await this.rtc.setLocalDescription(offer)
-            this.send({ 
-                type: "offer", 
-                offer 
-            })
-        },
-        async onoffer({ offer }) {
-            this.rtc.setRemoteDescription(new RTCSessionDescription(offer))
-            const answer = await this.rtc.createAnswer()
-            await this.rtc.setLocalDescription(answer)
-            this.send({
-                type: "answer",
-                answer
-            })
-        },
-        async onanswer({ answer }) {
+        async onAnswer({ from, answer }) {
             const remoteDesc = new RTCSessionDescription(answer)
-            await this.rtc.setRemoteDescription(remoteDesc)
+            this.peers[from].setRemoteDescription(remoteDesc)
         },
-        async oniceCandidate({ iceCandidate }) {
-            await this.rtc.addIceCandidate(iceCandidate)
+        async onOffer({ from, offer }) {
+            this.createPeer(from)
+            const remoteDesc = new RTCSessionDescription(offer)
+            this.peers[from].setRemoteDescription(remoteDesc)
+            const answer = await this.peers[from].createAnswer()
+            await this.peers[from].setLocalDescription(answer)
+            this.emit({ type: "answer", to: from, answer })
         },
-        async append(stream) {
-            this.index += 1
-            this.streams.push(this.index)
-            await this.delay(500)
-            const id = `.Room #node-${this.index}`
-            document.querySelector(id).srcObject = stream
+        async createOffer(from) {
+            this.createPeer(from)
+            const offer = await this.peers[from].createOffer()
+            await this.peers[from].setLocalDescription(offer)
+            this.emit({ type: "offer", to: from, offer })
+        },
+        createPeer(name) {
+            const remoteStream = new MediaStream()
+            this.peers[name] = new RTCPeerConnection(OPTIONS)
+            this.peers[name].addEventListener("track", ({ track }) => {
+                remoteStream.addTrack(track, remoteStream)
+            })
+            
+            this.peers[name].addEventListener("icecandidate", ({ candidate }) => {
+                candidate && this.emit({ type: "icecandidate", to: name, candidate })
+            })
+            
+            this.localStream.getTracks().forEach(track => {
+                this.peers[name].addTrack(track, this.localStream)
+            })
+            
+            this.users.push(name)
+            this.peers[name].addEventListener("connectionstatechange", async event => {
+                if (this.peers[name].connectionState === "connected") {
+                    document.querySelector(`.Room #node-${name}`).srcObject = remoteStream
+                }
+            })
         },
         delay(timeout) {
             return new Promise(resolve => {
@@ -158,7 +160,7 @@ window.onload = () => new Vue({
             })
         },
         style(style) {
-            this.streams.map(i => `.Room #node-${i}`).forEach(path => {
+            this.users.map(i => `.Room #node-${i}`).forEach(path => {
                 Object.assign(document.querySelector(path).style, style)  
             })
         }
@@ -167,5 +169,6 @@ window.onload = () => new Vue({
         const {clientWidth, clientHeight} = document.documentElement
         document.getElementById("self").style.width = clientWidth + "px"
         document.getElementById("self").style.height = clientHeight + "px"
+        this.socket.onmessage = this.onmessage.bind(this)
     }
 })

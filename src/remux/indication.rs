@@ -74,14 +74,14 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         _ => return Ok(None),
     };
 
-    let p = match ctx.state.get(&ctx.addr).await {
-        Some(a) => a.port,
-        None => return Ok(None),
-    };
-
     let a = match ctx.state.reflect_from_port(&ctx.addr, pp).await {
         None => return Ok(None),
         Some(a) => a,
+    };
+
+    let p = match ctx.state.reflect_from_peer(&ctx.addr, &a).await {
+        None => return Ok(None),
+        Some(p) => p,
     };
 
     let s = Arc::new(SocketAddr::new(ctx.local.ip(), p));

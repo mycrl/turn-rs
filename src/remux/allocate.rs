@@ -1,4 +1,3 @@
-use crate::controls::Auth;
 use anyhow::Result;
 use bytes::BytesMut;
 use super::{ 
@@ -61,16 +60,17 @@ async fn resolve<'a>(
     ctx: &Context,
     message: &Message<'a>,
     u: &str,
-    a: &Auth,
+    p: &str,
+    port: u16,
     w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
-    let alloc_addr = Arc::new(SocketAddr::new(ctx.local.ip(), a.port));
+    let alloc_addr = Arc::new(SocketAddr::new(ctx.local.ip(), port));
     let mut pack = message.extends(Kind::AllocateResponse);
     pack.append(Property::XorRelayedAddress(Addr(alloc_addr.clone())));
     pack.append(Property::XorMappedAddress(Addr(ctx.addr.clone())));
     pack.append(Property::ResponseOrigin(Addr(ctx.local.clone())));
     pack.append(Property::Lifetime(600));
-    pack.try_into(w, Some((u, &a.password, &ctx.conf.realm)))?;
+    pack.try_into(w, Some((u, &p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -101,21 +101,25 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         return reject(ctx, m, w, ServerError).await
     }
 
-    let a = match ctx.get_auth(u).await {
+    let key = match ctx.get_auth(u).await {
         None => return reject(ctx, m, w, Unauthorized).await,
-        Some(a) => a,
+        Some(p) => p,
+    };
+
+    let port = match ctx.state.alloc_port(ctx.addr.clone()).await {
+        None => return reject(ctx, m, w, Unauthorized).await,
+        Some(p) => p,
     };
     
     log::info!(
-        "{:?} [{:?}] allocate port={} group={}", 
+        "{:?} [{:?}] allocate port={}", 
         &ctx.addr,
         u,
-        a.port,
-        a.group
+        port,
     );
 
-    match m.verify((u, &a.password, &ctx.conf.realm))? {
+    match m.verify((u, &key, &ctx.conf.realm))? {
         false => reject(ctx, m, w, Unauthorized).await,
-        true => resolve(&ctx, &m, u, &a, w).await,
+        true => resolve(&ctx, &m, u, &key, port, w).await,
     }
 }

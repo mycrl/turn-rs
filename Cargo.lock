@@ -893,7 +893,8 @@ dependencies = [
 [[package]]
 name = "reqwest"
 version = "0.11.0"
-source = "git+https://github.com/seanmonstar/reqwest.git#bd9ff9f371b756decf26fbbde1687433b0f63774"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd281b1030aa675fb90aa994d07187645bb3c8fc756ca766e7c3070b439de9de"
 dependencies = [
  "base64",
  "bytes 1.0.0",

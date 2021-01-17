@@ -17,42 +17,51 @@ use std::{
     collections::HashMap,
     net::SocketAddr,
     cmp::PartialEq,
-    convert::From,
     sync::Arc,
 };
 
 type Addr = Arc<SocketAddr>;
 
-/// 标识
+/// 端口标识
 ///
 /// `[0]` 分组号
-/// `[1]` 端口或者频道
+/// `[1]` 端口号
 #[derive(Hash, Eq)]
-struct UniqueId(u32, u16);
+struct UniquePort(u32, u16);
+
+/// 频道标识
+///
+/// `[0]` 分组号
+/// `[1]` 端口号
+/// `[2]` 频道号
+#[derive(Hash, Eq)]
+struct UniqueChannel(Addr, u16);
 
 /// 节点
-///
-/// `delay` 超时时间
-/// `channel` 频道号
-/// `clock` 内部刷新时钟
-struct Node {
+pub struct Node {
+    pub group: u32,
     delay: u64,
-    channel: u16,
     clock: Instant,
+    ports: Vec<u16>,
+    channels: Vec<u16>,
+    password: Arc<String>,
 }
 
 /// 状态管理
 ///
+/// * `peers` 对等绑定表
+/// * `nonces` 随机ID分配表
 /// * `channels` 频道分配列表
+/// * `groups` 分组端口分配表
 /// * `allocs` 端口分配表
 /// * `base` 基础信息表
-/// * `nodes` 节点列表
 pub struct State {
-    channels: RwLock<HashMap<UniqueId, [Option<Addr>; 2]>>,
     nonces: RwLock<HashMap<Addr, (Arc<String>, Instant)>>,
-    allocs: RwLock<HashMap<UniqueId, Addr>>,
-    base: RwLock<HashMap<Addr, Arc<Auth>>>,
-    nodes: RwLock<HashMap<Addr, Node>>,
+    peers: RwLock<HashMap<Addr, HashMap<Addr, u16>>>,
+    channels: RwLock<HashMap<UniqueChannel, Addr>>,
+    allocs: RwLock<HashMap<UniquePort, Addr>>,
+    groups: RwLock<HashMap<u32, (u16, u16)>>,
+    base: RwLock<HashMap<Addr, Node>>,
 }
 
 impl State {
@@ -67,20 +76,15 @@ impl State {
     /// use std::sync::Arc;
     /// 
     /// let state = State::new();
-    /// let addr = Arc::new(
-    ///     "127.0.0.1:49152"
-    ///         .parse::<SocketAddr>()
-    ///         .unwrap()
-    /// );
-    /// 
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
+    /// let password = Arc::new("panda".to_string());
     /// let auth = Auth {
     ///     password: "panda".to_string(),
     ///     group: 0,
-    ///     port: 49152
     /// };
     /// 
-    /// let result = state.insert(addr.clone(), auth).await;
-    /// assert_eq!(state.get(&addr).await, Some(result));
+    /// state.insert(addr.clone(), &auth).await;
+    /// assert_eq!(state.get_password(&addr).await, Some(password));
     /// ```
     #[rustfmt::skip]
     pub fn new() -> Arc<Self> {
@@ -88,7 +92,8 @@ impl State {
             channels: RwLock::new(HashMap::with_capacity(1024)),
             nonces: RwLock::new(HashMap::with_capacity(1024)),
             allocs: RwLock::new(HashMap::with_capacity(1024)),
-            nodes: RwLock::new(HashMap::with_capacity(1024)),
+            groups: RwLock::new(HashMap::with_capacity(1024)),
+            peers: RwLock::new(HashMap::with_capacity(1024)),
             base: RwLock::new(HashMap::with_capacity(1024)),
         })
     }
@@ -103,14 +108,10 @@ impl State {
     /// use std::sync::Arc;
     /// 
     /// let state = State::new();
-    /// let addr = Arc::new(
-    ///     "127.0.0.1:49152"
-    ///         .parse::<SocketAddr>()
-    ///         .unwrap()
-    /// );
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
     /// 
     /// let one = state.get_nonce(&addr).await;
-    /// let two = state.get_nonce(addr).await;
+    /// let two = state.get_nonce(&addr).await;
     /// assert_eq!(one.as_ref(), two.as_ref());
     /// ```
     #[rustfmt::skip]
@@ -130,6 +131,33 @@ impl State {
         nonce
     }
 
+    /// 获取密钥
+    ///
+    /// # Unit Test
+    ///
+    /// ```test(get_password)
+    /// use crate::state::*;
+    /// use crate::controls::Auth;
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// 
+    /// let state = State::new();
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
+    /// let password = Arc::new("panda".to_string());
+    /// let auth = Auth {
+    ///     password: "panda".to_string(),
+    ///     group: 0,
+    /// };
+    /// 
+    /// state.insert(addr.clone(), &auth).await;
+    /// assert_eq!(state.get_password(&addr).await, Some(password));
+    /// ```
+    pub async fn get_password(&self, a: &Addr) -> Option<Arc<String>> {
+        self.base.read().await.get(a).map(|n| {
+            n.password.clone()
+        })
+    }
+
     /// 写入节点信息
     ///
     /// # Unit Test
@@ -140,33 +168,135 @@ impl State {
     /// use std::sync::Arc;
     /// 
     /// let state = State::new();
-    /// let addr = Arc::new(
-    ///     "127.0.0.1:49152"
-    ///         .parse::<SocketAddr>()
-    ///         .unwrap()
-    /// );
-    /// 
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
     /// let auth = Auth {
     ///     password: "panda".to_string(),
     ///     group: 0,
-    ///     port: 49152
     /// };
     /// 
-    /// let result = state.insert(addr, auth).await;
-    /// assert_eq!(result.password, "panda");
+    /// state.insert(addr.clone(), &auth).await;
+    /// let base = state.base.read().await;
+    /// let result = base.get(&addr).unwrap();
+    /// assert_eq!(result.password, Arc::new("panda".to_string()));
     /// assert_eq!(result.group, 0);
-    /// assert_eq!(result.port, 49152);
     /// ```
     #[rustfmt::skip]
-    pub async fn insert(&self, a: Addr, auth: Auth) -> Arc<Auth> {
-        let inner = Arc::new(auth);
-        self.allocs.write().await.insert(UniqueId::from(&inner), a.clone());
-        self.nodes.write().await.insert(a.clone(), Node::default());
-        self.base.write().await.insert(a, inner.clone());
-        inner
+    pub async fn insert(&self, a: Addr, auth: &Auth) {
+        self.base.write().await.insert(a, Node {
+            password: Arc::new(auth.password.clone()),
+            clock: Instant::now(),
+            channels: Vec::new(),
+            ports: Vec::new(),
+            group: auth.group,
+            delay: 600,
+        });
+
+        self.groups
+            .write()
+            .await
+            .entry(auth.group)
+            .or_insert_with(|| (1, 49152));
+    }
+
+     /// 绑定对端端口
+    ///
+    /// # Unit Test
+    ///
+    /// ```test(bind_peer)
+    /// use super::*;
+    /// use crate::controls::Auth;
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// 
+    /// let state = State::new();
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
+    /// let peer_addr = Arc::new("127.0.0.1:49151".parse::<SocketAddr>().unwrap());
+    /// let auth = Auth {
+    ///     password: "panda".to_string(),
+    ///     group: 0
+    /// };
+    /// 
+    /// state.insert(addr.clone(), &auth).await;
+    /// state.insert(peer_addr.clone(), &auth).await;
+    /// assert_eq!(state.alloc_port(addr.clone()).await, Some(49152));
+    /// assert_eq!(state.alloc_port(peer_addr.clone()).await, Some(49153));
+    /// assert_eq!(state.bind_peer(&addr, 49153).await, true);
+    /// assert_eq!(state.bind_peer(&peer_addr, 49152).await, true);
+    /// ```
+    pub async fn bind_peer(&self, a: &Addr, port: u16) -> bool {
+        let p = match self.reflect_from_port(a, port).await {
+            Some(a) => a,
+            None => return false,
+        };
+
+        self.peers
+            .write()
+            .await
+            .entry(p)
+            .or_insert_with(|| HashMap::new())
+            .insert(a.clone(), port);
+        true
+    }
+
+    /// 分配端口
+    ///
+    /// # Unit Test
+    ///
+    /// ```test(alloc_port)
+    /// use super::*;
+    /// use crate::controls::Auth;
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// 
+    /// let state = State::new();
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
+    /// let peer_addr = Arc::new("127.0.0.1:49151".parse::<SocketAddr>().unwrap());
+    /// let auth = Auth {
+    ///     password: "panda".to_string(),
+    ///     group: 0
+    /// };
+    /// 
+    /// state.insert(addr.clone(), &auth).await;
+    /// state.insert(peer_addr.clone(), &auth).await;
+    /// assert_eq!(state.alloc_port(addr).await, Some(49152));
+    /// assert_eq!(state.alloc_port(peer_addr).await, Some(49153));
+    /// ```
+    pub async fn alloc_port(&self, a: Addr) -> Option<u16> {
+        let mut base = self.base.write().await;
+        let node = match base.get_mut(&a) {
+            Some(n) => n,
+            _ => return None
+        };
+
+        let mut groups = self.groups.write().await;
+        let port = match groups.get_mut(&node.group) {
+            Some(p) => p,
+            _ => return None
+        };
+
+        if node.ports.len() == 16383 {
+            return None
+        }
+
+        let alloc = port.1.clone();
+        node.ports.push(alloc);
+
+        port.0 += 1;
+        if port.1 == 65535 {
+            port.1 = 49152;
+        } else {
+            port.1 += 1;
+        }
+        
+        self.allocs.write().await.insert(
+            UniquePort(node.group, alloc),
+            a
+        );
+
+        Some(alloc)
     }
     
-    /// 创建频道
+    /// 分配频道
     ///
     /// # Unit Test
     ///
@@ -177,78 +307,78 @@ impl State {
     /// use std::sync::Arc;
     /// 
     /// let state = State::new();
-    /// let addr = Arc::new(
-    ///     "127.0.0.1:49152"
-    ///         .parse::<SocketAddr>()
-    ///         .unwrap()
-    /// );
-    /// 
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
+    /// let peer_addr = Arc::new("127.0.0.1:49151".parse::<SocketAddr>().unwrap());
     /// let auth = Auth {
     ///     password: "panda".to_string(),
-    ///     group: 0,
-    ///     port: 49152
+    ///     group: 0
     /// };
-    ///     
-    /// assert_eq!(state.insert_channel(addr.clone(), 0x4000).await, false);
-    /// state.insert(addr.clone(), auth).await;
-    /// assert_eq!(state.insert_channel(addr, 0x4000).await, true);
+    /// 
+    /// state.insert(addr.clone(), &auth).await;
+    /// state.insert(peer_addr.clone(), &auth).await;
+    /// assert_eq!(state.alloc_port(addr.clone()).await, Some(49152));
+    /// assert_eq!(state.alloc_port(peer_addr).await, Some(49153));
+    /// assert_eq!(state.insert_channel(addr, 49153, 0x4000).await, true);
     /// ```
     #[rustfmt::skip]
-    pub async fn insert_channel(&self, a: Addr, channel: u16) -> bool {
+    pub async fn insert_channel(&self, a: Addr, p: u16, channel: u16) -> bool {
         assert!(channel >= 0x4000 && channel <= 0x4FFF);
-        let mut channels = self.channels.write().await;
-        let group = match self.base.read().await.get(&a) {
-            Some(n) => n.group,
+        let mut base = self.base.write().await;
+        let node = match base.get_mut(&a) {
+            Some(n) => n,
             _ => return false,
         };
 
-        if let Some(n) = self.nodes.write().await.get_mut(&a) {
-            n.channel = channel;
+        let id = UniquePort(node.group, p);
+        let addr = match self.allocs.read().await.get(&id) {
+            Some(a) => a.clone(),
+            _ => return false,
+        };
+
+        if node.channels.contains(&channel) {
+            return false
         }
-        
-        let id = UniqueId(group, channel);
-        if let Some(p) = channels.get_mut(&id) {
-            p[1] = Some(a);
-            return true;
-        }
-        
-        channels.insert(
-            id, 
-            [Some(a), None]
+
+        node.channels.push(channel);
+        self.channels.write().await.insert(
+            UniqueChannel(a, channel),
+            addr
         );
 
         true
     }
-    
-    /// 获取基本信息
+
+    /// 获取对等节点绑定本地端口
     ///
     /// # Unit Test
     ///
-    /// ```test(get)
-    /// use crate::state::*;
+    /// ```test(reflect_from_peer)
+    /// use super::*;
     /// use crate::controls::Auth;
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// 
     /// let state = State::new();
-    /// let addr = Arc::new(
-    ///     "127.0.0.1:49152"
-    ///         .parse::<SocketAddr>()
-    ///         .unwrap()
-    /// );
-    /// 
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
+    /// let peer_addr = Arc::new("127.0.0.1:49151".parse::<SocketAddr>().unwrap());
     /// let auth = Auth {
     ///     password: "panda".to_string(),
-    ///     group: 0,
-    ///     port: 49152
+    ///     group: 0
     /// };
-    ///     
-    /// assert_eq!(state.get(&addr).await.is_some(), false);
-    /// state.insert(addr.clone(), auth).await;
-    /// assert_eq!(state.get(&addr).await.is_some(), true);
+    /// 
+    /// state.insert(addr.clone(), &auth).await;
+    /// state.insert(peer_addr.clone(), &auth).await;
+    /// assert_eq!(state.alloc_port(addr.clone()).await, Some(49152));
+    /// assert_eq!(state.alloc_port(peer_addr.clone()).await, Some(49153));
+    /// assert_eq!(state.bind_peer(&addr, 49153).await, true);
+    /// assert_eq!(state.bind_peer(&peer_addr, 49152).await, true);
+    /// assert_eq!(state.reflect_from_peer(&addr, &peer_addr).await, Some(49152));
     /// ```
-    pub async fn get(&self, a: &Addr) -> Option<Arc<Auth>> {
-        self.base.read().await.get(a).cloned()
+    pub async fn reflect_from_peer(&self, a: &Addr, p: &Addr) -> Option<u16> {
+        match self.peers.read().await.get(a) {
+            Some(peer) => peer.get(p).copied(),
+            None => None,
+        }
     }
     
     /// 获取对等节点
@@ -266,18 +396,13 @@ impl State {
     /// let peer_addr = Arc::new("127.0.0.1:49151".parse::<SocketAddr>().unwrap());
     /// let auth = Auth {
     ///     password: "panda".to_string(),
-    ///     group: 0,
-    ///     port: 49152
-    /// };
-    /// 
-    /// let peer_auth = Auth {
-    ///     password: "panda".to_string(),
-    ///     group: 0,
-    ///     port: 49153
+    ///     group: 0
     /// };
     ///    
-    /// state.insert(addr.clone(), auth).await;
-    /// state.insert(peer_addr.clone(), peer_auth).await;
+    /// state.insert(addr.clone(), &auth).await;
+    /// state.insert(peer_addr.clone(), &auth).await;
+    /// assert_eq!(state.alloc_port(addr.clone()).await, Some(49152));
+    /// assert_eq!(state.alloc_port(peer_addr.clone()).await, Some(49153));
     /// assert_eq!(state.reflect_from_port(&addr, 49153).await, Some(peer_addr.clone()));
     /// assert_eq!(state.reflect_from_port(&peer_addr, 49152).await, Some(addr.clone()));
     /// assert_eq!(state.reflect_from_port(&addr, 49154).await, None);
@@ -286,14 +411,14 @@ impl State {
     pub async fn reflect_from_port(&self, a: &Addr, port: u16) -> Option<Addr> {
         assert!(port >= 49152);
         let group = match self.base.read().await.get(a) {
-            Some(n) if n.port != port => n.group,
+            Some(n) => n.group,
             _ => return None
         };
 
         self.allocs
             .read()
             .await
-            .get(&UniqueId(group, port))
+            .get(&UniquePort(group, port))
             .cloned()
     }
     
@@ -308,23 +433,17 @@ impl State {
     /// use std::sync::Arc;
     /// 
     /// let state = State::new();
-    /// let addr = Arc::new(
-    ///     "127.0.0.1:49152"
-    ///         .parse::<SocketAddr>()
-    ///         .unwrap()
-    /// );
-    /// 
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
     /// let auth = Auth {
     ///     password: "panda".to_string(),
-    ///     group: 0,
-    ///     port: 49152
+    ///     group: 0
     /// };
     ///     
-    /// state.insert(addr.clone(), auth).await;
+    /// state.insert(addr.clone(), &auth).await;
     /// assert_eq!(state.refresh(&addr, 600).await, true);
-    /// assert_eq!(state.get(&addr).await.is_some(), true);
+    /// assert_eq!(state.get_password(&addr).await.is_some(), true);
     /// assert_eq!(state.refresh(&addr, 0).await, true);
-    /// assert_eq!(state.get(&addr).await.is_some(), false);
+    /// assert_eq!(state.get_password(&addr).await.is_some(), false);
     /// ```
     #[rustfmt::skip]
     pub async fn refresh(&self, a: &Addr, delay: u32) -> bool {
@@ -333,7 +452,7 @@ impl State {
             return true;
         }
         
-        self.nodes.write().await.get_mut(a).map(|n| {
+        self.base.write().await.get_mut(a).map(|n| {
             n.clock = Instant::now();
             n.delay = delay as u64;
         }).is_some()
@@ -355,40 +474,23 @@ impl State {
     /// let auth = Auth {
     ///     password: "panda".to_string(),
     ///     group: 0,
-    ///     port: 49152
-    /// };
-    /// 
-    /// let peer_auth = Auth {
-    ///     password: "panda".to_string(),
-    ///     group: 0,
-    ///     port: 49153
     /// };
     ///     
-    /// state.insert(addr.clone(), auth).await;
-    /// state.insert(peer_addr.clone(), peer_auth).await;
-    /// state.insert_channel(addr.clone(), 0x4000).await;
-    /// state.insert_channel(peer_addr.clone(), 0x4000).await;
+    /// state.insert(addr.clone(), &auth).await;
+    /// state.insert(peer_addr.clone(), &auth).await;
+    /// assert_eq!(state.alloc_port(addr.clone()).await, Some(49152));
+    /// assert_eq!(state.alloc_port(peer_addr.clone()).await, Some(49153));
+    /// state.insert_channel(addr.clone(), 49153, 0x4000).await;
+    /// state.insert_channel(peer_addr.clone(), 49152, 0x4000).await;
     /// assert_eq!(state.reflect_from_channel(&addr, 0x4000).await, Some(peer_addr.clone()));
     /// assert_eq!(state.reflect_from_channel(&peer_addr, 0x4000).await, Some(addr));
     /// ```
     #[rustfmt::skip]
     pub async fn reflect_from_channel(&self, a: &Addr, channel: u16) -> Option<Addr> {
         assert!(channel >= 0x4000 && channel <= 0x4FFF);
-        let group = match self.base.read().await.get(a) {
-            Some(n) => n.group,
-            None => return None
-        };
-        
-        let id = UniqueId(group, channel);
-        if let Some(x) = self.channels.read().await.get(&id) {
-            for v in x.iter() {
-                if v.is_some() && *v != Some(a.clone()) {
-                    return v.clone()
-                }
-            }
-        }
-        
-        None
+        self.channels.read().await.get(
+            &UniqueChannel(a.clone(), channel)
+        ).cloned()
     }
     
     /// 删除节点
@@ -402,45 +504,60 @@ impl State {
     /// use std::sync::Arc;
     /// 
     /// let state = State::new();
-    /// let addr = Arc::new(
-    ///     "127.0.0.1:49152"
-    ///         .parse::<SocketAddr>()
-    ///         .unwrap()
-    /// );
-    /// 
+    /// let addr = Arc::new("127.0.0.1:49152".parse::<SocketAddr>().unwrap());
     /// let auth = Auth {
     ///     password: "panda".to_string(),
-    ///     group: 0,
-    ///     port: 49152
+    ///     group: 0
     /// };
     ///     
-    /// state.insert(addr.clone(), auth).await;
-    /// assert_eq!(state.get(&addr).await.is_some(), true);
+    /// state.insert(addr.clone(), &auth).await;
+    /// assert_eq!(state.get_password(&addr).await.is_some(), true);
     /// state.remove(&addr).await;
-    /// assert_eq!(state.get(&addr).await.is_some(), false);
+    /// assert_eq!(state.get_password(&addr).await.is_some(), false);
     /// ```
     #[rustfmt::skip]
     pub async fn remove(&self, a: &Addr) {
-        let auth = match self.base.write().await.remove(a) {
+        let mut allocs = self.allocs.write().await;
+        let mut channels = self.channels.write().await;
+        let mut groups = self.groups.write().await;
+        let node = match self.base.write().await.remove(a) {
             Some(a) => a,
             None => return,
         };
-        
-        self.nonces.write().await.remove(a);
-        self.allocs.write().await.remove(&UniqueId(
-            auth.group,
-            auth.port
-        ));
-        
-        let node = match self.nodes.write().await.remove(a) {
-            Some(n) => n,
-            None => return,
+
+        let port = match groups.get_mut(&node.group) {
+            Some(p) => p,
+            _ => return,
         };
         
-        self.channels.write().await.remove(&UniqueId(
-            auth.group, 
-            node.channel
-        ));
+        for port in node.ports {
+            allocs.remove(&UniquePort(
+                node.group,
+                port
+            ));
+        }
+
+        for channel in node.channels {
+            channels.remove(&UniqueChannel(
+                a.clone(),
+                channel
+            ));
+        }
+
+        if port.0 <= 1 {
+            groups.remove(&node.group);
+        } else {
+            port.0 -= 1;
+        }
+        
+        self.peers
+            .write()
+            .await
+            .remove(a);
+        self.nonces
+            .write()
+            .await
+            .remove(a);
     }
     
     /// 启动实例
@@ -479,7 +596,7 @@ impl State {
     /// 所有分配的频道和端口也将失效
     #[rustfmt::skip]
     async fn clear(&self) {
-        let fails = self.nodes
+        let fails = self.base
             .read()
             .await
             .iter()
@@ -492,25 +609,15 @@ impl State {
     }
 }
 
-impl Default for Node {
-    fn default() -> Self {
-        Self {
-            clock: Instant::now(),
-            channel: 0,
-            delay: 600,
-        }
-    }
-}
-
-impl PartialEq for UniqueId {
+impl PartialEq for UniquePort {
     fn eq(&self, o: &Self) -> bool {
         self.0 == o.0 && self.1 == o.1
     }
 }
 
-impl From<&Arc<Auth>> for UniqueId {
-    fn from(n: &Arc<Auth>) -> Self {
-        Self(n.group, n.port)
+impl PartialEq for UniqueChannel {
+    fn eq(&self, o: &Self) -> bool {
+        self.0 == o.0 && self.1 == o.1
     }
 }
 
@@ -537,11 +644,15 @@ fn rand_string() -> String {
 ///
 /// ```test(is_timeout)
 /// use tokio::time::Instant;
+/// use std::sync::Arc;
 /// 
 /// assert_eq!(super::is_timeout(&super::Node {
+///     password: Arc::new("".to_string()),
 ///     clock: Instant::now(),
+///     channels: vec![],
+///     ports: vec![],
 ///     delay: 600,
-///     channel: 0,
+///     group: 0
 /// }), false);
 /// ```
 fn is_timeout(n: &Node) -> bool {

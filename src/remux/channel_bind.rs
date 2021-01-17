@@ -1,4 +1,3 @@
-use crate::controls::Auth;
 use anyhow::Result;
 use bytes::BytesMut;
 use super::{
@@ -44,11 +43,11 @@ fn resolve<'a>(
     ctx: &Context, 
     message: &Message, 
     u: &str, 
-    a: &Auth, 
+    p: &str, 
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     let pack = message.extends(Kind::ChannelBindResponse);
-    pack.try_into(w, Some((u, &a.password, &ctx.conf.realm)))?;
+    pack.try_into(w, Some((u, p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -92,30 +91,35 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         Some(Property::ChannelNumber(c)) => *c,
         _ => return reject(ctx, m, w, BadRequest),
     };
+    
+    let p = match m.get(AttrKind::XorPeerAddress) {
+        Some(Property::XorPeerAddress(a)) => a.addr().port(),
+        _ => return reject(ctx, m, w, BadRequest)
+    };
 
     if c < 0x4000 || c > 0x4FFF {
         return reject(ctx, m, w, BadRequest)
     }
 
-    let a = match ctx.get_auth(u).await {
+    let key = match ctx.get_auth(u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
 
-    if !m.verify((u, &a.password, &ctx.conf.realm))? {
+    if !m.verify((u, &key, &ctx.conf.realm))? {
         return reject(ctx, m, w, Unauthorized);
     }
     
+    if !ctx.state.insert_channel(ctx.addr.clone(), p, c).await {
+        return reject(ctx, m, w, AllocationMismatch);
+    }
+    
     log::info!(
-        "{:?} [{:?}] bind channel={} group={}", 
+        "{:?} [{:?}] bind channel={}", 
         &ctx.addr,
         u,
-        c,
-        a.group
+        c
     );
 
-    match ctx.state.insert_channel(ctx.addr.clone(), c).await {
-        false => reject(ctx, m, w, AllocationMismatch),
-        true => resolve(&ctx, &m, u, &a, w),
-    }
+    resolve(&ctx, &m, u, &key, w)
 }

@@ -8,11 +8,10 @@ mod refresh;
 
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::controls::Auth;
 use super::{
     controls::Controls,
-    config::Conf, 
-    state::State
+    config::Conf,
+    state::State,
 };
 
 use std::{
@@ -234,17 +233,20 @@ impl Context {
     ///     }
     /// }
     /// ```
-    pub async fn get_auth(&self, u: &str) -> Option<Arc<Auth>> {
-        if let Some(a) = self.state.get(&self.addr).await {
+    pub async fn get_auth(&self, u: &str) -> Option<Arc<String>> {
+        if let Some(a) = self.state.get_password(&self.addr).await {
             return Some(a)
         }
-        
-        match self.controls.auth(u, &self.addr.to_string()).await {
-            Ok(a) => Some(self.state.insert(self.addr.clone(), a).await),
+
+        let auth = match self.controls.auth(u, &self.addr.to_string()).await {
+            Ok(a) => a,
             Err(e) => {
                 log::warn!("controls auth err: {}", e);
-                None
+                return None
             }
-        }
+        };
+        
+        self.state.insert(self.addr.clone(), &auth).await;
+        Some(Arc::new(auth.password))
     }
 }
