@@ -66,5 +66,5 @@ npm run unit-tests
 ```
 
 ### License
-[GPL](./LICENSE)
+[MIT](./LICENSE)
 Copyright (c) 2020 Mr.Panda.
