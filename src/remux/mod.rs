@@ -238,12 +238,9 @@ impl Context {
             return Some(a)
         }
 
-        let auth = match self.controls.auth(u, &self.addr.to_string()).await {
+        let auth = match self.controls.auth(u, &self.addr).await {
+            Err(e) => { log::warn!("controls auth err: {}", e); return None },
             Ok(a) => a,
-            Err(e) => {
-                log::warn!("controls auth err: {}", e);
-                return None
-            }
         };
         
         self.state.insert(self.addr.clone(), &auth).await;

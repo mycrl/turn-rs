@@ -2,7 +2,10 @@ use super::config::Conf;
 use serde::Deserialize;
 use anyhow::Result;
 use reqwest::Client;
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    net::SocketAddr
+};
 
 /// 认证信息
 ///
@@ -54,19 +57,24 @@ impl Controls {
     /// let conf = config::new().unwrap();
     /// let controls = Controls::new(conf);
     /// let addr = "127.0.0.1:8080".parse().unwrap();
-    /// let auth = controls.auth("panda", addr);
+    /// let auth = controls.auth("panda", &addr);
     /// ```
     #[rustfmt::skip]
-    pub async fn auth(&self, u: &str, a: &str) -> Result<Auth> {
-       let res = self.req
-           .get(&self.conf.controls)
-           .query(&[
-               ("type", "auth"),
-               ("realm", &self.conf.realm),
-               ("username", u),
-               ("addr", a)
-           ]).send().await?
-           .json::<Auth>().await?;
+    pub async fn auth(&self, u: &str, a: &SocketAddr) -> Result<Auth> {
+        let query = [
+            ("kind", "auth"),
+            ("realm", &self.conf.realm),
+            ("addr", &a.to_string()),
+            ("username", u)
+        ];
+        
+        let res = self.req
+            .get(&self.conf.controls)
+            .query(&query)
+            .send()
+            .await?
+            .json::<Auth>()
+            .await?;
         Ok(res)
     }
 }
