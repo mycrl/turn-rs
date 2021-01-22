@@ -15,10 +15,10 @@ use super::{
 
 /// 线程实例
 ///
-///
 /// * `inner` 连接实例
 /// * `remux` 解复用实例
-/// * `buf` 内部缓冲区
+/// * `writer` 写入缓冲区
+/// * `reader` 读取缓冲区
 pub(crate) struct Context {
     inner: Arc<UdpSocket>,
     writer: BytesMut,
@@ -115,11 +115,11 @@ impl Context {
     /// 发送UDP数据包
     ///
     /// 发送数据包到指定远端
-    /// TODO: 跟读取类似，因为已知问题，目前
-    /// 对于发生错误的处理只是报告错误
+    /// 当发生错误时将直接推出进程
     async fn send(inner: &Arc<UdpSocket>, buf: &[u8], p: &SocketAddr) {
         if let Err(e) = inner.send_to(buf, p).await {
-            log::error!("tokio io send err: {}", e)
+            log::error!("udp io error: {}", e);
+            std::process::abort();
         }
     }
 }

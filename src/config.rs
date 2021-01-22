@@ -2,9 +2,9 @@ use structopt::StructOpt;
 use serde::Deserialize;
 use anyhow::Result;
 use std::{
-    sync::Arc,
     fs::File, 
     io::Read,
+    sync::Arc,
     net::SocketAddr,
 };
 
@@ -53,10 +53,10 @@ pub struct Conf {
     // 将只具有基本STUN绑定功能，权限认证以及端口分配
     // 等功能都要求与控制中心通信
     #[structopt(long)]
-    #[structopt(default_value = "http://127.0.0.1:8080")]
+    #[structopt(default_value = "127.0.0.1:8080")]
     #[structopt(help = "HTTP external URL of the control service")]
     #[serde(default = "default_controls")]
-    pub controls: String,
+    pub controls: SocketAddr,
     // 缓冲区大小用于确定每个线程池拥有的最大数据分配
     // 大小(byte)，在实际使用中，推荐将这个值配置为4096，
     // 较大的空间将容易应对更复杂的MTU情况，虽然大部分时候
@@ -92,7 +92,7 @@ pub struct Conf {
 /// assert_eq!(conf.realm, "localhost".to_string());
 /// assert_eq!(conf.local, "127.0.0.1:3478".parse().unwrap());
 /// assert_eq!(conf.listen, "127.0.0.1:3478".parse().unwrap());
-/// assert_eq!(conf.controls, "http://127.0.0.1:8080".to_string());
+/// assert_eq!(conf.controls, "127.0.0.1:8080".parse().unwrap());
 /// assert_eq!(conf.threads, None);
 /// assert_eq!(conf.config, None);
 /// assert_eq!(conf.buffer, 1280);
@@ -141,8 +141,8 @@ fn default_addr() -> SocketAddr {
 //
 // 这只是默认值，并不具备实际作用，
 // 但是为默认配置提供了可能性
-fn default_controls() -> String {
-    "http://127.0.0.1:8080".to_string()
+fn default_controls() -> SocketAddr {
+    "127.0.0.1:8080".parse().unwrap()
 }
 
 // 默认缓冲区大小
