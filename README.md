@@ -13,8 +13,7 @@
 <br/>
 <br/>
 
-The project does not intend to support the complete RFC specification, and some changes and simplifications have been made to some specifications to facilitate implement, Internal TURN is just to ensure full support of WebRTC. 
-It should be noted that only the UDP protocol is supported in the short term. Currently, DTLS/TLS (WebRTC's low latency requirements) has not been considered, and other functions may be added in the future, This is an experimental project, There is no plan to meet the production level requirements in the short term, More purpose is to realize and explore.
+The project does not intend to support the complete RFC specification. In the short term, it only supports the UDP protocol, and some changes and simplifications have been made to some specifications to facilitate implementation, and other functions may be added in the future. This is an experimental project, the more purpose is to experiment and explore.
 
 
 ### Reference

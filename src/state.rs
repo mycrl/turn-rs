@@ -38,13 +38,20 @@ struct UniquePort(u32, u16);
 struct UniqueChannel(Addr, u16);
 
 /// 节点
+///
+/// * `group` 分组ID
+/// * `delay` 超时时间
+/// * `clock` 内部时钟
+/// * `password` 密钥
+/// * `ports` 分配端口列表
+/// * `channels` 分配频道列表
 pub struct Node {
     pub group: u32,
-    delay: u64,
-    clock: Instant,
-    ports: Vec<u16>,
-    channels: Vec<u16>,
-    password: Arc<String>,
+    pub delay: u64,
+    pub clock: Instant,
+    pub ports: Vec<u16>,
+    pub channels: Vec<u16>,
+    pub password: Arc<String>,
 }
 
 /// 状态管理
@@ -61,7 +68,7 @@ pub struct State {
     channels: RwLock<HashMap<UniqueChannel, Addr>>,
     allocs: RwLock<HashMap<UniquePort, Addr>>,
     groups: RwLock<HashMap<u32, (u16, u16)>>,
-    base: RwLock<HashMap<Addr, Node>>,
+    pub base: RwLock<HashMap<Addr, Node>>,
 }
 
 impl State {
