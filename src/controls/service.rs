@@ -5,17 +5,21 @@ use serde::{
     Serialize
 };
 
-/// 触发器
-#[tarpc::service]
-pub trait Trigger {
-    async fn auth(req: AuthRequest) -> Auth;
+#[repr(u8)]
+pub enum Trigger {
+    Auth = 0,
 }
 
-/// 状态服务
-#[tarpc::service]
-pub trait State {
-    async fn get(addr: SocketAddr) -> Option<Node>;
-    async fn remove(addr: SocketAddr);
+#[repr(u8)]
+pub enum State {
+    Get = 1,
+    Remove = 2,
+}
+
+#[derive(Debug)]
+#[derive(Deserialize, Serialize)]
+pub struct GetRequest {
+    pub addr: SocketAddr
 }
 
 /// 认证请求

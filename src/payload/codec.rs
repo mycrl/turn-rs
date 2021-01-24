@@ -216,7 +216,7 @@ for (k, v) in message.attributes {
     // 这里的用意为预留出位置等待后续写入
     let os = buf.len();
     unsafe { buf.advance_mut(2) }
-    v.as_bytes(buf, message.token);
+    v.into_bytes(buf, message.token);
 
     // 计算写入长度
     // 会到原始位置写入长度

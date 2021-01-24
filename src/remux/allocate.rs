@@ -66,7 +66,7 @@ async fn resolve<'a>(
 ) -> Result<Response<'a>> {
     let alloc_addr = Arc::new(SocketAddr::new(ctx.local.ip(), port));
     let mut pack = message.extends(Kind::AllocateResponse);
-    pack.append(Property::XorRelayedAddress(Addr(alloc_addr.clone())));
+    pack.append(Property::XorRelayedAddress(Addr(alloc_addr)));
     pack.append(Property::XorMappedAddress(Addr(ctx.addr.clone())));
     pack.append(Property::ResponseOrigin(Addr(ctx.local.clone())));
     pack.append(Property::Lifetime(600));

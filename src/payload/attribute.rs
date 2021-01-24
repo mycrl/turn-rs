@@ -72,10 +72,10 @@ impl<'a> Property<'a> {
     ///
     /// let mut buf = BytesMut::with_capacity(1280);
     /// let property = Property::UserName("user");
-    /// property.as_bytes(&mut buf, &[]);
+    /// property.into_bytes(&mut buf, &[]);
     /// assert_eq!(&buf[..], &buffer);
     /// ```
-    pub fn as_bytes(self, buf: &'a mut BytesMut, t: &[u8]) {
+    pub fn into_bytes(self, buf: &'a mut BytesMut, t: &[u8]) {
         match self {
             Self::UserName(u) => buf.put(u.as_bytes()),
             Self::Realm(r) => buf.put(r.as_bytes()),
@@ -144,7 +144,7 @@ impl AttrKind {
     /// let mut buf = BytesMut::with_capacity(1280);
     /// let property = AttrKind::UserName.from(&[], &buffer).unwrap();
     /// assert_eq!(property, Property::UserName("user"));
-    /// property.as_bytes(&mut buf, &[]);
+    /// property.into_bytes(&mut buf, &[]);
     /// assert_eq!(&buf[..], &buffer);
     /// ```
     #[rustfmt::skip]

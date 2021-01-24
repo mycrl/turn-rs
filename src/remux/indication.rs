@@ -86,7 +86,7 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
 
     let s = Arc::new(SocketAddr::new(ctx.local.ip(), p));
     let mut pack = m.extends(Kind::DataIndication);
-    pack.append(Property::XorPeerAddress(Addr(s.clone())));
+    pack.append(Property::XorPeerAddress(Addr(s)));
     pack.append(Property::Data(*d));
     pack.try_into(w, None)?;
     Ok(Some((w, a)))

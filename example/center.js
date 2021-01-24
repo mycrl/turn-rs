@@ -1,17 +1,26 @@
-"use strict"
+const { createServer } = require("net")
+const { pipeline } = require("stream")
+const Mysticeti = require("../drives")
 
-const http = require("http")
-const express = require("express")
-
-const app = express()
-const server = http.createServer(app)
-
-app.get("/", (req, res) => {
-  console.dir(req.query)
-  res.send({
-    password: process.argv[2],
-    group: 0,
-  })
-})
-
-server.listen(8080)
+createServer(socket => {
+    const mysticeti = new Mysticeti()
+    
+    mysticeti.bind("Auth", (auth) => {
+        console.log("Auth =: ", auth)
+        setTimeout(async () => {
+            console.log(await mysticeti.call("Get", { addr: auth.req.addr }))
+        }, 2000)
+        
+        return {
+            password: process.argv[2],
+            group: 0
+        }
+    })
+    
+    pipeline(
+        socket,
+        mysticeti,
+        socket,
+        console.error
+    )
+}).listen(8080)

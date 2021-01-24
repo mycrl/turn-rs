@@ -26,7 +26,7 @@ use crate::payload::{
     Message,
 };
 
-static SOFTWARE: &'static str = concat!(
+static SOFTWARE: &str = concat!(
     "Mysticeti ",
     env!("CARGO_PKG_VERSION")
 );

@@ -240,7 +240,7 @@ impl State {
             .write()
             .await
             .entry(p)
-            .or_insert_with(|| HashMap::new())
+            .or_insert_with(HashMap::new)
             .insert(a.clone(), port);
         true
     }
@@ -285,7 +285,7 @@ impl State {
             return None
         }
 
-        let alloc = port.1.clone();
+        let alloc = port.1;
         node.ports.push(alloc);
 
         port.0 += 1;
