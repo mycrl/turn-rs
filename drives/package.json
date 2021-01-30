@@ -1,0 +1,22 @@
+{
+    "name": "mysticeti",
+    "version": "0.0.1",
+    "description": "Rust ❤️ WebRTC STUN/TURN Server",
+    "main": "src/index.js",
+    "author": "Mr.Panda <xivistudios@gmail.com>",
+    "homepage": "https://github.com/Mycrl/Mysticeti#readme",
+    "license": "MIT",
+    "keywords": [
+        "webrtc",
+        "turn",
+        "stun",
+        "mysticeti"
+    ],
+    "bugs": {
+        "url": "https://github.com/Mycrl/Mysticeti/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Mycrl/Mysticeti.git"
+    }
+}

@@ -1,4 +1,5 @@
 /target
-**/*.rs.bk
-/lib/ffmpeg
-/demo
+.vs
+.vscode
+/dist
+Cargo.lock

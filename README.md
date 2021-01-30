@@ -1,80 +1,69 @@
-# Quasipaa
+<h1 align="center">
+    <img src="./material/logo.svg" width="300px"/>
+</h1>
+<div align="center">
+    <strong>Rust ❤️ WebRTC STUN/TURN Server</strong>
+</div>
+<div align="center">
+    <img src="https://img.shields.io/github/workflow/status/Mycrl/Mysticeti/Mysticeti Tests"/>
+    <img src="https://img.shields.io/github/languages/top/Mycrl/Mysticeti"/>
+    <img src="https://img.shields.io/github/license/Mycrl/Mysticeti"/>
+    <img src="https://img.shields.io/badge/author-Mr.Panda-read"/>
+</div>
+<br/>
+<br/>
 
-这是一个主要使用Rust编程语言构建的大规模高可用性和高性能流媒体集群，这是新的尝试和良好的开端.
-希望依靠Rust的高性能和优雅的设计在流媒体领域中越走越远.
+The project does not intend to support the complete RFC specification. In the short term, it only supports the UDP protocol, and some changes and simplifications have been made to some specifications to facilitate implementation, and other functions may be added in the future. This is an experimental project, the more purpose is to experiment and explore.
 
 
-### 设计
-> 包括推流处理，媒体协议处理，实时点播服务，并包括为多服务集群提供高可用性的负载均衡服务.
+### Reference
 
-```rust
-                                                        +------+
-                                                        | core |
-                                                        +------+
-                                                            |
-                                           /------------------------------\
-                               
-                                        +---------+    +----------+    +------+
-                               push ->  | publish | -> | exchange | -> | pull | -> player
-                                        +---------+    +----------+    +------+
+- [RFC 5389](https://tools.ietf.org/html/rfc5389) - Session Traversal Utilities for NAT (STUN)
+- [RFC 5766](https://tools.ietf.org/html/rfc5766) - Traversal Using Relays around NAT (TURN)
+- [RFC 8489](https://tools.ietf.org/html/rfc8489) - Session Traversal Utilities for NAT (STUN)
+- [RFC 8656](https://tools.ietf.org/html/rfc8656) -  Traversal Using Relays around NAT (TURN)
+
+
+### Installation
+
+first, you need to clone source code from repo:
+```bash
+git clone https://github.com/Mycrl/Mysticeti.git
 ```
 
+docker image is the recommended way:
+```bash
+cd Mysticeti
+docker build --tag=mysticeti:latest .
+```
 
-### 版本
-开发阶段 </br>
-项目进度更新在 [项目看板](https://github.com/quasipaas/Quasipaa/projects/1)，可以随时跟踪.</br>
+runing the image:
+```bash
+docker run -d --name mysticeti-service mysticeti:latest 
+```
 
+you can specify a custom configuration file by passing the `MYSTICETI_CONFIG` environment variable:
+```bash
+docker run -d -e MYSTICETI_CONFIG=./config.toml --name mysticeti-service mysticeti:latest 
+```
 
-### 支持的编码
+or, you can choose to build from source code:
+```bash
+cd Mysticeti
+cargo build --release
+cp ./target/release/mysticeti /usr/local/bin/Mysticeti
+chmod +x /usr/local/bin/Mysticeti
+Mysticeti --help
+```
 
-* [x] H264</br>
-* [ ] H265</br>
-* [ ] VP9</br>
-* [ ] AV1</br>
-* [x] AAC</br>
-* [ ] MP3</br>
-* [ ] WAV</br>
+### Testing
 
-
-### 支持的协议
-
-* [x] HTTP-FLV</br>
-* [x] RTMP</br>
-* [ ] RTSP</br>
-* [ ] WebRTC</br>
-* [ ] HLS</br>
-* [ ] DASH FMP4</br>
-
-
-### 计划
-> 早期计划仅支持RTMP，HLS，HttpFLV协议，目前仅考虑H264编码，在接下来的计划中支持WebRTC和VP9.</br>
-
-* [x] rtmp推送流处理</br>
-* [x] 流交换中心</br>
-* [x] 负载均衡服务</br>
-* [ ] 音视频数据处理</br>
-* [x] 直播服务</br>
-* [ ] 直播回放和静态文件支持</br>
-
-
-### 概述
-Quasipaa是使用Rust编程语言编写的流媒体服务集群，其中包括可以水平扩展的多个独立服务:
-* 流推送服务，用于处理实时流推送.</br>
-* 媒体数据交换中心处理混合来源.</br>
-* 控制中心，为多个水平服务提供负载平衡和群集管理.</br>
-* 静态文件和直播回放服务.</br>
-* 多协议直播流推送处理服务.</br>
-
-
-### 展望
-* 推流SDK.</br>
-* 自主开发的流协议.</br>
-* 支持尽可能多的现有协议.</br>
-* 尽可能好的表现.</br>
-* WebRTC的TURN支持.</br>
-* 自适应多重编码.</br>
-
+Because this project uses automated scripts to generate unit tests, you cannot directly use "cargo test" to run tests. You need to perform automated tests through internal scripts:
+```bash
+cd ./tests
+npm run unit-tests
+```
 
 ### License
-[GPL](./LICENSE)
+[MIT](./LICENSE)
 Copyright (c) 2020 Mr.Panda.

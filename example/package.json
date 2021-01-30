@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "dev": "node index.js",
+    "serve": "node center.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "ws": "^7.4.0"
+  }
+}
