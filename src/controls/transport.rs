@@ -2,7 +2,7 @@ use num_enum::TryFromPrimitive;
 use serde_json as Json;
 use anyhow::{
     Result,
-    Error, 
+    Error,
     anyhow
 };
 
@@ -10,7 +10,6 @@ use std::{
     collections::HashMap,
     convert::TryFrom,
     future::Future,
-    mem::transmute,
     sync::Arc
 };
 
@@ -40,9 +39,9 @@ use tokio::io::{
 };
 
 use bytes::{
-    BytesMut, 
-    BufMut, 
-    Bytes, 
+    BytesMut,
+    BufMut,
+    Bytes,
     Buf
 };
 
@@ -109,15 +108,14 @@ impl Transport {
         let (writer, mut reader) = unbounded_channel();
         self.listener.write().await.insert(kind, writer);
 
-        tokio::spawn(async move { 
+        tokio::spawn(async move {
             loop {
                 let (id, buf) = match reader.recv().await {
                     None => continue,
                     Some(m) => m
                 };
-                
-                let req_buf = unsafe { transmute(&buf) };
-                let result = match Json::from_slice(req_buf) {
+
+                let result = match Json::from_slice(&buf[..]) {
                     Ok(q) => (handle)(q).await,
                     Err(_) => continue
                 };
@@ -126,7 +124,7 @@ impl Transport {
                     log::error!("transport err: {:?}", e);
                 }
             }
-        });   
+        });
     }
 
     #[rustfmt::skip]
@@ -199,17 +197,17 @@ impl Transport {
                     continue;
                 }
             }
-            
+
             let call = match self.call_stack.write().await.remove(&id) {
                 None => continue,
                 Some(c) => c,
             };
-            
+
             if kind == Kind::Reply {
                 call.send(Ok(body)).unwrap();
                 continue;
             }
-            
+
             if kind == Kind::Err {
                 let err = std::str::from_utf8(&body[..])?.to_string();
                 call.send(Err(anyhow!(err))).unwrap();
@@ -234,8 +232,8 @@ impl Transport {
         };
 
         self.send(
-            k, 
-            kind, 
+            k,
+            kind,
             id,
             body.as_bytes()
         ).await
@@ -247,7 +245,7 @@ impl Transport {
         tokio::spawn(async move {
             loop { let _ = handle.poll().await; }
         });
-        
+
         self
     }
 }
