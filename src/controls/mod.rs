@@ -38,7 +38,7 @@ impl Controls {
             state
         }))
     }
-    
+
     /// 获取认证信息
     #[rustfmt::skip]
     pub async fn auth(&self, u: &str, a: &SocketAddr) -> Result<Auth> {
@@ -47,13 +47,17 @@ impl Controls {
             addr: *a
         }).await
     }
-    
+
     pub async fn get(self: Arc<Self>) {
-        self.inner.clone().bind(State::Get as u8, |req: GetRequest| async move {
-            self.state.base.write().await
-                .get(&req.addr)
-                .map(Node::from)
-                .ok_or_else(|| anyhow!("not found"))
+        let s = self.state.clone();
+        self.inner.clone().bind(State::Get as u8, move |req: GetRequest| {
+            let ss = s.clone();
+            async move {
+                ss.base.read().await
+                    .get(&req.addr)
+                    .map(Node::from)
+                    .ok_or_else(|| anyhow!("not found"))
+            }
         }).await
     }
 }
