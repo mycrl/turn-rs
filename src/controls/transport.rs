@@ -23,6 +23,11 @@ use tokio::{
     sync::RwLock
 };
 
+use tokio::net::tcp::{
+    OwnedReadHalf,
+    OwnedWriteHalf
+};
+
 use tokio::sync::oneshot::{
     channel,
     Sender,
@@ -49,14 +54,14 @@ use bytes::{
 ///
 /// * `Request` 请求
 /// * `Reply` 正确响应
-/// * `Err` 错误响应
+/// * `Error` 错误响应
 #[repr(u8)]
 #[derive(PartialEq, Eq)]
 #[derive(TryFromPrimitive)]
-enum Kind {
+enum Flag {
     Request = 0,
     Reply = 1,
-    Err = 2
+    Error = 2
 }
 
 /// 请求ID
@@ -81,54 +86,124 @@ struct Buffer {
 pub struct Transport {
     call_stack: RwLock<HashMap<u32, Sender<Result<Bytes, Error>>>>,
     listener: RwLock<HashMap<u8, UnboundedSender<(u32, Bytes)>>>,
-    inner: RwLock<TcpStream>,
+    inner_writer: RwLock<OwnedWriteHalf>,
+    inner_reader: RwLock<OwnedReadHalf>,
     buffer: RwLock<Buffer>,
     uid: RwLock<Uid>,
 }
 
 impl Transport {
+    /// 创建实例
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use tokio::net::TcpStream;
+    /// use super::Transport;
+    /// 
+    /// let addr = "127.0.0.1:8080".parse()?;
+    /// let socket = TcpStream::connect(addr).await?;
+    /// let transport = Transport::new(socket);
+    /// transport.run();
+    /// ```
     pub fn new(socket: TcpStream) -> Arc<Self> {
+        let (reader, writer) = socket.into_split();
         Arc::new(Self {
             call_stack: RwLock::new(HashMap::new()),
             buffer: RwLock::new(Buffer::default()),
             listener: RwLock::new(HashMap::new()),
+            inner_reader: RwLock::new(reader),
+            inner_writer: RwLock::new(writer),
             uid: RwLock::new(Uid::default()),
-            inner: RwLock::new(socket),
-        }).run()
+        })
+    }
+    
+    /// 启动
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use tokio::net::TcpStream;
+    /// use super::Transport;
+    /// 
+    /// let addr = "127.0.0.1:8080".parse()?;
+    /// let socket = TcpStream::connect(addr).await?;
+    /// let transport = Transport::new(socket);
+    /// transport.run();
+    /// ```
+    #[rustfmt::skip]
+    pub fn run(self: Arc<Self>) -> Arc<Self> {
+        let s = self.clone();
+        tokio::spawn(async move {
+            loop { let _ = s.poll().await; }
+        });
+
+        self
     }
 
+    /// 绑定事件处理器
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use tokio::net::TcpStream;
+    /// use super::Transport;
+    /// 
+    /// let addr = "127.0.0.1:8080".parse()?;
+    /// let socket = TcpStream::connect(addr).await?;
+    /// let transport = Transport::new(socket);
+    /// transport.run();
+    ///
+    /// transport.bind(0, |req: String| async move {
+    ///     Ok("panda")
+    /// }).await;
+    /// ```
     #[rustfmt::skip]
-    pub async fn bind<T, F, D, U>(self: Arc<Self>, kind: u8, mut handle: T)
+    pub async fn bind<T, F, D, U>(self: Arc<Self>, kind: u8, mut handler: T)
     where
         D: Serialize + Send,
-        U:DeserializeOwned + Send,
+        U: DeserializeOwned + Send,
         F: Future<Output = Result<D, Error>> + Send,
         T: FnMut(U) -> F + Send + 'static
     {
         let (writer, mut reader) = unbounded_channel();
         self.listener.write().await.insert(kind, writer);
 
-        tokio::spawn(async move {
-            loop {
-                let (id, buf) = match reader.recv().await {
-                    None => continue,
-                    Some(m) => m
-                };
+    tokio::spawn(async move {loop {
+        let (id, buf) = match reader.recv().await {
+            None => continue,
+            Some(m) => m
+        };
 
-                let result = match Json::from_slice(&buf[..]) {
-                    Ok(q) => (handle)(q).await,
-                    Err(_) => continue
-                };
+        let result = match Json::from_slice(&buf[..]) {
+            Ok(q) => (handler)(q).await,
+            Err(_) => continue
+        };
 
-                if let Err(e) = self.listen_hook(kind, id, result).await {
-                    log::error!("transport err: {:?}", e);
-                }
-            }
-        });
+        if let Err(e) = self.listen_hook(kind, id, result).await {
+            log::error!("transport err: {:?}", e);
+        }
+    }});
+        
     }
 
+    /// 呼叫远端
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use tokio::net::TcpStream;
+    /// use super::Transport;
+    /// 
+    /// let addr = "127.0.0.1:8080".parse()?;
+    /// let socket = TcpStream::connect(addr).await?;
+    /// let transport = Transport::new(socket);
+    /// transport.run();
+    ///
+    /// let name = transport.call(0, "username").await?;
+    /// ```
     #[rustfmt::skip]
-    pub async fn call<T, U>(&self, k: u8, data: &T) -> Result<U>
+    pub async fn call<T, U>(&self, kind: u8, data: &T) -> Result<U>
     where
         T: Serialize,
         U: DeserializeOwned
@@ -140,20 +215,24 @@ impl Transport {
         self.call_stack.write().await.insert(uid.inner, writer);
 
         let req_buf = Json::to_vec(data)?;
-        self.send(k, Kind::Request, uid.inner, &req_buf).await?;
+        self.send(kind, Flag::Request, uid.inner, &req_buf).await?;
 
-        let buf =reader.await??;
+        let buf = reader.await??;
         let reply = Json::from_slice(&buf)?;
         Ok(reply)
     }
 
-    async fn send(&self, k: u8, kind: Kind, id: u32, buf: &[u8]) -> Result<()> {
+    /// 发送消息到远端
+    ///
+    /// 将消息打包之后分段推送到Socket
+    /// 分段提交之后flush到对端，期望达到整段到达的效果
+    async fn send(&self, kind: u8, flag: Flag, id: u32, buf: &[u8]) -> Result<()> {
         let mut header = BytesMut::new();
-        let mut socket = self.inner.write().await;
+        let mut socket = self.inner_writer.write().await;
 
         header.put_u32(buf.len() as u32);
-        header.put_u8(k);
-        header.put_u8(kind as u8);
+        header.put_u8(kind);
+        header.put_u8(flag as u8);
         header.put_u32(id);
 
         socket.write_all(&header).await?;
@@ -162,68 +241,18 @@ impl Transport {
 
         Ok(())
     }
-
+    
+    /// 事件处理程序返回处理
+    ///
+    /// 根据返回的Result，序列化成对应消息
+    /// 并发送到对端，错误直接发送字符串
     #[rustfmt::skip]
-    async fn poll(&self) -> Result<()> {
-        let mut buf = self.buffer.write().await;
-        self.inner.write().await.read_buf(&mut buf.inner).await?;
-
-        loop {
-            if buf.inner.len() <= 10 {
-                break;
-            }
-
-            let size = u32::from_be_bytes([
-                buf.inner[0],
-                buf.inner[1],
-                buf.inner[2],
-                buf.inner[3]
-            ]) as usize;
-
-            if size + 10 < buf.inner.len() {
-                break;
-            }
-
-            buf.inner.advance(4);
-
-            let name = buf.inner.get_u8();
-            let kind = Kind::try_from(buf.inner.get_u8())?;
-            let id = buf.inner.get_u32();
-            let body = buf.inner.split_to(size).freeze();
-
-            if kind == Kind::Request {
-                if let Some(listen) = self.listener.write().await.get_mut(&name) {
-                    listen.send((id, body)).unwrap();
-                    continue;
-                }
-            }
-
-            let call = match self.call_stack.write().await.remove(&id) {
-                None => continue,
-                Some(c) => c,
-            };
-
-            if kind == Kind::Reply {
-                call.send(Ok(body)).unwrap();
-                continue;
-            }
-
-            if kind == Kind::Err {
-                let err = std::str::from_utf8(&body[..])?.to_string();
-                call.send(Err(anyhow!(err))).unwrap();
-            }
-        }
-
-        Ok(())
-    }
-
-    #[rustfmt::skip]
-    async fn listen_hook<T>(&self, k: u8, id: u32, result: Result<T>) -> Result<()>
+    async fn listen_hook<T>(&self, kind: u8, id: u32, result: Result<T>) -> Result<()>
     where T : Serialize
     {
-        let kind = match result {
-            Ok(_) => Kind::Reply,
-            Err(_) => Kind::Err,
+        let flag = match result {
+            Ok(_) => Flag::Reply,
+            Err(_) => Flag::Error,
         };
 
         let body = match result {
@@ -232,20 +261,105 @@ impl Transport {
         };
 
         self.send(
-            k,
             kind,
+            flag,
             id,
             body.as_bytes()
         ).await
     }
 
+    /// 内部循环
+    ///
+    /// 从Socket读入到内部缓冲区暂存，并尽量解码出消息，
+    /// 直到无法继续处理，收缩内部缓冲区
     #[rustfmt::skip]
-    fn run(self: Arc<Self>) -> Arc<Self> {
-        let handle = self.clone();
-        tokio::spawn(async move {
-            loop { let _ = handle.poll().await; }
-        });
+    async fn poll(&self) -> Result<()> {
+        let mut buf = self.buffer.write().await;
+        self.inner_reader.write().await.read_buf(&mut buf.inner).await?;
 
-        self
+    loop {
+        
+        // 检查缓冲区长度是否满足基本要求
+        // 如果不满足则跳出循环
+        if buf.inner.len() <= 10 {
+            break;
+        }
+
+        // 获取消息长度
+        // 检查缓冲区长度，确认消息是否完全到达
+        let size = Self::u32_from_bytes(&buf.inner) as usize;
+        if size + 10 > buf.inner.len() {
+            break;
+        }
+
+        // 因为获取长度为窥视并不消耗
+        // 所以这里手动消耗掉u32
+        buf.inner.advance(4);
+
+        // 获取消息事件
+        // 获取消息类型
+        // 获取消息ID
+        // 获取消息内容
+        let kind = buf.inner.get_u8();
+        let flag = Flag::try_from(buf.inner.get_u8())?;
+        let id = buf.inner.get_u32();
+        let body = buf.inner.split_to(size).freeze();
+
+        // 根据不同消息类型
+        // 交给对应处理程序
+        match flag {
+            Flag::Request => self.process_request(kind, id, body).await,
+            Flag::Reply => self.process_reply(id, body).await,
+            Flag::Error => self.process_error(id, body).await
+        }
+    }
+
+        Ok(())
+    }
+    
+    /// 处理请求
+    ///
+    /// 远端请求消息转发给监听器对应通道
+    /// 没有归属的消息将丢弃掉不处理
+    async fn process_request(&self, kind: u8, id: u32, body: Bytes) {
+        if let Some(listen) = self.listener.write().await.get_mut(&kind) {
+            listen.send((id, body)).unwrap()
+        }
+    }
+    
+    /// 处理正确响应
+    ///
+    /// 从栈表中删除并返回通道，同时将消息写入通道
+    /// 没有归属的消息将丢弃掉不处理
+    async fn process_reply(&self, id: u32, body: Bytes) {
+        if let Some(call) = self.call_stack.write().await.remove(&id) {
+            call.send(Ok(body)).unwrap()
+        }
+    }
+    
+    /// 处理错误响应
+    ///
+    /// 从栈表中删除并返回通道，同时将消息写入通道
+    /// 错误消息从字符串内容中创建
+    /// 没有归属的消息将丢弃掉不处理
+    async fn process_error(&self, id: u32, body: Bytes) {
+        if let Some(call) = self.call_stack.write().await.remove(&id) {
+            if let Ok(e) = std::str::from_utf8(&body[..]) {
+                call.send(Err(anyhow!(e.to_string()))).unwrap()
+            }
+        }
+    }
+    
+    /// 方便得转换u32
+    ///
+    /// 不检查外部输出，默认长度是安全的，
+    /// 减少一些重复模板代码
+    fn u32_from_bytes(buf: &[u8]) -> u32 {
+        u32::from_be_bytes([
+            buf[0],
+            buf[1],
+            buf[2],
+            buf[3]
+        ])
     }
 }

@@ -44,9 +44,6 @@ async fn reject<'a>(
 
 /// 返回分配成功响应
 ///
-/// TODO: 按照RFC，首次成功分配应该返回随机字符串（Nonce）
-/// 属性，并保持失效时间为1小时，目前没有抽象出socket，遂不实现
-///
 /// NOTE: The use of randomized port assignments to avoid certain
 /// types of attacks is described in [RFC6056].  It is RECOMMENDED
 /// that a TURN server implement a randomized port assignment

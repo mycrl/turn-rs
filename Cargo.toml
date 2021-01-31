@@ -1,8 +1,11 @@
 [package]
 name = "mysticeti"
 version = "0.1.0"
-authors = ["Mr.Panda <xivistudios@gmail.com>"]
 edition = "2018"
+authors = [
+    "Mr.Panda <xivistudios@gmail.com>",
+    "huangjj27 <huangjj.27@qq.com>"
+]
 
 [profile.release]
 codegen-units = 1

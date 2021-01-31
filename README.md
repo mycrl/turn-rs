@@ -58,7 +58,7 @@ Mysticeti --help
 
 ### Testing
 
-Because this project uses automated scripts to generate unit tests, you cannot directly use "cargo test" to run tests. You need to perform automated tests through internal scripts:
+Because the project uses script to generate unit tests, you cannot directly use "cargo test" to run tests. you need to perform automated tests through internal script:
 ```bash
 cd ./tests
 npm run unit-tests

@@ -5,20 +5,23 @@ use serde::{
     Serialize
 };
 
+/// 触发器服务
 #[repr(u8)]
 pub enum Trigger {
     Auth = 0,
 }
 
+/// 状态服务
 #[repr(u8)]
-pub enum State {
+pub enum Service {
     Get = 1,
     Remove = 2,
 }
 
+/// 请求
 #[derive(Debug)]
 #[derive(Deserialize, Serialize)]
-pub struct GetRequest {
+pub struct Request {
     pub addr: SocketAddr
 }
 
@@ -64,7 +67,7 @@ pub struct Node {
 }
 
 impl Node {
-    /// 获取认证信息
+    /// 创建可序列化信息
     ///
     /// # Example
     ///
