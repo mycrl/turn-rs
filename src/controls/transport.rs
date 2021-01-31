@@ -1,3 +1,4 @@
+use std::str::from_utf8 as str_from_utf8;
 use num_enum::TryFromPrimitive;
 use serde_json as Json;
 use anyhow::{
@@ -313,46 +314,35 @@ impl Transport {
 
         // 根据不同消息类型
         // 交给对应处理程序
-        match flag {
+        let _ = match flag {
             Flag::Request => self.process_request(kind, id, body).await,
             Flag::Reply => self.process_reply(id, body).await,
             Flag::Error => self.process_error(id, body).await
-        }
+        };
     }
 
         Ok(())
     }
     
-    /// 处理请求
-    ///
-    /// 远端请求消息转发给监听器对应通道
-    /// 没有归属的消息将丢弃掉不处理
-    async fn process_request(&self, kind: u8, id: u32, body: Bytes) {
-        if let Some(listen) = self.listener.write().await.get_mut(&kind) {
-            listen.send((id, body)).unwrap()
-        }
+    #[rustfmt::skip]
+    async fn process_request(&self, kind: u8, id: u32, body: Bytes) -> Option<()> {
+        let mut listener = self.listener.write().await;
+        listener.get_mut(&kind)?.send((id, body)).unwrap();
+        None
+    }
+
+    #[rustfmt::skip]
+    async fn process_reply(&self, id: u32, body: Bytes) -> Option<()> {
+        let mut call = self.call_stack.write().await;
+        call.remove(&id)?.send(Ok(body)).unwrap();
+        None
     }
     
-    /// 处理正确响应
-    ///
-    /// 从栈表中删除并返回通道，同时将消息写入通道
-    /// 没有归属的消息将丢弃掉不处理
-    async fn process_reply(&self, id: u32, body: Bytes) {
-        if let Some(call) = self.call_stack.write().await.remove(&id) {
-            call.send(Ok(body)).unwrap()
-        }
-    }
-    
-    /// 处理错误响应
-    ///
-    /// 从栈表中删除并返回通道，同时将消息写入通道
-    /// 错误消息从字符串内容中创建
-    /// 没有归属的消息将丢弃掉不处理
-    async fn process_error(&self, id: u32, body: Bytes) {
-        if let Some(call) = self.call_stack.write().await.remove(&id) {
-            if let Ok(e) = std::str::from_utf8(&body[..]) {
-                call.send(Err(anyhow!(e.to_string()))).unwrap()
-            }
-        }
+    #[rustfmt::skip]
+    async fn process_error(&self, id: u32, body: Bytes) -> Option<()> {
+        let e = anyhow!(str_from_utf8(&body[..]).ok()?.to_string());
+        let mut call = self.call_stack.write().await;
+        call.remove(&id)?.send(Err(e)).unwrap();
+        None
     }
 }
