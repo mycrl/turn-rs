@@ -146,7 +146,7 @@ impl Addr {
             dyn_addr 
         });
 
-        Ok(Self(addr.clone()))
+        Ok(Self(addr))
     }
 
     /// 展开为SocketAddr

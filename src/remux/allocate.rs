@@ -44,9 +44,6 @@ async fn reject<'a>(
 
 /// 返回分配成功响应
 ///
-/// TODO: 按照RFC，首次成功分配应该返回随机字符串（Nonce）
-/// 属性，并保持失效时间为1小时，目前没有抽象出socket，遂不实现
-///
 /// NOTE: The use of randomized port assignments to avoid certain
 /// types of attacks is described in [RFC6056].  It is RECOMMENDED
 /// that a TURN server implement a randomized port assignment
@@ -66,7 +63,7 @@ async fn resolve<'a>(
 ) -> Result<Response<'a>> {
     let alloc_addr = Arc::new(SocketAddr::new(ctx.local.ip(), port));
     let mut pack = message.extends(Kind::AllocateResponse);
-    pack.append(Property::XorRelayedAddress(Addr(alloc_addr.clone())));
+    pack.append(Property::XorRelayedAddress(Addr(alloc_addr)));
     pack.append(Property::XorMappedAddress(Addr(ctx.addr.clone())));
     pack.append(Property::ResponseOrigin(Addr(ctx.local.clone())));
     pack.append(Property::Lifetime(600));

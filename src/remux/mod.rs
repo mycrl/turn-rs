@@ -26,7 +26,7 @@ use crate::payload::{
     Message,
 };
 
-static SOFTWARE: &'static str = concat!(
+static SOFTWARE: &str = concat!(
     "Mysticeti ",
     env!("CARGO_PKG_VERSION")
 );
@@ -136,7 +136,7 @@ impl Remux {
         let ctx = Context::from(&self, a);
         Ok(match Payload::try_from(b)? {
             Payload::ChannelData(x) => channel_data::process(ctx, x).await,
-            Payload::Message(x) => Self::handle_message(ctx, x, w).await?,
+            Payload::Message(x) => Self::process_message(ctx, x, w).await?,
         })
     }
     
@@ -146,7 +146,7 @@ impl Remux {
     /// 并返回对应的回复动作
     #[rustfmt::skip]
     #[inline(always)]
-    async fn handle_message<'a>(
+    async fn process_message<'a>(
         ctx: Context, 
         m: Message<'a>, 
         w: &'a mut BytesMut
@@ -233,6 +233,7 @@ impl Context {
     ///     }
     /// }
     /// ```
+    #[rustfmt::skip]
     pub async fn get_auth(&self, u: &str) -> Option<Arc<String>> {
         if let Some(a) = self.state.get_password(&self.addr).await {
             return Some(a)
