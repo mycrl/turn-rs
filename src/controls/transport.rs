@@ -286,8 +286,14 @@ impl Transport {
         }
 
         // 获取消息长度
+        let size = u32::from_be_bytes([
+            buf.inner[0],
+            buf.inner[1],
+            buf.inner[2],
+            buf.inner[3]
+        ]) as usize;
+        
         // 检查缓冲区长度，确认消息是否完全到达
-        let size = Self::u32_from_bytes(&buf.inner) as usize;
         if size + 10 > buf.inner.len() {
             break;
         }
@@ -348,18 +354,5 @@ impl Transport {
                 call.send(Err(anyhow!(e.to_string()))).unwrap()
             }
         }
-    }
-    
-    /// 方便得转换u32
-    ///
-    /// 不检查外部输出，默认长度是安全的，
-    /// 减少一些重复模板代码
-    fn u32_from_bytes(buf: &[u8]) -> u32 {
-        u32::from_be_bytes([
-            buf[0],
-            buf[1],
-            buf[2],
-            buf[3]
-        ])
     }
 }
