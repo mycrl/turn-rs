@@ -1,6 +1,6 @@
 import { createServer } from "net"
 import { pipeline } from "stream"
-import { Mysticeti } from "./"
+import { Mysticeti } from "./src"
 
 // 触发器服务
 enum Trigger {
