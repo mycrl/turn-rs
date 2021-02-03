@@ -8,6 +8,8 @@
     <img src="https://img.shields.io/github/workflow/status/Mycrl/Mysticeti/Mysticeti Tests"/>
     <img src="https://img.shields.io/github/languages/top/Mycrl/Mysticeti"/>
     <img src="https://img.shields.io/github/license/Mycrl/Mysticeti"/>
+    <img src="https://img.shields.io/github/v/release/Mycrl/Mysticeti"/>
+    <img src="https://img.shields.io/github/stars/Mycrl/Mysticeti"/>
 </div>
 <br/>
 <br/>
