@@ -1,5 +1,56 @@
 import { Duplex } from "stream"
 
+// 触发器服务
+export enum Trigger {
+    Auth = 0
+}
+
+// 状态服务
+export enum Service {
+    Get = 1,
+    Remove = 2
+}
+
+// 请求
+export interface Request {
+    addr: string
+}
+
+// 认证请求
+//
+// * `addr` 客户端地址
+// * `username` 用户名
+export interface AuthRequest {
+    addr: string
+    username: string
+}
+
+// 认证信息
+//
+// * `password` 密钥
+// * `group` 分组ID
+export interface Auth {
+    password: string
+    group: number
+}
+
+// 节点
+//
+// * `group` 分组ID
+// * `delay` 超时时间
+// * `clock` 内部时钟
+// * `password` 密钥
+// * `ports` 分配端口列表
+// * `channels` 分配频道列表
+export interface Node {
+    group: number
+    delay: number
+    clock: number
+    ports: number[]
+    channels: number[]
+    password: string
+}
+
 // 负载类型
 //
 // * `Request` 请求
@@ -9,6 +60,12 @@ enum Flag {
     Request = 0,
     Reply = 1,
     Error = 2
+}
+
+// 呼叫反射
+interface ReflectCall {
+    [Service.Get]: Node
+    [Service.Remove]: null
 }
 
 // 消息负载
@@ -53,7 +110,7 @@ export const DefaultConf: MysticetiOptions = {
 //
 // 双工流，对流添加RPC支持
 // @class
-export class Mysticeti extends Duplex {
+export default class Mysticeti extends Duplex {
     private listener: { [key: number]: Handler<any, any> }
     private futures: { [key: number]: Future<any> }
     private buffer: Buffer
@@ -227,7 +284,7 @@ export class Mysticeti extends Duplex {
     //
     // @param kind 事件
     // @param handler 处理程序
-    public bind<T, U>(kind: number, handler: Handler<T, U>) {
+    public bind(kind: Trigger, handler: Handler<AuthRequest, Auth>) {
         this.listener[kind] = handler
     }
     
@@ -238,7 +295,9 @@ export class Mysticeti extends Duplex {
     //
     // @param kind 事件
     // @param message 请求消息
-    public call<T, U>(kind: number, message: T): Promise<U> {
+    public call<
+        T extends keyof ReflectCall,
+    >(kind: T, message: Request): Promise<ReflectCall[T]> {
         this.id = this.id >= 4294967295 ? 0 : this.id + 1
 
         const id = this.id
