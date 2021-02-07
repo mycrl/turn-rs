@@ -10,14 +10,6 @@ RUN ln -snf /usr/share/zoneinfo/$TimeZone /etc/localtime \
     
 RUN apt update \
     && apt install -y curl software-properties-common build-essential libssl-dev pkg-config \
-    && add-apt-repository -y -r ppa:chris-lea/node.js \
-    && rm -f /etc/apt/sources.list.d/chris-lea-node_js-*.list \
-    && rm -f /etc/apt/sources.list.d/chris-lea-node_js-*.list.save \
-    && curl -sSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
-    && echo "deb https://deb.nodesource.com/node_14.x $(lsb_release -s -c) main" | tee /etc/apt/sources.list.d/nodesource.list \
-    && echo "deb-src https://deb.nodesource.com/node_14.x $(lsb_release -s -c) main" | tee -a /etc/apt/sources.list.d/nodesource.list \
-    && apt update \
-    && apt-get install -y nodejs \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && mkdir /usr/local/src/Mysticeti
 

@@ -43,7 +43,6 @@ window.onload = () => new Vue({
         },
         async onmessage({ data }) {
             let packet = JSON.parse(data)
-            console.log(packet)
             if (packet.type === "users") {
                 for (let u of packet.users) {
                     this.createOffer(u)   

@@ -2,7 +2,7 @@
     <img src="./material/logo.svg" width="300px"/>
 </h1>
 <div align="center">
-    <strong>Rust ❤️ WebRTC STUN/TURN Server</strong>
+    <strong>Rust ❤️ STUN/TURN Server</strong>
 </div>
 <div align="center">
     <img src="https://img.shields.io/github/workflow/status/Mycrl/Mysticeti/Mysticeti Tests"/>

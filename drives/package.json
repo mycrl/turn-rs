@@ -1,5 +1,5 @@
 {
-    "name": "mysticeti",
+    "name": "mysticeti-drives",
     "version": "0.0.1",
     "description": "Rust ❤️ WebRTC STUN/TURN Server",
     "main": "src/index.ts",
