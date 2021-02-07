@@ -7,14 +7,6 @@ authors = [
     "huangjj27 <huangjj.27@qq.com>"
 ]
 
-[profile.release]
-codegen-units = 1
-overflow-checks = false
-panic = "abort"
-opt-level = 3
-debug = false
-lto = true
-
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 structopt = { version = "0.3", default-features = false }

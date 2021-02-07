@@ -1,3 +1,11 @@
+[profile.release]
+codegen-units = 1
+overflow-checks = false
+panic = "abort"
+opt-level = 3
+debug = false
+lto = true
+
 [workspace]
 members = [
     "turn_node",

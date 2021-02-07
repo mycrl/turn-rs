@@ -14,5 +14,6 @@ jobs:
       with:
         node-version: 12
     - name: Run tests
-      working-directory: ./tests
-      run: npm run unit-tests
+      run: |
+        npm install
+        npm run test
