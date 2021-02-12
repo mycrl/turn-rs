@@ -32,14 +32,14 @@ pub struct Context {
 }
 
 /// 解复用
-pub struct Remux {
+pub struct Hub {
     controls: Arc<Controls>,
     local: Arc<SocketAddr>,
     conf: Arc<Conf>,
     state: Arc<State>,
 }
 
-impl Remux {
+impl Hub {
     pub fn new(c: Arc<Conf>, s: Arc<State>, t: Arc<Controls>) -> Self {
         Self {
             local: Arc::new(c.local),
@@ -92,7 +92,7 @@ impl Remux {
 }
 
 impl Context {
-    fn from(h: &Remux, a: SocketAddr) -> Self {
+    fn from(h: &Hub, a: SocketAddr) -> Self {
         Self {
             controls: h.controls.clone(),
             state: h.state.clone(),

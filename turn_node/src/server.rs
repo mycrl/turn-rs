@@ -3,20 +3,20 @@ use bytes::BytesMut;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::UdpSocket;
 
-use super::{config::Conf, controls::Controls, remux::Remux, state::State};
+use super::{config::Conf, controls::Controls, hub::Hub, state::State};
 
 /// 线程实例
 pub(crate) struct ThreadContext {
     inner: Arc<UdpSocket>,
     writer: BytesMut,
     reader: Vec<u8>,
-    remux: Remux,
+    hub: Hub,
 }
 
 impl ThreadContext {
     pub fn new(s: &Arc<UdpSocket>, f: &Arc<Conf>, c: &Arc<State>, r: &Arc<Controls>) -> Self {
         Self {
-            remux: Remux::new(f.clone(), c.clone(), r.clone()),
+            hub: Hub::new(f.clone(), c.clone(), r.clone()),
             writer: BytesMut::with_capacity(f.buffer),
             reader: vec![0u8; f.buffer],
             inner: s.clone(),
@@ -31,12 +31,12 @@ impl ThreadContext {
     pub async fn poll(&mut self) {
         if let Some((size, addr)) = self.read().await {
             match self
-                .remux
+                .hub
                 .process(&self.reader[..size], &mut self.writer, addr)
                 .await
             {
                 Ok(Some((b, p))) => Self::send(&self.inner, b, p.as_ref()).await,
-                Err(e) => log::error!("remux err: {}", e),
+                Err(e) => log::error!("hub err: {}", e),
                 _ => (),
             }
         }

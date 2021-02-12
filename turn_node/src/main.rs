@@ -1,7 +1,7 @@
 mod config;
 mod controls;
 mod payload;
-mod remux;
+mod hub;
 mod server;
 mod state;
 
