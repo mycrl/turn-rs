@@ -1,22 +1,13 @@
+use super::{util, Addr, Error};
 use anyhow::Result;
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
-use super::{
-    Addr, 
-    Error,
-    util
-};
 
-use bytes::{
-    BytesMut,
-    BufMut
-};
+use bytes::{BufMut, BytesMut};
 
 /// 属性类型
 #[repr(u16)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq, Hash)]
-#[derive(Copy, Clone, Debug)]
+#[derive(TryFromPrimitive, PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum AttrKind {
     UserName = 0x0006,
     Data = 0x0013,
@@ -65,7 +56,7 @@ impl<'a> Property<'a> {
             Self::Realm(r) => buf.put(r.as_bytes()),
             Self::Nonce(n) => buf.put(n.as_bytes()),
             Self::XorPeerAddress(addr) => addr.as_bytes(t, buf, true),
-            Self::XorRelayedAddress(addr) => addr.as_bytes(t, buf,true),
+            Self::XorRelayedAddress(addr) => addr.as_bytes(t, buf, true),
             Self::XorMappedAddress(addr) => addr.as_bytes(t, buf, true),
             Self::MappedAddress(addr) => addr.as_bytes(t, buf, false),
             Self::ResponseOrigin(addr) => addr.as_bytes(t, buf, false),
@@ -105,7 +96,7 @@ impl<'a> Property<'a> {
 
 impl AttrKind {
     /// 创建属性实例
-    #[rustfmt::skip]
+
     pub fn from<'a>(self, token: &[u8], v: &'a [u8]) -> Result<Property<'a>> {
         Ok(match self {
             Self::UserName => Property::UserName(Self::buf_as_str(v)?),

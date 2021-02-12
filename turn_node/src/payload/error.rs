@@ -1,26 +1,15 @@
 use super::util;
 use anyhow::ensure;
+use bytes::{BufMut, BytesMut};
 use num_enum::TryFromPrimitive;
-use bytes::{
-    BufMut, 
-    BytesMut
-};
 
-use std::cmp::{
-    Eq, 
-    PartialEq
-};
+use std::cmp::{Eq, PartialEq};
 
-use std::convert::{
-    Into, 
-    TryFrom
-};
+use std::convert::{Into, TryFrom};
 
 /// 错误类型
 #[repr(u16)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq)]
-#[derive(Copy, Clone, Debug)]
+#[derive(TryFromPrimitive, PartialEq, Eq, Copy, Clone, Debug)]
 pub enum ErrKind {
     TryAlternate = 0x0300,
     BadRequest = 0x0400,
@@ -66,11 +55,11 @@ impl Error<'_> {
 
 impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     type Error = anyhow::Error;
-    #[rustfmt::skip]
+
     fn try_from(packet: &'a [u8]) -> Result<Self, Self::Error> {
         ensure!(packet.len() < 6, "buffer len < 6");
         ensure!(util::as_u16(&packet[..2]) != 0x0000, "missing reserved");
-        Ok(Self { 
+        Ok(Self {
             code: util::as_u16(&packet[2..4]),
             message: std::str::from_utf8(&packet[6..])?,
         })

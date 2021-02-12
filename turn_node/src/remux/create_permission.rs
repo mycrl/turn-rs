@@ -1,30 +1,16 @@
+use super::{Context, Response};
 use anyhow::Result;
 use bytes::BytesMut;
-use super::{
-    Context, 
-    Response
-};
 
-use crate::payload::{
-    AttrKind, 
-    ErrKind, 
-    Error, 
-    Kind, 
-    Message, 
-    Property
-};
+use crate::payload::{AttrKind, ErrKind, Error, Kind, Message, Property};
 
-use crate::payload::ErrKind::{
-    BadRequest,
-    Unauthorized,
-    AllocationMismatch,
-};
+use crate::payload::ErrKind::{AllocationMismatch, BadRequest, Unauthorized};
 
 /// 返回失败响应
 #[inline(always)]
 fn reject<'a>(
-    ctx: Context, 
-    message: Message<'a>, 
+    ctx: Context,
+    message: Message<'a>,
     w: &'a mut BytesMut,
     e: ErrKind,
 ) -> Result<Response<'a>> {
@@ -41,11 +27,11 @@ fn reject<'a>(
 /// 所以此处简单实现，如果后续需要则添加对应属性
 #[inline(always)]
 fn resolve<'a>(
-    ctx: &Context, 
-    message: &Message<'a>, 
-    u: &str, 
-    p: &str, 
-    w: &'a mut BytesMut
+    ctx: &Context,
+    message: &Message<'a>,
+    u: &str,
+    p: &str,
+    w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
     let pack = message.extends(Kind::CreatePermissionResponse);
     pack.try_into(w, Some((u, p, &ctx.conf.realm)))?;
@@ -90,7 +76,11 @@ fn resolve<'a>(
 /// idempotency of CreatePermission requests over UDP using the
 /// "stateless stack approach".  Retransmitted CreatePermission
 /// requests will simply refresh the permissions.
-pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a>(
+    ctx: Context,
+    m: Message<'a>,
+    w: &'a mut BytesMut,
+) -> Result<Response<'a>> {
     let u = match m.get(AttrKind::UserName) {
         Some(Property::UserName(u)) => u,
         _ => return reject(ctx, m, w, Unauthorized),
@@ -98,7 +88,7 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
 
     let p = match m.get(AttrKind::XorPeerAddress) {
         Some(Property::XorPeerAddress(a)) => a.addr().port(),
-        _ => return reject(ctx, m, w, BadRequest)
+        _ => return reject(ctx, m, w, BadRequest),
     };
 
     let key = match ctx.get_auth(u).await {
@@ -114,12 +104,7 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         return reject(ctx, m, w, AllocationMismatch);
     }
 
-    log::info!(
-        "{:?} [{:?}] bind peer={}", 
-        &ctx.addr,
-        u,
-        p,
-    );
+    log::info!("{:?} [{:?}] bind peer={}", &ctx.addr, u, p,);
 
     resolve(&ctx, &m, u, &key, w)
 }

@@ -1,27 +1,17 @@
+use super::{Context, Response};
 use crate::payload::ErrKind::Unauthorized;
-use bytes::BytesMut;
 use anyhow::Result;
-use super::{
-    Context, 
-    Response
-};
+use bytes::BytesMut;
 
-use crate::payload::{
-    AttrKind, 
-    ErrKind, 
-    Error, 
-    Kind, 
-    Message, 
-    Property
-};
+use crate::payload::{AttrKind, ErrKind, Error, Kind, Message, Property};
 
 /// 返回刷新失败响应
 #[inline(always)]
 fn reject<'a>(
-    ctx: Context, 
-    message: Message<'a>, 
-    w: &'a mut BytesMut, 
-    e: ErrKind
+    ctx: Context,
+    message: Message<'a>,
+    w: &'a mut BytesMut,
+    e: ErrKind,
 ) -> Result<Response<'a>> {
     let mut pack = message.extends(Kind::RefreshError);
     pack.append(Property::ErrorCode(Error::from(e)));
@@ -35,12 +25,12 @@ fn reject<'a>(
 /// 并不需要其他属性
 #[inline(always)]
 pub fn resolve<'a>(
-    ctx: &Context, 
-    message: &Message<'a>, 
+    ctx: &Context,
+    message: &Message<'a>,
     lifetime: u32,
     u: &str,
     p: &str,
-    w: &'a mut BytesMut
+    w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
     let mut pack = message.extends(Kind::RefreshResponse);
     pack.append(Property::Lifetime(lifetime));
@@ -87,7 +77,11 @@ pub fn resolve<'a>(
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a>(
+    ctx: Context,
+    m: Message<'a>,
+    w: &'a mut BytesMut,
+) -> Result<Response<'a>> {
     let u = match m.get(AttrKind::UserName) {
         Some(Property::UserName(u)) => u,
         _ => return reject(ctx, m, w, Unauthorized),
@@ -106,13 +100,8 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
     if !m.verify((u, &key, &ctx.conf.realm))? {
         return reject(ctx, m, w, Unauthorized);
     }
-    
-    log::info!(
-        "{:?} [{:?}] refresh timeout={}", 
-        &ctx.addr,
-        u,
-        l,
-    );
+
+    log::info!("{:?} [{:?}] refresh timeout={}", &ctx.addr, u, l,);
 
     ctx.state.refresh(&ctx.addr, l).await;
     resolve(&ctx, &m, l, u, &key, w)

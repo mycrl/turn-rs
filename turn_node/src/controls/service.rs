@@ -1,9 +1,6 @@
 use crate::state::Node as Base;
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
-use serde::{
-    Deserialize,
-    Serialize
-};
 
 /// RPC服务定义
 #[repr(u8)]
@@ -17,31 +14,27 @@ pub enum Service {
 }
 
 /// 请求
-#[derive(Debug)]
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    pub addr: SocketAddr
+    pub addr: SocketAddr,
 }
 
 /// 认证请求
-#[derive(Debug)]
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct AuthRequest {
     pub addr: SocketAddr,
-    pub username: String
+    pub username: String,
 }
 
 /// 认证信息
-#[derive(Debug)]
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Auth {
     pub password: String,
     pub group: u32,
 }
 
 /// 节点
-#[derive(Debug)]
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Node {
     pub group: u32,
     pub delay: u64,

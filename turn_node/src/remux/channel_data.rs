@@ -1,8 +1,5 @@
+use super::{Context, Response};
 use crate::payload::ChannelData;
-use super::{
-    Context, 
-    Response
-};
 
 /// 处理频道消息
 ///

@@ -1,17 +1,9 @@
-use tokio::net::UdpSocket;
-use bytes::BytesMut;
 use anyhow::Result;
-use std::{
-    net::SocketAddr, 
-    sync::Arc
-};
+use bytes::BytesMut;
+use std::{net::SocketAddr, sync::Arc};
+use tokio::net::UdpSocket;
 
-use super::{
-    controls::Controls,
-    remux::Remux,
-    config::Conf,
-    state::State
-};
+use super::{config::Conf, controls::Controls, remux::Remux, state::State};
 
 /// 线程实例
 pub(crate) struct ThreadContext {
@@ -22,13 +14,7 @@ pub(crate) struct ThreadContext {
 }
 
 impl ThreadContext {
-    #[rustfmt::skip]
-    pub fn new(
-        s: &Arc<UdpSocket>,
-        f: &Arc<Conf>, 
-        c: &Arc<State>, 
-        r: &Arc<Controls>
-    ) -> Self {
+    pub fn new(s: &Arc<UdpSocket>, f: &Arc<Conf>, c: &Arc<State>, r: &Arc<Controls>) -> Self {
         Self {
             remux: Remux::new(f.clone(), c.clone(), r.clone()),
             writer: BytesMut::with_capacity(f.buffer),
@@ -36,19 +22,23 @@ impl ThreadContext {
             inner: s.clone(),
         }
     }
-    
+
     /// 线程循环
-    /// 
+    ///
     /// 读取UDP数据包并处理，
     /// 将回写包发送到指定远端
-    #[rustfmt::skip]
+
     pub async fn poll(&mut self) {
         if let Some((size, addr)) = self.read().await {
-            match self.remux.process(&self.reader[..size], &mut self.writer, addr).await {
+            match self
+                .remux
+                .process(&self.reader[..size], &mut self.writer, addr)
+                .await
+            {
                 Ok(Some((b, p))) => Self::send(&self.inner, b, p.as_ref()).await,
                 Err(e) => log::error!("remux err: {}", e),
                 _ => (),
-            }  
+            }
         }
     }
 
@@ -60,11 +50,11 @@ impl ThreadContext {
     /// 忽略任何读取错误，这是不得已的处理办法
     async fn read(&mut self) -> Option<(usize, SocketAddr)> {
         match self.inner.recv_from(&mut self.reader[..]).await {
-            Ok(r) if r.0 >= 4 => Some(r), 
-            _ => None
+            Ok(r) if r.0 >= 4 => Some(r),
+            _ => None,
         }
     }
-    
+
     /// 发送UDP数据包
     ///
     /// 发送数据包到指定远端
@@ -78,32 +68,28 @@ impl ThreadContext {
 }
 
 /// 启动服务器
-/// 
+///
 /// 启动UDP服务器并创建线程池
-#[rustfmt::skip]
+
 pub async fn run(f: Arc<Conf>, c: Arc<State>, r: Arc<Controls>) -> Result<()> {
-    let s = Arc::new(UdpSocket::bind(f.listen).await?); 
+    let s = Arc::new(UdpSocket::bind(f.listen).await?);
     let threads = match f.threads {
         None => num_cpus::get(),
-        Some(s) => s
+        Some(s) => s,
     };
-    
+
     for _ in 0..threads {
         let mut cx = ThreadContext::new(&s, &f, &c, &r);
         tokio::spawn(async move {
-            loop { cx.poll().await; }
+            loop {
+                cx.poll().await;
+            }
         });
     }
-    
-    log::info!(
-        "threads size {} is runing", 
-        threads
-    );
-    
-    log::info!(
-        "udp bind to {}",
-        f.listen
-    );
+
+    log::info!("threads size {} is runing", threads);
+
+    log::info!("udp bind to {}", f.listen);
 
     Ok(())
 }

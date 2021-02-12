@@ -1,7 +1,7 @@
+use anyhow::{anyhow, Result};
 use crc::crc32;
 use hmac::crypto_mac::Output;
 use hmac::{Hmac, Mac, NewMac};
-use anyhow::{anyhow, Result};
 
 /// 计算填充位
 ///
@@ -47,20 +47,12 @@ pub fn fingerprint(buffer: &[u8]) -> u32 {
 #[inline(always)]
 pub fn as_u16(buf: &[u8]) -> u16 {
     assert!(buf.len() >= 2);
-    u16::from_be_bytes([
-        buf[0], 
-        buf[1]
-    ])
+    u16::from_be_bytes([buf[0], buf[1]])
 }
 
 /// 方便得将缓冲区转为U32
 #[inline(always)]
 pub fn as_u32(buf: &[u8]) -> u32 {
     assert!(buf.len() >= 4);
-    u32::from_be_bytes([
-        buf[0], 
-        buf[1],
-        buf[2],
-        buf[3]
-    ])
+    u32::from_be_bytes([buf[0], buf[1], buf[2], buf[3]])
 }

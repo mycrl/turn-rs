@@ -1,24 +1,11 @@
 use crate::controls::Auth;
-use tokio::sync::RwLock;
 use anyhow::Result;
-use tokio::time::{
-    Duration,
-    Instant,
-    sleep
-};
+use tokio::sync::RwLock;
+use tokio::time::{sleep, Duration, Instant};
 
-use rand::{
-    distributions::Alphanumeric, 
-    thread_rng, 
-    Rng
-};
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    cmp::PartialEq,
-    sync::Arc,
-};
+use std::{cmp::PartialEq, collections::HashMap, net::SocketAddr, sync::Arc};
 
 type Addr = Arc<SocketAddr>;
 
@@ -26,38 +13,38 @@ type Addr = Arc<SocketAddr>;
 #[derive(Hash, Eq)]
 struct UniquePort(
     /// 分组ID
-    u32, 
+    u32,
     /// 端口号
-    u16
+    u16,
 );
 
 /// 频道标识
 #[derive(Hash, Eq)]
 struct UniqueChannel(
     /// 客户端地址
-    Addr, 
+    Addr,
     /// 频道号
-    u16
+    u16,
 );
 
 /// 节点
 pub struct Node {
     /// 分组ID
     pub group: u32,
-    
+
     /// 会话的超时时间
     /// TODO: 目前存在问题，未将超时时间细化到每个端口
     pub delay: u64,
-    
+
     /// 内部时钟，记录刷新的TTL
     pub clock: Instant,
-    
+
     /// 当前会话分配的端口列表
     pub ports: Vec<u16>,
-    
+
     /// 当前会话分配的频道列表
     pub channels: Vec<u16>,
-    
+
     /// 当前会话的密钥
     pub password: Arc<String>,
 }
@@ -73,25 +60,24 @@ pub struct Node {
 pub struct State {
     /// 每个用户分配一个具备超时时间的随机ID
     nonce_table: RwLock<HashMap<Addr, (Arc<String>, Instant)>>,
-    
+
     /// 记录会话与对等端的端口绑定关系
     peer_table: RwLock<HashMap<Addr, HashMap<Addr, u16>>>,
-    
+
     /// 记录分组内频道与地址的绑定关系
     channel_table: RwLock<HashMap<UniqueChannel, Addr>>,
-    
+
     /// 记录分组内端口与地址的绑定关系
     port_table: RwLock<HashMap<UniquePort, Addr>>,
-    
+
     /// 记录分组的端口引用计数以及偏移量
     group_port_rc: RwLock<HashMap<u32, (u16, u16)>>,
-    
+
     /// 基础信息表
     pub base_table: RwLock<HashMap<Addr, Node>>,
 }
 
 impl State {
-    #[rustfmt::skip]
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             channel_table: RwLock::new(HashMap::with_capacity(1024)),
@@ -104,42 +90,47 @@ impl State {
     }
 
     /// 获取随机ID
-    #[rustfmt::skip]
+
     pub async fn get_nonce(&self, a: &Addr) -> Arc<String> {
         if let Some((n, c)) = self.nonce_table.read().await.get(a) {
             // 检查是否已经过期
             if c.elapsed().as_secs() >= 3600 {
-                return n.clone()   
+                return n.clone();
             }
         }
 
         let nonce = Arc::new(rand_string());
-        self.nonce_table.write().await.insert(a.clone(), (
-            nonce.clone(),
-            Instant::now()
-        ));
+        self.nonce_table
+            .write()
+            .await
+            .insert(a.clone(), (nonce.clone(), Instant::now()));
 
         nonce
     }
 
     /// 获取密钥
     pub async fn get_password(&self, a: &Addr) -> Option<Arc<String>> {
-        self.base_table.read().await.get(a).map(|n| {
-            n.password.clone()
-        })
+        self.base_table
+            .read()
+            .await
+            .get(a)
+            .map(|n| n.password.clone())
     }
 
     /// 写入节点信息
-    #[rustfmt::skip]
+
     pub async fn insert(&self, a: Addr, auth: &Auth) {
-        self.base_table.write().await.insert(a, Node {
-            password: Arc::new(auth.password.clone()),
-            clock: Instant::now(),
-            channels: Vec::new(),
-            ports: Vec::new(),
-            group: auth.group,
-            delay: 600,
-        });
+        self.base_table.write().await.insert(
+            a,
+            Node {
+                password: Arc::new(auth.password.clone()),
+                clock: Instant::now(),
+                channels: Vec::new(),
+                ports: Vec::new(),
+                group: auth.group,
+                delay: 600,
+            },
+        );
 
         self.group_port_rc
             .write()
@@ -171,17 +162,17 @@ impl State {
         let mut base = self.base_table.write().await;
         let node = match base.get_mut(&a) {
             Some(n) => n,
-            _ => return None
+            _ => return None,
         };
 
         let mut groups = self.group_port_rc.write().await;
         let port = match groups.get_mut(&node.group) {
             Some(p) => p,
-            _ => return None
+            _ => return None,
         };
 
         if node.ports.len() == 16383 {
-            return None
+            return None;
         }
 
         let alloc = port.1;
@@ -193,17 +184,17 @@ impl State {
         } else {
             port.1 += 1;
         }
-        
-        self.port_table.write().await.insert(
-            UniquePort(node.group, alloc),
-            a
-        );
+
+        self.port_table
+            .write()
+            .await
+            .insert(UniquePort(node.group, alloc), a);
 
         Some(alloc)
     }
-    
+
     /// 分配频道
-    #[rustfmt::skip]
+
     pub async fn insert_channel(&self, a: Addr, p: u16, channel: u16) -> bool {
         assert!(channel >= 0x4000 && channel <= 0x4FFF);
         let mut base = self.base_table.write().await;
@@ -219,14 +210,14 @@ impl State {
         };
 
         if node.channels.contains(&channel) {
-            return false
+            return false;
         }
 
         node.channels.push(channel);
-        self.channel_table.write().await.insert(
-            UniqueChannel(a, channel),
-            addr
-        );
+        self.channel_table
+            .write()
+            .await
+            .insert(UniqueChannel(a, channel), addr);
 
         true
     }
@@ -238,14 +229,14 @@ impl State {
             None => None,
         }
     }
-    
+
     /// 根据自身地址和对端端口获取对等地址
-    #[rustfmt::skip]
+
     pub async fn reflect_from_port(&self, a: &Addr, port: u16) -> Option<Addr> {
         assert!(port >= 49152);
         let group = match self.base_table.read().await.get(a) {
             Some(n) => n.group,
-            _ => return None
+            _ => return None,
         };
 
         self.port_table
@@ -254,32 +245,39 @@ impl State {
             .get(&UniquePort(group, port))
             .cloned()
     }
-    
+
     /// 刷新节点生命周期
-    #[rustfmt::skip]
+
     pub async fn refresh(&self, a: &Addr, delay: u32) -> bool {
         if delay == 0 {
             self.remove(a).await;
             return true;
         }
-        
-        self.base_table.write().await.get_mut(a).map(|n| {
-            n.clock = Instant::now();
-            n.delay = delay as u64;
-        }).is_some()
+
+        self.base_table
+            .write()
+            .await
+            .get_mut(a)
+            .map(|n| {
+                n.clock = Instant::now();
+                n.delay = delay as u64;
+            })
+            .is_some()
     }
-    
+
     /// 获取对等频道
-    #[rustfmt::skip]
+
     pub async fn reflect_from_channel(&self, a: &Addr, channel: u16) -> Option<Addr> {
         assert!(channel >= 0x4000 && channel <= 0x4FFF);
-        self.channel_table.read().await.get(
-            &UniqueChannel(a.clone(), channel)
-        ).cloned()
+        self.channel_table
+            .read()
+            .await
+            .get(&UniqueChannel(a.clone(), channel))
+            .cloned()
     }
-    
+
     /// 删除节点
-    #[rustfmt::skip]
+
     pub async fn remove(&self, a: &Addr) {
         let mut allocs = self.port_table.write().await;
         let mut channels = self.channel_table.write().await;
@@ -293,19 +291,13 @@ impl State {
             Some(p) => p,
             _ => return,
         };
-        
+
         for port in node.ports {
-            allocs.remove(&UniquePort(
-                node.group,
-                port
-            ));
+            allocs.remove(&UniquePort(node.group, port));
         }
 
         for channel in node.channels {
-            channels.remove(&UniqueChannel(
-                a.clone(),
-                channel
-            ));
+            channels.remove(&UniqueChannel(a.clone(), channel));
         }
 
         if port.0 <= 1 {
@@ -313,30 +305,25 @@ impl State {
         } else {
             port.0 -= 1;
         }
-        
-        self.peer_table
-            .write()
-            .await
-            .remove(a);
-        self.nonce_table
-            .write()
-            .await
-            .remove(a);
+
+        self.peer_table.write().await.remove(a);
+        self.nonce_table.write().await.remove(a);
     }
-    
+
     /// 启动实例
     ///
     /// 定时扫描内部列表
     /// 扫描间隔为60秒
-    #[rustfmt::skip]
+
     pub async fn run(self: Arc<Self>) -> Result<()> {
         let delay = Duration::from_secs(60);
-        tokio::spawn(async move { 
+        tokio::spawn(async move {
             loop {
                 sleep(delay).await;
                 self.clear().await;
             }
-        }).await?;
+        })
+        .await?;
         Ok(())
     }
 
@@ -344,9 +331,10 @@ impl State {
     ///
     /// 删除所有失效节点以及其关联信息，当删除完成之后，
     /// 所有分配的频道和端口也将失效
-    #[rustfmt::skip]
+
     async fn clear(&self) {
-        let fails = self.base_table
+        let fails = self
+            .base_table
             .read()
             .await
             .iter()

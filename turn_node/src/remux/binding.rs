@@ -1,17 +1,8 @@
+use crate::payload::{Addr, Kind, Message, Property};
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::payload::{
-    Addr, 
-    Kind, 
-    Message, 
-    Property
-};
 
-use super::{
-    Context, 
-    Response,
-    SOFTWARE
-};
+use super::{Context, Response, SOFTWARE};
 
 /// 处理绑定请求
 ///

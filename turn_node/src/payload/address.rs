@@ -1,26 +1,12 @@
+use bytes::{BufMut, BytesMut};
 use std::convert::TryInto;
 use std::sync::Arc;
-use bytes::{
-    BufMut, 
-    BytesMut
-};
 
-use anyhow::{
-    anyhow, 
-    Result
-};
+use anyhow::{anyhow, Result};
 
-use std::cmp::{
-    Eq, 
-    PartialEq
-};
+use std::cmp::{Eq, PartialEq};
 
-use std::net::{
-    IpAddr, 
-    Ipv4Addr, 
-    Ipv6Addr, 
-    SocketAddr
-};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 /// 协议类型
 pub const FAMILY_IPV4: u8 = 0x01;
@@ -31,12 +17,12 @@ pub const FAMILY_IPV6: u8 = 0x02;
 pub struct Addr(pub Arc<SocketAddr>);
 impl Addr {
     /// 将SocketAddr编码为缓冲区
-    #[rustfmt::skip]
+
     pub fn as_bytes(&self, token: &[u8], buf: &mut BytesMut, is_xor: bool) {
         buf.put_u8(0);
-        let xor_addr = if is_xor { 
+        let xor_addr = if is_xor {
             Arc::new(xor(self.0.as_ref(), token))
-        } else { 
+        } else {
             self.0.clone()
         };
 
@@ -57,7 +43,7 @@ impl Addr {
     }
 
     /// 将缓冲区解码为SocketAddr
-    #[rustfmt::skip]
+
     pub fn try_from(packet: &[u8], token: &[u8], is_xor: bool) -> Result<Self> {
         let port = u16::from_be_bytes([packet[2], packet[3]]);
 
@@ -68,10 +54,10 @@ impl Addr {
         };
 
         let dyn_addr = SocketAddr::new(ip_addr, port);
-        let addr = Arc::new(if is_xor { 
-            xor(&dyn_addr, token) 
-        } else { 
-            dyn_addr 
+        let addr = Arc::new(if is_xor {
+            xor(&dyn_addr, token)
+        } else {
+            dyn_addr
         });
 
         Ok(Self(addr))
@@ -113,7 +99,7 @@ fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr> {
 /// in host byte order, XOR'ing it with the concatenation of the magic
 /// cookie and the 96-bit transaction ID, and converting the result to
 /// network byte order.
-#[rustfmt::skip]
+
 fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
     let port = addr.port() ^ (0x2112A442 >> 16) as u16;
     let ip_addr = match addr.ip() {
@@ -121,25 +107,18 @@ fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
         IpAddr::V6(x) => xor_v6(x, token),
     };
 
-    SocketAddr::new(
-        ip_addr, 
-        port
-    )
+    SocketAddr::new(ip_addr, port)
 }
 
-#[rustfmt::skip]
 fn xor_v4(addr: Ipv4Addr) -> IpAddr {
     let mut octets = addr.octets();
     for (i, b) in octets.iter_mut().enumerate() {
         *b ^= (0x2112A442 >> (24 - i * 8)) as u8;
     }
 
-    IpAddr::V4(
-        From::from(octets)
-    )
+    IpAddr::V4(From::from(octets))
 }
 
-#[rustfmt::skip]
 fn xor_v6(addr: Ipv6Addr, token: &[u8]) -> IpAddr {
     let mut octets = addr.octets();
     for (i, b) in octets.iter_mut().enumerate().take(4) {
@@ -150,7 +129,5 @@ fn xor_v6(addr: Ipv6Addr, token: &[u8]) -> IpAddr {
         *b ^= token[i - 4];
     }
 
-    IpAddr::V6(
-        From::from(octets)
-    )
+    IpAddr::V6(From::from(octets))
 }

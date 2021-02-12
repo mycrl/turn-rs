@@ -1,37 +1,20 @@
+use super::{Context, Response};
 use anyhow::Result;
 use bytes::BytesMut;
-use super::{ 
-    Context, 
-    Response
-};
 
-use std::{
-    net::SocketAddr, 
-    sync::Arc
-};
+use std::{net::SocketAddr, sync::Arc};
 
-use crate::payload::{
-    Addr, 
-    AttrKind, 
-    ErrKind, 
-    Error, 
-    Kind, 
-    Message, 
-    Property
-};
+use crate::payload::{Addr, AttrKind, ErrKind, Error, Kind, Message, Property};
 
-use crate::payload::ErrKind::{
-    ServerError,
-    Unauthorized,
-};
+use crate::payload::ErrKind::{ServerError, Unauthorized};
 
 /// 返回分配失败响应
 #[inline(always)]
 async fn reject<'a>(
-    ctx: Context, 
+    ctx: Context,
     message: Message<'a>,
     w: &'a mut BytesMut,
-    e: ErrKind, 
+    e: ErrKind,
 ) -> Result<Response<'a>> {
     let nonce = ctx.state.get_nonce(&ctx.addr).await;
     let mut pack = message.extends(Kind::AllocateError);
@@ -87,15 +70,19 @@ async fn resolve<'a>(
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
-#[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+
+pub async fn process<'a>(
+    ctx: Context,
+    m: Message<'a>,
+    w: &'a mut BytesMut,
+) -> Result<Response<'a>> {
     let u = match m.get(AttrKind::UserName) {
         Some(Property::UserName(u)) => u,
         _ => return reject(ctx, m, w, Unauthorized).await,
     };
 
     if m.get(AttrKind::ReqeestedTransport).is_none() {
-        return reject(ctx, m, w, ServerError).await
+        return reject(ctx, m, w, ServerError).await;
     }
 
     let key = match ctx.get_auth(u).await {
@@ -107,13 +94,8 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };
-    
-    log::info!(
-        "{:?} [{:?}] allocate port={}", 
-        &ctx.addr,
-        u,
-        port,
-    );
+
+    log::info!("{:?} [{:?}] allocate port={}", &ctx.addr, u, port,);
 
     match m.verify((u, &key, &ctx.conf.realm))? {
         false => reject(ctx, m, w, Unauthorized).await,

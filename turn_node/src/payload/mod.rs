@@ -1,10 +1,10 @@
 //! RFC: [rfc](https://tools.ietf.org/html/rfc8656)
 //! 只兼容此RFC!
 
-mod error;
 mod address;
 mod attribute;
 mod codec;
+mod error;
 mod util;
 
 /// !prelude
@@ -13,21 +13,19 @@ pub use attribute::{AttrKind, Property};
 pub use error::{ErrKind, Error};
 
 use anyhow::Result;
+use bytes::BytesMut;
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
-use bytes::BytesMut;
 
 pub(crate) type Auth<'a> = (
     &'a str, // username
     &'a str, // password
-    &'a str  // realm
+    &'a str, // realm
 );
 
 /// 消息类型
 #[repr(u16)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq, Hash)]
-#[derive(Copy, Clone, Debug)]
+#[derive(TryFromPrimitive, PartialEq, Eq, Hash, Copy, Clone, Debug)]
 pub enum Kind {
     Unknown = 0x0000,
     BindingRequest = 0x0001,
@@ -57,11 +55,11 @@ pub enum Payload<'a> {
     ChannelData(ChannelData<'a>),
 }
 
-/// 频道数据 
+/// 频道数据
 pub struct ChannelData<'a> {
     /// 缓冲区引用
     pub buf: &'a [u8],
-    
+
     /// 频道号
     pub number: u16,
 }
@@ -71,16 +69,16 @@ pub struct ChannelData<'a> {
 pub struct Message<'a> {
     /// 属性列表
     attributes: Vec<(AttrKind, Property<'a>)>,
-    
+
     /// 缓冲区引用
     buffer: &'a [u8],
-    
+
     /// 消息交易ID
     token: &'a [u8],
-    
+
     /// 有效块位置偏移
     block: u16,
-    
+
     /// 消息类型
     pub kind: Kind,
 }
