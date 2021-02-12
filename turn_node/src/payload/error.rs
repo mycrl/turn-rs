@@ -49,15 +49,6 @@ pub struct Error<'a> {
 }
 
 impl Error<'_> {
-    /// 从错误码创建错误类型
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use super::*;
-    ///
-    /// Error::from(ErrKind::TryAlternate);
-    /// ```
     pub fn from(code: ErrKind) -> Self {
         Self {
             code: code as u16,
@@ -66,26 +57,6 @@ impl Error<'_> {
     }
 
     /// 将错误类型转为缓冲区
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(as_bytes)
-    /// use super::*;
-    /// use bytes::BytesMut;
-    ///
-    /// let buffer = [
-    ///     0x00u8, 0x00, 0x03, 0x00,
-    ///     0x54, 0x72, 0x79, 0x20,
-    ///     0x41, 0x6c, 0x74, 0x65,
-    ///     0x72, 0x6e, 0x61, 0x74,
-    ///     0x65
-    /// ];
-    ///
-    /// let mut buf = BytesMut::with_capacity(1280);
-    /// let error = Error::from(ErrKind::TryAlternate);
-    /// error.as_bytes(&mut buf);
-    /// assert_eq!(&buf[..], &buffer);
-    /// ```
     pub fn as_bytes(&self, buf: &mut BytesMut) {
         buf.put_u16(0x0000);
         buf.put_u16(self.code);

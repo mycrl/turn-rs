@@ -57,14 +57,6 @@ chmod +x /usr/local/bin/Mysticeti
 Mysticeti --help
 ```
 
-### Testing
-
-Because the project uses script to generate unit tests, you cannot directly use "cargo test" to run tests. you need to perform automated tests through internal script:
-```bash
-cd ./tests
-npm run unit-tests
-```
-
 ### License
 [MIT](./LICENSE)
 Copyright (c) 2020 Mr.Panda.

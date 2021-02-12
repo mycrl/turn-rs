@@ -14,42 +14,15 @@ use super::{
 };
 
 /// 线程实例
-///
-/// * `inner` 连接实例
-/// * `remux` 解复用实例
-/// * `writer` 写入缓冲区
-/// * `reader` 读取缓冲区
-pub(crate) struct Context {
+pub(crate) struct ThreadContext {
     inner: Arc<UdpSocket>,
     writer: BytesMut,
     reader: Vec<u8>,
     remux: Remux,
 }
 
-impl Context {
-    /// 创建实例
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use super::*;
-    /// use crate::config;
-    /// use crate::state::State;
-    /// use crate::controls::Controls;
-    /// use tokio::net::UdpSocket;
-    /// 
-    /// let state = State::new();
-    /// let conf = config::new();
-    /// let controls = Controls::new();
-    /// let server = Arc::new(UdpSocket::bind(f.listen).await?);
-    /// 
-    /// // let cx = Context::new(
-    /// //     &server,
-    /// //     &conf, 
-    /// //     &state, 
-    /// //     &controls
-    /// // );
-    /// ```
+impl ThreadContext {
+    #[rustfmt::skip]
     pub fn new(
         s: &Arc<UdpSocket>,
         f: &Arc<Conf>, 
@@ -68,26 +41,6 @@ impl Context {
     /// 
     /// 读取UDP数据包并处理，
     /// 将回写包发送到指定远端
-    /// 
-    /// # Example
-    ///
-    /// ```no_run
-    /// use super::*;
-    /// use crate::config;
-    /// use crate::state::State;
-    /// use crate::controls::Controls;
-    /// use tokio::net::UdpSocket;
-    /// 
-    /// let state = State::new();
-    /// let conf = config::new();
-    /// let controls = Controls::new();
-    /// let server = Arc::new(UdpSocket::bind(f.listen).await?);
-    /// let mut cx = Context::new(&server, &conf, &state, &controls);
-    /// 
-    /// loop {
-    ///     cx.poll().await;
-    /// }
-    /// ```
     #[rustfmt::skip]
     pub async fn poll(&mut self) {
         if let Some((size, addr)) = self.read().await {
@@ -126,23 +79,7 @@ impl Context {
 
 /// 启动服务器
 /// 
-/// 启动UDP服务器，
-/// 并创建线程池
-/// 
-/// # Example
-///
-/// ```no_run
-/// use super::*;
-/// use crate::config;
-/// use crate::state::State;
-/// use crate::controls::Controls;
-/// 
-/// let state = State::new();
-/// let conf = config::new();
-/// let controls = Controls::new();
-/// 
-/// run(conf, state, controls).await.unwrap();
-/// ```
+/// 启动UDP服务器并创建线程池
 #[rustfmt::skip]
 pub async fn run(f: Arc<Conf>, c: Arc<State>, r: Arc<Controls>) -> Result<()> {
     let s = Arc::new(UdpSocket::bind(f.listen).await?); 
@@ -152,7 +89,7 @@ pub async fn run(f: Arc<Conf>, c: Arc<State>, r: Arc<Controls>) -> Result<()> {
     };
     
     for _ in 0..threads {
-        let mut cx = Context::new(&s, &f, &c, &r);
+        let mut cx = ThreadContext::new(&s, &f, &c, &r);
         tokio::spawn(async move {
             loop { cx.poll().await; }
         });

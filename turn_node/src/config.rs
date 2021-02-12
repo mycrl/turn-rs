@@ -9,12 +9,6 @@ use std::{
 };
 
 // 配置
-//
-// * `realm` 服务域  
-// * `listen` 服务器绑定地址  
-// * `local` 本地对外IP地址  
-// * `controls` 外部控制配置  
-// * `udp` udp配置
 #[structopt(
     name = "Mysticeti",
     version = "0.1.0",
@@ -26,6 +20,7 @@ pub struct Conf {
     #[structopt(short, long)]
     #[structopt(help = "conf file path")]
     config: Option<String>,
+    
     // 指定服务器所在域，对于单个节点来说，这个配置
     // 是固定的，但是可以将每个节点配置为不同域，这
     // 是一个将节点按命名空间划分的好主意
@@ -34,6 +29,7 @@ pub struct Conf {
     #[structopt(help = "Service realm name")]
     #[serde(default = "default_realm")]
     pub realm: String,
+    
     // 指定节点对外地址和端口，服务器并不会自动推测
     // 这个值，对于将服务对外暴露的情况来说，你需要
     // 手动指定为服务器对外IP地址和服务监听端口
@@ -42,6 +38,7 @@ pub struct Conf {
     #[structopt(help = "Service external address and port")]
     #[serde(default = "default_addr")]
     pub local: SocketAddr,
+    
     // UDP Server绑定的地址和端口，目前不支持同时
     // 绑定多个地址，绑定地址支持ipv4和ipv6
     #[structopt(long)]
@@ -49,6 +46,7 @@ pub struct Conf {
     #[structopt(help = "Service bind address and port")]
     #[serde(default = "default_addr")]
     pub listen: SocketAddr,
+    
     // 指定远程控制服务，控制服务非常重要，脱离它服务
     // 将只具有基本STUN绑定功能，权限认证以及端口分配
     // 等功能都要求与控制中心通信
@@ -57,6 +55,7 @@ pub struct Conf {
     #[structopt(help = "HTTP external URL of the control service")]
     #[serde(default = "default_controls")]
     pub controls: SocketAddr,
+    
     // 缓冲区大小用于确定每个线程池拥有的最大数据分配
     // 大小(byte)，在实际使用中，推荐将这个值配置为4096，
     // 较大的空间将容易应对更复杂的MTU情况，虽然大部分时候
@@ -66,6 +65,7 @@ pub struct Conf {
     #[structopt(help = "UDP read buffer size")]
     #[serde(default = "default_buffer")]
     pub buffer: usize,
+    
     // 默认使用线程池处理UDP数据包，因为UDP存在
     // SysCall来确定并发安全性，所以使用多个线程有
     // 可能并不会带来显著的性能提升，不过设置为CPU
@@ -82,21 +82,6 @@ pub struct Conf {
 /// 参数，配置文件覆盖所有参数配置，同时也
 /// 可以用过 `MYSTICETI_CONFIG` 环境变量
 /// 来设置配置文件路径
-///
-/// # Unit Test
-///
-/// ```test(new)
-/// use super::*;
-/// 
-/// let conf = new().unwrap();
-/// assert_eq!(conf.realm, "localhost".to_string());
-/// assert_eq!(conf.local, "127.0.0.1:3478".parse().unwrap());
-/// assert_eq!(conf.listen, "127.0.0.1:3478".parse().unwrap());
-/// assert_eq!(conf.controls, "127.0.0.1:8080".parse().unwrap());
-/// assert_eq!(conf.threads, None);
-/// assert_eq!(conf.config, None);
-/// assert_eq!(conf.buffer, 1280);
-/// ```
 pub fn new() -> Result<Arc<Conf>> {
     let opt = Conf::from_args();
     Ok(Arc::new(match opt.config {

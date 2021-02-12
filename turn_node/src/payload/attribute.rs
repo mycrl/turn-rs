@@ -59,22 +59,6 @@ pub enum Property<'a> {
 
 impl<'a> Property<'a> {
     /// 将属性序列化为缓冲区
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(as_bytes)
-    /// use super::*;
-    /// use bytes::BytesMut;
-    ///
-    /// let buffer = [
-    ///     0x75u8, 0x73, 0x65, 0x72
-    /// ];
-    ///
-    /// let mut buf = BytesMut::with_capacity(1280);
-    /// let property = Property::UserName("user");
-    /// property.into_bytes(&mut buf, &[]);
-    /// assert_eq!(&buf[..], &buffer);
-    /// ```
     pub fn into_bytes(self, buf: &'a mut BytesMut, t: &[u8]) {
         match self {
             Self::UserName(u) => buf.put(u.as_bytes()),
@@ -97,15 +81,6 @@ impl<'a> Property<'a> {
     }
 
     /// 根据属性获取属性类型
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(get_attr_flag)
-    /// use super::*;
-    ///
-    /// let property = Property::UserName("user");
-    /// assert_eq!(property.attr(), AttrKind::UserName);
-    /// ```
     pub fn attr(&self) -> AttrKind {
         match self {
             Self::UserName(_) => AttrKind::UserName,
@@ -130,23 +105,6 @@ impl<'a> Property<'a> {
 
 impl AttrKind {
     /// 创建属性实例
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(from)
-    /// use super::*;
-    /// use bytes::BytesMut;
-    ///
-    /// let buffer = [
-    ///     0x75u8, 0x73, 0x65, 0x72
-    /// ];
-    /// 
-    /// let mut buf = BytesMut::with_capacity(1280);
-    /// let property = AttrKind::UserName.from(&[], &buffer).unwrap();
-    /// assert_eq!(property, Property::UserName("user"));
-    /// property.into_bytes(&mut buf, &[]);
-    /// assert_eq!(&buf[..], &buffer);
-    /// ```
     #[rustfmt::skip]
     pub fn from<'a>(self, token: &[u8], v: &'a [u8]) -> Result<Property<'a>> {
         Ok(match self {

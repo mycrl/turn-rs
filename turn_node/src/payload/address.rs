@@ -31,43 +31,6 @@ pub const FAMILY_IPV6: u8 = 0x02;
 pub struct Addr(pub Arc<SocketAddr>);
 impl Addr {
     /// 将SocketAddr编码为缓冲区
-    ///
-    /// * 通过指定是否进行XOR处理进行转换
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(as_bytes)
-    /// use super::*;
-    /// use std::sync::Arc;
-    /// use bytes::BytesMut;
-    /// 
-    /// let xor_addr_buf: [u8; 8] = [
-    ///     0x00, 0x01, 0xfc, 0xbe,
-    ///     0xe1, 0xba, 0xa4, 0x29
-    /// ];
-    /// 
-    /// let addr_buf: [u8; 8] = [
-    ///     0x00, 0x01, 0xdd, 0xac, 
-    ///     0xc0, 0xa8, 0x00, 0x6b
-    /// ];
-    /// 
-    /// let token: [u8; 12] = [
-    ///     0x6c, 0x46, 0x62, 0x54,
-    ///     0x75, 0x4b, 0x44, 0x51,
-    ///      0x46, 0x48, 0x4c, 0x71
-    /// ];
-    /// 
-    /// let source = "192.168.0.107:56748".parse().unwrap();
-    /// let addr = Addr(Arc::new(source));
-    /// 
-    /// let mut buffer = BytesMut::with_capacity(1280);
-    /// addr.as_bytes(&token, &mut buffer, true);
-    /// assert_eq!(&xor_addr_buf, &buffer[..]);
-    /// 
-    /// let mut buffer = BytesMut::with_capacity(1280);
-    /// addr.as_bytes(&token, &mut buffer, false);
-    /// assert_eq!(&addr_buf, &buffer[..]);
-    /// ```
     #[rustfmt::skip]
     pub fn as_bytes(&self, token: &[u8], buf: &mut BytesMut, is_xor: bool) {
         buf.put_u8(0);
@@ -94,41 +57,6 @@ impl Addr {
     }
 
     /// 将缓冲区解码为SocketAddr
-    ///
-    /// * 通过指定是否进行XOR处理进行转换
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(try_from)
-    /// use super::*;
-    /// use std::sync::Arc;
-    /// 
-    /// let xor_addr_buf: [u8; 8] = [
-    ///     0x00, 0x01, 0xfc, 0xbe,
-    ///     0xe1, 0xba, 0xa4, 0x29
-    /// ];
-    /// 
-    /// let addr_buf: [u8; 8] = [
-    ///     0x00, 0x01, 0xdd, 0xac, 
-    ///     0xc0, 0xa8, 0x00, 0x6b
-    /// ];
-    /// 
-    /// let token: [u8; 12] = [
-    ///     0x6c, 0x46, 0x62, 0x54,
-    ///     0x75, 0x4b, 0x44, 0x51,
-    ///     0x46, 0x48, 0x4c, 0x71
-    /// ];
-    /// 
-    /// let source = "192.168.0.107:56748"
-    ///     .parse()
-    ///     .unwrap();
-    /// 
-    /// let addr = Addr::try_from(&xor_addr_buf, &token, true).unwrap();
-    /// assert_eq!(addr.addr(), Arc::new(source));
-    /// 
-    /// let addr = Addr::try_from(&addr_buf, &token, false).unwrap();
-    /// assert_eq!(addr.addr(), Arc::new(source));
-    /// ```
     #[rustfmt::skip]
     pub fn try_from(packet: &[u8], token: &[u8], is_xor: bool) -> Result<Self> {
         let port = u16::from_be_bytes([packet[2], packet[3]]);
@@ -149,18 +77,6 @@ impl Addr {
         Ok(Self(addr))
     }
 
-    /// 展开为SocketAddr
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(addr)
-    /// use super::*;
-    /// use std::sync::Arc;
-    /// 
-    /// let source = "192.168.0.107:56748".parse().unwrap();
-    /// let addr = Addr(Arc::new(source));
-    /// assert_eq!(addr.addr(), Arc::new(source));
-    /// ```
     pub fn addr(&self) -> Arc<SocketAddr> {
         self.0.clone()
     }

@@ -1,3 +1,7 @@
+//! 控制服务
+//!
+//! 主要与控制中心服务器进行RPC通信
+
 mod service;
 mod transport;
 
@@ -26,21 +30,6 @@ pub struct Controls {
 }
 
 impl Controls {
-    /// 创建实例
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use super::{
-    ///     config::Conf,
-    ///     state::State,
-    ///     Controls
-    /// };
-    /// 
-    /// let config = config::new();
-    /// let state = State::new();
-    /// let controls = Controls::new(config, state).await?;
-    /// ```
     #[rustfmt::skip]
     pub async fn new(conf: Arc<Conf>, state: Arc<State>) -> Result<Arc<Self>> {
         let socket = TcpStream::connect(conf.controls).await?;
@@ -56,23 +45,11 @@ impl Controls {
 
     /// 获取认证信息
     ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use super::{
-    ///     config::Conf,
-    ///     state::State,
-    ///     Controls
-    /// };
-    /// 
-    /// let config = config::new();
-    /// let state = State::new();
-    /// let controls = Controls::new(config, state).await?;
-    /// let auth = controls.auth("panda", "127.0.0.1:8080".parse()?).await?;
-    /// ```
+    /// 使用用户名与控制中心进行认证，
+    /// 控制中心将返回当前用户的密钥
     #[rustfmt::skip]
     pub async fn auth(&self, u: &str, a: &SocketAddr) -> Result<Auth> {
-        self.inner.call(Trigger::Auth as u8, &AuthRequest {
+        self.inner.call(Service::Auth as u8, &AuthRequest {
             username: u.to_string(),
             addr: *a
         }).await
@@ -81,11 +58,12 @@ impl Controls {
     /// 启动节点信息获取服务
     ///
     /// 控制中心通过指定客户端地址来获取节点信息
+    #[rustfmt::skip]
     async fn run_get_service(self: Arc<Self>) {
         self.inner.clone().bind(Service::Get as u8, move |req: Request| {
             let state = self.state.clone();
             async move {
-                state.base.read().await
+                state.base_table.read().await
                     .get(&req.addr)
                     .map(Node::from)
                     .ok_or_else(|| anyhow!("not found"))
@@ -96,6 +74,7 @@ impl Controls {
     /// 启动节点删除服务
     ///
     /// 控制中心通过指定客户端地址来删除并停止节点
+    #[rustfmt::skip]
     async fn run_remove_service(self: Arc<Self>) {
         self.inner.clone().bind(Service::Remove as u8, move |req: Request| {
             let state = self.state.clone();

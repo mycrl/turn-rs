@@ -50,36 +50,38 @@ pub enum Kind {
 }
 
 /// 负载
-///
-/// * `Message` TURN结构消息
-/// * `ChannelData` 频道数据消息
 pub enum Payload<'a> {
+    /// TURN消息
     Message(Message<'a>),
+    /// 频道数据
     ChannelData(ChannelData<'a>),
 }
 
-/// 频道数据
-///
-/// * `buf` 缓冲区引用
-/// * `number` 频道号
+/// 频道数据 
 pub struct ChannelData<'a> {
+    /// 缓冲区引用
     pub buf: &'a [u8],
+    
+    /// 频道号
     pub number: u16,
 }
 
 /// 消息
-///
-/// * `block` 有效块位置偏移  
-/// * `buffer` 缓冲区引用
-/// * `attributes` 属性列表
-/// * `token` 消息交易ID
-/// * `kind` 消息类型
 #[derive(Debug)]
 pub struct Message<'a> {
+    /// 属性列表
     attributes: Vec<(AttrKind, Property<'a>)>,
+    
+    /// 缓冲区引用
     buffer: &'a [u8],
+    
+    /// 消息交易ID
     token: &'a [u8],
+    
+    /// 有效块位置偏移
     block: u16,
+    
+    /// 消息类型
     pub kind: Kind,
 }
 
@@ -88,25 +90,6 @@ impl<'a> Message<'a> {
     ///
     /// 消息内部交易号保持为一致性，
     /// 引用旧消息交易号创建新的消息
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(from)
-    /// use super::*;
-    /// use super::codec::*;
-    /// 
-    /// let buffer = [
-    ///     0x00u8, 0x01, 0x00, 0x00, 
-    ///     0x21, 0x12, 0xa4, 0x42,
-    ///     0x72, 0x6d, 0x49, 0x42, 
-    ///     0x72, 0x52, 0x64, 0x48,
-    ///     0x57, 0x62, 0x4b, 0x2b
-    /// ];
-    ///   
-    /// let old_message = decode_message(&buffer).unwrap();
-    /// let message = Message::from(Kind::BindingResponse, &old_message);
-    /// assert_eq!(Kind::BindingResponse, message.kind);
-    /// ```
     pub fn from(kind: Kind, old: &Self) -> Self {
         assert_ne!(kind, Kind::Unknown);
         Self {
@@ -118,30 +101,6 @@ impl<'a> Message<'a> {
         }
     }
 
-    /// 依赖旧实例创建新的实例
-    ///
-    /// 消息内部交易号保持为一致性，
-    /// 引用旧消息交易号创建新的消息
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(extends)
-    /// use super::*;
-    /// use super::codec::*;
-    /// 
-    /// let buffer = [
-    ///     0x00u8, 0x01, 0x00, 0x00, 
-    ///     0x21, 0x12, 0xa4, 0x42,
-    ///     0x72, 0x6d, 0x49, 0x42, 
-    ///     0x72, 0x52, 0x64, 0x48,
-    ///     0x57, 0x62, 0x4b, 0x2b
-    /// ];
-    /// 
-    /// let old_message = decode_message(&buffer).unwrap();
-    /// let message = old_message.extends(Kind::BindingResponse);
-    /// 
-    /// assert_eq!(Kind::BindingResponse, message.kind);
-    /// ```
     pub fn extends(&self, kind: Kind) -> Self {
         Self::from(kind, self)
     }
@@ -149,26 +108,6 @@ impl<'a> Message<'a> {
     /// 添加属性
     ///
     /// 添加属性到消息中的属性列表
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(append)
-    /// use super::*;
-    /// use std::convert::TryFrom;
-    /// 
-    /// let buffer = [
-    ///     0x00u8, 0x01, 0x00, 0x00, 
-    ///     0x21, 0x12, 0xa4, 0x42,
-    ///     0x72, 0x6d, 0x49, 0x42, 
-    ///     0x72, 0x52, 0x64, 0x48,
-    ///     0x57, 0x62, 0x4b, 0x2b
-    /// ];
-    /// 
-    /// let old_message = Message::try_from(&buffer[..]).unwrap();
-    /// let mut message = Message::from(Kind::BindingResponse, &old_message);
-    /// message.append(Property::UserName("panda"));
-    /// assert_eq!(message.get(AttrKind::UserName), Some(&Property::UserName("panda")));
-    /// ```
     pub fn append(&mut self, value: Property<'a>) {
         self.attributes.push((value.attr(), value));
     }
@@ -176,26 +115,6 @@ impl<'a> Message<'a> {
     /// 获取属性
     ///
     /// 从消息中的属性列表获取属性
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(get)
-    /// use super::*;
-    /// use std::convert::TryFrom;
-    /// 
-    /// let buffer = [
-    ///     0x00u8, 0x01, 0x00, 0x00, 
-    ///     0x21, 0x12, 0xa4, 0x42,
-    ///     0x72, 0x6d, 0x49, 0x42, 
-    ///     0x72, 0x52, 0x64, 0x48,
-    ///     0x57, 0x62, 0x4b, 0x2b
-    /// ];
-    /// 
-    /// let old_message = Message::try_from(&buffer[..]).unwrap();
-    /// let mut message = Message::from(Kind::BindingResponse, &old_message);
-    /// message.append(Property::UserName("panda"));
-    /// assert_eq!(message.get(AttrKind::UserName), Some(&Property::UserName("panda")));
-    /// ```
     pub fn get(&self, key: AttrKind) -> Option<&Property> {
         self.attributes
             .iter()
@@ -207,87 +126,11 @@ impl<'a> Message<'a> {
     ///
     /// 检查消息中包含的`消息完整性检查`属性
     /// 是否能通过认证
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(verify)
-    /// use super::*;
-    /// use std::convert::TryFrom;
-    /// 
-    /// let buffer = [
-    ///     0x00u8, 0x03, 0x00, 0x50, 
-    ///     0x21, 0x12, 0xa4, 0x42, 
-    ///     0x64, 0x4f, 0x5a, 0x78, 
-    ///     0x6a, 0x56, 0x33, 0x62, 
-    ///     0x4b, 0x52, 0x33, 0x31, 
-    ///     0x00, 0x19, 0x00, 0x04, 
-    ///     0x11, 0x00, 0x00, 0x00, 
-    ///     0x00, 0x06, 0x00, 0x05, 
-    ///     0x70, 0x61, 0x6e, 0x64, 
-    ///     0x61, 0x00, 0x00, 0x00, 
-    ///     0x00, 0x14, 0x00, 0x09, 
-    ///     0x72, 0x61, 0x73, 0x70, 
-    ///     0x62, 0x65, 0x72, 0x72, 
-    ///     0x79, 0x00, 0x00, 0x00, 
-    ///     0x00, 0x15, 0x00, 0x10, 
-    ///     0x31, 0x63, 0x31, 0x33, 
-    ///     0x64, 0x32, 0x62, 0x32, 
-    ///     0x34, 0x35, 0x62, 0x33, 
-    ///     0x61, 0x37, 0x33, 0x34, 
-    ///     0x00, 0x08, 0x00, 0x14,
-    ///     0xd6, 0x78, 0x26, 0x99, 
-    ///     0x0e, 0x15, 0x56, 0x15, 
-    ///     0xe5, 0xf4, 0x24, 0x74, 
-    ///     0xe2, 0x3c, 0x26, 0xc5, 
-    ///     0xb1, 0x03, 0xb2, 0x6d
-    /// ];
-    /// 
-    /// let message = Message::try_from(&buffer[..]).unwrap();
-    /// let result = message.verify(("panda", "panda", "raspberry")).unwrap();
-    /// assert!(result);
-    /// ```
     pub fn verify(&self, auth: Auth) -> Result<bool> {
         codec::assert_integrity(self, auth)
     }
 
     /// 消息编码
-    ///
-    /// # Unit Test
-    ///
-    /// ```test(try_into)
-    /// use super::*;
-    /// use bytes::BytesMut;
-    /// use std::convert::TryFrom;
-    /// 
-    /// let buffer = [
-    ///     0x00u8, 0x01, 0x00, 0x00, 
-    ///     0x21, 0x12, 0xa4, 0x42,
-    ///     0x72, 0x6d, 0x49, 0x42, 
-    ///     0x72, 0x52, 0x64, 0x48,
-    ///     0x57, 0x62, 0x4b, 0x2b
-    /// ];
-    /// 
-    /// let result = [
-    ///     0x00u8, 0x01, 0x00, 0x20,
-    ///     0x21, 0x12, 0xa4, 0x42,
-    ///     0x72, 0x6d, 0x49, 0x42,
-    ///     0x72, 0x52, 0x64, 0x48,
-    ///     0x57, 0x62, 0x4b, 0x2b,
-    ///     0x00, 0x08, 0x00, 0x14,
-    ///     0x45, 0x0e, 0x6e, 0x44,
-    ///     0x52, 0x1e, 0xe8, 0xde,
-    ///     0x2c, 0xf0, 0xfa, 0xb6,
-    ///     0x9c, 0x5c, 0x19, 0x17,
-    ///     0x98, 0xc6, 0xd9, 0xde, 
-    ///     0x80, 0x28, 0x00, 0x04,
-    ///     0xed, 0x41, 0xb6, 0xbe
-    /// ];
-    /// 
-    /// let mut buf = BytesMut::with_capacity(1280);
-    /// let message = Message::try_from(&buffer[..]).unwrap();
-    /// message.try_into(&mut buf, Some(("panda", "panda", "raspberry"))).unwrap();
-    /// assert_eq!(&buf[..], &result);
-    /// ```
     pub fn try_into(self, buf: &mut BytesMut, auth: Option<Auth>) -> Result<()> {
         codec::encode_message(self, buf, auth)
     }
