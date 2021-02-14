@@ -146,8 +146,8 @@ loop {
 
     // skip the attributes that are not supported.
     let dyn_attribute = match AttrKind::try_from(key) {
-        Ok(a) => a,
-        Err(_) => continue
+        Err(_) => continue,
+        Ok(a) => a
     };
 
     // insert attribute to attributes list.

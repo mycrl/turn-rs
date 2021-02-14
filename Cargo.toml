@@ -10,6 +10,7 @@ lto = true
 members = [
     "turn_node",
     "sfu_node",
+    "lib/rtp",
     "lib/stun",
     "lib/transport"
 ]

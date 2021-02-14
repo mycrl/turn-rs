@@ -1,5 +1,5 @@
 <h1 align="center">
-    <img src="./material/logo.svg" width="300px"/>
+    <img src="./.material/logo.svg" width="300px"/>
 </h1>
 <div align="center">
     <strong>Rust ❤️ STUN/TURN Server</strong>

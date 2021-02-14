@@ -1,4 +1,4 @@
-//! Session Traversal Utilities for NAT (STUN)
+//! ## Session Traversal Utilities for NAT (STUN)
 //! 
 //! STUN is intended to be used in the context of one or more NAT
 //! traversal solutions.  These solutions are known as "STUN Usages".
@@ -13,7 +13,7 @@
 //! More information on STUN Usages can be found in 
 //! [Section 13](https://tools.ietf.org/html/rfc8489#section-13).
 //!
-//! STUN Message Structure
+//! ### STUN Message Structure
 //!
 //! ```bash
 //! 0                   1                   2                   3
@@ -29,7 +29,7 @@
 //! +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //! ```
 //! 
-//! STUN Attributes
+//! ### STUN Attributes
 //! 
 //! ```bash
 //! 0                   1                   2                   3
