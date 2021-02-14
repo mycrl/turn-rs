@@ -6,60 +6,86 @@ mod create_permission;
 mod indication;
 mod refresh;
 
-use super::{config::Conf, controls::Controls, state::State};
 use anyhow::Result;
 use bytes::BytesMut;
+use super::{
+    rpc::Rpc,
+    config::Conf,
+    state::State,
+};
 
-use std::{convert::TryFrom, net::SocketAddr, sync::Arc};
+use std::{
+    convert::TryFrom, 
+    net::SocketAddr, 
+    sync::Arc
+};
 
-use crate::payload::{Kind, Message, Payload};
+use stun::{
+    Kind, 
+    Payload,
+    Message,
+};
 
-static SOFTWARE: &str = concat!("Mysticeti ", env!("CARGO_PKG_VERSION"));
+#[rustfmt::skip]
+static SOFTWARE: &str = concat!(
+    "Mysticeti ",
+    env!("CARGO_PKG_VERSION")
+);
 
-pub(crate) type Response<'a> = Option<(&'a [u8], Arc<SocketAddr>)>;
+#[rustfmt::skip]
+pub(crate) type Response<'a> = Option<(
+    &'a [u8],
+    Arc<SocketAddr>
+)>;
 
-/// 上下文
+/// message context
 pub struct Context {
     pub conf: Arc<Conf>,
     pub state: Arc<State>,
-
-    /// 会话端地址
+    pub rpc: Arc<Rpc>,
+    
+    /// client socketaddr
     pub addr: Arc<SocketAddr>,
-    pub controls: Arc<Controls>,
-
-    /// 本地绑定地址
+    
+    /// local bind socketaddr
     pub local: Arc<SocketAddr>,
 }
 
-/// 解复用
+/// process udp message 
+/// and return message + address.
 pub struct Hub {
-    controls: Arc<Controls>,
+    rpc: Arc<Rpc>,
     local: Arc<SocketAddr>,
     conf: Arc<Conf>,
     state: Arc<State>,
 }
 
 impl Hub {
-    pub fn new(c: Arc<Conf>, s: Arc<State>, t: Arc<Controls>) -> Self {
+    #[rustfmt::skip]
+    pub fn new(
+        c: Arc<Conf>, 
+        s: Arc<State>, 
+        t: Arc<Rpc>
+    ) -> Self {
         Self {
             local: Arc::new(c.local),
-            controls: t,
             state: s,
             conf: c,
+            rpc: t,
         }
     }
-
-    /// 处理数据
+    
+    /// process udp data
     ///
-    /// 接收STUN编码的Bytes,
-    /// 并返回任何可以响应的Bytes和目标地址
-    /// Note: 内部隐含了未知编码的处理
-
+    /// receive STUN encoded Bytes, 
+    /// and return any Bytes that can be responded to and the target address.
+    /// Note: unknown message is not process.
+    #[rustfmt::skip]
     pub async fn process<'a>(
-        &self,
-        b: &'a [u8],
-        w: &'a mut BytesMut,
-        a: SocketAddr,
+        &self, 
+        b: &'a [u8], 
+        w: &'a mut BytesMut, 
+        a: SocketAddr
     ) -> Result<Response<'a>> {
         let ctx = Context::from(&self, a);
         Ok(match Payload::try_from(b)? {
@@ -67,17 +93,14 @@ impl Hub {
             Payload::Message(x) => Self::process_message(ctx, x, w).await?,
         })
     }
-
-    /// 处理普通消息
-    ///
-    /// 处理通用STUN编码消息，
-    /// 并返回对应的回复动作
-
+    
+    /// process stun message
+    #[rustfmt::skip]
     #[inline(always)]
     async fn process_message<'a>(
-        ctx: Context,
-        m: Message<'a>,
-        w: &'a mut BytesMut,
+        ctx: Context, 
+        m: Message<'a>, 
+        w: &'a mut BytesMut
     ) -> Result<Response<'a>> {
         match m.kind {
             Kind::BindingRequest => binding::process(ctx, m, w),
@@ -86,40 +109,40 @@ impl Hub {
             Kind::SendIndication => indication::process(ctx, m, w).await,
             Kind::ChannelBindRequest => channel_bind::process(ctx, m, w).await,
             Kind::RefreshRequest => refresh::process(ctx, m, w).await,
-            _ => Ok(None),
+            _ => Ok(None)
         }
     }
 }
 
 impl Context {
-    fn from(h: &Hub, a: SocketAddr) -> Self {
+    fn from( h: &Hub, a: SocketAddr) -> Self {
         Self {
-            controls: h.controls.clone(),
+            rpc: h.rpc.clone(),
             state: h.state.clone(),
             local: h.local.clone(),
             conf: h.conf.clone(),
             addr: Arc::new(a),
         }
     }
-
-    /// 获取认证信息
-    ///
-    /// 认证信息会缓存在实例内部，
-    /// 当没有缓存的时候才会请求控制中心
-
-    pub async fn get_auth(&self, u: &str) -> Option<Arc<String>> {
+    
+    /// the authentication information will be cached inside the state, 
+    /// and the control center will only be requested when there is no cache.
+    #[rustfmt::skip]
+    pub async fn get_password(&self, u: &str) -> Option<Arc<String>> {
         if let Some(a) = self.state.get_password(&self.addr).await {
-            return Some(a);
+            return Some(a)
         }
 
-        let auth = match self.controls.auth(u, &self.addr).await {
+        let auth = match self.rpc.auth(u, &self.addr).await {
             Ok(a) => a,
-            Err(e) => {
-                log::warn!("controls auth err: {}", e);
-                return None;
+            Err(e) => { 
+                // when an error occurs, it is not passed to the caller, 
+                // only a warning message is output here
+                log::warn!("controls auth err: {}", e); 
+                return None 
             }
         };
-
+        
         self.state.insert(self.addr.clone(), &auth).await;
         Some(Arc::new(auth.password))
     }

@@ -1,20 +1,34 @@
-use anyhow::Result;
-use bytes::BytesMut;
-use std::{net::SocketAddr, sync::Arc};
 use tokio::net::UdpSocket;
+use bytes::BytesMut;
+use anyhow::Result;
+use std::{
+    net::SocketAddr, 
+    sync::Arc
+};
 
-use super::{config::Conf, controls::Controls, hub::Hub, state::State};
+use super::{
+    rpc::Rpc,
+    hub::Hub,
+    config::Conf,
+    state::State
+};
 
-/// 线程实例
-pub(crate) struct ThreadContext {
+/// server thread worker.
+pub(crate) struct Worker {
     inner: Arc<UdpSocket>,
     writer: BytesMut,
     reader: Vec<u8>,
     hub: Hub,
 }
 
-impl ThreadContext {
-    pub fn new(s: &Arc<UdpSocket>, f: &Arc<Conf>, c: &Arc<State>, r: &Arc<Controls>) -> Self {
+impl Worker {
+    #[rustfmt::skip]
+    pub fn new(
+        s: &Arc<UdpSocket>,
+        f: &Arc<Conf>, 
+        c: &Arc<State>, 
+        r: &Arc<Rpc>
+    ) -> Self {
         Self {
             hub: Hub::new(f.clone(), c.clone(), r.clone()),
             writer: BytesMut::with_capacity(f.buffer),
@@ -22,43 +36,40 @@ impl ThreadContext {
             inner: s.clone(),
         }
     }
-
-    /// 线程循环
-    ///
-    /// 读取UDP数据包并处理，
-    /// 将回写包发送到指定远端
-
+    
+    /// thread poll.
+    /// 
+    /// read the data packet from the UDP socket and hand 
+    /// it to the hub for processing, and send the processed 
+    /// data packet to the specified address.
+    #[rustfmt::skip]
     pub async fn poll(&mut self) {
         if let Some((size, addr)) = self.read().await {
-            match self
-                .hub
-                .process(&self.reader[..size], &mut self.writer, addr)
-                .await
-            {
+            match self.hub.process(&self.reader[..size], &mut self.writer, addr).await {
                 Ok(Some((b, p))) => Self::send(&self.inner, b, p.as_ref()).await,
-                Err(e) => log::error!("hub err: {}", e),
+                Err(e) => log::error!("remux err: {}", e),
                 _ => (),
-            }
+            }  
         }
     }
 
-    /// 读取UDP数据包
+    /// read data from udp socket.
     ///
-    /// 读取并检查是否未空包
-    /// TODO: 因为tokio udp已知问题，
-    /// 远程主机关闭也会导致读取错误，所以这里
-    /// 忽略任何读取错误，这是不得已的处理办法
+    /// TODO: because tokio udp has some problems, 
+    /// if the remote host is shut down, 
+    /// it will cause reading errors, 
+    /// so any reading errors are ignored here. 
+    /// this is a last resort.
     async fn read(&mut self) -> Option<(usize, SocketAddr)> {
         match self.inner.recv_from(&mut self.reader[..]).await {
-            Ok(r) if r.0 >= 4 => Some(r),
-            _ => None,
+            Ok(r) if r.0 >= 4 => Some(r), 
+            _ => None
         }
     }
-
-    /// 发送UDP数据包
+    
+    /// send UDP data to specified address.
     ///
-    /// 发送数据包到指定远端
-    /// 当发生错误时将直接推出进程
+    /// TODO: if there is an error, it will not recover.
     async fn send(inner: &Arc<UdpSocket>, buf: &[u8], p: &SocketAddr) {
         if let Err(e) = inner.send_to(buf, p).await {
             log::error!("udp io error: {}", e);
@@ -67,29 +78,31 @@ impl ThreadContext {
     }
 }
 
-/// 启动服务器
-///
-/// 启动UDP服务器并创建线程池
-
-pub async fn run(f: Arc<Conf>, c: Arc<State>, r: Arc<Controls>) -> Result<()> {
-    let s = Arc::new(UdpSocket::bind(f.listen).await?);
+/// start UDP server and create thread pool.
+#[rustfmt::skip]
+pub async fn run(f: Arc<Conf>, c: Arc<State>, r: Arc<Rpc>) -> Result<()> {
+    let s = Arc::new(UdpSocket::bind(f.listen).await?); 
     let threads = match f.threads {
         None => num_cpus::get(),
-        Some(s) => s,
+        Some(s) => s
     };
-
+    
     for _ in 0..threads {
-        let mut cx = ThreadContext::new(&s, &f, &c, &r);
+        let mut cx = Worker::new(&s, &f, &c, &r);
         tokio::spawn(async move {
-            loop {
-                cx.poll().await;
-            }
+            loop { cx.poll().await; }
         });
     }
-
-    log::info!("threads size {} is runing", threads);
-
-    log::info!("udp bind to {}", f.listen);
+    
+    log::info!(
+        "threads size {} is runing", 
+        threads
+    );
+    
+    log::info!(
+        "udp bind to {}",
+        f.listen
+    );
 
     Ok(())
 }

@@ -1,18 +1,32 @@
-use super::{Context, Response};
 use anyhow::Result;
 use bytes::BytesMut;
+use super::{
+    Context, 
+    Response
+};
 
-use crate::payload::{AttrKind, ErrKind, Error, Kind, Message, Property};
+use stun::{
+    AttrKind, 
+    ErrKind, 
+    Error, 
+    Kind, 
+    Message, 
+    Property
+};
 
-use crate::payload::ErrKind::{AllocationMismatch, BadRequest, Unauthorized};
+use stun::ErrKind::{
+    BadRequest,
+    Unauthorized,
+    AllocationMismatch,
+};
 
-/// 返回绑定失败响应
+/// return channel binding error response
 #[inline(always)]
 fn reject<'a>(
-    ctx: Context,
-    message: Message<'a>,
+    ctx: Context, 
+    message: Message<'a>, 
     w: &'a mut BytesMut,
-    e: ErrKind,
+    e: ErrKind, 
 ) -> Result<Response<'a>> {
     let mut pack = message.extends(Kind::CreatePermissionError);
     pack.append(Property::ErrorCode(Error::from(e)));
@@ -21,23 +35,21 @@ fn reject<'a>(
     Ok(Some((w, ctx.addr)))
 }
 
-/// 返回绑定成功响应
-///
-/// 根据RFC并不需要任何属性
+/// return channel binding ok response
 #[inline(always)]
 fn resolve<'a>(
-    ctx: &Context,
-    message: &Message,
-    u: &str,
-    p: &str,
-    w: &'a mut BytesMut,
+    ctx: &Context, 
+    message: &Message, 
+    u: &str, 
+    p: &str, 
+    w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     let pack = message.extends(Kind::ChannelBindResponse);
     pack.try_into(w, Some((u, p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
-/// 处理频道绑定请求
+/// process channel binding request
 ///
 /// The server MAY impose restrictions on the IP address and port values
 /// allowed in the XOR-PEER-ADDRESS attribute; if a value is not allowed,
@@ -67,11 +79,7 @@ fn resolve<'a>(
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-pub async fn process<'a>(
-    ctx: Context,
-    m: Message<'a>,
-    w: &'a mut BytesMut,
-) -> Result<Response<'a>> {
+pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get(AttrKind::UserName) {
         Some(Property::UserName(u)) => u,
         _ => return reject(ctx, m, w, Unauthorized),
@@ -81,17 +89,17 @@ pub async fn process<'a>(
         Some(Property::ChannelNumber(c)) => *c,
         _ => return reject(ctx, m, w, BadRequest),
     };
-
+    
     let p = match m.get(AttrKind::XorPeerAddress) {
         Some(Property::XorPeerAddress(a)) => a.addr().port(),
-        _ => return reject(ctx, m, w, BadRequest),
+        _ => return reject(ctx, m, w, BadRequest)
     };
 
     if c < 0x4000 || c > 0x4FFF {
-        return reject(ctx, m, w, BadRequest);
+        return reject(ctx, m, w, BadRequest)
     }
 
-    let key = match ctx.get_auth(u).await {
+    let key = match ctx.get_password(u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -99,12 +107,17 @@ pub async fn process<'a>(
     if !m.verify((u, &key, &ctx.conf.realm))? {
         return reject(ctx, m, w, Unauthorized);
     }
-
+    
     if !ctx.state.insert_channel(ctx.addr.clone(), p, c).await {
         return reject(ctx, m, w, AllocationMismatch);
     }
-
-    log::info!("{:?} [{:?}] bind channel={}", &ctx.addr, u, c);
+    
+    log::info!(
+        "{:?} [{:?}] bind channel={}", 
+        &ctx.addr,
+        u,
+        c
+    );
 
     resolve(&ctx, &m, u, &key, w)
 }

@@ -9,5 +9,7 @@ lto = true
 [workspace]
 members = [
     "turn_node",
-    "sfu_node"
+    "sfu_node",
+    "lib/stun",
+    "lib/transport"
 ]

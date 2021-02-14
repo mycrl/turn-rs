@@ -1,13 +1,22 @@
-use super::{util, Addr, Error};
 use anyhow::Result;
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
+use super::{
+    Addr, 
+    Error,
+    util
+};
 
-use bytes::{BufMut, BytesMut};
+use bytes::{
+    BytesMut,
+    BufMut
+};
 
-/// 属性类型
+/// attribute type.
 #[repr(u16)]
-#[derive(TryFromPrimitive, PartialEq, Eq, Hash, Copy, Clone, Debug)]
+#[derive(TryFromPrimitive)]
+#[derive(PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug)]
 pub enum AttrKind {
     UserName = 0x0006,
     Data = 0x0013,
@@ -27,7 +36,7 @@ pub enum AttrKind {
     ChannelNumber = 0x000C,
 }
 
-/// 消息属性
+/// message attribute.
 #[derive(PartialEq, Eq, Debug)]
 pub enum Property<'a> {
     Data(&'a [u8]),
@@ -49,14 +58,30 @@ pub enum Property<'a> {
 }
 
 impl<'a> Property<'a> {
-    /// 将属性序列化为缓冲区
+    /// message attribute as Bytes.
+    ///
+    /// # Unit Test
+    ///
+    /// ```
+    /// use stun::attribute::*;
+    /// use bytes::BytesMut;
+    ///
+    /// let buffer = [
+    ///     0x75u8, 0x73, 0x65, 0x72
+    /// ];
+    ///
+    /// let mut buf = BytesMut::with_capacity(1280);
+    /// let property = Property::UserName("user");
+    /// property.into_bytes(&mut buf, &[]);
+    /// assert_eq!(&buf[..], &buffer);
+    /// ```
     pub fn into_bytes(self, buf: &'a mut BytesMut, t: &[u8]) {
         match self {
             Self::UserName(u) => buf.put(u.as_bytes()),
             Self::Realm(r) => buf.put(r.as_bytes()),
             Self::Nonce(n) => buf.put(n.as_bytes()),
             Self::XorPeerAddress(addr) => addr.as_bytes(t, buf, true),
-            Self::XorRelayedAddress(addr) => addr.as_bytes(t, buf, true),
+            Self::XorRelayedAddress(addr) => addr.as_bytes(t, buf,true),
             Self::XorMappedAddress(addr) => addr.as_bytes(t, buf, true),
             Self::MappedAddress(addr) => addr.as_bytes(t, buf, false),
             Self::ResponseOrigin(addr) => addr.as_bytes(t, buf, false),
@@ -71,8 +96,17 @@ impl<'a> Property<'a> {
         }
     }
 
-    /// 根据属性获取属性类型
-    pub fn attr(&self) -> AttrKind {
+    /// get attribute type from message attribute.
+    ///
+    /// # Unit Test
+    ///
+    /// ```
+    /// use stun::attribute::*;
+    ///
+    /// let property = Property::UserName("user");
+    /// assert_eq!(property.kind(), AttrKind::UserName);
+    /// ```
+    pub fn kind(&self) -> AttrKind {
         match self {
             Self::UserName(_) => AttrKind::UserName,
             Self::Realm(_) => AttrKind::Realm,
@@ -95,8 +129,25 @@ impl<'a> Property<'a> {
 }
 
 impl AttrKind {
-    /// 创建属性实例
-
+    /// create attribute from attribute type.
+    ///
+    /// # Unit Test
+    ///
+    /// ```
+    /// use stun::attribute::*;
+    /// use bytes::BytesMut;
+    ///
+    /// let buffer = [
+    ///     0x75u8, 0x73, 0x65, 0x72
+    /// ];
+    /// 
+    /// let mut buf = BytesMut::with_capacity(1280);
+    /// let property = AttrKind::UserName.from(&[], &buffer).unwrap();
+    /// assert_eq!(property, Property::UserName("user"));
+    /// property.into_bytes(&mut buf, &[]);
+    /// assert_eq!(&buf[..], &buffer);
+    /// ```
+    #[rustfmt::skip]
     pub fn from<'a>(self, token: &[u8], v: &'a [u8]) -> Result<Property<'a>> {
         Ok(match self {
             Self::UserName => Property::UserName(Self::buf_as_str(v)?),

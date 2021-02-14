@@ -1,15 +1,26 @@
 use super::util;
 use anyhow::ensure;
-use bytes::{BufMut, BytesMut};
 use num_enum::TryFromPrimitive;
+use bytes::{
+    BufMut, 
+    BytesMut
+};
 
-use std::cmp::{Eq, PartialEq};
+use std::cmp::{
+    Eq, 
+    PartialEq
+};
 
-use std::convert::{Into, TryFrom};
+use std::convert::{
+    Into, 
+    TryFrom
+};
 
-/// 错误类型
+/// error type.
 #[repr(u16)]
-#[derive(TryFromPrimitive, PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(TryFromPrimitive)]
+#[derive(PartialEq, Eq)]
+#[derive(Copy, Clone, Debug)]
 pub enum ErrKind {
     TryAlternate = 0x0300,
     BadRequest = 0x0400,
@@ -27,10 +38,7 @@ pub enum ErrKind {
     InsufficientCapacity = 0x0508,
 }
 
-/// 错误
-///
-/// STUN错误类型定义
-/// 用于将语义化错误进行传输
+/// stun message error attribute. 
 #[derive(Clone, Debug)]
 pub struct Error<'a> {
     pub code: u16,
@@ -38,6 +46,15 @@ pub struct Error<'a> {
 }
 
 impl Error<'_> {
+    /// create error from error type.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use stun::error::*;
+    ///
+    /// Error::from(ErrKind::TryAlternate);
+    /// ```
     pub fn from(code: ErrKind) -> Self {
         Self {
             code: code as u16,
@@ -45,7 +62,27 @@ impl Error<'_> {
         }
     }
 
-    /// 将错误类型转为缓冲区
+    /// encode the error type as bytes.
+    ///
+    /// # Unit Test
+    ///
+    /// ```
+    /// use stun::error::*;
+    /// use bytes::BytesMut;
+    ///
+    /// let buffer = [
+    ///     0x00u8, 0x00, 0x03, 0x00,
+    ///     0x54, 0x72, 0x79, 0x20,
+    ///     0x41, 0x6c, 0x74, 0x65,
+    ///     0x72, 0x6e, 0x61, 0x74,
+    ///     0x65
+    /// ];
+    ///
+    /// let mut buf = BytesMut::with_capacity(1280);
+    /// let error = Error::from(ErrKind::TryAlternate);
+    /// error.as_bytes(&mut buf);
+    /// assert_eq!(&buf[..], &buffer);
+    /// ```
     pub fn as_bytes(&self, buf: &mut BytesMut) {
         buf.put_u16(0x0000);
         buf.put_u16(self.code);
@@ -55,11 +92,11 @@ impl Error<'_> {
 
 impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     type Error = anyhow::Error;
-
+    #[rustfmt::skip]
     fn try_from(packet: &'a [u8]) -> Result<Self, Self::Error> {
         ensure!(packet.len() < 6, "buffer len < 6");
         ensure!(util::as_u16(&packet[..2]) != 0x0000, "missing reserved");
-        Ok(Self {
+        Ok(Self { 
             code: util::as_u16(&packet[2..4]),
             message: std::str::from_utf8(&packet[6..])?,
         })

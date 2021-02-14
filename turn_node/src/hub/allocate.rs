@@ -1,20 +1,37 @@
-use super::{Context, Response};
 use anyhow::Result;
 use bytes::BytesMut;
+use super::{ 
+    Context, 
+    Response
+};
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    net::SocketAddr, 
+    sync::Arc
+};
 
-use crate::payload::{Addr, AttrKind, ErrKind, Error, Kind, Message, Property};
+use stun::{
+    Addr, 
+    AttrKind, 
+    ErrKind, 
+    Error, 
+    Kind, 
+    Message, 
+    Property
+};
 
-use crate::payload::ErrKind::{ServerError, Unauthorized};
+use stun::ErrKind::{
+    ServerError,
+    Unauthorized,
+};
 
-/// 返回分配失败响应
+/// return allocate error response
 #[inline(always)]
 async fn reject<'a>(
-    ctx: Context,
+    ctx: Context, 
     message: Message<'a>,
     w: &'a mut BytesMut,
-    e: ErrKind,
+    e: ErrKind, 
 ) -> Result<Response<'a>> {
     let nonce = ctx.state.get_nonce(&ctx.addr).await;
     let mut pack = message.extends(Kind::AllocateError);
@@ -25,7 +42,7 @@ async fn reject<'a>(
     Ok(Some((w, ctx.addr)))
 }
 
-/// 返回分配成功响应
+/// return allocate ok response
 ///
 /// NOTE: The use of randomized port assignments to avoid certain
 /// types of attacks is described in [RFC6056].  It is RECOMMENDED
@@ -54,7 +71,7 @@ async fn resolve<'a>(
     Ok(Some((w, ctx.addr.clone())))
 }
 
-/// 处理分配请求
+/// process allocate request
 ///
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
 ///
@@ -70,22 +87,18 @@ async fn resolve<'a>(
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
-
-pub async fn process<'a>(
-    ctx: Context,
-    m: Message<'a>,
-    w: &'a mut BytesMut,
-) -> Result<Response<'a>> {
+#[rustfmt::skip]
+pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get(AttrKind::UserName) {
         Some(Property::UserName(u)) => u,
         _ => return reject(ctx, m, w, Unauthorized).await,
     };
 
     if m.get(AttrKind::ReqeestedTransport).is_none() {
-        return reject(ctx, m, w, ServerError).await;
+        return reject(ctx, m, w, ServerError).await
     }
 
-    let key = match ctx.get_auth(u).await {
+    let key = match ctx.get_password(u).await {
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };
@@ -94,8 +107,13 @@ pub async fn process<'a>(
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };
-
-    log::info!("{:?} [{:?}] allocate port={}", &ctx.addr, u, port,);
+    
+    log::info!(
+        "{:?} [{:?}] allocate port={}", 
+        &ctx.addr,
+        u,
+        port,
+    );
 
     match m.verify((u, &key, &ctx.conf.realm))? {
         false => reject(ctx, m, w, Unauthorized).await,

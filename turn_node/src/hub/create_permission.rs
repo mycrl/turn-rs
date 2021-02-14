@@ -1,16 +1,30 @@
-use super::{Context, Response};
 use anyhow::Result;
 use bytes::BytesMut;
+use super::{
+    Context, 
+    Response
+};
 
-use crate::payload::{AttrKind, ErrKind, Error, Kind, Message, Property};
+use stun::{
+    AttrKind, 
+    ErrKind, 
+    Error, 
+    Kind, 
+    Message, 
+    Property
+};
 
-use crate::payload::ErrKind::{AllocationMismatch, BadRequest, Unauthorized};
+use stun::ErrKind::{
+    BadRequest,
+    Unauthorized,
+    AllocationMismatch,
+};
 
-/// 返回失败响应
+/// return create permission error response
 #[inline(always)]
 fn reject<'a>(
-    ctx: Context,
-    message: Message<'a>,
+    ctx: Context, 
+    message: Message<'a>, 
     w: &'a mut BytesMut,
     e: ErrKind,
 ) -> Result<Response<'a>> {
@@ -21,24 +35,21 @@ fn reject<'a>(
     Ok(Some((w, ctx.addr)))
 }
 
-/// 返回创建成功响应
-///
-/// TODO: 根据RFC，并无强制规定需要任何属性，
-/// 所以此处简单实现，如果后续需要则添加对应属性
+/// return create permission ok response
 #[inline(always)]
 fn resolve<'a>(
-    ctx: &Context,
-    message: &Message<'a>,
-    u: &str,
-    p: &str,
-    w: &'a mut BytesMut,
+    ctx: &Context, 
+    message: &Message<'a>, 
+    u: &str, 
+    p: &str, 
+    w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     let pack = message.extends(Kind::CreatePermissionResponse);
     pack.try_into(w, Some((u, p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
-/// 处理创建权限请求
+/// process create permission request
 ///
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
 ///
@@ -76,11 +87,7 @@ fn resolve<'a>(
 /// idempotency of CreatePermission requests over UDP using the
 /// "stateless stack approach".  Retransmitted CreatePermission
 /// requests will simply refresh the permissions.
-pub async fn process<'a>(
-    ctx: Context,
-    m: Message<'a>,
-    w: &'a mut BytesMut,
-) -> Result<Response<'a>> {
+pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get(AttrKind::UserName) {
         Some(Property::UserName(u)) => u,
         _ => return reject(ctx, m, w, Unauthorized),
@@ -88,10 +95,10 @@ pub async fn process<'a>(
 
     let p = match m.get(AttrKind::XorPeerAddress) {
         Some(Property::XorPeerAddress(a)) => a.addr().port(),
-        _ => return reject(ctx, m, w, BadRequest),
+        _ => return reject(ctx, m, w, BadRequest)
     };
 
-    let key = match ctx.get_auth(u).await {
+    let key = match ctx.get_password(u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -104,7 +111,12 @@ pub async fn process<'a>(
         return reject(ctx, m, w, AllocationMismatch);
     }
 
-    log::info!("{:?} [{:?}] bind peer={}", &ctx.addr, u, p,);
+    log::info!(
+        "{:?} [{:?}] bind peer={}", 
+        &ctx.addr,
+        u,
+        p,
+    );
 
     resolve(&ctx, &m, u, &key, w)
 }

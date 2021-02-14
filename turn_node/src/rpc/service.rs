@@ -1,40 +1,46 @@
-use crate::state::Node as Base;
-use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+use serde::{
+    Deserialize,
+    Serialize
+};
 
-/// RPC服务定义
+/// RPC service type.
 #[repr(u8)]
 pub enum Service {
-    /// 认证请求
+    /// auth request.
     Auth = 0,
-    /// 获取节点信息
+    /// get node info.
     Get = 1,
-    /// 删除节点
+    /// remove node.
     Remove = 2,
 }
 
-/// 请求
-#[derive(Debug, Deserialize, Serialize)]
+/// universal request.
+#[derive(Debug)]
+#[derive(Deserialize, Serialize)]
 pub struct Request {
-    pub addr: SocketAddr,
+    pub addr: SocketAddr
 }
 
-/// 认证请求
-#[derive(Debug, Deserialize, Serialize)]
+/// auth request.
+#[derive(Debug)]
+#[derive(Deserialize, Serialize)]
 pub struct AuthRequest {
     pub addr: SocketAddr,
-    pub username: String,
+    pub username: String
 }
 
-/// 认证信息
-#[derive(Debug, Deserialize, Serialize)]
+/// auth response.
+#[derive(Debug)]
+#[derive(Deserialize, Serialize)]
 pub struct Auth {
     pub password: String,
     pub group: u32,
 }
 
-/// 节点
-#[derive(Debug, Deserialize, Serialize)]
+/// session node info.
+#[derive(Debug)]
+#[derive(Deserialize, Serialize)]
 pub struct Node {
     pub group: u32,
     pub delay: u64,
@@ -45,7 +51,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn from(n: &Base) -> Self {
+    pub fn from(n: &crate::state::Node) -> Self {
         Self {
             clock: n.clock.elapsed().as_secs(),
             password: n.password.to_string(),

@@ -1,7 +1,10 @@
-use super::{Context, Response};
-use crate::payload::ChannelData;
+use stun::ChannelData;
+use super::{
+    Context, 
+    Response
+};
 
-/// 处理频道消息
+/// process channel data
 ///
 /// If the ChannelData message is received on a channel that is not bound
 /// to any peer, then the message is silently discarded.

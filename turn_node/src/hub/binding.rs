@@ -1,10 +1,19 @@
-use crate::payload::{Addr, Kind, Message, Property};
 use anyhow::Result;
 use bytes::BytesMut;
+use stun::{
+    Addr, 
+    Kind, 
+    Message, 
+    Property
+};
 
-use super::{Context, Response, SOFTWARE};
+use super::{
+    Context, 
+    Response,
+    SOFTWARE
+};
 
-/// 处理绑定请求
+/// process binding request
 ///
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
 ///
