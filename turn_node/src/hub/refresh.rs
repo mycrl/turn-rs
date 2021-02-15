@@ -84,6 +84,7 @@ pub fn resolve<'a>(
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
+#[rustfmt::skip]
 pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get(AttrKind::UserName) {
         Some(Property::UserName(u)) => u,

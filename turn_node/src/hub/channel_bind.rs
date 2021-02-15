@@ -79,6 +79,7 @@ fn resolve<'a>(
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
+#[rustfmt::skip]
 pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get(AttrKind::UserName) {
         Some(Property::UserName(u)) => u,

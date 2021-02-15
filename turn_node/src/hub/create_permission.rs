@@ -87,6 +87,7 @@ fn resolve<'a>(
 /// idempotency of CreatePermission requests over UDP using the
 /// "stateless stack approach".  Retransmitted CreatePermission
 /// requests will simply refresh the permissions.
+#[rustfmt::skip]
 pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get(AttrKind::UserName) {
         Some(Property::UserName(u)) => u,

@@ -65,7 +65,7 @@ pub fn decode_message<'a>(buffer: &'a [u8]) -> Result<Message<'a>> {
     let mut effective_block = 0;
 
     // message type
-    let kind = Kind::try_from(util::as_u16(&buffer[..2]))
+    let kind = Kind::try_from(convert::as_u16(&buffer[..2]))
         .unwrap_or(Kind::Unknown);
     
     // when the message type is not supported, 
@@ -76,7 +76,7 @@ pub fn decode_message<'a>(buffer: &'a [u8]) -> Result<Message<'a>> {
 
     // message size
     // magic cookie
-    let size = util::as_u16(&buffer[2..4]) as usize;
+    let size = convert::as_u16(&buffer[2..4]) as usize;
     let cookie = u32::from_be_bytes([
         buffer[4],
         buffer[5],
@@ -95,7 +95,7 @@ pub fn decode_message<'a>(buffer: &'a [u8]) -> Result<Message<'a>> {
     
 loop {
 
-    // if the length is not long enough to continue, 
+    // if the buf length is not long enough to continue, 
     // jump out of the loop.
     if count_size - offset < 4 {
         break;
@@ -420,10 +420,8 @@ pub fn assert_integrity(payload: &Message<'_>, auth: Auth) -> Result<bool> {
 pub fn decode_channel(buf: &[u8]) -> Result<ChannelData<'_>> {
     let len = buf.len();
     ensure!(len >= 4, "data len < 4");
-    let size = util::as_u16(&buf[2..4]) as usize;
+    let size = convert::as_u16(&buf[2..4]) as usize;
     ensure!(size <= len - 4, "data body len < size");
-    Ok(ChannelData {
-        number: util::as_u16(&buf[..2]),
-        buf,
-    })
+    let number = convert::as_u16(&buf[..2]);
+    Ok(ChannelData { number, buf })
 }

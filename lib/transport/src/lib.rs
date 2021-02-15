@@ -281,15 +281,9 @@ impl Rpc {
         }
 
         // get message size.
-        let size = u32::from_be_bytes([
-            buf[0],
-            buf[1],
-            buf[2],
-            buf[3]
-        ]) as usize;
-
         // check the buffer size and confirm 
         // whether the message has arrived completely.
+        let size = convert::as_u32(&buf[0..4]) as usize;
         if size + 10 > buf.len() {
             break;
         }

@@ -3,8 +3,7 @@ use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 use super::{
     Addr, 
-    Error,
-    util
+    Error
 };
 
 use bytes::{
@@ -158,12 +157,12 @@ impl AttrKind {
             Self::XorMappedAddress => Property::XorMappedAddress(Addr::try_from(v, token, true)?),
             Self::MappedAddress => Property::MappedAddress(Addr::try_from(v, token, false)?),
             Self::ResponseOrigin => Property::ResponseOrigin(Addr::try_from(v, token, false)?),
-            Self::Fingerprint => Property::Fingerprint(util::as_u32(v)),
-            Self::ChannelNumber => Property::ChannelNumber(util::as_u16(v)),
+            Self::Fingerprint => Property::Fingerprint(convert::as_u32(v)),
+            Self::ChannelNumber => Property::ChannelNumber(convert::as_u16(v)),
             Self::Software => Property::Software(Self::buf_as_str(v)?),
             Self::MessageIntegrity => Property::MessageIntegrity(v),
             Self::ErrorAttrKind => Property::ErrorCode(Error::try_from(v)?),
-            Self::Lifetime => Property::Lifetime(util::as_u32(v)),
+            Self::Lifetime => Property::Lifetime(convert::as_u32(v)),
             Self::ReqeestedTransport => Property::ReqeestedTransport,
             Self::Data => Property::Data(v),
         })

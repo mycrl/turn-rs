@@ -12,5 +12,6 @@ members = [
     "sfu_node",
     "lib/rtp",
     "lib/stun",
+    "lib/convert",
     "lib/transport"
 ]

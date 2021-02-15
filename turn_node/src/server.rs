@@ -30,9 +30,9 @@ impl Worker {
         r: &Arc<Rpc>
     ) -> Self {
         Self {
-            hub: Hub::new(f.clone(), c.clone(), r.clone()),
             writer: BytesMut::with_capacity(f.buffer),
             reader: vec![0u8; f.buffer],
+            hub: Hub::new(f, c, r),
             inner: s.clone(),
         }
     }

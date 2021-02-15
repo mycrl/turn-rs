@@ -1,5 +1,5 @@
 use bitreader::BitReader;
-use anyhow::anyhow;
+use anyhow::ensure;
 use std::convert::{
     TryFrom,
     Into,
@@ -107,12 +107,10 @@ pub struct Header {
 impl<'a> TryFrom<&'a [u8]> for Header {
     type Error = anyhow::Error;
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
-        assert!(buf.len() >= 12);
+        ensure!(buf.len() >= 12, "buf len < 12");
         
-        if buf.len() < 12 {
-            return Err(anyhow!("buf len < 12"))
-        }
-        
+        // create bit reader,
+        //  and get basic header attribute.
         let mut reader = BitReader::new(buf);
         let version = reader.read_u8(2)?;
         let padding = reader.read_u8(1)? == 1;
@@ -121,38 +119,22 @@ impl<'a> TryFrom<&'a [u8]> for Header {
         let marker = reader.read_u8(1)? == 1;
         let payload_kind = reader.read_u8(7)?;
         
-        if buf.len() < (12 + ((csrc_count as usize) * 4)) {
-            return Err(anyhow!("buf length is too short"))
-        }
+        // if the buf size is not long 
+        // enough to continue, return a error.
+        let min_size = 12 + ((csrc_count as usize) * 4);
+        ensure!(buf.len() >= min_size, "buf len is too short");
         
-        let sequence_number = u16::from_be_bytes([
-            buf[2],
-            buf[3]
-        ]);
+        // get header attribute.
+        let sequence_number = convert::as_u16(&buf[2..4]);
+        let timestamp = convert::as_u32(&buf[4..8]);
+        let ssrc = convert::as_u32(&buf[8..12]);
         
-        let timestamp = u32::from_be_bytes([
-            buf[4],
-            buf[5],
-            buf[6],
-            buf[7]
-        ]);
-        
-        let ssrc = u32::from_be_bytes([
-            buf[8],
-            buf[9],
-            buf[10],
-            buf[11]
-        ]);
-        
+        // get csrc list from csrc count attribute.
         let mut csrc_list = Vec::new();
-        for index in 0..(csrc_count as usize) {
-            let offset = index * 4;
-            csrc_list.push(u32::from_be_bytes([
-                buf[12 + offset],
-                buf[13 + offset],
-                buf[14 + offset],
-                buf[15 + offset]
-            ]));
+        for i in 0..(csrc_count as usize) {
+            csrc_list.push(convert::as_u32(
+                &buf[12 + (i * 4)..]
+            ));
         }
         
         Ok(Self {

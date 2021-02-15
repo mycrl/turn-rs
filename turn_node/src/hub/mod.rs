@@ -61,17 +61,12 @@ pub struct Hub {
 }
 
 impl Hub {
-    #[rustfmt::skip]
-    pub fn new(
-        c: Arc<Conf>, 
-        s: Arc<State>, 
-        t: Arc<Rpc>
-    ) -> Self {
+    pub fn new(c: &Arc<Conf>, s: &Arc<State>, t: &Arc<Rpc>) -> Self {
         Self {
             local: Arc::new(c.local),
-            state: s,
-            conf: c,
-            rpc: t,
+            state: s.clone(),
+            conf: c.clone(),
+            rpc: t.clone(),
         }
     }
     
@@ -115,7 +110,7 @@ impl Hub {
 }
 
 impl Context {
-    fn from( h: &Hub, a: SocketAddr) -> Self {
+    fn from(h: &Hub, a: SocketAddr) -> Self {
         Self {
             rpc: h.rpc.clone(),
             state: h.state.clone(),

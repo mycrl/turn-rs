@@ -1,6 +1,5 @@
-use super::util;
-use anyhow::ensure;
 use num_enum::TryFromPrimitive;
+use anyhow::ensure;
 use bytes::{
     BufMut, 
     BytesMut
@@ -92,18 +91,45 @@ impl Error<'_> {
 
 impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     type Error = anyhow::Error;
+    /// # Unit Test
+    ///
+    /// ```
+    /// use stun::error::*;
+    /// use std::convert::TryFrom;
+    ///
+    /// let buffer = [
+    ///     0x00u8, 0x00, 0x03, 0x00,
+    ///     0x54, 0x72, 0x79, 0x20,
+    ///     0x41, 0x6c, 0x74, 0x65,
+    ///     0x72, 0x6e, 0x61, 0x74,
+    ///     0x65
+    /// ];
+    ///
+    /// let error = Error::try_from(&buffer[..]).unwrap();
+    /// assert_eq!(error.code, ErrKind::TryAlternate as u16);
+    /// assert_eq!(error.message, "Try Alternate");
+    /// ```
     #[rustfmt::skip]
     fn try_from(packet: &'a [u8]) -> Result<Self, Self::Error> {
-        ensure!(packet.len() < 6, "buffer len < 6");
-        ensure!(util::as_u16(&packet[..2]) != 0x0000, "missing reserved");
+        ensure!(packet.len() >= 4, "buffer len < 4");
+        ensure!(convert::as_u16(&packet[..2]) == 0x0000, "missing reserved");
         Ok(Self { 
-            code: util::as_u16(&packet[2..4]),
-            message: std::str::from_utf8(&packet[6..])?,
+            code: convert::as_u16(&packet[2..4]),
+            message: std::str::from_utf8(&packet[4..])?,
         })
     }
 }
 
 impl Into<&'static str> for ErrKind {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use stun::error::*;
+    /// use std::convert::Into;
+    /// 
+    /// let err: &'static str = ErrKind::TryAlternate.into();
+    /// assert_eq!(err, "Try Alternate");
+    /// ```
     fn into(self) -> &'static str {
         match self {
             Self::TryAlternate => "Try Alternate",

@@ -81,6 +81,7 @@ use extension::Extension;
 /// |                                                                   |
 /// +- Encrypted Portion*                      Authenticated Portion ---+
 /// ```
+#[derive(Debug, Clone)]
 pub struct SecureRtp {
     pub header: Header,
     pub extension: Option<Extension>,

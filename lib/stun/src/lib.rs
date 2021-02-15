@@ -322,6 +322,24 @@ impl<'a> Message<'a> {
 }
 
 impl<'a> TryFrom<&'a [u8]> for Message<'a> {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use stun::*;
+    /// use std::convert::TryFrom;
+    /// 
+    /// let buffer: [u8; 20] = [
+    ///     0x00, 0x01, 0x00, 0x00, 
+    ///     0x21, 0x12, 0xa4, 0x42,
+    ///     0x72, 0x6d, 0x49, 0x42, 
+    ///     0x72, 0x52, 0x64, 0x48,
+    ///     0x57, 0x62, 0x4b, 0x2b
+    /// ];
+    ///         
+    /// let message = Message::try_from(&buffer[..]).unwrap();
+    /// assert_eq!(message.kind, Kind::BindingRequest);
+    /// assert_eq!(message.get(AttrKind::UserName), None);
+    /// ```
     type Error = anyhow::Error;
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
         codec::decode_message(buf)
@@ -329,6 +347,19 @@ impl<'a> TryFrom<&'a [u8]> for Message<'a> {
 }
 
 impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use stun::*;
+    /// use std::convert::TryFrom;
+    /// 
+    /// let buffer: [u8; 4] = [
+    ///     0x00, 0x01, 0x00, 0x00
+    /// ];
+    ///         
+    /// let data = ChannelData::try_from(&buffer[..]).unwrap();
+    /// assert_eq!(data.number, 1);
+    /// ```
     type Error = anyhow::Error;
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
         codec::decode_channel(buf)

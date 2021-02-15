@@ -35,6 +35,7 @@ use super::{
 /// attribute within the body of the STUN response will remain untouched.
 /// In this way, the client can learn its reflexive transport address
 /// allocated by the outermost NAT with respect to the STUN server.
+#[rustfmt::skip]
 pub fn process<'a>(ctx: Context, payload: Message, w: &'a mut BytesMut) -> Result<Response<'a>> {
     log::info!("{:?} request binding", &ctx.addr);
     let mut pack = payload.extends(Kind::BindingResponse);
