@@ -7,5 +7,3 @@ edition = "2018"
 [dependencies]
 bytes = "1"
 anyhow = "1.0"
-bitreader = "0.3.3"
-convert = { path = "../convert" }

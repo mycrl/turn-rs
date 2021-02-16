@@ -180,7 +180,7 @@ impl State {
     /// allocate channel to node.
     #[rustfmt::skip]
     pub async fn insert_channel(&self, a: Addr, p: u16, channel: u16) -> bool {
-        assert!(channel >= 0x4000 && channel <= 0x4FFF);
+        assert!((0x4000..=0x4FFF).contains(&channel));
         let mut base = self.base_table.write().await;
         let node = match base.get_mut(&a) {
             Some(n) => n,
@@ -247,7 +247,7 @@ impl State {
     /// get peer channel.
     #[rustfmt::skip]
     pub async fn reflect_from_channel(&self, a: &Addr, channel: u16) -> Option<Addr> {
-        assert!(channel >= 0x4000 && channel <= 0x4FFF);
+        assert!((0x4000..=0x4FFF).contains(&channel));
         self.channel_table.read().await.get(
             &UniqueChannel(a.clone(), channel)
         ).cloned()

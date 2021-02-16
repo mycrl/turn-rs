@@ -7,6 +7,7 @@ use bytes::{
 
 use anyhow::{
     anyhow, 
+    ensure,
     Result
 };
 
@@ -126,7 +127,11 @@ impl Addr {
     /// ```
     #[rustfmt::skip]
     pub fn try_from(packet: &[u8], token: &[u8], is_xor: bool) -> Result<Self> {
-        let port = u16::from_be_bytes([packet[2], packet[3]]);
+        ensure!(packet.len() >= 4, "buf len < 4");
+        let port = u16::from_be_bytes([
+            packet[2], 
+            packet[3]
+        ]);
 
         let ip_addr = match packet[1] {
             FAMILY_IPV4 => from_bytes_v4(packet)?,
@@ -170,12 +175,14 @@ impl PartialEq for Addr {
 
 /// Bytes as IpAddrV4.
 fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr> {
+    ensure!(packet.len() >= 8, "buf len < 8");
     let buf: [u8; 4] = packet[4..8].try_into()?;
     Ok(IpAddr::V4(buf.into()))
 }
 
 /// Bytes as IpAddrV6.
 fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr> {
+    ensure!(packet.len() >= 20, "buf len < 20");
     let buf: [u8; 16] = packet[4..20].try_into()?;
     Ok(IpAddr::V6(buf.into()))
 }

@@ -1,8 +1,10 @@
-use bitreader::BitReader;
+use std::convert::TryFrom;
 use anyhow::ensure;
-use std::convert::{
-    TryFrom,
-    Into,
+use bytes::{
+    BytesMut,
+    // BufMut,
+    Bytes,
+    Buf
 };
 
 /// RTP Header.
@@ -104,38 +106,66 @@ pub struct Header {
     pub csrc_list: Vec<u32>,
 }
 
-impl<'a> TryFrom<&'a [u8]> for Header {
+impl Header {
+    pub fn into(self, _buf: &mut BytesMut) {
+        
+    }
+}
+
+impl<'a> TryFrom<&'a mut Bytes> for Header {
     type Error = anyhow::Error;
-    fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use bytes::Bytes;
+    /// use rtp::header::Header;
+    /// use std::convert::TryFrom;
+    ///
+    /// let mut buffer = Bytes::from_static(&[
+    ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
+    ///     0x9d, 0xfc
+    /// ]);
+    /// 
+    /// let header = Header::try_from(&mut buffer).unwrap();
+    /// assert_eq!(header.version, 2);
+    /// assert_eq!(header.padding, false);
+    /// assert_eq!(header.extension, true);
+    /// assert_eq!(header.csrc_count, 0);
+    /// assert_eq!(header.marker, false);
+    /// assert_eq!(header.payload_kind, 114);
+    /// assert_eq!(header.sequence_number, 1265);
+    /// assert_eq!(header.timestamp, 4169613229);
+    /// assert_eq!(header.ssrc, 1744739836);
+    /// assert_eq!(header.csrc_list.len(), 0);
+    /// ```
+    #[rustfmt::skip]
+    fn try_from(buf: &'a mut Bytes) -> Result<Self, Self::Error> {
         ensure!(buf.len() >= 12, "buf len < 12");
         
         // create bit reader,
-        //  and get basic header attribute.
-        let mut reader = BitReader::new(buf);
-        let version = reader.read_u8(2)?;
-        let padding = reader.read_u8(1)? == 1;
-        let extension = reader.read_u8(1)? == 1;
-        let csrc_count = reader.read_u8(4)?;
-        let marker = reader.read_u8(1)? == 1;
-        let payload_kind = reader.read_u8(7)?;
+        // and get basic header attribute.
+        let version = buf[0] >> 6;
+        let padding = ((buf[0] >> 5) & 1) == 1;
+        let extension = ((buf[0] >> 4) & 1) == 1;
+        let csrc_count = buf[0] & 15;
+        let marker = (buf[1] >> 7) == 1;
+        let payload_kind = buf[1] & 0x7F;
         
         // if the buf size is not long 
         // enough to continue, return a error.
-        let min_size = 12 + ((csrc_count as usize) * 4);
-        ensure!(buf.len() >= min_size, "buf len is too short");
+        let size = 10 + (csrc_count as usize * 4);
+        ensure!(buf.len() >= size, "buf len is too short");
+        buf.advance(2);
         
         // get header attribute.
-        let sequence_number = convert::as_u16(&buf[2..4]);
-        let timestamp = convert::as_u32(&buf[4..8]);
-        let ssrc = convert::as_u32(&buf[8..12]);
+        let sequence_number = buf.get_u16();
+        let timestamp = buf.get_u32();
+        let ssrc = buf.get_u32();
         
         // get csrc list from csrc count attribute.
-        let mut csrc_list = Vec::new();
-        for i in 0..(csrc_count as usize) {
-            csrc_list.push(convert::as_u32(
-                &buf[12 + (i * 4)..]
-            ));
-        }
+        let csrc_list = (0..csrc_count as usize)
+            .map(|_| buf.get_u32())
+            .collect::<Vec<u32>>();
         
         Ok(Self {
             ssrc,

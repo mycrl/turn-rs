@@ -57,7 +57,7 @@ const UNKNOWN_PAYLOAD: Message = Message {
 /// assert_eq!(message.get(AttrKind::UserName), None);
 /// ```
 #[rustfmt::skip]
-pub fn decode_message<'a>(buffer: &'a [u8]) -> Result<Message<'a>> {
+pub fn decode_message(buffer: &[u8]) -> Result<Message<'_>> {
     ensure!(buffer.len() >= 20, "message len < 20");
     let count_size = buffer.len();
     let mut attributes = Vec::new();
@@ -365,8 +365,8 @@ pub fn append_integrity(buffer: &mut BytesMut, auth: Auth) -> Result<()> {
 /// ```
 #[rustfmt::skip]
 pub fn assert_integrity(payload: &Message<'_>, auth: Auth) -> Result<bool> {
-    assert!(!payload.buffer.is_empty());
-    assert!(payload.effective_block > 20);
+    ensure!(!payload.buffer.is_empty(), "buf is empty");
+    ensure!(payload.effective_block > 20, "buf is empty");
 
     // unwrap MessageIntegrity attribute,
     // an error occurs if not found.

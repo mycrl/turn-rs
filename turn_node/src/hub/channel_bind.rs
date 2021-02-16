@@ -96,7 +96,7 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         _ => return reject(ctx, m, w, BadRequest)
     };
 
-    if c < 0x4000 || c > 0x4FFF {
+    if !(0x4000..=0x4FFF).contains(&c) {
         return reject(ctx, m, w, BadRequest)
     }
 

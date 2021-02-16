@@ -72,7 +72,8 @@ impl Rpc {
         self.inner.clone().bind(Service::Remove as u8, move |req: Request| {
             let state = self.state.clone();
             async move {
-                Ok(state.remove(&Arc::new(req.addr)).await)
+                state.remove(&Arc::new(req.addr)).await;
+                Ok(())
             }
         }).await
     }

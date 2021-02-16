@@ -32,57 +32,89 @@
 pub mod header;
 pub mod extension;
 
+use bytes::Bytes;
 use header::Header;
 use extension::Extension;
+use std::convert::TryFrom;
 
-/// Secure RTP
-///
-/// RTP is the Real-time Transport Protocol 
-/// [RFC3550](https://tools.ietf.org/html/rfc3550).  
-/// We define SRTP as a profile of RTP.  This profile is an extension 
-/// to the RTP Audio/Video Profile [RFC3551](https://tools.ietf.org/html/rfc3551).  
-/// Except where explicitly noted, all aspects of that profile apply, 
-/// with the addition of the SRTP security features.  Conceptually, 
-/// we consider SRTP to be a "bump in the stack" implementation which 
-/// resides between the RTP application and the transport layer.  
-/// SRTP intercepts RTP packets and then forwards an equivalent SRTP 
-/// packet on the sending side, and intercepts SRTP packets and passes 
-/// an equivalent RTP packet up the stack on the receiving side.
-/// 
-/// Secure RTCP (SRTCP) provides the same security services to RTCP as
-/// SRTP does to RTP.  SRTCP message authentication is MANDATORY and
-/// thereby protects the RTCP fields to keep track of membership, provide
-/// feedback to RTP senders, or maintain packet sequence counters.  SRTCP
-/// is described in [Section 3.4](https://tools.ietf.org/html/rfc3711#section-3.4).
+/// ### RTP Data Transfer Protocol
 ///
 /// ```bash
-///     0                   1                   2                   3
-///   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-///   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+<+
-///   |V=2|P|X|  CC   |M|     PT      |       sequence number         | |
-///   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ |
-///   |                           timestamp                           | |
-///   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ |
-///   |           synchronization source (SSRC) identifier            | |
-///   +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+ |
-///   |            contributing source (CSRC) identifiers             | |
-///   |                               ....                            | |
-///   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ |
-///   |                   RTP extension (OPTIONAL)                    | |
-/// +>+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ |
-/// | |                          payload  ...                         | |
-/// | |                               +-------------------------------+ |
-/// | |                               | RTP padding   | RTP pad count | |
-/// +>+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+<+
-/// | ~                     SRTP MKI (OPTIONAL)                       ~ |
-/// | +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ |
-/// | :                 authentication tag (RECOMMENDED)              : |
-/// | +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ |
-/// |                                                                   |
-/// +- Encrypted Portion*                      Authenticated Portion ---+
+///   0                   1                   2                   3
+///  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |V=2|P|X|  CC   |M|     PT      |       sequence number         |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |                           timestamp                           |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |           synchronization source (SSRC) identifier            |
+/// +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+/// |            contributing source (CSRC) identifiers             |
+/// |                             ....                              |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
 #[derive(Debug, Clone)]
-pub struct SecureRtp {
+pub struct Rtp<'a> {
     pub header: Header,
     pub extension: Option<Extension>,
+    pub payload: &'a [u8],
+}
+
+impl<'a> TryFrom<&'a [u8]> for Rtp<'a> {
+    type Error = anyhow::Error;
+    /// # Unit Test
+    ///
+    /// ```
+    /// use rtp::Rtp;
+    /// use std::convert::TryFrom;
+    ///
+    /// let buffer = [
+    ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
+    ///     0x9d, 0xfc, 0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
+    ///     0x41, 0x00, 0x8b, 0x00, 0x60, 0x90, 0x80, 0xab, 0x35, 0x51
+    /// ];
+    ///
+    /// let payload = [
+    ///     0x60, 0x90, 0x80, 0xab, 0x35, 0x51
+    /// ];
+    /// 
+    /// let rtp = Rtp::try_from(&buffer[..]).unwrap();
+    /// assert_eq!(rtp.header.version, 2);
+    /// assert_eq!(rtp.header.padding, false);
+    /// assert_eq!(rtp.header.extension, true);
+    /// assert_eq!(rtp.header.csrc_count, 0);
+    /// assert_eq!(rtp.header.marker, false);
+    /// assert_eq!(rtp.header.payload_kind, 114);
+    /// assert_eq!(rtp.header.sequence_number, 1265);
+    /// assert_eq!(rtp.header.timestamp, 4169613229);
+    /// assert_eq!(rtp.header.ssrc, 1744739836);
+    /// assert_eq!(rtp.header.csrc_list.len(), 0);
+    ///
+    /// let extension = rtp.extension.unwrap();
+    /// assert_eq!(extension.kind, 48862);
+    /// assert_eq!(extension.data.len(), 2);
+    /// assert_eq!(extension.data[0], 576434995);
+    /// assert_eq!(extension.data[1], 1090554624);
+    ///
+    /// assert_eq!(rtp.payload, &payload);
+    /// ```
+    #[rustfmt::skip]
+    fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
+        let mut bytes = Bytes::from_static(unsafe {
+            std::mem::transmute(buf)
+        });
+
+        let header = Header::try_from(&mut bytes)?;
+        let extension = if header.extension {
+            Some(Extension::try_from(&mut bytes)?)
+        } else {
+            None 
+        };
+
+        Ok(Self {
+            header,
+            extension,
+            payload: &buf[buf.len() - bytes.len()..],
+        })
+    }
 }

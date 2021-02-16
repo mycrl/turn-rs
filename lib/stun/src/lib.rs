@@ -322,6 +322,7 @@ impl<'a> Message<'a> {
 }
 
 impl<'a> TryFrom<&'a [u8]> for Message<'a> {
+    type Error = anyhow::Error;
     /// # Unit Test
     ///
     /// ```
@@ -340,13 +341,13 @@ impl<'a> TryFrom<&'a [u8]> for Message<'a> {
     /// assert_eq!(message.kind, Kind::BindingRequest);
     /// assert_eq!(message.get(AttrKind::UserName), None);
     /// ```
-    type Error = anyhow::Error;
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
         codec::decode_message(buf)
     }
 }
 
 impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
+    type Error = anyhow::Error;
     /// # Unit Test
     ///
     /// ```
@@ -360,7 +361,6 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     /// let data = ChannelData::try_from(&buffer[..]).unwrap();
     /// assert_eq!(data.number, 1);
     /// ```
-    type Error = anyhow::Error;
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
         codec::decode_channel(buf)
     }
