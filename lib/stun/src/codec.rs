@@ -21,12 +21,13 @@ use bytes::{
 };
 
 const ZOER_BUF: [u8; 10] = [0u8; 10];
+const FIXED_COOKIE: [u8; 4] = [0x21, 0x12, 0xA4, 0x42];
 const UNKNOWN_PAYLOAD: Message = Message {
     kind: Kind::Unknown,
     attributes: vec![],
-    buffer: &[],
-    token: &[],
     effective_block: 0,
+    buffer: &[],
+    token: &[]
 };
 
 /// decoder stun message
@@ -75,18 +76,10 @@ pub fn decode_message(buffer: &[u8]) -> Result<Message<'_>> {
     }
 
     // message size
-    // magic cookie
-    let size = convert::as_u16(&buffer[2..4]) as usize;
-    let cookie = u32::from_be_bytes([
-        buffer[4],
-        buffer[5],
-        buffer[6],
-        buffer[7]
-    ]);
-
-    // check fixed cookie
+    // check fixed magic cookie
     // check if the message size is overflow
-    ensure!(cookie == 0x2112A442, "missing cookie");
+    let size = convert::as_u16(&buffer[2..4]) as usize;
+    ensure!(&buffer[4..8] == &FIXED_COOKIE[..], "missing cookie");
     ensure!(count_size >= size + 20, "missing len");
 
     // get transaction id

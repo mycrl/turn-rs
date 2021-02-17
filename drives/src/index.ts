@@ -107,8 +107,7 @@ export const DefaultConf: MysticetiOptions = {
 }
 
 // Mysticeti
-//
-// 双工流，对流添加RPC支持
+// @desc 双工流，对流添加RPC支持
 // @class
 export default class Mysticeti extends Duplex {
     private listener: { [key: number]: Handler<any, any> }
