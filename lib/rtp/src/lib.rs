@@ -32,10 +32,14 @@
 pub mod header;
 pub mod extension;
 
-use bytes::Bytes;
 use header::Header;
 use extension::Extension;
 use std::convert::TryFrom;
+use bytes::{
+    BytesMut,
+    BufMut,
+    Bytes
+};
 
 /// ### RTP Data Transfer Protocol
 ///
@@ -60,6 +64,62 @@ pub struct Rtp<'a> {
     pub payload: &'a [u8],
 }
 
+impl<'a> Rtp<'a> {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use rtp::Rtp;
+    /// use bytes::BytesMut;
+    /// use rtp::header::Header;
+    /// use rtp::extension::Extension;
+    ///
+    /// let buffer = [
+    ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
+    ///     0x9d, 0xfc, 0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
+    ///     0x41, 0x00, 0x8b, 0x00, 0x60, 0x90, 0x80, 0xab, 0x35, 0x51
+    /// ];
+    ///
+    /// let payload = [
+    ///     0x60, 0x90, 0x80, 0xab, 0x35, 0x51
+    /// ];
+    ///
+    /// let mut writer = BytesMut::new();
+    /// let header = Header {
+    ///     version: 2,
+    ///     padding: false,
+    ///     extension: true,
+    ///     marker: false,
+    ///     payload_kind: 114,
+    ///     sequence_number: 1265,
+    ///     timestamp: 4169613229,
+    ///     ssrc: 1744739836,
+    ///     csrc_list: Vec::new(),
+    /// };
+    /// 
+    /// let extension = Some(Extension {
+    ///     data: vec![576434995, 1090554624],
+    ///     kind: 48862,
+    /// });
+    /// 
+    /// let rtp = Rtp {
+    ///     header,
+    ///     extension,
+    ///     payload: &payload[..]
+    /// };
+    /// 
+    /// rtp.into(&mut writer);
+    /// assert_eq!(&writer[..], &buffer[..]);
+    /// ```
+    pub fn into(self, buf: &mut BytesMut) {
+        self.header.into(buf);
+        if let Some(e) = self.extension {
+            e.into(buf);
+        }
+
+        buf.put(self.payload);
+    }
+}
+
 impl<'a> TryFrom<&'a [u8]> for Rtp<'a> {
     type Error = anyhow::Error;
     /// # Unit Test
@@ -82,7 +142,6 @@ impl<'a> TryFrom<&'a [u8]> for Rtp<'a> {
     /// assert_eq!(rtp.header.version, 2);
     /// assert_eq!(rtp.header.padding, false);
     /// assert_eq!(rtp.header.extension, true);
-    /// assert_eq!(rtp.header.csrc_count, 0);
     /// assert_eq!(rtp.header.marker, false);
     /// assert_eq!(rtp.header.payload_kind, 114);
     /// assert_eq!(rtp.header.sequence_number, 1265);

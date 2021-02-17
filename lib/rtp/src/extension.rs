@@ -80,16 +80,12 @@ impl<'a> TryFrom<&'a mut Bytes> for Extension {
     fn try_from(buf: &'a mut Bytes) -> Result<Self, Self::Error> {
         ensure!(buf.len() >= 4, "buf len < 4");
         
-        // get extension type and body size.
         let kind = buf.get_u16();
         let count = buf.get_u16() as usize;
         
-        // if the buf size is not long 
-        // enough to continue, return a error.
         let is_overflow = buf.len() >= count * 4;
         ensure!(is_overflow, "buf len is too short");
         
-        // get extension list.
         let data = (0..count)
             .map(|_| buf.get_u32())
             .collect::<Vec<u32>>();

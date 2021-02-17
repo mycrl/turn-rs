@@ -2,10 +2,21 @@ use std::convert::TryFrom;
 use anyhow::ensure;
 use bytes::{
     BytesMut,
-    // BufMut,
+    BufMut,
     Bytes,
     Buf
 };
+
+const MARKER_MASK: u8 = 0b10000000;
+const VERSION_MASK: u8 = 0b11000000;
+const PADDING_MASK: u8 = 0b00100000;
+const EXTENSION_MASK: u8 = 0b00010000;
+const CSRC_COUNT_MASK: u8 = 0b00001111;
+const PAYLOAD_KIND_MASK: u8 = 0b01111111;
+
+const LE_VERSION_MASK: u8 = !VERSION_MASK;
+const LE_CSRC_COUNT_MASK: u8 = !CSRC_COUNT_MASK;
+const LE_PAYLOAD_KIND_MASK: u8 = !PAYLOAD_KIND_MASK;
 
 /// RTP Header.
 ///
@@ -43,9 +54,6 @@ pub struct Header {
     /// If the extension bit is set, the fixed header MUST be followed by
     /// exactly one header extension.
     pub extension: bool,
-    /// The CSRC count contains the number of CSRC identifiers that follow
-    /// the fixed header.
-    pub csrc_count: u8,
     /// The interpretation of the marker is defined by a profile.  It is
     /// intended to allow significant events such as frame boundaries to
     /// be marked in the packet stream.  A profile MAY define additional
@@ -107,8 +115,54 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn into(self, _buf: &mut BytesMut) {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    /// use rtp::header::Header;
+    ///
+    /// let buffer = [
+    ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
+    ///     0x9d, 0xfc
+    /// ];
+    /// 
+    /// let mut writer = BytesMut::new();
+    /// let header = Header {
+    ///     version: 2,
+    ///     padding: false,
+    ///     extension: true,
+    ///     marker: false,
+    ///     payload_kind: 114,
+    ///     sequence_number: 1265,
+    ///     timestamp: 4169613229,
+    ///     ssrc: 1744739836,
+    ///     csrc_list: Vec::new(),
+    /// };
+    /// 
+    /// 
+    /// header.into(&mut writer);
+    /// assert_eq!(&writer[..], &buffer[..]);
+    /// ```
+    #[rustfmt::skip]
+    pub fn into(self, buf: &mut BytesMut) {
+        let mut basic = [0u8; 2];
         
+        basic[0] = (basic[0] & LE_VERSION_MASK) | (self.version << 6);
+        basic[0] = if self.padding { basic[0] | 1 << 5 } else { basic[0] & !(1 << 5) };
+        basic[0] = if self.extension { basic[0] | 1 << 4 } else { basic[0] & !(1 << 4) };
+        basic[0] = (basic[0] & LE_CSRC_COUNT_MASK) | ((self.csrc_list.len() as u8) << 0);
+        
+        basic[1] = if self.marker { basic[1] | 1 << 4 } else { basic[1] & !(1 << 4) };
+        basic[1] = (basic[1] & LE_PAYLOAD_KIND_MASK) | (self.payload_kind << 0);
+        
+        buf.put(&basic[..]);
+        buf.put_u16(self.sequence_number);
+        buf.put_u32(self.timestamp);
+        buf.put_u32(self.ssrc);
+        
+        for item in self.csrc_list {
+            buf.put_u32(item);
+        }
     }
 }
 
@@ -130,7 +184,6 @@ impl<'a> TryFrom<&'a mut Bytes> for Header {
     /// assert_eq!(header.version, 2);
     /// assert_eq!(header.padding, false);
     /// assert_eq!(header.extension, true);
-    /// assert_eq!(header.csrc_count, 0);
     /// assert_eq!(header.marker, false);
     /// assert_eq!(header.payload_kind, 114);
     /// assert_eq!(header.sequence_number, 1265);
@@ -142,28 +195,22 @@ impl<'a> TryFrom<&'a mut Bytes> for Header {
     fn try_from(buf: &'a mut Bytes) -> Result<Self, Self::Error> {
         ensure!(buf.len() >= 12, "buf len < 12");
         
-        // create bit reader,
-        // and get basic header attribute.
-        let version = buf[0] >> 6;
-        let padding = ((buf[0] >> 5) & 1) == 1;
-        let extension = ((buf[0] >> 4) & 1) == 1;
-        let csrc_count = buf[0] & 15;
-        let marker = (buf[1] >> 7) == 1;
-        let payload_kind = buf[1] & 0x7F;
+        let version = (buf[0] & VERSION_MASK) >> 6;
+        let padding = ((buf[0] & PADDING_MASK) >> 5) == 1;
+        let extension = ((buf[0] & EXTENSION_MASK) >> 4) == 1;
+        let csrc_count = (buf[0] & CSRC_COUNT_MASK) as usize;
+        let marker = ((buf[1] & MARKER_MASK) >> 7) == 1;
+        let payload_kind = buf[1] & PAYLOAD_KIND_MASK;
         
-        // if the buf size is not long 
-        // enough to continue, return a error.
-        let size = 10 + (csrc_count as usize * 4);
+        let size = 10 + (csrc_count * 4);
         ensure!(buf.len() >= size, "buf len is too short");
         buf.advance(2);
         
-        // get header attribute.
         let sequence_number = buf.get_u16();
         let timestamp = buf.get_u32();
         let ssrc = buf.get_u32();
         
-        // get csrc list from csrc count attribute.
-        let csrc_list = (0..csrc_count as usize)
+        let csrc_list = (0..csrc_count)
             .map(|_| buf.get_u32())
             .collect::<Vec<u32>>();
         
@@ -175,7 +222,6 @@ impl<'a> TryFrom<&'a mut Bytes> for Header {
             csrc_list,
             extension,
             timestamp,
-            csrc_count,
             payload_kind,
             sequence_number,
         })
