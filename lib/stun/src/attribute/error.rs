@@ -20,7 +20,7 @@ use std::convert::{
 #[derive(TryFromPrimitive)]
 #[derive(PartialEq, Eq)]
 #[derive(Copy, Clone, Debug)]
-pub enum ErrKind {
+pub enum Kind {
     TryAlternate = 0x0300,
     BadRequest = 0x0400,
     Unauthorized = 0x0401,
@@ -50,11 +50,11 @@ impl Error<'_> {
     /// # Example
     ///
     /// ```no_run
-    /// use stun::error::*;
+    /// use stun::attribute::*;
     ///
     /// Error::from(ErrKind::TryAlternate);
     /// ```
-    pub fn from(code: ErrKind) -> Self {
+    pub fn from(code: Kind) -> Self {
         Self {
             code: code as u16,
             message: code.into(),
@@ -66,7 +66,7 @@ impl Error<'_> {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::error::*;
+    /// use stun::attribute::*;
     /// use bytes::BytesMut;
     ///
     /// let buffer = [
@@ -79,10 +79,10 @@ impl Error<'_> {
     ///
     /// let mut buf = BytesMut::with_capacity(1280);
     /// let error = Error::from(ErrKind::TryAlternate);
-    /// error.as_bytes(&mut buf);
+    /// error.into(&mut buf);
     /// assert_eq!(&buf[..], &buffer);
     /// ```
-    pub fn as_bytes(&self, buf: &mut BytesMut) {
+    pub fn into(self, buf: &mut BytesMut) {
         buf.put_u16(0x0000);
         buf.put_u16(self.code);
         buf.put(self.message.as_bytes());
@@ -94,7 +94,7 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::error::*;
+    /// use stun::attribute::*;
     /// use std::convert::TryFrom;
     ///
     /// let buffer = [
@@ -120,11 +120,11 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     }
 }
 
-impl Into<&'static str> for ErrKind {
+impl Into<&'static str> for Kind {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::error::*;
+    /// use stun::attribute::*;
     /// use std::convert::Into;
     /// 
     /// let err: &'static str = ErrKind::TryAlternate.into();

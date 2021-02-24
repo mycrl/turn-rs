@@ -1,5 +1,4 @@
 use std::convert::TryInto;
-use std::sync::Arc;
 use bytes::{
     BufMut, 
     BytesMut
@@ -9,11 +8,6 @@ use anyhow::{
     anyhow, 
     ensure,
     Result
-};
-
-use std::cmp::{
-    Eq, 
-    PartialEq
 };
 
 use std::net::{
@@ -27,16 +21,14 @@ use std::net::{
 pub const FAMILY_IPV4: u8 = 0x01;
 pub const FAMILY_IPV6: u8 = 0x02;
 
-#[derive(Debug)]
-pub struct Addr(pub Arc<SocketAddr>);
+pub struct Addr;
 impl Addr {
     /// encoder SocketAddr as Bytes.
     ///
     /// # Unit Test
     ///
     /// ```
-    /// use stun::address::*;
-    /// use std::sync::Arc;
+    /// use stun::attribute::*;
     /// use bytes::BytesMut;
     /// 
     /// let xor_addr_buf: [u8; 8] = [
@@ -56,23 +48,22 @@ impl Addr {
     /// ];
     /// 
     /// let source = "192.168.0.107:56748".parse().unwrap();
-    /// let addr = Addr(Arc::new(source));
     /// 
     /// let mut buffer = BytesMut::with_capacity(1280);
-    /// addr.as_bytes(&token, &mut buffer, true);
+    /// Addr::into(&source, &token, &mut buffer, true);
     /// assert_eq!(&xor_addr_buf, &buffer[..]);
     /// 
     /// let mut buffer = BytesMut::with_capacity(1280);
-    /// addr.as_bytes(&token, &mut buffer, false);
+    /// Addr::into(&source, &token, &mut buffer, false);
     /// assert_eq!(&addr_buf, &buffer[..]);
     /// ```
     #[rustfmt::skip]
-    pub fn as_bytes(&self, token: &[u8], buf: &mut BytesMut, is_xor: bool) {
+    pub fn into(a: &SocketAddr, token: &[u8], buf: &mut BytesMut, is_xor: bool) {
         buf.put_u8(0);
         let xor_addr = if is_xor { 
-            Arc::new(xor(self.0.as_ref(), token))
+            xor(a, token)
         } else { 
-            self.0.clone()
+            a.clone()
         };
 
         buf.put_u8(if xor_addr.is_ipv4() {
@@ -96,8 +87,7 @@ impl Addr {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::address::*;
-    /// use std::sync::Arc;
+    /// use stun::attribute::*;
     /// 
     /// let xor_addr_buf: [u8; 8] = [
     ///     0x00, 0x01, 0xfc, 0xbe,
@@ -120,13 +110,13 @@ impl Addr {
     ///     .unwrap();
     /// 
     /// let addr = Addr::try_from(&xor_addr_buf, &token, true).unwrap();
-    /// assert_eq!(addr.addr(), Arc::new(source));
+    /// assert_eq!(addr, source);
     /// 
     /// let addr = Addr::try_from(&addr_buf, &token, false).unwrap();
-    /// assert_eq!(addr.addr(), Arc::new(source));
+    /// assert_eq!(addr, source);
     /// ```
     #[rustfmt::skip]
-    pub fn try_from(packet: &[u8], token: &[u8], is_xor: bool) -> Result<Self> {
+    pub fn try_from(packet: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr> {
         ensure!(packet.len() >= 4, "buf len < 4");
         let port = u16::from_be_bytes([
             packet[2], 
@@ -140,36 +130,11 @@ impl Addr {
         };
 
         let dyn_addr = SocketAddr::new(ip_addr, port);
-        let addr = Arc::new(if is_xor { 
+        Ok(if is_xor { 
             xor(&dyn_addr, token) 
         } else { 
             dyn_addr 
-        });
-
-        Ok(Self(addr))
-    }
-
-    /// get inner SocketAddr.
-    ///
-    /// # Unit Test
-    ///
-    /// ```
-    /// use stun::address::*;
-    /// use std::sync::Arc;
-    /// 
-    /// let source = "192.168.0.107:56748".parse().unwrap();
-    /// let addr = Addr(Arc::new(source));
-    /// assert_eq!(addr.addr(), Arc::new(source));
-    /// ```
-    pub fn addr(&self) -> Arc<SocketAddr> {
-        self.0.clone()
-    }
-}
-
-impl Eq for Addr {}
-impl PartialEq for Addr {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        })
     }
 }
 

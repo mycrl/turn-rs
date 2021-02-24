@@ -6,15 +6,22 @@ use super::{
 };
 
 use stun::{
-    AttrKind, 
-    ErrKind, 
-    Error, 
     Kind, 
-    Message, 
-    Property
+    MessageReader,
+    MessageWriter
 };
 
-use stun::ErrKind::{
+use stun::attribute::{
+    ErrKind,
+    Error,
+    ErrorCode,
+    Realm,
+    UserName,
+    ChannelNumber,
+    XorPeerAddress
+};
+
+use stun::attribute::ErrKind::{
     BadRequest,
     Unauthorized,
     AllocationMismatch,
@@ -24,14 +31,14 @@ use stun::ErrKind::{
 #[inline(always)]
 fn reject<'a>(
     ctx: Context, 
-    message: Message<'a>, 
+    m: MessageReader<'a>, 
     w: &'a mut BytesMut,
     e: ErrKind, 
 ) -> Result<Response<'a>> {
-    let mut pack = message.extends(Kind::CreatePermissionError);
-    pack.append(Property::ErrorCode(Error::from(e)));
-    pack.append(Property::Realm(&ctx.conf.realm));
-    pack.try_into(w, None)?;
+    let mut pack = MessageWriter::derive(Kind::CreatePermissionError, &m, w);
+    pack.append::<ErrorCode>(Error::from(e));
+    pack.append::<Realm>(&ctx.conf.realm);
+    pack.try_into(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -39,13 +46,13 @@ fn reject<'a>(
 #[inline(always)]
 fn resolve<'a>(
     ctx: &Context, 
-    message: &Message, 
+    m: &MessageReader, 
     u: &str, 
     p: &str, 
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
-    let pack = message.extends(Kind::ChannelBindResponse);
-    pack.try_into(w, Some((u, p, &ctx.conf.realm)))?;
+    MessageWriter::derive(Kind::ChannelBindResponse, m, w)
+        .try_into(Some((u, p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -80,19 +87,19 @@ fn resolve<'a>(
 /// transaction would initially fail but succeed on a
 /// retransmission.
 #[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
-    let u = match m.get(AttrKind::UserName) {
-        Some(Property::UserName(u)) => u,
+pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+    let u = match m.get::<UserName>() {
+        Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized),
     };
 
-    let c = match m.get(AttrKind::ChannelNumber) {
-        Some(Property::ChannelNumber(c)) => *c,
+    let c = match m.get::<ChannelNumber>() {
+        Some(c) => c?,
         _ => return reject(ctx, m, w, BadRequest),
     };
     
-    let p = match m.get(AttrKind::XorPeerAddress) {
-        Some(Property::XorPeerAddress(a)) => a.addr().port(),
+    let p = match m.get::<XorPeerAddress>() {
+        Some(a) => a?.port(),
         _ => return reject(ctx, m, w, BadRequest)
     };
 
@@ -105,7 +112,7 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         Some(a) => a,
     };
 
-    if !m.verify((u, &key, &ctx.conf.realm))? {
+    if m.integrity((u, &key, &ctx.conf.realm)).is_err() {
         return reject(ctx, m, w, Unauthorized);
     }
     

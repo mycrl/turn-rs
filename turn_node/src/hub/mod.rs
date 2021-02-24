@@ -23,7 +23,7 @@ use std::{
 use stun::{
     Kind, 
     Payload,
-    Message,
+    MessageReader,
 };
 
 #[rustfmt::skip]
@@ -43,10 +43,8 @@ pub struct Context {
     pub conf: Arc<Conf>,
     pub state: Arc<State>,
     pub rpc: Arc<Rpc>,
-    
     /// client socketaddr
     pub addr: Arc<SocketAddr>,
-    
     /// local bind socketaddr
     pub local: Arc<SocketAddr>,
 }
@@ -94,7 +92,7 @@ impl Hub {
     #[inline(always)]
     async fn process_message<'a>(
         ctx: Context, 
-        m: Message<'a>, 
+        m: MessageReader<'a>, 
         w: &'a mut BytesMut
     ) -> Result<Response<'a>> {
         match m.kind {

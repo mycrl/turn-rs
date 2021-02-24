@@ -1,16 +1,22 @@
 use anyhow::Result;
 use bytes::BytesMut;
 use stun::{
-    Addr, 
     Kind, 
-    Message, 
-    Property
+    MessageReader,
+    MessageWriter,
 };
 
 use super::{
     Context, 
     Response,
     SOFTWARE
+};
+
+use stun::attribute::{
+    XorMappedAddress,
+    MappedAddress,
+    ResponseOrigin,
+    Software
 };
 
 /// process binding request
@@ -36,13 +42,13 @@ use super::{
 /// In this way, the client can learn its reflexive transport address
 /// allocated by the outermost NAT with respect to the STUN server.
 #[rustfmt::skip]
-pub fn process<'a>(ctx: Context, payload: Message, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub fn process<'a>(ctx: Context, payload: MessageReader, w: &'a mut BytesMut) -> Result<Response<'a>> {
     log::info!("{:?} request binding", &ctx.addr);
-    let mut pack = payload.extends(Kind::BindingResponse);
-    pack.append(Property::XorMappedAddress(Addr(ctx.addr.clone())));
-    pack.append(Property::MappedAddress(Addr(ctx.addr.clone())));
-    pack.append(Property::ResponseOrigin(Addr(ctx.local.clone())));
-    pack.append(Property::Software(SOFTWARE));
-    pack.try_into(w, None)?;
+    let mut pack = MessageWriter::derive(Kind::BindingResponse, &payload, w);
+    pack.append::<XorMappedAddress>(ctx.addr.as_ref().clone());
+    pack.append::<MappedAddress>(ctx.addr.as_ref().clone());
+    pack.append::<ResponseOrigin>(ctx.local.as_ref().clone());
+    pack.append::<Software>(SOFTWARE);
+    pack.try_into(None)?;
     Ok(Some((w, ctx.addr)))
 }

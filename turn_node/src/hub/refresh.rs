@@ -1,4 +1,3 @@
-use stun::ErrKind::Unauthorized;
 use bytes::BytesMut;
 use anyhow::Result;
 use super::{
@@ -7,25 +6,31 @@ use super::{
 };
 
 use stun::{
-    AttrKind, 
-    ErrKind, 
-    Error, 
     Kind, 
-    Message, 
-    Property
+    MessageReader,
+    MessageWriter
+};
+
+use stun::attribute::{
+    ErrKind::Unauthorized,
+    ErrKind,
+    Error,
+    ErrorCode,
+    Lifetime,
+    UserName
 };
 
 /// return refresh error response
 #[inline(always)]
 fn reject<'a>(
     ctx: Context, 
-    message: Message<'a>, 
+    m: MessageReader<'a>, 
     w: &'a mut BytesMut, 
     e: ErrKind
 ) -> Result<Response<'a>> {
-    let mut pack = message.extends(Kind::RefreshError);
-    pack.append(Property::ErrorCode(Error::from(e)));
-    pack.try_into(w, None)?;
+    let mut pack = MessageWriter::derive(Kind::RefreshError, &m, w);
+    pack.append::<ErrorCode>(Error::from(e));
+    pack.try_into(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -33,15 +38,15 @@ fn reject<'a>(
 #[inline(always)]
 pub fn resolve<'a>(
     ctx: &Context, 
-    message: &Message<'a>, 
+    m: &MessageReader<'a>, 
     lifetime: u32,
     u: &str,
     p: &str,
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
-    let mut pack = message.extends(Kind::RefreshResponse);
-    pack.append(Property::Lifetime(lifetime));
-    pack.try_into(w, Some((u, p, &ctx.conf.realm)))?;
+    let mut pack = MessageWriter::derive(Kind::RefreshResponse, m , w);
+    pack.append::<Lifetime>(lifetime);
+    pack.try_into(Some((u, p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -85,14 +90,14 @@ pub fn resolve<'a>(
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
 #[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
-    let u = match m.get(AttrKind::UserName) {
-        Some(Property::UserName(u)) => u,
+pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+    let u = match m.get::<UserName>() {
+        Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized),
     };
 
-    let l = match m.get(AttrKind::Lifetime) {
-        Some(Property::Lifetime(l)) => *l,
+    let l = match m.get::<Lifetime>() {
+        Some(l) => l?,
         _ => 600,
     };
 
@@ -101,7 +106,7 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         Some(a) => a,
     };
 
-    if !m.verify((u, &key, &ctx.conf.realm))? {
+    if m.integrity((u, &key, &ctx.conf.realm)).is_err() {
         return reject(ctx, m, w, Unauthorized);
     }
     

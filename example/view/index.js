@@ -6,7 +6,7 @@ const TURN_OPTIONS = {
 }
 
 const OPTIONS = {
-    // iceTransportPolicy: "relay",
+    iceTransportPolicy: "relay",
     iceServers: [TURN_OPTIONS]
 }
 

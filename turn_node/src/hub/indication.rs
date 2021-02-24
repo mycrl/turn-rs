@@ -10,12 +10,15 @@ use super::{
     Response
 };
 
-use stun::{
-    Addr, 
+use stun::{ 
     Kind, 
-    AttrKind,
-    Message, 
-    Property
+    MessageReader, 
+    MessageWriter
+};
+
+use stun::attribute::{
+    XorPeerAddress,
+    Data
 };
 
 /// process send indication request
@@ -63,14 +66,14 @@ use stun::{
 /// 
 /// The resulting UDP datagram is then sent to the peer.
 #[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
-    let pp = match m.get(AttrKind::XorPeerAddress) {
-        Some(Property::XorPeerAddress(x)) => x.addr().port(),
+pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+    let pp = match m.get::<XorPeerAddress>() {
+        Some(x) => x?.port(),
         _ => return Ok(None),
     };
     
-    let d = match m.get(AttrKind::Data) {
-        Some(Property::Data(x)) => x,
+    let d = match m.get::<Data>() {
+        Some(x) => x?,
         _ => return Ok(None),
     };
 
@@ -85,9 +88,9 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
     };
 
     let s = Arc::new(SocketAddr::new(ctx.local.ip(), p));
-    let mut pack = m.extends(Kind::DataIndication);
-    pack.append(Property::XorPeerAddress(Addr(s)));
-    pack.append(Property::Data(*d));
-    pack.try_into(w, None)?;
+    let mut pack = MessageWriter::derive(Kind::DataIndication, &m, w);
+    pack.append::<XorPeerAddress>(s.as_ref().clone());
+    pack.append::<Data>(d);
+    pack.try_into(None)?;
     Ok(Some((w, a)))
 }

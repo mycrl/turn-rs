@@ -11,34 +11,44 @@ use std::{
 };
 
 use stun::{
-    Addr, 
-    AttrKind, 
-    ErrKind, 
-    Error, 
-    Kind, 
-    Message, 
-    Property
+    MessageReader,
+    MessageWriter,
+    Kind
 };
 
-use stun::ErrKind::{
-    ServerError,
+use stun::attribute::{
+    Error,
+    ErrKind,
+    ErrorCode,
+    Realm,
+    Nonce,
+    ReqeestedTransport,
+    XorMappedAddress,
+    XorRelayedAddress,
+    ResponseOrigin,
+    Lifetime,
+    UserName
+};
+
+use stun::attribute::ErrKind::{
     Unauthorized,
+    ServerError
 };
 
 /// return allocate error response
 #[inline(always)]
 async fn reject<'a>(
     ctx: Context, 
-    message: Message<'a>,
+    m: MessageReader<'a>,
     w: &'a mut BytesMut,
     e: ErrKind, 
 ) -> Result<Response<'a>> {
     let nonce = ctx.state.get_nonce(&ctx.addr).await;
-    let mut pack = message.extends(Kind::AllocateError);
-    pack.append(Property::ErrorCode(Error::from(e)));
-    pack.append(Property::Realm(&ctx.conf.realm));
-    pack.append(Property::Nonce(&nonce));
-    pack.try_into(w, None)?;
+    let mut pack = MessageWriter::derive(Kind::AllocateError, &m, w);
+    pack.append::<ErrorCode>(Error::from(e));
+    pack.append::<Realm>(&ctx.conf.realm);
+    pack.append::<Nonce>(&nonce);
+    pack.try_into(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -55,19 +65,19 @@ async fn reject<'a>(
 #[inline(always)]
 async fn resolve<'a>(
     ctx: &Context,
-    message: &Message<'a>,
+    m: &MessageReader<'a>,
     u: &str,
     p: &str,
     port: u16,
     w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
     let alloc_addr = Arc::new(SocketAddr::new(ctx.local.ip(), port));
-    let mut pack = message.extends(Kind::AllocateResponse);
-    pack.append(Property::XorRelayedAddress(Addr(alloc_addr)));
-    pack.append(Property::XorMappedAddress(Addr(ctx.addr.clone())));
-    pack.append(Property::ResponseOrigin(Addr(ctx.local.clone())));
-    pack.append(Property::Lifetime(600));
-    pack.try_into(w, Some((u, &p, &ctx.conf.realm)))?;
+    let mut pack = MessageWriter::derive(Kind::AllocateResponse, m, w);
+    pack.append::<XorRelayedAddress>(alloc_addr.as_ref().clone());
+    pack.append::<XorMappedAddress>(ctx.addr.as_ref().clone());
+    pack.append::<ResponseOrigin>(ctx.local.as_ref().clone());
+    pack.append::<Lifetime>(600);
+    pack.try_into(Some((u, &p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -88,13 +98,13 @@ async fn resolve<'a>(
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
 #[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
-    let u = match m.get(AttrKind::UserName) {
-        Some(Property::UserName(u)) => u,
+pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+    let u = match m.get::<UserName>() {
+        Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized).await,
     };
 
-    if m.get(AttrKind::ReqeestedTransport).is_none() {
+    if m.get::<ReqeestedTransport>().is_none() {
         return reject(ctx, m, w, ServerError).await
     }
 
@@ -115,8 +125,8 @@ pub async fn process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> R
         port,
     );
 
-    match m.verify((u, &key, &ctx.conf.realm))? {
-        false => reject(ctx, m, w, Unauthorized).await,
-        true => resolve(&ctx, &m, u, &key, port, w).await,
+    match m.integrity((u, &key, &ctx.conf.realm)) {
+        Err(_) => reject(ctx, m, w, Unauthorized).await,
+        Ok(_) => resolve(&ctx, &m, u, &key, port, w).await,
     }
 }

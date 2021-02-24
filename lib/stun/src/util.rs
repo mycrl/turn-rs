@@ -1,7 +1,15 @@
-use crc::crc32;
 use hmac::crypto_mac::Output;
-use hmac::{Hmac, Mac, NewMac};
-use anyhow::{anyhow, Result};
+use crc::crc32;
+use hmac::{
+    NewMac,
+    Hmac, 
+    Mac,
+};
+
+use anyhow::{
+    anyhow, 
+    Result
+};
 
 /// compute padding size.
 ///
