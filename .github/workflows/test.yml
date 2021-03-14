@@ -1,4 +1,4 @@
-name: Mysticeti Test
+name: Auto testing
 on:
   push:
     branches: [main]

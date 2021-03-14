@@ -8,10 +8,10 @@ lto = true
 
 [workspace]
 members = [
-    "turn_node",
-    "sfu_node",
+    "turn",
+    "webrtc_base",
+    "lib/sdp",
     "lib/rtp",
-    "lib/dtls",
     "lib/srtp",
     "lib/stun",
     "lib/convert",

@@ -22,14 +22,14 @@ The project is currently being developed by myself and is expected to be a long-
 
 ### Roadmap
 
-- [x] STUN [lib/stun](./lib/stun)
-- [x] TURN [turn_node](./turn_node)
-- [x] RTP [lib/rtp](./lib/rtp)
-- [ ] SRTP [lib/srtp](./lib/srtp)
-- [ ] DTLS [lib/dtls](./lib/dtls)
+- [x] STUN
+- [x] TURN
+- [x] RTP
+- [ ] SRTP
+- [ ] DTLS
 - [ ] SDP
 - [ ] ICE
-- [ ] SFU [sfu_node](./sfu_node)
+- [ ] SFU
 - [ ] MCU
 
 
