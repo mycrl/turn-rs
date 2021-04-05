@@ -28,7 +28,7 @@ use stun::{
 
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
-    "Mysticeti ",
+    env!("CARGO_PKG_NAME"), "-",
     env!("CARGO_PKG_VERSION")
 );
 

@@ -10,10 +10,10 @@ use std::{
 
 /// config model.
 #[structopt(
-    name = "Mysticeti",
-    version = "0.1.0",
-    author = "Mr.Panda <xivistudios@gmail.com>",
-    about = "Rust ❤️ STUN/TURN Server"
+    name = env!("CARGO_PKG_NAME"),
+    version = env!("CARGO_PKG_VERSION"),
+    author = env!("CARGO_PKG_AUTHORS"),
+    about = env!("CARGO_PKG_DESCRIPTION")
 )]
 #[derive(StructOpt, Deserialize)]
 pub struct Conf {
