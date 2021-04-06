@@ -53,6 +53,28 @@ You need to install the Rust toolchain, if you have already installed it, you ca
 git clone https://github.com/Mycrl/Mysticeti
 ```
 
+And, you need to install the openssl toolchain.
+
+#### Windows
+
+If you have [chocolatey](https://chocolatey.org/install) installed you can install openssl via a single command i.e.
+
+```bash
+choco install openssl
+```
+
+#### Linux
+
+```bash
+sudo apt-get install libssl-dev
+```
+
+#### Macos
+
+```bash
+brew install openssl
+```
+
 ### Build workspace
 
 Compile the entire workspace in release mode:
