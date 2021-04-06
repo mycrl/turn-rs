@@ -20,7 +20,7 @@
 <br/>
 <br/>
 
-Mysticeti is a WebRTC server solution implemented using Rust and supports the SFU/MCU model. Compared with other ongoing projects, the current project prioritizes WebRTC one-to-many live broadcasting, but this does not mean that the project will give up peer-to-peer two-way dialogue. Our ultimate goal is commercial level, intercontinental cluster, low latency, high throughput, high performance, high reliability, rich peripheral interfaces.  
+Mysticeti is a WebRTC server solution implemented using Rust and supports the SFU/MCU model. Compared with other ongoing projects, the current project prioritizes WebRTC one-to-many live broadcasting, but this does not mean that the project will give up peer-to-peer two-way dialogue.
 
 ## Table of contents
 

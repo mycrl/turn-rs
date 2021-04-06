@@ -1,9 +1,0 @@
-[package]
-name = "webrtc_base"
-version = "0.1.0"
-authors = ["Mr.Panda <xivistudios@gmail.com>"]
-edition = "2018"
-
-[dependencies]
-openssl = "0.10"
-anyhow = "1.0"
