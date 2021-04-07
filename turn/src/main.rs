@@ -1,8 +1,8 @@
 mod state;
 mod server;
 mod config;
+mod proto;
 mod rpc;
-mod hub;
 
 #[tokio::main]
 #[rustfmt::skip]

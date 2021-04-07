@@ -48,8 +48,8 @@ mod message;
 mod channel;
 
 use anyhow::Result;
-use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
+use num_enum::TryFromPrimitive;
 pub use channel::ChannelData;
 pub use message::*;
 

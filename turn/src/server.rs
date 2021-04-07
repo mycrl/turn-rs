@@ -8,7 +8,7 @@ use std::{
 
 use super::{
     rpc::Rpc,
-    hub::Hub,
+    proto::Proto,
     config::Conf,
     state::State
 };
@@ -18,7 +18,7 @@ pub(crate) struct Worker {
     inner: Arc<UdpSocket>,
     writer: BytesMut,
     reader: Vec<u8>,
-    hub: Hub,
+    proto: Proto,
 }
 
 impl Worker {
@@ -32,7 +32,7 @@ impl Worker {
         Self {
             writer: BytesMut::with_capacity(f.buffer),
             reader: vec![0u8; f.buffer],
-            hub: Hub::new(f, c, r),
+            proto: Proto::new(f, c, r),
             inner: s.clone(),
         }
     }
@@ -40,12 +40,12 @@ impl Worker {
     /// thread poll.
     /// 
     /// read the data packet from the UDP socket and hand 
-    /// it to the hub for processing, and send the processed 
+    /// it to the proto for processing, and send the processed 
     /// data packet to the specified address.
     #[rustfmt::skip]
     pub async fn poll(&mut self) {
         if let Some((size, addr)) = self.read().await {
-            match self.hub.process(&self.reader[..size], &mut self.writer, addr).await {
+            match self.proto.process(&self.reader[..size], &mut self.writer, addr).await {
                 Ok(Some((b, p))) => Self::send(&self.inner, b, p.as_ref()).await,
                 Err(e) => log::error!("remux err: {}", e),
                 _ => (),

@@ -51,14 +51,14 @@ pub struct Context {
 
 /// process udp message 
 /// and return message + address.
-pub struct Hub {
+pub struct Proto {
     rpc: Arc<Rpc>,
     local: Arc<SocketAddr>,
     conf: Arc<Conf>,
     state: Arc<State>,
 }
 
-impl Hub {
+impl Proto {
     pub fn new(c: &Arc<Conf>, s: &Arc<State>, t: &Arc<Rpc>) -> Self {
         Self {
             local: Arc::new(c.local),
@@ -108,7 +108,7 @@ impl Hub {
 }
 
 impl Context {
-    fn from(h: &Hub, a: SocketAddr) -> Self {
+    fn from(h: &Proto, a: SocketAddr) -> Self {
         Self {
             rpc: h.rpc.clone(),
             state: h.state.clone(),
