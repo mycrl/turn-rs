@@ -420,10 +420,10 @@ impl<'a> TryFrom<&'a [u8]> for MessageReader<'a> {
     /// ```
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
         ensure!(buf.len() >= 20, "message len < 20");
-        let count_size = buf.len();
-        let mut attributes = Vec::new();
+        let mut attributes = Vec::with_capacity(6);
         let mut find_valid_offset = false;
         let mut valid_offset = 0;
+        let count_size = buf.len();
 
         // message type
         // message size
