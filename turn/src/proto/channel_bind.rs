@@ -107,7 +107,7 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
         return reject(ctx, m, w, BadRequest)
     }
 
-    let key = match ctx.get_password(u).await {
+    let key = match ctx.state.get_password(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };

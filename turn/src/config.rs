@@ -58,10 +58,10 @@ pub struct Conf {
     /// functions such as authorization authentication and port 
     /// allocation require communication with the control center.
     #[structopt(long)]
-    #[structopt(default_value = "127.0.0.1:8080")]
-    #[structopt(help = "HTTP external URL of the control service")]
+    #[structopt(default_value = "127.0.0.1:4222")]
+    #[structopt(help = "Control the address and port of the service")]
     #[serde(default = "default_controls")]
-    pub controls: SocketAddr,
+    pub controls: String,
     
     /// tshe buffer size is used to determine the maximum 
     /// data allocation size (byte) owned by each thread pool. 
@@ -139,6 +139,6 @@ fn default_buffer() -> usize {
     1280
 }
 
-fn default_controls() -> SocketAddr {
-    "127.0.0.1:8080".parse().unwrap()
+fn default_controls() -> String {
+    "127.0.0.1:4222".to_string()
 }

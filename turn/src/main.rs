@@ -2,7 +2,7 @@ mod state;
 mod server;
 mod config;
 mod proto;
-mod rpc;
+mod broker;
 
 #[tokio::main]
 #[rustfmt::skip]
@@ -12,9 +12,9 @@ async fn main() -> anyhow::Result<()> {
         .init();
     
     let c = config::Conf::new()?;
-    let s = state::State::new();
-    let t = rpc::Rpc::new(&c, &s).await?;
-    server::run(c, s.clone(), t).await?;
+    let t = broker::Broker::new(&c.controls).await?;
+    let s = state::State::new(t);
+    server::run(c, s.clone()).await?;
     s.run().await?;
     Ok(())
 }

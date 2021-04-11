@@ -1,10 +1,14 @@
-use crate::rpc::Auth;
 use tokio::sync::RwLock;
 use anyhow::Result;
 use tokio::time::{
     Duration,
     Instant,
     sleep
+};
+
+use crate::broker::{
+    response::Auth,
+    Broker
 };
 
 use rand::{
@@ -58,6 +62,7 @@ pub struct Node {
 
 /// session state manager.
 pub struct State {
+    broker: Arc<Broker>,
     pub base_table: RwLock<HashMap<Addr, Node>>,
     /// assign a random ID with timeout to each user.
     nonce_table: RwLock<HashMap<Addr, (Arc<String>, Instant)>>,
@@ -73,7 +78,7 @@ pub struct State {
 
 impl State {
     #[rustfmt::skip]
-    pub fn new() -> Arc<Self> {
+    pub fn new(broker: Arc<Broker>) -> Arc<Self> {
         Arc::new(Self {
             group_port_rc: RwLock::new(HashMap::with_capacity(1024)),
             channel_table: RwLock::new(HashMap::with_capacity(1024)),
@@ -81,14 +86,23 @@ impl State {
             port_table: RwLock::new(HashMap::with_capacity(1024)),
             peer_table: RwLock::new(HashMap::with_capacity(1024)),
             base_table: RwLock::new(HashMap::with_capacity(1024)),
+            broker
         })
     }
 
     /// get node password.
-    pub async fn get_password(&self, a: &Addr) -> Option<Arc<String>> {
-        self.base_table.read().await.get(a).map(|n| {
-            n.password.clone()
-        })
+    pub async fn get_password(&self, a: &Addr, u: &str) -> Option<Arc<String>> {
+        if let Some(auth) = self.base_table.read().await.get(a) {
+             return Some(auth.password.clone())
+         }
+        
+         let auth = match self.broker.auth(a.as_ref(), u).await {
+             Err(_) => return None,
+             Ok(a) => a
+         };
+        
+         self.insert(a.clone(), &auth).await;
+         Some(Arc::new(auth.password))
     }
     
     /// get nonce string.

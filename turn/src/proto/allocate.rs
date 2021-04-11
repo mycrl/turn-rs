@@ -71,11 +71,11 @@ async fn resolve<'a>(
     port: u16,
     w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
-    let alloc_addr = Arc::new(SocketAddr::new(ctx.local.ip(), port));
+    let alloc_addr = Arc::new(SocketAddr::new(ctx.conf.local.ip(), port));
     let mut pack = MessageWriter::derive(Kind::AllocateResponse, m, w);
     pack.append::<XorRelayedAddress>(alloc_addr.as_ref().clone());
     pack.append::<XorMappedAddress>(ctx.addr.as_ref().clone());
-    pack.append::<ResponseOrigin>(ctx.local.as_ref().clone());
+    pack.append::<ResponseOrigin>(ctx.conf.local.clone());
     pack.append::<Lifetime>(600);
     pack.try_into(Some((u, &p, &ctx.conf.realm)))?;
     Ok(Some((w, ctx.addr.clone())))
@@ -108,7 +108,7 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
         return reject(ctx, m, w, ServerError).await
     }
 
-    let key = match ctx.get_password(u).await {
+    let key = match ctx.state.get_password(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };

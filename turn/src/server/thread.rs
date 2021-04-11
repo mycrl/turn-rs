@@ -1,39 +1,36 @@
 use tokio::net::UdpSocket;
 use bytes::BytesMut;
-use anyhow::Result;
 use std::{
     net::SocketAddr, 
     sync::Arc
 };
 
-use super::{
-    rpc::Rpc,
+use crate::{
     proto::Proto,
     config::Conf,
     state::State
 };
+pub struct ThreadLocal {
+    pub state: Arc<State>,
+    pub conf: Arc<Conf>,
+}
 
 /// server thread worker.
-pub(crate) struct Worker {
+pub struct Thread {
     inner: Arc<UdpSocket>,
     writer: BytesMut,
     reader: Vec<u8>,
     proto: Proto,
 }
 
-impl Worker {
+impl Thread {
     #[rustfmt::skip]
-    pub fn new(
-        s: &Arc<UdpSocket>,
-        f: &Arc<Conf>, 
-        c: &Arc<State>, 
-        r: &Arc<Rpc>
-    ) -> Self {
+    pub fn builder(local: ThreadLocal, socket: &Arc<UdpSocket>) -> Self {
         Self {
-            writer: BytesMut::with_capacity(f.buffer),
-            reader: vec![0u8; f.buffer],
-            proto: Proto::new(f, c, r),
-            inner: s.clone(),
+            writer: BytesMut::with_capacity(local.conf.buffer),
+            reader: vec![0u8; local.conf.buffer],
+            proto: Proto::builder(local),
+            inner: socket.clone(),
         }
     }
     
@@ -44,12 +41,16 @@ impl Worker {
     /// data packet to the specified address.
     #[rustfmt::skip]
     pub async fn poll(&mut self) {
-        if let Some((size, addr)) = self.read().await {
-            match self.proto.process(&self.reader[..size], &mut self.writer, addr).await {
-                Ok(Some((b, p))) => Self::send(&self.inner, b, p.as_ref()).await,
-                Err(e) => log::error!("remux err: {}", e),
-                _ => (),
-            }  
+        let data = match self.read().await {
+            Some((s, a)) => (s, a),
+            None => return
+        };
+        
+        let a = data.1;
+        let write_buf = &mut self.writer;
+        let read_buf = &self.reader[..data.0];
+        if let Ok(Some((b, p))) = self.proto.handler(read_buf, write_buf, a).await {
+            Self::send(&self.inner, b, p.as_ref()).await
         }
     }
 
@@ -78,31 +79,11 @@ impl Worker {
     }
 }
 
-/// start UDP server and create thread pool.
-#[rustfmt::skip]
-pub async fn run(f: Arc<Conf>, c: Arc<State>, r: Arc<Rpc>) -> Result<()> {
-    let s = Arc::new(UdpSocket::bind(f.listen).await?); 
-    let threads = match f.threads {
-        None => num_cpus::get(),
-        Some(s) => s
-    };
-    
-    for _ in 0..threads {
-        let mut cx = Worker::new(&s, &f, &c, &r);
-        tokio::spawn(async move {
-            loop { cx.poll().await; }
-        });
+impl Clone for ThreadLocal {
+    fn clone(&self) -> Self {
+        Self {
+            state: self.state.clone(),
+            conf: self.conf.clone()
+        }
     }
-    
-    log::info!(
-        "threads size {} is runing", 
-        threads
-    );
-    
-    log::info!(
-        "udp bind to {}",
-        f.listen
-    );
-
-    Ok(())
 }
