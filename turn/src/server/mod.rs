@@ -28,6 +28,16 @@ fn get_threads(threads: Option<usize>) -> usize {
 ///
 /// create a specified number of threads, 
 /// each thread processes udp data separately.
+///
+/// # Example
+///
+/// ```no_run
+/// let c = config::Conf::new()?;
+/// let t = broker::Broker::new(&c.controls).await?;
+/// let s = state::State::new(t);
+///
+/// // run(c, s).await?
+/// ```
 #[rustfmt::skip]
 pub async fn run(f: Arc<Conf>, c: Arc<State>) -> Result<()> {
     let s = Arc::new(UdpSocket::bind(f.listen).await?);

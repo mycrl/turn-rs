@@ -18,6 +18,7 @@ use std::convert::{
     TryFrom
 };
 
+/// 
 pub struct Broker {
     nats: Connection
 }
