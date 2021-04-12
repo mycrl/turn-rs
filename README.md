@@ -33,7 +33,7 @@ Mysticeti is a WebRTC server solution implemented using Rust and supports the SF
 
 ## Roadmap
 
-- [x] TURN **not production-ready**.
+- [x] TURN
   - [x] STUN
 - [ ] WebRTC
   - [x] RTP
