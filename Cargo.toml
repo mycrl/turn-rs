@@ -13,6 +13,5 @@ members = [
     "lib/rtp",
     "lib/srtp",
     "lib/stun",
-    "lib/convert",
-    "lib/transport"
+    "lib/convert"
 ]
