@@ -29,6 +29,7 @@ Mysticeti is a WebRTC server solution implemented using Rust and supports the SF
   * [Prerequisites](#prerequisites)
   * [Build workspace](#build-workspace)
   * [Turn Server](#turn-server)
+* [Code style](#code-style)
 
 ## Roadmap
 
@@ -94,6 +95,10 @@ If you only need to compile the turn server separately:
 cd Mysticeti/turn
 cargo build --release
 ```
+
+## Code style
+
+The coding style of this project may not conform to the community style or the habits of most people, but it conforms to my own style. I am an obsessive-compulsive disorder patient with a code format, and the current project is also independently developed and maintained by me. If you have more suggestions, you can tell me.
 
 ## License
 [GPL](./LICENSE)
