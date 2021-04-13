@@ -124,16 +124,16 @@ impl State {
     /// ```
     pub async fn get_password(&self, a: &Addr, u: &str) -> Option<Arc<String>> {
         if let Some(auth) = self.base_table.read().await.get(a) {
-             return Some(auth.password.clone())
-         }
+            return Some(auth.password.clone())
+        }
         
-         let auth = match self.broker.auth(a.as_ref(), u).await {
-             Err(_) => return None,
-             Ok(a) => a
-         };
+        let auth = match self.broker.auth(a.as_ref(), u).await {
+            Err(_) => return None,
+            Ok(a) => a
+        };
         
-         self.insert(a.clone(), &auth).await;
-         Some(Arc::new(auth.password))
+        self.insert(a.clone(), &auth).await;
+        Some(Arc::new(auth.password))
     }
     
     /// get nonce string.
