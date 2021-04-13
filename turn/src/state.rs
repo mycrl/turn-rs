@@ -76,6 +76,16 @@ pub struct State {
     group_port_rc: RwLock<HashMap<u32, (u16, u16)>>,
 }
 
+/// simpler to generate structure.
+macro_rules! builder_state {
+    ([$($label:ident),*], $broker:tt) => {
+        State {
+            $($label: RwLock::new(HashMap::with_capacity(1024)),)*
+            $broker
+        }
+    }
+}
+
 impl State {
     /// # Example
     ///
@@ -87,15 +97,14 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub fn new(broker: Arc<Broker>) -> Arc<Self> {
-        Arc::new(Self {
-            group_port_rc: RwLock::new(HashMap::with_capacity(1024)),
-            channel_table: RwLock::new(HashMap::with_capacity(1024)),
-            nonce_table: RwLock::new(HashMap::with_capacity(1024)),
-            port_table: RwLock::new(HashMap::with_capacity(1024)),
-            peer_table: RwLock::new(HashMap::with_capacity(1024)),
-            base_table: RwLock::new(HashMap::with_capacity(1024)),
-            broker
-        })
+        Arc::new(builder_state!([
+            group_port_rc,
+            channel_table,
+            nonce_table,
+            port_table,
+            peer_table,
+            base_table
+        ], broker))
     }
 
     /// get node password.
