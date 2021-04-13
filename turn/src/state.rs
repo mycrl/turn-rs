@@ -77,6 +77,14 @@ pub struct State {
 }
 
 impl State {
+    /// # Example
+    ///
+    /// ```no_run
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// // State::new(t)
+    /// ```
     #[rustfmt::skip]
     pub fn new(broker: Arc<Broker>) -> Arc<Self> {
         Arc::new(Self {
@@ -91,6 +99,20 @@ impl State {
     }
 
     /// get node password.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.get_password(&addr, "panda")
+    /// ```
     pub async fn get_password(&self, a: &Addr, u: &str) -> Option<Arc<String>> {
         if let Some(auth) = self.base_table.read().await.get(a) {
              return Some(auth.password.clone())
@@ -106,9 +128,23 @@ impl State {
     }
     
     /// get nonce string.
+    /// According to the RFC, the expiration time is 1 hour.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.get_nonce(&addr)
+    /// ```
     #[rustfmt::skip]
     pub async fn get_nonce(&self, a: &Addr) -> Arc<String> {
-        // According to the RFC, the expiration time is 1 hour.
         if let Some((n, c)) = self.nonce_table.read().await.get(a) {
             if c.elapsed().as_secs() >= 3600 {
                 return n.clone()   
@@ -125,6 +161,23 @@ impl State {
     }
 
     /// insert node info.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.insert(addr, Auth {
+    /// //     password: "panda".to_string(),
+    /// //     group: 0
+    /// // })
+    /// ```
     #[rustfmt::skip]
     pub async fn insert(&self, a: Addr, auth: &Auth) {
         self.base_table.write().await.insert(a, Node {
@@ -143,7 +196,22 @@ impl State {
             .or_insert_with(|| (1, 49152));
     }
 
-    /// establish a binding relationship through its own address and peer port.
+    /// establish a binding relationship 
+    /// through its own address and peer port.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.bind_peer(&addr, 8081)
+    /// ```
     pub async fn bind_peer(&self, a: &Addr, port: u16) -> bool {
         let peer = match self.reflect_from_port(a, port).await {
             Some(a) => a,
@@ -160,6 +228,20 @@ impl State {
     }
 
     /// allocate port to node.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.alloc_port(addr)
+    /// ```
     pub async fn alloc_port(&self, a: Addr) -> Option<u16> {
         let mut base = self.base_table.write().await;
         let node = match base.get_mut(&a) {
@@ -192,6 +274,20 @@ impl State {
     }
     
     /// allocate channel to node.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.insert_channel(addr, 8081, 0)
+    /// ```
     #[rustfmt::skip]
     pub async fn insert_channel(&self, a: Addr, p: u16, channel: u16) -> bool {
         assert!((0x4000..=0x4FFF).contains(&channel));
@@ -212,15 +308,33 @@ impl State {
         }
 
         node.channels.push(channel);
-        self.channel_table.write().await.insert(
-            UniqueChannel(a, channel),
-            addr
-        );
+        self.channel_table
+            .write()
+            .await
+            .insert(
+                UniqueChannel(a, channel),
+                addr
+            );
 
         true
     }
 
     /// get the local port bound to the peer node.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// let peer_addr = Arc::new("127.0.0.1:8081".parse::<SocketAddr>().unwrap());
+    /// // state.reflect_from_peer(&addr, &peer_addr)
+    /// ```
     pub async fn reflect_from_peer(&self, a: &Addr, p: &Addr) -> Option<u16> {
         match self.peer_table.read().await.get(a) {
             Some(peer) => peer.get(p).copied(),
@@ -228,7 +342,22 @@ impl State {
         }
     }
     
-    /// obtain the peer address according to its own address and peer port.
+    /// obtain the peer address according to 
+    /// its own address and peer port.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.reflect_from_port(&addr, 8081)
+    /// ```
     #[rustfmt::skip]
     pub async fn reflect_from_port(&self, a: &Addr, port: u16) -> Option<Addr> {
         assert!(port >= 49152);
@@ -245,6 +374,20 @@ impl State {
     }
     
     /// refresh node lifetime.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.refresh(&addr, 0)
+    /// ```
     #[rustfmt::skip]
     pub async fn refresh(&self, a: &Addr, delay: u32) -> bool {
         if delay == 0 {
@@ -252,13 +395,32 @@ impl State {
             return true;
         }
         
-        self.base_table.write().await.get_mut(a).map(|n| {
-            n.clock = Instant::now();
-            n.delay = delay as u64;
-        }).is_some()
+        self.base_table
+            .write()
+            .await
+            .get_mut(a)
+            .map(|n| {
+                n.clock = Instant::now();
+                n.delay = delay as u64;
+            })
+            .is_some()
     }
     
     /// get peer channel.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.reflect_from_channel(&addr, 0)
+    /// ```
     #[rustfmt::skip]
     pub async fn reflect_from_channel(&self, a: &Addr, channel: u16) -> Option<Addr> {
         assert!((0x4000..=0x4FFF).contains(&channel));
@@ -268,6 +430,20 @@ impl State {
     }
     
     /// remove node.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync:::Arc;
+    /// 
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// let state = State::new(t);
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// // state.remove(&addr)
+    /// ```
     #[rustfmt::skip]
     pub async fn remove(&self, a: &Addr) {
         let mut allocs = self.port_table.write().await;
@@ -317,6 +493,15 @@ impl State {
     ///
     /// scan the internal list regularly, 
     /// the scan interval is 60 second.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let c = config::Conf::new()?;
+    /// let t = broker::Broker::new(&c.controls).await?;
+    /// 
+    /// // State::new(t).run().await?;
+    /// ```
     #[rustfmt::skip]
     pub async fn run(self: Arc<Self>) -> Result<()> {
         let delay = Duration::from_secs(60);
