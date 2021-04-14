@@ -1,5 +1,6 @@
 {
     "name": "mysticeti-drives",
+    "type": "module",
     "version": "0.0.1",
     "description": "Rust ❤️ WebRTC STUN/TURN Server",
     "main": "src/index.ts",
