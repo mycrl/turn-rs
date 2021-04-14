@@ -1,30 +1,42 @@
 "use strict"
 
 import Nats from "nats"
+import { EventEmitter } from "events"
+import Subscription from "./subscription"
+
+/** 
+ * @module Mysticeti 
+ */
 
 /**
- * 
+ * @extends EventEmitter
  * @class
  */
-export default class Mysticeti {
+export default class Mysticeti extends EventEmitter {
     
     /**
-     * @param {string} [server] nats server url.
+     * @param {string} options.server - nats server url.
      * @constructor
      */
-    constructor() {
-        this.inner = null
-        this.brokers = {}
-        this.broker_handle = null
+    constructor(options) {
+        super()
+        this._inner = null
+        this._proxy = null
     }
     
+    /**
+     * 
+     * @example
+     * new Mysticeti({
+     *     server: "localhost:4222"
+     * }).Broker.auth
+     */
     get Broker() {
-        if (!this.broker_handle) {
-            this.broker_handle = new Proxy({}, {
-                get: (_, key) => {
-                    
-                }
+        return this._proxy || 
+            this._proxy = new Proxy({}, {
+                get: (_, key) => new Subscription(
+                    this._inner.subscribe(key + ".*")
+                )
             })
-        }
     }
 }
