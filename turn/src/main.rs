@@ -12,7 +12,7 @@ async fn main() -> anyhow::Result<()> {
         .init();
     
     let c = config::Conf::new()?;
-    let t = broker::Broker::new(&c.controls).await?;
+    let t = broker::Broker::new(&c).await?;
     let s = state::State::new(t);
     server::run(c, s.clone()).await?;
     s.run().await?;

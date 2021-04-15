@@ -33,7 +33,7 @@ fn get_threads(threads: Option<usize>) -> usize {
 ///
 /// ```no_run
 /// let c = config::Conf::new()?;
-/// let t = broker::Broker::new(&c.controls).await?;
+/// let t = broker::Broker::new(&c).await?;
 /// let s = state::State::new(t);
 ///
 /// // run(c, s).await?

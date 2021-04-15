@@ -91,7 +91,7 @@ impl State {
     ///
     /// ```no_run
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// // State::new(t)
     /// ```
@@ -116,7 +116,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -146,7 +146,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -178,7 +178,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -215,7 +215,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -245,7 +245,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -291,7 +291,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -337,7 +337,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -361,7 +361,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -391,7 +391,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -424,7 +424,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -447,7 +447,7 @@ impl State {
     /// use std::sync:::Arc;
     /// 
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// let state = State::new(t);
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -507,7 +507,7 @@ impl State {
     ///
     /// ```no_run
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// 
     /// // State::new(t).run().await?;
     /// ```

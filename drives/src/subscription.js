@@ -1,10 +1,13 @@
 "use strict"
 
+import Nats from "nats"
+
 /** 
  * @module Mysticeti/Subscription
  */
 
 /**
+ * Nats Subscription.
  * @class
  */
 export default class Subscription {
@@ -16,11 +19,12 @@ export default class Subscription {
     constructor(inner) {
         this._inner = inner
         this._is_async = null
+        this._codec = Nats.StringCodec()
     }
     
     /**
      * @description hooks message handler result.
-     * @param {Promise | any} result
+     * @param {Promise<any> | any} result
      * @param {any}
      * @private
      */
@@ -31,17 +35,34 @@ export default class Subscription {
         
         return result
     }
+
+    /**
+     * @typedef {Object} Response
+     * @property {string|null} error - response error description.
+     * @property {any|null} data - response data struct.
+     */
+    /**
+     * @description callback nats subscription message.
+     * @param {Message} message - nats subscription message.
+     * @param {any} payload - callback result.
+     * @private
+     */
+    _callback(message, payload) {
+        message.respond(this._codec.encode(
+            JSON.stringify(payload)
+        ))
+    }
     
     /**
      * this callback is handler.
      * @callback Handler
      * @param {any} message
-     * @returns {Promise | void}
+     * @returns {Promise<any> | void}
      */
     /**
      * @description handle topic message.
      * @param {Subscription~Handler} handler
-     * @returns {Promise}
+     * @returns {Promise<void>}
      * @public
      * @example
      * const mysticeti = new Mysticeti({
@@ -54,12 +75,21 @@ export default class Subscription {
      */
     async handler(handler) {
         for await (const message of this._inner) { 
+            let data = null
+            let error = null
+            
             try {
-                const result = this._hook(handler(message))
-                return this._is_async ? await result : result
+                const payload = this._codec.decode(message)
+                const result = this._hook(handler(payload))
+                data = this._is_async ? await result : result
             } catch(e) {
-                console.warn(e)
+                error = e.message
             }
+            
+            this._callback(message, {
+                error, 
+                data 
+            })
         }
     }
 }

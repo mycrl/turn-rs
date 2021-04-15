@@ -30,7 +30,7 @@ impl Thread {
     ///
     /// ```no_run
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// let s = state::State::new(t);
     /// 
     /// let thread_local = ThreadLocal {
@@ -61,7 +61,7 @@ impl Thread {
     ///
     /// ```no_run
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// let s = state::State::new(t);
     /// 
     /// let thread_local = ThreadLocal {
@@ -99,7 +99,7 @@ impl Thread {
     ///
     /// ```no_run
     /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c.controls).await?;
+    /// let t = broker::Broker::new(&c).await?;
     /// let s = state::State::new(t);
     /// 
     /// let thread_local = ThreadLocal {

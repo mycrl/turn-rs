@@ -1,7 +1,15 @@
-import Mysticeti from "./src"
+import Mysticeti from "./src/index.js"
 
-new Mysticeti({
+const mysticeti = new Mysticeti({
     server: "localhost:4222"
-}).Broker.auth.handler(message => {
-    
+})
+
+mysticeti.on("ready", () => {
+    mysticeti.Broker.auth.handler(message => {
+        console.log(message)
+        return {
+            password: "panda",
+            group: 0
+        }
+    })
 })

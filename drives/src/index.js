@@ -2,7 +2,7 @@
 
 import Nats from "nats"
 import { EventEmitter } from "events"
-import Subscription from "./subscription"
+import Subscription from "./subscription.js"
 
 /** 
  * @module Mysticeti 
@@ -22,21 +22,33 @@ export default class Mysticeti extends EventEmitter {
         super()
         this._inner = null
         this._proxy = null
+        this._options = options
+        this._init()
     }
     
     /**
-     * 
+     * init Mysticeti.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async _init() {
+        this._inner = await Nats.connect(this._options.server)
+        this.emit("ready", undefined)
+    }
+    
+    /**
+     * @public
      * @example
      * new Mysticeti({
      *     server: "localhost:4222"
      * }).Broker.auth
      */
     get Broker() {
-        return this._proxy || 
-            this._proxy = new Proxy({}, {
-                get: (_, key) => new Subscription(
-                    this._inner.subscribe(key + ".*")
-                )
-            })
+        if (this._proxy) return this._proxy
+        return this._proxy = new Proxy({}, {
+            get: (_, key) => new Subscription(
+                this._inner.subscribe(key + ".*")
+            )
+        })
     }
 }
