@@ -47,7 +47,6 @@ impl Broker {
         Ok(Arc::new(Self { 
             nats: connect(c.controls.as_str()).await?,
             topic: Topic {
-                online: "online".to_string(),
                 auth: format!("auth.{}", c.realm)
             }
         }))
@@ -71,9 +70,5 @@ impl Broker {
         let req = request::Auth { username: u.to_string(), addr: a.clone() };
         let message = self.nats.request(&self.topic.auth, Into::<Vec<u8>>::into(req)).await?;
         Response::<response::Auth>::try_from(message.data.as_slice())?.into_result()
-    }
-    
-    pub async fn connected() {
-        
     }
 }

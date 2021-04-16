@@ -24,7 +24,7 @@ use stun::attribute::{
 use stun::attribute::ErrKind::{
     BadRequest,
     Unauthorized,
-    AllocationMismatch,
+    InsufficientCapacity,
 };
 
 /// return channel binding error response
@@ -35,7 +35,7 @@ fn reject<'a>(
     w: &'a mut BytesMut,
     e: ErrKind, 
 ) -> Result<Response<'a>> {
-    let mut pack = MessageWriter::derive(Kind::CreatePermissionError, &m, w);
+    let mut pack = MessageWriter::derive(Kind::ChannelBindError, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
     pack.try_into(None)?;
@@ -117,7 +117,7 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
     }
     
     if !ctx.state.insert_channel(ctx.addr.clone(), p, c).await {
-        return reject(ctx, m, w, AllocationMismatch);
+        return reject(ctx, m, w, InsufficientCapacity);
     }
     
     log::info!(

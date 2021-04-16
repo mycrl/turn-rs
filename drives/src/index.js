@@ -15,7 +15,7 @@ import Subscription from "./subscription.js"
 export default class Mysticeti extends EventEmitter {
     
     /**
-     * @param {string} options.server - nats server url.
+     * @param {strings} options.server - nats server url.
      * @constructor
      */
     constructor(options) {
@@ -32,7 +32,8 @@ export default class Mysticeti extends EventEmitter {
      * @private
      */
     async _init() {
-        this._inner = await Nats.connect(this._options.server)
+        const { servers } = this._options
+        this._inner = await Nats.connect({ servers })
         this.emit("ready", undefined)
     }
     
@@ -47,7 +48,7 @@ export default class Mysticeti extends EventEmitter {
         if (this._proxy) return this._proxy
         return this._proxy = new Proxy({}, {
             get: (_, key) => new Subscription(
-                this._inner.subscribe(key + ".*")
+                this._inner.subscribe(key + ".>")
             )
         })
     }

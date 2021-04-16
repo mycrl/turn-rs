@@ -79,7 +79,7 @@ export default class Subscription {
             let error = null
             
             try {
-                const payload = this._codec.decode(message)
+                const payload = this._codec.decode(message.data)
                 const result = this._hook(handler(payload))
                 data = this._is_async ? await result : result
             } catch(e) {

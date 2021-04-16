@@ -44,6 +44,17 @@ struct UniqueChannel(
     u16
 );
 
+// struct Node {
+//     pub group: u32,
+//     pub username: String
+// }
+
+// struct State {
+//     auths: RwLock<HashMap<String, String>>,
+//     nodes: RwLock<HashMap<Addr, Node>>,
+    
+// }
+
 /// client session.
 pub struct Node {
     /// the group where the node is located.
@@ -311,10 +322,6 @@ impl State {
             Some(a) => a.clone(),
             _ => return false,
         };
-
-        if node.channels.contains(&channel) {
-            return false
-        }
 
         node.channels.push(channel);
         self.channel_table
