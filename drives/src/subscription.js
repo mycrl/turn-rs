@@ -56,7 +56,8 @@ export default class Subscription {
     /**
      * this callback is handler.
      * @callback Handler
-     * @param {any} message
+     * @param {any} payload
+     * @param {Message} message
      * @returns {Promise<any> | void}
      */
     /**
@@ -80,7 +81,7 @@ export default class Subscription {
             
             try {
                 const payload = this._codec.decode(message.data)
-                const result = this._hook(handler(payload))
+                const result = this._hook(handler(payload, message))
                 data = this._is_async ? await result : result
             } catch(e) {
                 error = e.message
