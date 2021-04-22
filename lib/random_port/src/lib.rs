@@ -6,7 +6,11 @@ pub struct Buckets {
 
 impl Buckets {
     pub fn new() -> Self {
-        Self { inner: [0u64; 256] }
+        Self { inner: [u64::MAX; 256] }
+    }
+    
+    pub fn alloc(&mut self) {
+        
     }
     
     fn find(&self, index: usize) -> Option<usize> {
