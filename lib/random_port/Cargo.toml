@@ -6,4 +6,3 @@ edition = "2018"
 
 [dependencies]
 rand = "0.7"
-libc = "0.2.0"

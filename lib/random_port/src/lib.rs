@@ -1,3 +1,4 @@
+use std::ops::Range;
 use rand::{
     thread_rng,
     Rng
@@ -37,60 +38,42 @@ pub enum Bit {
 /// address may be known by an attacker, the ephemeral port of the client
 /// is usually unknown and must be guessed.
 pub struct RandomPort {
-    buckets: [u64; 256]
+    buckets: Vec<u64>,
+    range: Range<u16>,
+    high: usize,
 }
 
 impl RandomPort {
-    /// # Unit Test
-    ///
-    /// ```
-    /// use bytes::BytesMut;
-    /// use rtp::extension::Extension;
-    ///
-    /// let buffer = [
-    ///     0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
-    ///     0x41, 0x00, 0x8b, 0x00
-    /// ];
-    /// 
-    /// let mut writer = BytesMut::new();
-    /// let extension = Extension {
-    ///     data: vec![576434995, 1090554624],
-    ///     kind: 48862,
-    /// };
-    /// 
-    /// extension.into(&mut writer);
-    /// assert_eq!(&writer[..], &buffer[..]);
-    /// ```
-    pub fn new() -> Self {
-        Self { buckets: [u64::MAX; 256] }
+    pub fn new(range: Range<u16>) -> Self {
+        let size = Self::bucket_size(&range);
+        Self { 
+            buckets: vec![u64::MAX; size],
+            high: size - 1,
+            range
+        }
     }
     
+    /// random assign a port.
+    ///
     /// # Unit Test
     ///
     /// ```
-    /// use bytes::BytesMut;
-    /// use rtp::extension::Extension;
+    /// use random_port::RandomPort;
     ///
-    /// let buffer = [
-    ///     0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
-    ///     0x41, 0x00, 0x8b, 0x00
-    /// ];
+    /// let range = 49152..65535;
+    /// let mut pool = RandomPort::new(range);
     /// 
-    /// let mut writer = BytesMut::new();
-    /// let extension = Extension {
-    ///     data: vec![576434995, 1090554624],
-    ///     kind: 48862,
-    /// };
+    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     /// 
-    /// extension.into(&mut writer);
-    /// assert_eq!(&writer[..], &buffer[..]);
+    /// assert!(pool.alloc(None).is_some());
     /// ```
     pub fn alloc(&mut self, si: Option<usize>) -> Option<u16> {
-        let mut start = si.unwrap_or_else(|| Self::random() as usize);
+        let mut start = si.unwrap_or_else(|| self.random() as usize);
         let mut index = None;
 
         let previous = if start == 0 {
-            255
+            self.high
         } else {
             start - 1
         };
@@ -101,7 +84,7 @@ impl RandomPort {
             break;
         }
 
-        if start == 255 {
+        if start == self.high {
             start = 0;
         } else {
             start += 1;
@@ -118,28 +101,25 @@ impl RandomPort {
         };
 
         self.write(start, bi, Bit::Low);
-        Some((49152 + (start * 64 + bi)) as u16)
+        Some(self.range.start + (start * 64 + bi) as u16)
     }
     
+    /// find buckets high bit.
+    ///
     /// # Unit Test
     ///
     /// ```
-    /// use bytes::BytesMut;
-    /// use rtp::extension::Extension;
+    /// use random_port::RandomPort;
     ///
-    /// let buffer = [
-    ///     0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
-    ///     0x41, 0x00, 0x8b, 0x00
-    /// ];
+    /// let range = 49152..65535;
+    /// let mut pool = RandomPort::new(range);
+    ///
+    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     /// 
-    /// let mut writer = BytesMut::new();
-    /// let extension = Extension {
-    ///     data: vec![576434995, 1090554624],
-    ///     kind: 48862,
-    /// };
-    /// 
-    /// extension.into(&mut writer);
-    /// assert_eq!(&writer[..], &buffer[..]);
+    /// assert_eq!(pool.find_high(0), Some(2));
+    /// assert_eq!(pool.find_high(0), Some(2));
+    /// assert_eq!(pool.find_high(1), Some(0));
     /// ```
     pub fn find_high(&self, i: usize) -> Option<u32> {
         let value = self.buckets[i];
@@ -153,97 +133,105 @@ impl RandomPort {
             return None
         }
         
-        if i == 255 && offset > 0 {
+        if i == self.high && offset > 0 {
             return None
         }
         
         Some(offset)
     }
 
+    /// write bit flag in bucket.
+    ///
     /// # Unit Test
     ///
     /// ```
-    /// use bytes::BytesMut;
-    /// use rtp::extension::Extension;
+    /// use random_port::RandomPort;
+    /// use random_port::Bit;
     ///
-    /// let buffer = [
-    ///     0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
-    ///     0x41, 0x00, 0x8b, 0x00
-    /// ];
+    /// let range = 49152..65535;
+    /// let mut pool = RandomPort::new(range);
     /// 
-    /// let mut writer = BytesMut::new();
-    /// let extension = Extension {
-    ///     data: vec![576434995, 1090554624],
-    ///     kind: 48862,
-    /// };
+    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    ///
+    /// pool.write(0, 0, Bit::High);
+    /// pool.write(0, 1, Bit::High);
     /// 
-    /// extension.into(&mut writer);
-    /// assert_eq!(&writer[..], &buffer[..]);
+    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     /// ```
     pub fn write(&mut self, offset: usize, i: usize, bit: Bit) {
         let value = self.buckets[offset];
         let high_mask = 1 << (63 - i);
         let mask = match bit {
-            Bit:Low => u64::MAX ^ high_mask,
+            Bit::Low => u64::MAX ^ high_mask,
             Bit::High => high_mask,
         };
         
         self.buckets[offset] = match bit {
             Bit::High => value | mask,
-            Bit:Low => value & mask,
+            Bit::Low => value & mask,
         };
     }
-    
+
+    /// restore port in buckets.
+    ///
     /// # Unit Test
     ///
     /// ```
-    /// use bytes::BytesMut;
-    /// use rtp::extension::Extension;
+    /// use random_port::RandomPort;
     ///
-    /// let buffer = [
-    ///     0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
-    ///     0x41, 0x00, 0x8b, 0x00
-    /// ];
+    /// let range = 49152..65535;
+    /// let mut pool = RandomPort::new(range);
     /// 
-    /// let mut writer = BytesMut::new();
-    /// let extension = Extension {
-    ///     data: vec![576434995, 1090554624],
-    ///     kind: 48862,
-    /// };
+    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    ///
+    /// pool.restore(49152);
+    /// pool.restore(49153);
     /// 
-    /// extension.into(&mut writer);
-    /// assert_eq!(&writer[..], &buffer[..]);
+    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     /// ```
     pub fn restore(&mut self, port: u16) {
-        assert!((49152..=65535).contains(&port));
-        let offset = port - 49152;
+        assert!(self.range.contains(&port));
+        let offset = (port - self.range.start) as usize;
         let bsize = offset / 64;
         let index = offset - (bsize * 64);
         self.write(bsize, index, Bit::High)
     }
 
+    /// 
+    ///
     /// # Unit Test
     ///
     /// ```
-    /// use bytes::BytesMut;
-    /// use rtp::extension::Extension;
+    /// use random_port::RandomPort;
     ///
-    /// let buffer = [
-    ///     0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
-    ///     0x41, 0x00, 0x8b, 0x00
-    /// ];
+    /// let range = 49152..65535;
+    /// let max = RandomPort::bucket_size(&range) as u16;
+    /// let pool = RandomPort::new(range);
     /// 
-    /// let mut writer = BytesMut::new();
-    /// let extension = Extension {
-    ///     data: vec![576434995, 1090554624],
-    ///     kind: 48862,
-    /// };
-    /// 
-    /// extension.into(&mut writer);
-    /// assert_eq!(&writer[..], &buffer[..]);
+    /// let index = pool.random();
+    /// assert!((0..max - 1).contains(&index));
     /// ```
-    pub fn random() -> u16 {
+    pub fn random(&self) -> u16 {
         let mut rng = thread_rng();
-        rng.gen_range(0, 256)
+        rng.gen_range(0, self.high as u16)
+    }
+
+    /// 
+    ///
+    /// # Unit Test
+    ///
+    /// ```
+    /// use random_port::RandomPort;
+    ///
+    /// let range = 49152..65535;
+    /// let size = RandomPort::bucket_size(&range);
+    /// assert_eq!(size, 256);
+    /// ```
+    pub fn bucket_size(range: &Range<u16>) -> usize {
+        ((range.end - range.start) as f32 / 64.0).ceil() as usize
     }
 }
