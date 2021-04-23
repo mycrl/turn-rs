@@ -1,3 +1,4 @@
+use random_port::RandomPort;
 use tokio::sync::RwLock;
 use anyhow::Result;
 use tokio::time::{
@@ -44,17 +45,6 @@ struct UniqueChannel(
     u16
 );
 
-// struct Node {
-//     pub group: u32,
-//     pub username: String
-// }
-
-// struct State {
-//     auths: RwLock<HashMap<String, String>>,
-//     nodes: RwLock<HashMap<Addr, Node>>,
-    
-// }
-
 /// client session.
 pub struct Node {
     /// the group where the node is located.
@@ -84,7 +74,7 @@ pub struct State {
     /// record the binding relationship between port and address in the group.
     port_table: RwLock<HashMap<UniquePort, Addr>>,
     /// record the reference count and offset of the port in the group.
-    group_port_rc: RwLock<HashMap<u32, (u16, u16)>>,
+    group_port_rc: RwLock<HashMap<u32, (u16, RandomPort)>>,
 }
 
 /// simpler to generate structure.
@@ -213,7 +203,7 @@ impl State {
             .write()
             .await
             .entry(auth.group)
-            .or_insert_with(|| (1, 49152));
+            .or_insert_with(|| (0, RandomPort::new(49152..65535)));
     }
 
     /// establish a binding relationship 
@@ -275,16 +265,13 @@ impl State {
             _ => return None
         };
 
-        let alloc = port.1;
-        node.ports.push(alloc);
-
-        port.0 += 1;
-        if port.1 == 65535 {
-            port.1 = 49152;
-        } else {
-            port.1 += 1;
-        }
+        let alloc = match port.1.alloc(None) {
+            None => return None,
+            Some(p) => p
+        };
         
+        port.0 += 1;
+        node.ports.push(alloc);
         self.port_table.write().await.insert(
             UniquePort(node.group, alloc),
             a
@@ -470,12 +457,13 @@ impl State {
             None => return,
         };
 
-        let port = match groups.get_mut(&node.group) {
+        let pool = match groups.get_mut(&node.group) {
             Some(p) => p,
             _ => return,
         };
         
         for port in node.ports {
+            pool.1.restore(port);
             allocs.remove(&UniquePort(
                 node.group,
                 port
@@ -489,10 +477,10 @@ impl State {
             ));
         }
 
-        if port.0 <= 1 {
+        if pool.0 <= 1 {
             groups.remove(&node.group);
         } else {
-            port.0 -= 1;
+            pool.0 -= 1;
         }
         
         self.peer_table

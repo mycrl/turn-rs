@@ -13,5 +13,6 @@ members = [
     "lib/rtp",
     "lib/srtp",
     "lib/stun",
-    "lib/convert"
+    "lib/convert",
+    "lib/random_port"
 ]

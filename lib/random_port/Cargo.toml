@@ -1,0 +1,8 @@
+[package]
+name = "random_port"
+version = "0.1.0"
+authors = ["Mr.Panda <xivistudios@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+rand = "0.7"
