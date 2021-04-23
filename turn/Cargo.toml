@@ -18,6 +18,7 @@ description = """
 
 [dependencies]
 stun = { path = "../lib/stun" }
+random_port = { path = "../lib/random_port" }
 tokio = { version = "1", features = ["full"] }
 structopt = { version = "0.3", default-features = false }
 serde = { version = "1.0", features = ["derive"] }

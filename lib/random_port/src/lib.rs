@@ -44,6 +44,33 @@ pub struct RandomPort {
 }
 
 impl RandomPort {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use random_port::RandomPort;
+    /// use random_port::Bit;
+    ///
+    /// let range = 49152..65535;
+    /// let mut pool = RandomPort::new(range);
+    /// 
+    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    ///
+    /// assert_eq!(pool.find_high(0), Some(2));
+    /// assert_eq!(pool.find_high(1), Some(0));
+    /// 
+    /// pool.write(0, 0, Bit::High);
+    /// pool.write(0, 1, Bit::High);
+    /// 
+    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    ///
+    /// pool.restore(49152);
+    /// pool.restore(49153);
+    ///
+    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    /// ```
     pub fn new(range: Range<u16>) -> Self {
         let size = Self::bucket_size(&range);
         Self { 
@@ -104,7 +131,7 @@ impl RandomPort {
         Some(self.range.start + (start * 64 + bi) as u16)
     }
     
-    /// find buckets high bit.
+    /// find the high bit in the bucket.
     ///
     /// # Unit Test
     ///
@@ -140,7 +167,7 @@ impl RandomPort {
         Some(offset)
     }
 
-    /// write bit flag in bucket.
+    /// write bit flag in the bucket.
     ///
     /// # Unit Test
     ///
@@ -174,7 +201,7 @@ impl RandomPort {
         };
     }
 
-    /// restore port in buckets.
+    /// restore port in the buckets.
     ///
     /// # Unit Test
     ///
@@ -201,7 +228,7 @@ impl RandomPort {
         self.write(bsize, index, Bit::High)
     }
 
-    /// 
+    /// get random buckets index.
     ///
     /// # Unit Test
     ///
@@ -220,7 +247,7 @@ impl RandomPort {
         rng.gen_range(0, self.high as u16)
     }
 
-    /// 
+    /// compute bucket size from range.
     ///
     /// # Unit Test
     ///
