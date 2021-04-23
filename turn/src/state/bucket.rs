@@ -29,22 +29,14 @@ type Addr = Arc<SocketAddr>;
 
 /// client session.
 pub struct Node {
-    /// the group where the node is located.
-    pub group: u32,
-    /// session timeout.
-    pub delay: u64,
-    /// record refresh time.
-    pub clock: Instant,
-    /// list of ports allocated for the current session.
     pub ports: Vec<u16>,
-    /// list of channels allocated for the current session.
     pub channels: Vec<u16>,
 }
 
 pub struct Bucket {
     size: usize,
     port: RandomPort,
-    nodes: HashMap<Addr, Node>
+    ports: HashMap<Addr, >
 }
 
 impl Bucket {

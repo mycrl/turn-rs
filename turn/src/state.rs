@@ -64,7 +64,7 @@ pub struct Node {
 /// session state manager.
 pub struct State {
     broker: Arc<Broker>,
-    pub base_table: RwLock<HashMap<Addr, Node>>,
+    base_table: RwLock<HashMap<Addr, Node>>,
     /// assign a random ID with timeout to each user.
     nonce_table: RwLock<HashMap<Addr, (Arc<String>, Instant)>>,
     /// record the port binding relationship between the session and the peer.
