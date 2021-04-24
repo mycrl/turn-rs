@@ -79,12 +79,45 @@ pub struct Bucket {
 }
 
 impl Bucket {
+    /// ```no_run
+    /// use tokio::time::Instant;
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let node = Node {
+    ///     timer: Instant::now(),
+    ///     lifetime: 600,
+    ///     ports: Vec::new(),
+    ///     channels: Vec::new()
+    /// };
+    ///
+    /// let bucket = Bucket::new();
+    /// bucket.insert_node(Arc::new(addr), node).unwrap();
+    /// ```
     pub async fn insert_node(&self, a: Addr, n: Node) -> Result<()> {
         self.nodes.write().await.insert(a, n)
             .ok_or_else(|| anyhow!("insert node failed"))
             .map(|_| ())
     }
-    
+   
+    /// ```no_run
+    /// use tokio::time::Instant;
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let node = Node {
+    ///     timer: Instant::now(),
+    ///     lifetime: 600,
+    ///     ports: Vec::new(),
+    ///     channels: Vec::new()
+    /// };
+    ///
+    /// let bucket = Bucket::new();
+    /// bucket.insert_node(Arc::new(addr), node).unwrap();
+    /// // bucket.alloc_port(&Arc::new(addr)).unwrap();
+    /// ```
     pub async fn alloc_port(&self, a: &Addr) -> Option<u16> {
         let mut nodes = self.nodes.write().await;
         let node = match nodes.get_mut(a) {
@@ -104,8 +137,26 @@ impl Bucket {
         node.ports.push(port);
         Some(port)
     }
-
-    pub async fn bind_port(&self, a: &Addr, port: u16) -> Result<()> {
+    
+    /// ```no_run
+    /// use tokio::time::Instant;
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let node = Node {
+    ///     timer: Instant::now(),
+    ///     lifetime: 600,
+    ///     ports: Vec::new(),
+    ///     channels: Vec::new()
+    /// };
+    ///
+    /// let bucket = Bucket::new();
+    /// bucket.insert_node(Arc::new(addr), node).unwrap();
+    /// let port = bucket.alloc_port(&Arc::new(addr)).unwrap();
+    /// // bucket.bind_port(port).unwrap();
+    /// ```
+    pub async fn bind_port(&self, port: u16) -> Result<()> {
         self.ports
             .read()
             .await
@@ -114,6 +165,23 @@ impl Bucket {
             .ok_or_else(|| anyhow!("port not found"))
     }
 
+    /// ```no_run
+    /// use tokio::time::Instant;
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let node = Node {
+    ///     timer: Instant::now(),
+    ///     lifetime: 600,
+    ///     ports: Vec::new(),
+    ///     channels: Vec::new()
+    /// };
+    ///
+    /// let bucket = Bucket::new();
+    /// bucket.insert_node(Arc::new(addr), node).unwrap();
+    /// // bucket.bind_channel(49152, 0x4000).unwrap();
+    /// ```
     pub async fn bind_channel(&self, a: &Addr, p: u16, c: u16) -> Result<()> {
         let channel = self.channels.write().await
             .entry(c)
@@ -149,10 +217,44 @@ impl Bucket {
         Ok(())
     }
 
+    /// ```no_run
+    /// use tokio::time::Instant;
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let node = Node {
+    ///     timer: Instant::now(),
+    ///     lifetime: 600,
+    ///     ports: Vec::new(),
+    ///     channels: Vec::new()
+    /// };
+    ///
+    /// let bucket = Bucket::new();
+    /// bucket.insert_node(Arc::new(addr), node).unwrap();
+    /// // bucket.bind_channel(49152, 0x4000).unwrap();
+    /// ```
     pub async fn refresh(&self, a: &Addr, delay: u32) {
 
     }
 
+    /// ```no_run
+    /// use tokio::time::Instant;
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let node = Node {
+    ///     timer: Instant::now(),
+    ///     lifetime: 600,
+    ///     ports: Vec::new(),
+    ///     channels: Vec::new()
+    /// };
+    ///
+    /// let bucket = Bucket::new();
+    /// bucket.insert_node(Arc::new(addr), node).unwrap();
+    /// // bucket.bind_channel(49152, 0x4000).unwrap();
+    /// ```
     pub async fn remove(&self, a: &Addr) {
         let mut ports = self.ports.write().await;
         let mut channels = self.channels.write().await;
@@ -183,7 +285,7 @@ impl Bucket {
 
         for (half_addr, channel) in half {
             if let Some(node) = nodes.get_mut(&half_addr) {
-                if let Some(index) = indexof(&node.channels, channel) {
+                if let Some(index) = first_index(&node.channels, channel) {
                     node.channels.swap_remove(index);
                 }
             }
@@ -191,7 +293,8 @@ impl Bucket {
     }
 }
 
-fn indexof(raw: &Vec<u16>, value: u16) -> Option<usize> {
+/// find item first index in vector.
+fn first_index(raw: &Vec<u16>, value: u16) -> Option<usize> {
     for (index, item) in raw.iter().enumerate() {
         if item == &value {
             return Some(index)
