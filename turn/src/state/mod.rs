@@ -1,3 +1,6 @@
+mod bucket;
+mod channel;
+
 use random_port::RandomPort;
 use tokio::sync::RwLock;
 use anyhow::Result;
@@ -25,7 +28,7 @@ use std::{
     sync::Arc,
 };
 
-type Addr = Arc<SocketAddr>;
+pub type Addr = Arc<SocketAddr>;
 
 /// port mark.
 #[derive(Hash, Eq)]
