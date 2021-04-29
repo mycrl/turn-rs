@@ -42,6 +42,31 @@ pub struct Node {
     channels: Vec<u16>,
 }
 
+impl Node {
+    pub fn pop_channel(&mut self, c: u16) -> Option<()> {
+        let index = Self::first_index(&self.channels, c)?;
+        self.channels.swap_remove(index);
+        Some(())
+    }
+
+    pub fn pop_port(&mut self, c: u16) -> Option<()> {
+        let index = Self::first_index(&self.ports, c)?;
+        self.ports.swap_remove(index);
+        Some(())
+    }
+
+    /// find item first index in vector.
+    fn first_index(raw: &Vec<u16>, value: u16) -> Option<usize> {
+        for (index, item) in raw.iter().enumerate() {
+            if item == &value {
+                return Some(index)
+            }
+        }
+
+        None
+    }
+}
+
 //{
 //        "nodes": {
 //            "127.0.0.1:8080": {
@@ -183,18 +208,20 @@ impl Bucket {
     /// // bucket.bind_channel(49152, 0x4000).unwrap();
     /// ```
     pub async fn bind_channel(&self, a: &Addr, p: u16, c: u16) -> Result<()> {
-        let channel = self.channels.write().await
-            .entry(c)
-            .or_insert_with(|| Channel::new(a));
+        let mut channels = self.channels.write().await;
+        let channel = channels.entry(c).or_insert_with(|| Channel::new(a));
+        let is_half = channel.is_half();
 
-        if channel.is_half() {
+        if is_half {
             channel.up(a);
-        } else {
-            if channel.includes(a) {
-                return Err(anyhow!("bond already exists"))   
-            } else {
-                channel.refresh();
-            }
+        }
+
+        if !is_half && channel.includes(a) {
+            return Err(anyhow!("bond already exists"))   
+        }
+
+        if !is_half {
+            channel.refresh();
         }
 
         let source = match self.ports.read().await.get(&p) {
@@ -213,7 +240,6 @@ impl Bucket {
             .await
             .entry((a.clone(), c))
             .or_insert_with(|| source);
-        
         Ok(())
     }
 
@@ -256,50 +282,35 @@ impl Bucket {
     /// // bucket.bind_channel(49152, 0x4000).unwrap();
     /// ```
     pub async fn remove(&self, a: &Addr) {
+        let mut port = self.port.write().await;
+        let mut nodes = self.nodes.write().await;
         let mut ports = self.ports.write().await;
         let mut channels = self.channels.write().await;
         let mut channel_bonds = self.channel_bonds.write().await;
-        let mut nodes = self.nodes.write().await;
         let node = match nodes.remove(a) {
             Some(n) => n,
             None => return
         };
 
-        for port in node.ports {
-            ports.remove(&port);
+        for p in node.ports {
+            if ports.remove(&p).is_some() {
+                port.restore(p);
+            }
         }
 
-        let mut half = Vec::with_capacity(5);
-        for channel in node.channels {
-            if let Some(cs) = channels.remove(&channel) {
-                for (_, addr) in cs.bond.iter().enumerate() {
+        for num in node.channels {
+            if let Some(channel) = channels.remove(&num) {
+                for addr in channel.bond.iter() {
                     if let Some(i) = addr {
-                        channel_bonds.remove(&(i.clone(), channel));
+                        channel_bonds.remove(&(i.clone(), num));
                         if i != a {
-                            half.push((i.clone(), channel));
+                            if let Some(n) = nodes.get_mut(i) {
+                                n.pop_channel(num);
+                            }
                         }
                     }
                 }
             }
         }
-
-        for (half_addr, channel) in half {
-            if let Some(node) = nodes.get_mut(&half_addr) {
-                if let Some(index) = first_index(&node.channels, channel) {
-                    node.channels.swap_remove(index);
-                }
-            }
-        }
     }
-}
-
-/// find item first index in vector.
-fn first_index(raw: &Vec<u16>, value: u16) -> Option<usize> {
-    for (index, item) in raw.iter().enumerate() {
-        if item == &value {
-            return Some(index)
-        }
-    }
-
-    None
 }
