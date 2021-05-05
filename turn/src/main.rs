@@ -12,8 +12,8 @@ async fn main() -> anyhow::Result<()> {
         .init();
     
     let c = config::Conf::new()?;
-    let t = broker::Broker::new(&c).await?;
-    let s = state::State::new(t);
+    let b = broker::Broker::new(&c).await?;
+    let s = state::State::new(&c, &b);
     server::run(c, s.clone()).await?;
     s.run().await?;
     Ok(())

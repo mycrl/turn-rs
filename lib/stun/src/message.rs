@@ -25,7 +25,7 @@ const ZOER_BUF: [u8; 10] = [0u8; 10];
 const COOKIE: [u8; 4] = [0x21, 0x12, 0xA4, 0x42];
 
 /// (username, password, realm)
-type Auth<'a> = (&'a str, &'a str, &'a str);
+type Auth = [u8; 16];
 
 /// stun message reader.
 pub struct MessageReader<'a> {
@@ -189,7 +189,7 @@ impl<'a> MessageWriter<'a> {
     /// message.try_into(Some(("panda", "panda", "raspberry"))).unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
-    pub fn try_into(&mut self, auth: Option<Auth>) -> Result<()> {
+    pub fn try_into(&mut self, auth: Option<&Auth>) -> Result<()> {
         // write attribute list size.
         let size = (self.raw.len() - 20) as u16;
         let size_buf = size.to_be_bytes();
@@ -247,7 +247,7 @@ impl<'a> MessageWriter<'a> {
     /// assert_eq!(&buf[..], &result);
     /// ```
     #[rustfmt::skip]
-    fn integrity(&mut self, auth: Auth) -> Result<()> {
+    fn integrity(&mut self, auth: &Auth) -> Result<()> {
         assert!(self.raw.len() >= 20);
         
         // compute new size,
@@ -262,8 +262,7 @@ impl<'a> MessageWriter<'a> {
         // long key,
         // digest the message buffer,
         // create the new MessageIntegrity attribute.
-        let key = util::long_key(auth.0, auth.1, auth.2);
-        let hmac_output = util::hmac_sha1(&key, vec![&self.raw])?.into_bytes();
+        let hmac_output = util::hmac_sha1(auth, vec![&self.raw])?.into_bytes();
         let property_buf = hmac_output.as_slice();
 
         // write MessageIntegrity attribute.
@@ -365,7 +364,7 @@ impl<'a> MessageReader<'a> {
     /// assert!(result);
     /// ```
     #[rustfmt::skip]
-    pub fn integrity(&self, auth: Auth) -> Result<()> {
+    pub fn integrity(&self, auth: &Auth) -> Result<()> {
         ensure!(!self.raw.is_empty(), "buf is empty");
         ensure!(self.valid_offset > 20, "buf is empty");
 
@@ -384,8 +383,7 @@ impl<'a> MessageReader<'a> {
         ];
 
         // digest the message buffer.
-        let key = util::long_key(auth.0, auth.1, auth.2);
-        let hmac_output = util::hmac_sha1(&key, body)?.into_bytes();
+        let hmac_output = util::hmac_sha1(auth, body)?.into_bytes();
         let property_buf = hmac_output.as_slice();
 
         // Compare local and original attribute.

@@ -46,12 +46,11 @@ fn reject<'a>(
 fn resolve<'a>(
     ctx: &Context, 
     m: &MessageReader<'a>, 
-    u: &str, 
-    p: &str, 
+    p: &[u8;16], 
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     MessageWriter::derive(Kind::CreatePermissionResponse, m, w)
-        .try_into(Some((u, p, &ctx.conf.realm)))?;
+        .try_into(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -105,16 +104,16 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
         _ => return reject(ctx, m, w, BadRequest)
     };
 
-    let key = match ctx.state.get_password(&ctx.addr, u).await {
+    let key = match ctx.state.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
 
-    if m.integrity((u, &key, &ctx.conf.realm)).is_err() {
+    if m.integrity(&key).is_err() {
         return reject(ctx, m, w, Unauthorized);
     }
 
-    if !ctx.state.bind_peer(&ctx.addr, p).await {
+    if ctx.state.bind_port(&ctx.addr, p).await.is_none() {
         return reject(ctx, m, w, AllocationMismatch);
     }
 
@@ -125,5 +124,5 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
         p,
     );
 
-    resolve(&ctx, &m, u, &key, w)
+    resolve(&ctx, &m, &key, w)
 }

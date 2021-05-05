@@ -22,7 +22,6 @@ pub struct Response<T> {
 }
 
 impl<'a, T: Deserialize<'a>> TryFrom<&'a [u8]> for Response<T> {
-    type Error = anyhow::Error;
     /// # Example
     ///
     /// ```no_run
@@ -42,6 +41,7 @@ impl<'a, T: Deserialize<'a>> TryFrom<&'a [u8]> for Response<T> {
     ///
     /// // Response<Auth>::try_from(&res_buf[..]).unwrap()
     /// ```
+    type Error = anyhow::Error;
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         Ok(serde_json::from_slice(value)?)
     }

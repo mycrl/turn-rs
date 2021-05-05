@@ -77,12 +77,12 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
         _ => return Ok(None),
     };
 
-    let a = match ctx.state.reflect_from_port(&ctx.addr, pp).await {
+    let a = match ctx.state.get_port_bond(&ctx.addr, pp).await {
         None => return Ok(None),
         Some(a) => a,
     };
 
-    let p = match ctx.state.reflect_from_peer(&ctx.addr, &a).await {
+    let p = match ctx.state.get_node_port(&ctx.addr, &a).await {
         None => return Ok(None),
         Some(p) => p,
     };

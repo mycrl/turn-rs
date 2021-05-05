@@ -40,13 +40,12 @@ pub fn resolve<'a>(
     ctx: &Context, 
     m: &MessageReader<'a>, 
     lifetime: u32,
-    u: &str,
-    p: &str,
+    p: &[u8; 16],
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     let mut pack = MessageWriter::derive(Kind::RefreshResponse, m , w);
     pack.append::<Lifetime>(lifetime);
-    pack.try_into(Some((u, p, &ctx.conf.realm)))?;
+    pack.try_into(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -101,12 +100,12 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
         _ => 600,
     };
 
-    let key = match ctx.state.get_password(&ctx.addr, u).await {
+    let key = match ctx.state.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
 
-    if m.integrity((u, &key, &ctx.conf.realm)).is_err() {
+    if m.integrity(&key).is_err() {
         return reject(ctx, m, w, Unauthorized);
     }
     
@@ -118,5 +117,5 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
     );
 
     ctx.state.refresh(&ctx.addr, l).await;
-    resolve(&ctx, &m, l, u, &key, w)
+    resolve(&ctx, &m, l, &key, w)
 }

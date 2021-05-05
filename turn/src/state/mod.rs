@@ -1,563 +1,398 @@
-mod bucket;
+mod bucket_table;
+mod nonce_table;
 mod channel;
+mod node;
+mod util;
 
-use random_port::RandomPort;
+use node::Node;
+use channel::Channel;
+use nonce_table::NonceTable;
+use bucket_table::BucketTable;
+use stun::util::long_key;
 use tokio::sync::RwLock;
-use anyhow::Result;
 use tokio::time::{
     Duration,
-    Instant,
     sleep
-};
-
-use crate::broker::{
-    response::Auth,
-    Broker
-};
-
-use rand::{
-    distributions::Alphanumeric, 
-    thread_rng, 
-    Rng
 };
 
 use std::{
     collections::HashMap,
     net::SocketAddr,
-    cmp::PartialEq,
-    sync::Arc,
+    sync::Arc
 };
 
-pub type Addr = Arc<SocketAddr>;
+use super::{
+    config::Conf,
+    broker::Broker
+};
 
-/// port mark.
-#[derive(Hash, Eq)]
-struct UniquePort(
-    /// group number
-    u32, 
-    /// port number
-    u16
-);
+type Addr = Arc<SocketAddr>;
 
-/// channel mark.
-#[derive(Hash, Eq)]
-struct UniqueChannel(
-    /// client address
-    Addr, 
-    /// channel number
-    u16
-);
-
-/// client session.
-pub struct Node {
-    /// the group where the node is located.
-    pub group: u32,
-    /// session timeout.
-    pub delay: u64,
-    /// record refresh time.
-    pub clock: Instant,
-    /// list of ports allocated for the current session.
-    pub ports: Vec<u16>,
-    /// list of channels allocated for the current session.
-    pub channels: Vec<u16>,
-    /// the key of the current session.
-    pub password: Arc<String>,
-}
-
-/// session state manager.
+#[derive(Debug)]
 pub struct State {
+    conf: Arc<Conf>,
     broker: Arc<Broker>,
-    base_table: RwLock<HashMap<Addr, Node>>,
-    /// assign a random ID with timeout to each user.
-    nonce_table: RwLock<HashMap<Addr, (Arc<String>, Instant)>>,
-    /// record the port binding relationship between the session and the peer.
-    peer_table: RwLock<HashMap<Addr, HashMap<Addr, u16>>>,
-    /// record the binding relationship between channels and addresses in the group.
-    channel_table: RwLock<HashMap<UniqueChannel, Addr>>,
-    /// record the binding relationship between port and address in the group.
-    port_table: RwLock<HashMap<UniquePort, Addr>>,
-    /// record the reference count and offset of the port in the group.
-    group_port_rc: RwLock<HashMap<u32, (u16, RandomPort)>>,
-}
-
-/// simpler to generate structure.
-macro_rules! builder_state {
-    ([$($label:ident),*], $broker:tt) => {
-        State {
-            $($label: RwLock::new(HashMap::with_capacity(1024)),)*
-            $broker
-        }
-    }
+    nonces: NonceTable,
+    buckets: BucketTable,
+    nodes: RwLock<HashMap<Addr, Node>>,
+    ports: RwLock<HashMap<(u32, u16), Addr>>,
+    port_bonds: RwLock<HashMap<Addr, HashMap<Addr, u16>>>,
+    channels: RwLock<HashMap<(u32, u16), Channel>>,
+    channel_bonds: RwLock<HashMap<(Addr, u16), Addr>>,
 }
 
 impl State {
-    /// # Example
-    ///
-    /// ```no_run
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// // State::new(t)
-    /// ```
-    #[rustfmt::skip]
-    pub fn new(broker: Arc<Broker>) -> Arc<Self> {
-        Arc::new(builder_state!([
-            group_port_rc,
-            channel_table,
-            nonce_table,
-            port_table,
-            peer_table,
-            base_table
-        ], broker))
+    pub fn new(c: &Arc<Conf>, b: &Arc<Broker>) -> Arc<Self> {
+        Arc::new(Self {
+            conf: c.clone(),
+            broker: b.clone(),
+            nonces: NonceTable::new(),
+            buckets: BucketTable::new(),
+            nodes: RwLock::new(HashMap::with_capacity(1024)),
+            ports: RwLock::new(HashMap::with_capacity(1024)),
+            port_bonds: RwLock::new(HashMap::with_capacity(1024)),
+            channels: RwLock::new(HashMap::with_capacity(1024)),
+            channel_bonds: RwLock::new(HashMap::with_capacity(1024))
+        })
     }
 
-    /// get node password.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.get_password(&addr, "panda")
-    /// ```
-    pub async fn get_password(&self, a: &Addr, u: &str) -> Option<Arc<String>> {
-        if let Some(auth) = self.base_table.read().await.get(a) {
-            return Some(auth.password.clone())
-        }
-        
-        let auth = match self.broker.auth(a.as_ref(), u).await {
-            Err(_) => return None,
-            Ok(a) => a
-        };
-        
-        self.insert(a.clone(), &auth).await;
-        Some(Arc::new(auth.password))
-    }
-    
-    /// get nonce string.
-    /// According to the RFC, the expiration time is 1 hour.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.get_nonce(&addr)
-    /// ```
-    #[rustfmt::skip]
     pub async fn get_nonce(&self, a: &Addr) -> Arc<String> {
-        if let Some((n, c)) = self.nonce_table.read().await.get(a) {
-            if c.elapsed().as_secs() >= 3600 {
-                return n.clone()   
-            }
-        }
-
-        let nonce = Arc::new(rand_string());
-        self.nonce_table.write().await.insert(a.clone(), (
-            nonce.clone(),
-            Instant::now()
-        ));
-
-        nonce
+        self.nonces.get(a).await
     }
 
-    /// insert node info.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.insert(addr, Auth {
-    /// //     password: "panda".to_string(),
-    /// //     group: 0
-    /// // })
-    /// ```
-    #[rustfmt::skip]
-    pub async fn insert(&self, a: Addr, auth: &Auth) {
-        self.base_table.write().await.insert(a, Node {
-            password: Arc::new(auth.password.clone()),
-            clock: Instant::now(),
-            channels: Vec::new(),
-            ports: Vec::new(),
-            group: auth.group,
-            delay: 600,
-        });
-
-        self.group_port_rc
-            .write()
-            .await
-            .entry(auth.group)
-            .or_insert_with(|| (0, RandomPort::new(49152..65535)));
-    }
-
-    /// establish a binding relationship 
-    /// through its own address and peer port.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.bind_peer(&addr, 8081)
-    /// ```
-    pub async fn bind_peer(&self, a: &Addr, port: u16) -> bool {
-        let peer = match self.reflect_from_port(a, port).await {
-            Some(a) => a,
-            None => return false,
-        };
-
-        self.peer_table
-            .write()
-            .await
-            .entry(peer)
-            .or_insert_with(HashMap::new)
-            .insert(a.clone(), port);
-        true
-    }
-
-    /// allocate port to node.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.alloc_port(addr)
-    /// ```
-    pub async fn alloc_port(&self, a: Addr) -> Option<u16> {
-        let mut base = self.base_table.write().await;
-        let node = match base.get_mut(&a) {
-            Some(n) => n,
-            _ => return None
-        };
-
-        let mut groups = self.group_port_rc.write().await;
-        let port = match groups.get_mut(&node.group) {
-            Some(p) => p,
-            _ => return None
-        };
-
-        let alloc = match port.1.alloc(None) {
-            None => return None,
-            Some(p) => p
-        };
-        
-        port.0 += 1;
-        node.ports.push(alloc);
-        self.port_table.write().await.insert(
-            UniquePort(node.group, alloc),
-            a
-        );
-
-        Some(alloc)
-    }
-    
-    /// allocate channel to node.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.insert_channel(addr, 8081, 0)
-    /// ```
-    #[rustfmt::skip]
-    pub async fn insert_channel(&self, a: Addr, p: u16, channel: u16) -> bool {
-        assert!((0x4000..=0x4FFF).contains(&channel));
-        let mut base = self.base_table.write().await;
-        let node = match base.get_mut(&a) {
-            Some(n) => n,
-            _ => return false,
-        };
-
-        let id = UniquePort(node.group, p);
-        let addr = match self.port_table.read().await.get(&id) {
-            Some(a) => a.clone(),
-            _ => return false,
-        };
-
-        node.channels.push(channel);
-        self.channel_table
-            .write()
-            .await
-            .insert(
-                UniqueChannel(a, channel),
-                addr
-            );
-
-        true
-    }
-
-    /// get the local port bound to the peer node.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// let peer_addr = Arc::new("127.0.0.1:8081".parse::<SocketAddr>().unwrap());
-    /// // state.reflect_from_peer(&addr, &peer_addr)
-    /// ```
-    pub async fn reflect_from_peer(&self, a: &Addr, p: &Addr) -> Option<u16> {
-        match self.peer_table.read().await.get(a) {
-            Some(peer) => peer.get(p).copied(),
-            None => None,
-        }
-    }
-    
-    /// obtain the peer address according to 
-    /// its own address and peer port.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.reflect_from_port(&addr, 8081)
-    /// ```
-    #[rustfmt::skip]
-    pub async fn reflect_from_port(&self, a: &Addr, port: u16) -> Option<Addr> {
-        assert!(port >= 49152);
-        let group = match self.base_table.read().await.get(a) {
-            Some(n) => n.group,
-            _ => return None
-        };
-
-        self.port_table
+    pub async fn get_key(&self, a: &Addr, u: &str) -> Option<Arc<[u8; 16]>> {
+        let key = self.nodes
             .read()
             .await
-            .get(&UniquePort(group, port))
+            .get(a)
+            .map(|n| n.get_key());
+        if key.is_some() {
+            return key
+        }
+
+        let auth = match self.broker.auth(a, u).await {
+            Ok(a) => a,
+            Err(_) => return None
+        };
+        
+        let node = Node::new(
+            auth.group, 
+            long_key(
+                u, 
+                &auth.password, 
+                &self.conf.realm
+            )
+        );
+
+        let key = node.get_key();
+        self.nodes
+            .write()
+            .await
+            .insert(a.clone(), node);
+        Some(key)
+    }
+
+    pub async fn get_channel_bond(&self, a: &Addr, c: u16) -> Option<Addr> {
+        self.channel_bonds
+            .read()
+            .await
+            .get(&(a.clone(), c))
             .cloned()
     }
+
+    pub async fn get_port_bond(&self, a: &Addr, p: u16) -> Option<Addr> {
+        let g = self.nodes
+            .read()
+            .await
+            .get(a)?
+            .group;
+        self.ports
+            .read()
+            .await
+            .get(&(g, p))
+            .cloned()
+    }
+
+    pub async fn get_node_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
+        self.port_bonds
+            .read()
+            .await
+            .get(p)?
+            .get(a)
+            .copied()
+    }
+   
+    /// alloc a port from State.
+    ///
+    /// In all cases, the server SHOULD only allocate ports from the range
+    /// 49152 - 65535 (the Dynamic and/or Private Port range [PORT-NUMBERS]),
+    /// unless the TURN server application knows, through some means not
+    /// specified here, that other applications running on the same host as
+    /// the TURN server application will not be impacted by allocating ports
+    /// outside this range.  This condition can often be satisfied by running
+    /// the TURN server application on a dedicated machine and/or by
+    /// arranging that any other applications on the machine allocate ports
+    /// before the TURN server application starts.  In any case, the TURN
+    /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
+    /// Known Port range) to discourage clients from using TURN to run
+    /// standard services.
+    /// 
+    ///   NOTE: The use of randomized port assignments to avoid certain
+    ///   types of attacks is described in [RFC6056].  It is RECOMMENDED
+    ///   that a TURN server implement a randomized port assignment
+    ///   algorithm from [RFC6056].  This is especially applicable to
+    ///   servers that choose to pre-allocate a number of ports from the
+    ///   underlying OS and then later assign them to allocations; for
+    ///   example, a server may choose this technique to implement the
+    ///   EVEN-PORT attribute.
+    /// 
+    /// The server determines the initial value of the time-to-expiry field
+    /// as follows.  If the request contains a LIFETIME attribute, then the
+    /// server computes the minimum of the client's proposed lifetime and the
+    /// server's maximum allowed lifetime.  If this computed value is greater
+    /// than the default lifetime, then the server uses the computed lifetime
+    /// as the initial value of the time-to-expiry field.  Otherwise, the
+    /// server uses the default lifetime.  It is RECOMMENDED that the server
+    /// use a maximum allowed lifetime value of no more than 3600 seconds (1
+    /// hour).  Servers that implement allocation quotas or charge users for
+    /// allocations in some way may wish to use a smaller maximum allowed
+    /// lifetime (perhaps as small as the default lifetime) to more quickly
+    /// remove orphaned allocations (that is, allocations where the
+    /// corresponding client has crashed or terminated, or the client
+    /// connection has been lost for some reason).  Also, note that the time-
+    /// to-expiry is recomputed with each successful Refresh request, and
+    /// thus, the value computed here applies only until the first refresh.
+    #[rustfmt::skip]
+    pub async fn alloc_port(&self, a: &Addr) -> Option<u16> {
+        let mut nodes = self.nodes.write().await;
+        let node = nodes.get_mut(a)?;
+        let port = self.buckets
+            .alloc(node.group)
+            .await?;
+        self.ports
+            .write()
+            .await
+            .insert((node.group, port), a.clone());
+        if !node.ports.contains(&port) {
+            node.ports.push(port);    
+        }
+        
+        Some(port)
+    }
     
+    /// bind port for State.
+    ///
+    /// A server need not do anything special to implement
+    /// idempotency of CreatePermission requests over UDP using the
+    /// "stateless stack approach".  Retransmitted CreatePermission
+    /// requests will simply refresh the permissions.
+    #[rustfmt::skip]
+    pub async fn bind_port(&self, a: &Addr, port: u16) -> Option<()> {
+        let g = self.nodes
+            .read()
+            .await
+            .get(a)?
+            .group;
+        let p = self.ports
+            .read()
+            .await
+            .get(&(g, port))?
+            .clone();
+        self.port_bonds
+            .write()
+            .await
+            .entry(a.clone())
+            .or_insert_with(|| HashMap::with_capacity(10))
+            .entry(p)
+            .or_insert(port);
+        Some(())
+    }
+
+    /// bind channel number for State.
+    ///
+    /// A server need not do anything special to implement
+    /// idempotency of ChannelBind requests over UDP using the
+    /// "stateless stack approach".  Retransmitted ChannelBind requests
+    /// will simply refresh the channel binding and the corresponding
+    /// permission.  Furthermore, the client must wait 5 minutes before
+    /// binding a previously bound channel number or peer address to a
+    /// different channel, eliminating the possibility that the
+    /// transaction would initially fail but succeed on a
+    /// retransmission.
+    #[rustfmt::skip]
+    pub async fn bind_channel(&self, a: &Addr, p: u16, c: u16) -> Option<()> {
+        let ports = self.ports.read().await;
+        let mut channels = self.channels.write().await;
+        let mut nodes = self.nodes.write().await;
+        let mut is_empty = false;
+
+        let node = nodes.get_mut(a)?;
+        let channel = channels
+            .entry((node.group, c))
+            .or_insert_with(|| {
+                is_empty = true;
+                Channel::new(a)    
+            });
+
+        let is_include = if !is_empty {
+            channel.includes(a)
+        } else {
+            true 
+        };
+        
+        if !channel.is_half() && !is_include {
+            return None
+        }
+        
+        if !is_include {
+            channel.up(a);
+        }
+
+        if !is_empty && is_include {
+            channel.refresh();
+        }
+
+        let source = ports.get(&(node.group, p))?;
+        if !node.channels.contains(&c) {
+            node.channels.push(c)
+        }
+
+        self.channel_bonds
+            .write()
+            .await
+            .entry((a.clone(), c))
+            .or_insert(source.clone());
+        Some(())
+    }
+
     /// refresh node lifetime.
     ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
+    /// The server computes a value called the "desired lifetime" as follows:
+    /// if the request contains a LIFETIME attribute and the attribute value
+    /// is zero, then the "desired lifetime" is zero.  Otherwise, if the
+    /// request contains a LIFETIME attribute, then the server computes the
+    /// minimum of the client's requested lifetime and the server's maximum
+    /// allowed lifetime.  If this computed value is greater than the default
+    /// lifetime, then the "desired lifetime" is the computed value.
+    /// Otherwise, the "desired lifetime" is the default lifetime.
     /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
+    /// Subsequent processing depends on the "desired lifetime" value:
     /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.refresh(&addr, 0)
-    /// ```
+    /// *  If the "desired lifetime" is zero, then the request succeeds and
+    ///    the allocation is deleted.
+    /// 
+    /// *  If the "desired lifetime" is non-zero, then the request succeeds
+    ///    and the allocation's time-to-expiry is set to the "desired
+    ///    lifetime".
+    /// 
+    /// If the request succeeds, then the server sends a success response
+    /// containing:
+    /// 
+    /// *  A LIFETIME attribute containing the current value of the time-to-
+    ///    expiry timer.
+    /// 
+    /// NOTE: A server need not do anything special to implement
+    /// idempotency of Refresh requests over UDP using the "stateless
+    /// stack approach".  Retransmitted Refresh requests with a non-
+    /// zero "desired lifetime" will simply refresh the allocation.  A
+    /// retransmitted Refresh request with a zero "desired lifetime"
+    /// will cause a 437 (Allocation Mismatch) response if the
+    /// allocation has already been deleted, but the client will treat
+    /// this as equivalent to a success response (see below).
     #[rustfmt::skip]
-    pub async fn refresh(&self, a: &Addr, delay: u32) -> bool {
-        if delay == 0 {
-            self.remove(a).await;
-            return true;
+    pub async fn refresh(&self, a: &Addr, delay: u32) {
+        if delay == 0 { 
+            self.remove(a).await; 
+        } else {
+            self.nodes
+                .write()
+                .await
+                .get_mut(a)
+                .map(|n| n.set_lifetime(delay));
         }
-        
-        self.base_table
-            .write()
-            .await
-            .get_mut(a)
-            .map(|n| {
-                n.clock = Instant::now();
-                n.delay = delay as u64;
-            })
-            .is_some()
     }
-    
-    /// get peer channel.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.reflect_from_channel(&addr, 0)
-    /// ```
-    #[rustfmt::skip]
-    pub async fn reflect_from_channel(&self, a: &Addr, channel: u16) -> Option<Addr> {
-        assert!((0x4000..=0x4FFF).contains(&channel));
-        self.channel_table.read().await.get(
-            &UniqueChannel(a.clone(), channel)
-        ).cloned()
-    }
-    
-    /// remove node.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync:::Arc;
-    /// 
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// let state = State::new(t);
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// // state.remove(&addr)
-    /// ```
+
+    /// remove a node.
     #[rustfmt::skip]
     pub async fn remove(&self, a: &Addr) {
-        let mut allocs = self.port_table.write().await;
-        let mut channels = self.channel_table.write().await;
-        let mut groups = self.group_port_rc.write().await;
-        let node = match self.base_table.write().await.remove(a) {
-            Some(a) => a,
-            None => return,
+        let mut ports = self.ports.write().await;
+
+        let node = match self.nodes.write().await.remove(a) {
+            Some(n) => n,
+            None => return
         };
 
-        let pool = match groups.get_mut(&node.group) {
-            Some(p) => p,
-            _ => return,
-        };
-        
-        for port in node.ports {
-            pool.1.restore(port);
-            allocs.remove(&UniquePort(
-                node.group,
-                port
-            ));
+        for p in node.ports {
+            self.buckets.remove(node.group, p).await;
+            ports.remove(&(node.group, p));
         }
 
-        for channel in node.channels {
-            channels.remove(&UniqueChannel(
-                a.clone(),
-                channel
-            ));
+        for c in node.channels {
+            self.remove_channel(node.group, c).await;
         }
 
-        if pool.0 <= 1 {
-            groups.remove(&node.group);
-        } else {
-            pool.0 -= 1;
-        }
-        
-        self.peer_table
-            .write()
-            .await
-            .remove(a);
-        self.nonce_table
+        self.nonces.remove(a).await;
+        self.port_bonds
             .write()
             .await
             .remove(a);
     }
     
-    /// start state.
-    ///
-    /// scan the internal list regularly, 
-    /// the scan interval is 60 second.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// 
-    /// // State::new(t).run().await?;
-    /// ```
+    /// remove channel in State. 
     #[rustfmt::skip]
-    pub async fn run(self: Arc<Self>) -> Result<()> {
+    pub async fn remove_channel(&self, g: u32, c: u16) -> Option<()> {
+        let mut channel_bonds = self.channel_bonds
+            .write()
+            .await;
+        let mut channels = self.channels
+            .write()
+            .await;
+        let channel = channels
+            .remove(&(g, c))?;
+        for a in channel {
+            channel_bonds.remove(&(a, c));
+        }
+        
+        Some(())
+    }
+    
+    /// poll in State.
+    #[rustfmt::skip]
+    pub async fn poll(&self) {
+        let fail_nodes = self.nodes
+            .read()
+            .await
+            .iter()
+            .filter(|(_, v)| v.is_timeout())
+            .map(|(k, _)| k.clone())
+            .collect::<Vec<Addr>>();
+        for a in &fail_nodes {
+            self.remove(a).await;
+        }
+        
+        let fail_channels = self.channels
+            .read()
+            .await
+            .iter()
+            .filter(|(_, v)| v.is_timeout())
+            .map(|(k, _)| *k)
+            .collect::<Vec<(u32, u16)>>();
+        for (g, c) in fail_channels {
+            self.remove_channel(g, c).await;
+        }
+    }
+
+    #[rustfmt::skip]
+    pub async fn run(self: Arc<Self>) -> anyhow::Result<()> {
         let delay = Duration::from_secs(60);
         tokio::spawn(async move { 
             loop {
                 sleep(delay).await;
-                self.clear().await;
+                self.poll().await;
+                println!("{:?}", self);
             }
         }).await?;
         Ok(())
     }
-
-    /// clear all invalid node.
-    #[rustfmt::skip]
-    async fn clear(&self) {
-        let fails = self.base_table
-            .read()
-            .await
-            .iter()
-            .filter(|(_, v)| is_timeout(v))
-            .map(|(k, _)| k.clone())
-            .collect::<Vec<Addr>>();
-        for a in fails {
-            self.remove(&a).await;
-        }
-    }
 }
 
-impl PartialEq for UniquePort {
-    fn eq(&self, o: &Self) -> bool {
-        self.0 == o.0 && self.1 == o.1
-    }
-}
-
-impl PartialEq for UniqueChannel {
-    fn eq(&self, o: &Self) -> bool {
-        self.0 == o.0 && self.1 == o.1
-    }
-}
-
-fn rand_string() -> String {
-    let mut rng = thread_rng();
-    let r = std::iter::repeat(())
-        .map(|()| rng.sample(Alphanumeric))
-        .take(16)
-        .collect::<String>();
-    r.to_lowercase()
-}
-
-fn is_timeout(n: &Node) -> bool {
-    n.clock.elapsed().as_secs() >= n.delay
-}

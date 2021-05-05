@@ -15,6 +15,7 @@ use std::{
     author = env!("CARGO_PKG_AUTHORS"),
     about = env!("CARGO_PKG_DESCRIPTION")
 )]
+#[derive(Debug)]
 #[derive(StructOpt, Deserialize)]
 pub struct Conf {
     #[structopt(short, long)]

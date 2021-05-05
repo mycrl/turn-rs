@@ -26,21 +26,6 @@ pub struct Thread {
 }
 
 impl Thread {
-    /// # Example
-    ///
-    /// ```no_run
-    /// let c = config::Conf::new()?;
-    /// let t = broker::Broker::new(&c).await?;
-    /// let s = state::State::new(t);
-    /// 
-    /// let thread_local = ThreadLocal {
-    ///     state: s,
-    ///     conf: c
-    /// };
-    ///
-    /// let s = Arc::new(UdpSocket::bind(c.listen).await?);
-    /// // Thread::builder(thread_local, &s)
-    /// ```
     #[rustfmt::skip]
     pub fn builder(local: ThreadLocal, socket: &Arc<UdpSocket>) -> Self {
         Self {
@@ -77,23 +62,33 @@ impl Thread {
     /// ```
     #[rustfmt::skip]
     pub async fn poll(&mut self) {
-        if let Some((s, a)) = self.read().await {
-            if let Ok(Some((b, p))) = self.proto.handler(&self.reader[..s], &mut self.writer, a).await {
-                if let Err(e) = self.socket.send_to(b, p.as_ref()).await {
-                    log::error!("udp io error: {}", e);
-                    std::process::abort();
-                }
-            }
+        let (s, a) = match self.read().await {
+            Some(x) => x,
+            None => return
+        };
+
+        let (b, p) = match self.proto.handler(
+            &self.reader[..s], 
+            &mut self.writer, 
+            a
+        ).await {
+            Ok(Some(x)) => x,
+            _ => return
+        };
+
+        if let Err(e) = self.socket.send_to(b, p.as_ref()).await {
+            log::error!("udp io error: {}", e);
+            std::process::abort();
         }
     }
 
     /// read data from udp socket.
     ///
-    /// TODO: because tokio udp has some problems,
-    ///     if the remote host is shut down, 
-    ///     it will cause reading errors, 
-    ///     so any reading errors are ignored here. 
-    ///     this is a last resort.
+    /// TODO: because tokio udp has some problems, \
+    /// if the remote host is shut down, \
+    /// it will cause reading errors, \
+    /// so any reading errors are ignored here. \ 
+    /// this is a last resort.
     ///
     /// # Example
     ///

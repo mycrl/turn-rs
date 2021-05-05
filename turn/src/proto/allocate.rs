@@ -66,8 +66,7 @@ async fn reject<'a>(
 async fn resolve<'a>(
     ctx: &Context,
     m: &MessageReader<'a>,
-    u: &str,
-    p: &str,
+    p: &[u8; 16],
     port: u16,
     w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
@@ -77,7 +76,7 @@ async fn resolve<'a>(
     pack.append::<XorMappedAddress>(ctx.addr.as_ref().clone());
     pack.append::<ResponseOrigin>(ctx.conf.local.clone());
     pack.append::<Lifetime>(600);
-    pack.try_into(Some((u, &p, &ctx.conf.realm)))?;
+    pack.try_into(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -108,12 +107,12 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
         return reject(ctx, m, w, ServerError).await
     }
 
-    let key = match ctx.state.get_password(&ctx.addr, u).await {
+    let key = match ctx.state.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };
 
-    let port = match ctx.state.alloc_port(ctx.addr.clone()).await {
+    let port = match ctx.state.alloc_port(&ctx.addr).await {
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };
@@ -125,8 +124,8 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
         port,
     );
 
-    match m.integrity((u, &key, &ctx.conf.realm)) {
+    match m.integrity(&key) {
         Err(_) => reject(ctx, m, w, Unauthorized).await,
-        Ok(_) => resolve(&ctx, &m, u, &key, port, w).await,
+        Ok(_) => resolve(&ctx, &m, &key, port, w).await,
     }
 }

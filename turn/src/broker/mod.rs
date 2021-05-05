@@ -19,6 +19,7 @@ use std::convert::{
     TryFrom
 };
 
+#[derive(Debug)]
 struct Topic {
     auth: String
 }
@@ -29,6 +30,7 @@ struct Topic {
 /// It handles services, calls actions, 
 /// emits events and communicates with remote nodes. 
 /// You must create a Broker instance on every node.
+#[derive(Debug)]
 pub struct Broker {
     nats: Connection,
     topic: Topic
@@ -36,13 +38,6 @@ pub struct Broker {
 
 impl Broker {
     /// connect nats server.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// let c = config::Conf::new()?;
-    /// // Broker::new(&c).await?
-    /// ```
     pub async fn new(c: &Arc<Conf>) -> Result<Arc<Self>> {
         Ok(Arc::new(Self { 
             nats: connect(c.controls.as_str()).await?,
@@ -55,8 +50,6 @@ impl Broker {
     /// provide the user name and source address, 
     /// request the control service to give the 
     /// key of the current user.
-    ///
-    /// # Example
     ///
     /// ```no_run
     /// let c = config::Conf::new()?;
