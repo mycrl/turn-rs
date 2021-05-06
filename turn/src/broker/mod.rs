@@ -19,7 +19,6 @@ use std::convert::{
     TryFrom
 };
 
-#[derive(Debug)]
 struct Topic {
     auth: String
 }
@@ -30,7 +29,6 @@ struct Topic {
 /// It handles services, calls actions, 
 /// emits events and communicates with remote nodes. 
 /// You must create a Broker instance on every node.
-#[derive(Debug)]
 pub struct Broker {
     nats: Connection,
     topic: Topic

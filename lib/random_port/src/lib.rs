@@ -37,7 +37,6 @@ pub enum Bit {
 /// While the server IP address, the well-known port, and the client IP
 /// address may be known by an attacker, the ephemeral port of the client
 /// is usually unknown and must be guessed.
-#[derive(Debug)]
 pub struct RandomPort {
     buckets: Vec<u64>,
     range: Range<u16>,

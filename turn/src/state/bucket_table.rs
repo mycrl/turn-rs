@@ -8,14 +8,12 @@ use tokio::sync::Mutex;
 /// when there is no reference, it can be 
 /// deleted, and the port uses a random 
 /// allocation algorithm.
-#[derive(Debug)]
 pub struct Bucket {
     num: usize,
     port: RandomPort
 }
 
 /// buckets table.
-#[derive(Debug)]
 pub struct BucketTable {
     raw: Mutex<HashMap<u32, Bucket>>
 }

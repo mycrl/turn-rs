@@ -9,13 +9,11 @@ use rand::{
     Rng
 };
 
-#[derive(Debug)]
 pub struct Nonce {
     raw: Arc<String>,
     timer: Instant
 }
 
-#[derive(Debug)]
 pub struct NonceTable {
     raw: RwLock<HashMap<Addr, Nonce>>
 }

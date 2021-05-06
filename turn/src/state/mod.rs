@@ -28,7 +28,6 @@ use super::{
 
 type Addr = Arc<SocketAddr>;
 
-#[derive(Debug)]
 pub struct State {
     conf: Arc<Conf>,
     broker: Arc<Broker>,
@@ -389,7 +388,6 @@ impl State {
             loop {
                 sleep(delay).await;
                 self.poll().await;
-                println!("{:?}", self);
             }
         }).await?;
         Ok(())

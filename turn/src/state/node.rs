@@ -2,7 +2,6 @@ use tokio::time::Instant;
 use std::sync::Arc;
 // use super::util;
 
-#[derive(Debug)]
 pub struct Node {
     pub ports: Vec<u16>,
     pub channels: Vec<u16>,

@@ -54,7 +54,6 @@ pub struct Iter {
 /// server being unable to fulfill the request).  A client that wishes to
 /// be safe should either queue the data or use Send indications until
 /// the channel binding is confirmed.
-#[derive(Debug)]
 pub struct Channel {
     timer: Instant,
     bond: [Option<Addr>; 2],
