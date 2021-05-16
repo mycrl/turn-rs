@@ -1,4 +1,5 @@
 pub mod connection;
+pub mod bandwidth;
 pub mod origin;
 
 use connection::Connection;
@@ -115,6 +116,7 @@ pub struct Sdp<'a> {
     pub phone: Option<&'a str>,
     /// Connection Information ("c=")
     pub connection: Option<Connection>,
+    
 }
 
 impl Into<&'static str> for NetKind {

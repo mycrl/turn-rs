@@ -1,12 +1,8 @@
 use std::net::IpAddr;
+use anyhow::ensure;
 use super::{
     NetKind,
     AddrKind
-};
-
-use anyhow::{
-    ensure,
-    anyhow
 };
 
 use std::convert::{
