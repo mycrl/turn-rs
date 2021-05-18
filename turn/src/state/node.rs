@@ -23,18 +23,6 @@ impl Node {
         }
     }
 
-    // pub fn remove_channel(&mut self, c: u16) -> Option<()> {
-    //     let index = util::first_index(&self.channels, c)?;
-    //     self.channels.swap_remove(index);
-    //     Some(())
-    // }
-    
-    // pub fn remove_port(&mut self, p: u16) -> Option<()> {
-    //     let index = util::first_index(&self.ports, p)?;
-    //     self.ports.swap_remove(index);
-    //     Some(())
-    // }
-
     pub fn is_timeout(&self) -> bool {
         self.timer.elapsed().as_secs() >= self.lifetime
     }

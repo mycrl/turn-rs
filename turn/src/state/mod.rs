@@ -2,7 +2,6 @@ mod bucket_table;
 mod nonce_table;
 mod channel;
 mod node;
-mod util;
 
 use node::Node;
 use channel::Channel;

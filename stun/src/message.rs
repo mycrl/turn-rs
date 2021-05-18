@@ -186,7 +186,7 @@ impl<'a> MessageWriter<'a> {
     /// let mut buf = BytesMut::with_capacity(1280);
     /// let old = MessageReader::try_from(&buffer[..]).unwrap();
     /// let mut message = MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
-    /// message.try_into(Some(("panda", "panda", "raspberry"))).unwrap();
+    /// message.try_into(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
     pub fn try_into(&mut self, auth: Option<&Auth>) -> Result<()> {
@@ -243,7 +243,7 @@ impl<'a> MessageWriter<'a> {
     /// let mut buf = BytesMut::from(&buffer[..]);
     /// let old = MessageReader::try_from(&buffer[..]).unwrap();
     /// let mut message = MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
-    /// message.try_into(Some(("panda", "panda", "raspberry"))).unwrap();
+    /// message.try_into(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
     #[rustfmt::skip]
@@ -360,7 +360,7 @@ impl<'a> MessageReader<'a> {
     /// ];
     /// 
     /// let message = MessageReader::try_from(&buffer[..]).unwrap();
-    /// let result = message.integrity(("panda", "panda", "raspberry")).is_ok();
+    /// let result = message.integrity(&util::long_key("panda", "panda", "raspberry")).is_ok();
     /// assert!(result);
     /// ```
     #[rustfmt::skip]
@@ -427,8 +427,8 @@ impl<'a> TryFrom<&'a [u8]> for MessageReader<'a> {
         // message size
         // check fixed magic cookie
         // check if the message size is overflow
-        let kind = Kind::try_from(convert::as_u16(&buf[..2]))?;
-        let size = convert::as_u16(&buf[2..4]) as usize;
+        let kind = Kind::try_from(util::as_u16(&buf[..2]))?;
+        let size = util::as_u16(&buf[2..4]) as usize;
         ensure!(&buf[4..8] == &COOKIE[..], "missing cookie");
         ensure!(count_size >= size + 20, "missing len");
 

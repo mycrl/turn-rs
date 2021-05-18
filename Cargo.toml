@@ -9,10 +9,9 @@ lto = true
 [workspace]
 members = [
     "turn",
-    "lib/sdp",
-    "lib/rtp",
-    "lib/srtp",
-    "lib/stun",
-    "lib/convert",
-    "lib/random_port"
+    "sdp",
+    "rtp",
+    "srtp",
+    "stun",
+    "random_port"
 ]

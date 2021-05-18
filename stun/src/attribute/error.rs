@@ -1,5 +1,6 @@
 use num_enum::TryFromPrimitive;
 use anyhow::ensure;
+use crate::util;
 use bytes::{
     BufMut, 
     BytesMut
@@ -112,9 +113,9 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     #[rustfmt::skip]
     fn try_from(packet: &'a [u8]) -> Result<Self, Self::Error> {
         ensure!(packet.len() >= 4, "buffer len < 4");
-        ensure!(convert::as_u16(&packet[..2]) == 0x0000, "missing reserved");
+        ensure!(util::as_u16(&packet[..2]) == 0x0000, "missing reserved");
         Ok(Self { 
-            code: convert::as_u16(&packet[2..4]),
+            code: util::as_u16(&packet[2..4]),
             message: std::str::from_utf8(&packet[4..])?,
         })
     }

@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use anyhow::ensure;
+use super::util;
 
 /// channel data message.
 pub struct ChannelData<'a> {
@@ -28,9 +29,9 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
         let len = buf.len();
         ensure!(len >= 4, "data len < 4");
-        let size = convert::as_u16(&buf[2..4]) as usize;
+        let size = util::as_u16(&buf[2..4]) as usize;
         ensure!(size <= len - 4, "data body len < size");
-        let number = convert::as_u16(&buf[..2]);
+        let number = util::as_u16(&buf[..2]);
         Ok(Self { number, buf })
     }
 }

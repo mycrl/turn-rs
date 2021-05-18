@@ -9,6 +9,7 @@ use std::convert::{
 };
 
 /// Bandwidth Kind
+#[derive(Debug, PartialEq, Eq)]
 pub enum BwKind {
     CT,
     AS
@@ -74,7 +75,7 @@ impl<'a> TryFrom<&'a str> for Bandwidth {
     /// use sdp::bandwidth::*;
     /// use std::convert::*;
     ///
-    /// let temp = "AS:128".to_string();
+    /// let temp = "AS:128";
     /// let instance: Bandwidth = Bandwidth::try_from(temp).unwrap();
     /// 
     /// assert_eq!(instance.bwtype, BwKind::AS);
@@ -113,7 +114,7 @@ impl<'a> TryFrom<&'a str> for BwKind {
     /// # Unit Test
     ///
     /// ```
-    //// use sdp::bandwidth::*;
+    /// use sdp::bandwidth::*;
     /// use std::convert::*;
     ///
     /// let kind: BwKind = BwKind::try_from("AS").unwrap();

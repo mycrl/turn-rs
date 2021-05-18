@@ -5,6 +5,7 @@ use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 use std::net::SocketAddr;
 pub use address::Addr;
+use crate::util;
 use bytes::{
     BytesMut,
     BufMut
@@ -456,7 +457,7 @@ impl<'a> Property<'a> for Lifetime {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(convert::as_u32(buf))
+        Ok(util::as_u32(buf))
     }
 }
 
@@ -541,7 +542,7 @@ impl<'a> Property<'a> for Fingerprint {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(convert::as_u32(buf))
+        Ok(util::as_u32(buf))
     }
 }
 
@@ -571,6 +572,6 @@ impl<'a> Property<'a> for ChannelNumber {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(convert::as_u16(buf))
+        Ok(util::as_u16(buf))
     }
 }
