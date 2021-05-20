@@ -1,7 +1,7 @@
 pub mod request;
 pub mod response;
 
-use super::config::Conf;
+use super::config::Configure;
 use response::Response;
 use anyhow::Result;
 use std::{
@@ -36,7 +36,7 @@ pub struct Broker {
 
 impl Broker {
     /// connect nats server.
-    pub async fn new(c: &Arc<Conf>) -> Result<Arc<Self>> {
+    pub async fn new(c: &Arc<Configure>) -> Result<Arc<Self>> {
         Ok(Arc::new(Self { 
             nats: connect(c.controls.as_str()).await?,
             topic: Topic {
@@ -50,7 +50,7 @@ impl Broker {
     /// key of the current user.
     ///
     /// ```no_run
-    /// let c = config::Conf::new()?;
+    /// let c = config::Configure::new()?;
     /// let broker = Broker::new(&c).await?;
     /// let source_addr = "127.0.0.1:8080".parse().unwrap();
     /// let res = broker.auth(&source_addr, "panda").await?;

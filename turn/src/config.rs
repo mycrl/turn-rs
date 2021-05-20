@@ -15,7 +15,7 @@ use std::{
     version = env!("CARGO_PKG_VERSION"),
     author = env!("CARGO_PKG_AUTHORS")
 )]
-pub struct Conf {
+pub struct Configure {
     #[clap(short, long)]
     #[clap(about = "conf file path")]
     config: Option<String>,
@@ -84,7 +84,7 @@ pub struct Conf {
     pub threads: Option<usize>,
 }
 
-impl Conf {
+impl Configure {
     /// create config model.
     ///
     /// the configuration supports reading from cli or configuration file. 
@@ -94,7 +94,7 @@ impl Conf {
     /// at the same time, the configuration file path can be specified 
     /// by setting the `MYSTICETI_CONFIG` environment variable.
     pub fn new() -> Result<Arc<Self>> {
-        let opt = Conf::parse();
+        let opt = Configure::parse();
         Ok(Arc::new(match opt.config {
             Some(p) => read_file(p)?,
             None => match std::env::var("MYSTICETI_CONFIG") {
@@ -110,7 +110,7 @@ impl Conf {
 /// read the configuration from the configuration file, 
 /// there may be cases where the parse fail.
 #[inline(always)]
-fn read_file(path: String) -> Result<Conf> {
+fn read_file(path: String) -> Result<Configure> {
     log::info!("load conf file {:?}", &path);
     let mut buf = String::new();
     let mut file = File::open(path)?;

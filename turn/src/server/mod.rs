@@ -4,7 +4,7 @@ use tokio::net::UdpSocket;
 use anyhow::Result;
 use std::sync::Arc;
 use super::{
-    config::Conf,
+    config::Configure,
     state::State
 };
 
@@ -32,14 +32,14 @@ fn get_threads(threads: Option<usize>) -> usize {
 /// # Example
 ///
 /// ```no_run
-/// let c = config::Conf::new()?;
+/// let c = config::Configure::new()?;
 /// let t = broker::Broker::new(&c).await?;
 /// let s = state::State::new(t);
 ///
 /// // run(c, s).await?
 /// ```
 #[rustfmt::skip]
-pub async fn run(f: Arc<Conf>, c: Arc<State>) -> Result<()> {
+pub async fn run(f: Arc<Configure>, c: Arc<State>) -> Result<()> {
     let s = Arc::new(UdpSocket::bind(f.listen).await?);
     let threads = get_threads(f.threads);
     let tl = ThreadLocal {

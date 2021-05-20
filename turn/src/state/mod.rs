@@ -21,14 +21,14 @@ use std::{
 };
 
 use super::{
-    config::Conf,
+    config::Configure,
     broker::Broker
 };
 
 type Addr = Arc<SocketAddr>;
 
 pub struct State {
-    conf: Arc<Conf>,
+    conf: Arc<Configure>,
     broker: Arc<Broker>,
     nonces: NonceTable,
     buckets: BucketTable,
@@ -40,7 +40,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(c: &Arc<Conf>, b: &Arc<Broker>) -> Arc<Self> {
+    pub fn new(c: &Arc<Configure>, b: &Arc<Broker>) -> Arc<Self> {
         Arc::new(Self {
             conf: c.clone(),
             broker: b.clone(),

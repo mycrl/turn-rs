@@ -7,14 +7,14 @@ use std::{
 
 use crate::{
     proto::Proto,
-    config::Conf,
+    config::Configure,
     state::State
 };
 
 /// thread local context.
 pub struct ThreadLocal {
     pub state: Arc<State>,
-    pub conf: Arc<Conf>,
+    pub conf: Arc<Configure>,
 }
 
 /// server thread worker.
@@ -45,7 +45,7 @@ impl Thread {
     /// # Example
     ///
     /// ```no_run
-    /// let c = config::Conf::new()?;
+    /// let c = config::Configure::new()?;
     /// let t = broker::Broker::new(&c).await?;
     /// let s = state::State::new(t);
     /// 
@@ -93,7 +93,7 @@ impl Thread {
     /// # Example
     ///
     /// ```no_run
-    /// let c = config::Conf::new()?;
+    /// let c = config::Configure::new()?;
     /// let t = broker::Broker::new(&c).await?;
     /// let s = state::State::new(t);
     /// 
