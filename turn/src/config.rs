@@ -1,6 +1,6 @@
-use structopt::StructOpt;
 use serde::Deserialize;
 use anyhow::Result;
+use clap::Clap;
 use std::{
     fs::File, 
     io::Read,
@@ -9,25 +9,24 @@ use std::{
 };
 
 /// config model.
-#[structopt(
+#[derive(Clap, Deserialize)]
+#[clap(
     name = env!("CARGO_PKG_NAME"),
     version = env!("CARGO_PKG_VERSION"),
-    author = env!("CARGO_PKG_AUTHORS"),
-    about = env!("CARGO_PKG_DESCRIPTION")
+    author = env!("CARGO_PKG_AUTHORS")
 )]
-#[derive(StructOpt, Deserialize)]
 pub struct Conf {
-    #[structopt(short, long)]
-    #[structopt(help = "conf file path")]
+    #[clap(short, long)]
+    #[clap(about = "conf file path")]
     config: Option<String>,
     
     /// specify the domain where the server is located. 
     /// for a single node, this configuration is fixed, 
     /// but each node can be configured as a different domain. 
     /// this is a good idea to divide the nodes by namespace.
-    #[structopt(long)]
-    #[structopt(default_value = "localhost")]
-    #[structopt(help = "Service realm name")]
+    #[clap(long)]
+    #[clap(default_value = "localhost")]
+    #[clap(about = "Service realm name")]
     #[serde(default = "default_realm")]
     pub realm: String,
     
@@ -35,9 +34,9 @@ pub struct Conf {
     /// for the case of exposing the service to the outside, 
     /// you need to manually specify the server external IP 
     /// address and service listening port.
-    #[structopt(long)]
-    #[structopt(default_value = "127.0.0.1:3478")]
-    #[structopt(help = "Service external address and port")]
+    #[clap(long)]
+    #[clap(default_value = "127.0.0.1:3478")]
+    #[clap(about = "Service external address and port")]
     #[serde(default = "default_addr")]
     pub local: SocketAddr,
     
@@ -45,9 +44,9 @@ pub struct Conf {
     /// currently, it does not support binding multiple 
     /// addresses at the same time. the bound address 
     /// supports ipv4 and ipv6.
-    #[structopt(long)]
-    #[structopt(default_value = "127.0.0.1:3478")]
-    #[structopt(help = "Service bind address and port")]
+    #[clap(long)]
+    #[clap(default_value = "127.0.0.1:3478")]
+    #[clap(about = "Service bind address and port")]
     #[serde(default = "default_addr")]
     pub listen: SocketAddr,
     
@@ -57,9 +56,9 @@ pub struct Conf {
     /// the service will only have the basic STUN binding function. 
     /// functions such as authorization authentication and port 
     /// allocation require communication with the control center.
-    #[structopt(long)]
-    #[structopt(default_value = "127.0.0.1:4222")]
-    #[structopt(help = "Control the address and port of the service")]
+    #[clap(long)]
+    #[clap(default_value = "127.0.0.1:4222")]
+    #[clap(about = "Control the address and port of the service")]
     #[serde(default = "default_controls")]
     pub controls: String,
     
@@ -69,9 +68,9 @@ pub struct Conf {
     /// value to 4096. a larger space will be easier to deal 
     /// with more complex MTU situations, although most of 
     /// the time The space utilization rate is not high.
-    #[structopt(long)]
-    #[structopt(default_value = "1280")]
-    #[structopt(help = "UDP read buffer size")]
+    #[clap(long)]
+    #[clap(default_value = "1280")]
+    #[clap(about = "UDP read buffer size")]
     #[serde(default = "default_buffer")]
     pub buffer: usize,
     
@@ -80,8 +79,8 @@ pub struct Conf {
     /// using multiple threads may not bring a very significant 
     /// performance improvement, but setting the number of CPU 
     /// cores can process data to the greatest extent package.
-    #[structopt(long)]
-    #[structopt(help = "Runtime threads size")]
+    #[clap(long)]
+    #[clap(about = "Runtime threads size")]
     pub threads: Option<usize>,
 }
 
@@ -95,7 +94,7 @@ impl Conf {
     /// at the same time, the configuration file path can be specified 
     /// by setting the `MYSTICETI_CONFIG` environment variable.
     pub fn new() -> Result<Arc<Self>> {
-        let opt = Conf::from_args();
+        let opt = Conf::parse();
         Ok(Arc::new(match opt.config {
             Some(p) => read_file(p)?,
             None => match std::env::var("MYSTICETI_CONFIG") {
