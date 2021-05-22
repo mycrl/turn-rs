@@ -1,38 +1,80 @@
 use tokio::time::Instant;
 use std::sync::Arc;
-// use super::util;
 
+/// turn node session.
+///
+/// * the authentication information.
+/// * the port bind table.
+/// * the channel alloc table.
+/// * the group number.
+/// * the time-to-expiry for each relayed transport address.
 pub struct Node {
-    pub ports: Vec<u16>,
     pub channels: Vec<u16>,
+    pub ports: Vec<u16>,
     pub group: u32,
     timer: Instant,
     lifetime: u64,
-    key: Arc<[u8; 16]>
+    password: Arc<[u8; 16]>
 }
 
 impl Node {
-    pub fn new(group: u32, key: [u8; 16]) -> Self {
+    /// create node session.
+    ///
+    /// node session from group number and long key.
+    ///
+    /// ```no_run
+    /// let key = stun::util::long_key("panda", "panda", "raspberry");
+    /// // Node::new(0, key.clone());
+    /// ```
+    pub fn new(group: u32, password: [u8; 16]) -> Self {
         Self {
             channels: Vec::with_capacity(5),
             ports: Vec::with_capacity(10),
             timer: Instant::now(),
-            key: Arc::new(key),
+            password: Arc::new(password),
             lifetime: 600,
             group,
         }
     }
 
-    pub fn is_timeout(&self) -> bool {
-        self.timer.elapsed().as_secs() >= self.lifetime
-    }
-
+    /// set the lifetime of the node.
+    ///
+    /// delay is to die after the specified second.
+    ///
+    /// ```no_run
+    /// let key = stun::util::long_key("panda", "panda", "raspberry");
+    /// let mut node = Node::new(0, key.clone());
+    /// node.set_lifetime(600);
+    /// ```
     pub fn set_lifetime(&mut self, delay: u32) {
         self.lifetime = delay as u64;
         self.timer = Instant::now();
     }
 
-    pub fn get_key(&self) -> Arc<[u8; 16]> {
-        self.key.clone()
+    /// whether the node is dead.
+    ///
+    /// ```no_run
+    /// let key = stun::util::long_key("panda", "panda", "raspberry");
+    /// let mut node = Node::new(0, key.clone());
+    /// node.set_lifetime(600);
+    /// assert!(!node.is_death());
+    /// ```
+    pub fn is_death(&self) -> bool {
+        self.timer.elapsed().as_secs() >= self.lifetime
+    }
+
+    /// get node the password.
+    ///
+    /// for security reasons, the server MUST NOT store the password
+    /// explicitly and MUST store the key value, which is a cryptographic
+    /// hash over the username, realm, and password.
+    ///
+    /// ```no_run
+    /// let key = stun::util::long_key("panda", "panda", "raspberry");
+    /// let node = Node::new(0, key.clone());
+    /// assert_eq!(!node.get_password(), Arc::new(key));
+    /// ```
+    pub fn get_password(&self) -> Arc<[u8; 16]> {
+        self.password.clone()
     }
 }

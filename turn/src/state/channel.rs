@@ -132,10 +132,10 @@ impl Channel {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let mut channel = Channel::new(&addr);
-    /// // channel.is_timeout(600)
+    /// // channel.is_death(600)
     /// ```
     #[rustfmt::skip]
-    pub fn is_timeout(&self) -> bool {
+    pub fn is_death(&self) -> bool {
         self.timer.elapsed().as_secs() >= 600
     }
 }

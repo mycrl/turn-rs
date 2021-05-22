@@ -63,7 +63,7 @@ impl State {
             .read()
             .await
             .get(a)
-            .map(|n| n.get_key());
+            .map(|n| n.get_password());
         if key.is_some() {
             return key
         }
@@ -82,7 +82,7 @@ impl State {
             )
         );
 
-        let key = node.get_key();
+        let key = node.get_password();
         self.nodes
             .write()
             .await
@@ -361,7 +361,7 @@ impl State {
             .read()
             .await
             .iter()
-            .filter(|(_, v)| v.is_timeout())
+            .filter(|(_, v)| v.is_death())
             .map(|(k, _)| k.clone())
             .collect::<Vec<Addr>>();
         for a in &fail_nodes {
@@ -372,7 +372,7 @@ impl State {
             .read()
             .await
             .iter()
-            .filter(|(_, v)| v.is_timeout())
+            .filter(|(_, v)| v.is_death())
             .map(|(k, _)| *k)
             .collect::<Vec<(u32, u16)>>();
         for (g, c) in fail_channels {
