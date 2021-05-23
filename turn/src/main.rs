@@ -11,7 +11,7 @@ async fn main() -> anyhow::Result<()> {
         .format_module_path(false)
         .init();
     
-    let c = config::Configure::new()?;
+    let c = config::Configure::generate()?;
     let b = broker::Broker::new(&c).await?;
     let s = state::State::new(&c, &b);
     server::run(c, s.clone()).await?;

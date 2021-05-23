@@ -56,7 +56,7 @@ impl NonceTable {
     /// ```
     pub async fn get(&self, a: &Addr) -> Arc<String> {
         if let Some(n) = self.raw.read().await.get(a) {
-            if !n.is_timeout() {
+            if !n.is_death() {
                 return n.unwind()   
             }
         }
@@ -95,20 +95,18 @@ impl Nonce {
     /// whether the nonce is dead.
     ///
     /// ```no_run
-    /// let node = Nonce::new();
-    /// assert!(!node.is_death());
+    /// let nonce = Nonce::new();
+    /// assert!(!nonce.is_death());
     /// ```
     pub fn is_death(&self) -> bool {
         self.timer.elapsed().as_secs() < 3600
     }
 
-    /// create node session.
-    ///
-    /// node session from group number and long key.
+    /// unwind nonce random string.
     ///
     /// ```no_run
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// // Node::new(0, key.clone());
+    /// let nonce = Nonce::new();
+    /// assert_eq!(nonce.unwind().len(), 16);
     /// ```
     pub fn unwind(&self) -> Arc<String> {
         self.raw.clone()

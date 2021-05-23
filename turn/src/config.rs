@@ -93,7 +93,7 @@ impl Configure {
     /// the configuration file will overwrite all parameter configurations. 
     /// at the same time, the configuration file path can be specified 
     /// by setting the `MYSTICETI_CONFIG` environment variable.
-    pub fn new() -> Result<Arc<Self>> {
+    pub fn generate() -> Result<Arc<Self>> {
         let opt = Configure::parse();
         Ok(Arc::new(match opt.config {
             Some(p) => read_file(p)?,

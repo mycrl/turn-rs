@@ -27,6 +27,16 @@ use super::{
 
 type Addr = Arc<SocketAddr>;
 
+/// Single State Tree.
+///
+/// this state management example maintains the status of all 
+/// nodes in the current service and adds a node grouping model. 
+/// it is necessary to specify a group for each node. 
+/// 
+/// The state between groups is isolated. However, 
+/// it should be noted that the node key only supports 
+/// long-term valid passwords，does not support short-term 
+/// valid passwords.
 pub struct State {
     conf: Arc<Configure>,
     broker: Arc<Broker>,
@@ -40,24 +50,42 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(c: &Arc<Configure>, b: &Arc<Broker>) -> Arc<Self> {
-        Arc::new(Self {
-            conf: c.clone(),
-            broker: b.clone(),
-            nonces: NonceTable::new(),
-            buckets: BucketTable::new(),
-            nodes: RwLock::new(HashMap::with_capacity(1024)),
-            ports: RwLock::new(HashMap::with_capacity(1024)),
-            port_bonds: RwLock::new(HashMap::with_capacity(1024)),
-            channels: RwLock::new(HashMap::with_capacity(1024)),
-            channel_bonds: RwLock::new(HashMap::with_capacity(1024))
-        })
-    }
-
+    /// get the nonce of the node SocketAddr.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// assert!(state.get_nonce(&addr).len() == 16);
+    /// ```
     pub async fn get_nonce(&self, a: &Addr) -> Arc<String> {
         self.nonces.get(a).await
     }
 
+    /// get the password of the node SocketAddr.
+    ///
+    /// require remote control service to distribute keys.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// // state.get_key(&addr, "panda")
+    /// ```
     pub async fn get_key(&self, a: &Addr, u: &str) -> Option<Arc<[u8; 16]>> {
         let key = self.nodes
             .read()
@@ -90,6 +118,33 @@ impl State {
         Some(key)
     }
 
+    /// obtain the peer address bound to the current 
+    /// node according to the channel number.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    ///
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// state.get_key(&peer, "panda");
+    ///
+    /// let addr_port = state.alloc_port(&addr).unwrap();
+    /// let peer_port = state.alloc_port(&peer).unwrap();
+    ///
+    /// state.bind_channel(&addr, peer_port, 0x4000);
+    /// state.bind_channel(&peer, addr_port, 0x4000);
+    ///
+    /// assert_eq!(state.get_channel_bond(&addr, 0x4000).unwrap(), peer);
+    /// ```
     pub async fn get_channel_bond(&self, a: &Addr, c: u16) -> Option<Addr> {
         self.channel_bonds
             .read()
@@ -98,6 +153,34 @@ impl State {
             .cloned()
     }
 
+    /// obtain the peer address bound to the current
+    /// node according to the port number.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    ///
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// state.get_key(&peer, "panda");
+    ///
+    /// let addr_port = state.alloc_port(&addr).unwrap();
+    /// let peer_port = state.alloc_port(&peer).unwrap();
+    ///
+    /// state.bind_port(&peer, addr_port);
+    /// state.bind_port(&addr, peer_port);
+    ///
+    /// assert_eq!(state.get_port_bond(&addr, peer_port), some(peer));
+    /// assert_eq!(state.get_port_bond(&peer, addr_port), some(addr));
+    /// ```
     pub async fn get_port_bond(&self, a: &Addr, p: u16) -> Option<Addr> {
         let g = self.nodes
             .read()
@@ -111,7 +194,34 @@ impl State {
             .cloned()
     }
 
-    pub async fn get_node_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
+    /// get node the port.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    ///
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// state.get_key(&peer, "panda");
+    ///
+    /// let addr_port = state.alloc_port(&addr).unwrap();
+    /// let peer_port = state.alloc_port(&peer).unwrap();
+    ///
+    /// state.bind_port(&peer, addr_port);
+    /// state.bind_port(&addr, peer_port);
+    ///
+    /// assert_eq!(state.get_bond_port(&addr, &peer), some(peer_port));
+    /// assert_eq!(state.get_bond_port(&peer, &addr), some(addr_port));
+    /// ```
+    pub async fn get_bond_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
         self.port_bonds
             .read()
             .await
@@ -160,6 +270,26 @@ impl State {
     /// connection has been lost for some reason).  Also, note that the time-
     /// to-expiry is recomputed with each successful Refresh request, and
     /// thus, the value computed here applies only until the first refresh.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    ///
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// state.get_key(&peer, "panda");
+    ///
+    /// assert!(state.alloc_port(&addr).unwrap().is_some());
+    /// assert!(state.alloc_port(&peer).unwrap().is_some());
+    /// ```
     #[rustfmt::skip]
     pub async fn alloc_port(&self, a: &Addr) -> Option<u16> {
         let mut nodes = self.nodes.write().await;
@@ -184,6 +314,29 @@ impl State {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    ///
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// state.get_key(&peer, "panda");
+    ///
+    /// let addr_port = state.alloc_port(&addr).unwrap();
+    /// let peer_port = state.alloc_port(&peer).unwrap();
+    ///
+    /// assert!(state.bind_port(&peer, addr_port).is_some());
+    /// assert!(state.bind_port(&addr, peer_port).is_some());
+    /// ```
     #[rustfmt::skip]
     pub async fn bind_port(&self, a: &Addr, port: u16) -> Option<()> {
         let g = self.nodes
@@ -217,6 +370,29 @@ impl State {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    ///
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// state.get_key(&peer, "panda");
+    ///
+    /// let addr_port = state.alloc_port(&addr).unwrap();
+    /// let peer_port = state.alloc_port(&peer).unwrap();
+    ///
+    /// assert!(state.bind_channel(&peer, addr_port, 0x4000).is_some());
+    /// assert!(state.bind_channel(&addr, peer_port, 0x4000).is_some());
+    /// ```
     #[rustfmt::skip]
     pub async fn bind_channel(&self, a: &Addr, p: u16, c: u16) -> Option<()> {
         let ports = self.ports.read().await;
@@ -297,6 +473,22 @@ impl State {
     /// will cause a 437 (Allocation Mismatch) response if the
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// state.refresh(&addr, 600);
+    /// state.refresh(&addr, 0);
+    /// ```
     #[rustfmt::skip]
     pub async fn refresh(&self, a: &Addr, delay: u32) {
         if delay == 0 { 
@@ -311,6 +503,21 @@ impl State {
     }
 
     /// remove a node.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// state.remove(&addr);
+    /// ```
     #[rustfmt::skip]
     pub async fn remove(&self, a: &Addr) {
         let mut ports = self.ports.write().await;
@@ -337,6 +544,21 @@ impl State {
     }
     
     /// remove channel in State. 
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// let state = State::new(&configure, &broker);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// assert!(state.remove_channel(0, 0x4000).is_none());
+    /// ```
     #[rustfmt::skip]
     pub async fn remove_channel(&self, g: u32, c: u16) -> Option<()> {
         let mut channel_bonds = self.channel_bonds
@@ -354,7 +576,22 @@ impl State {
         Some(())
     }
     
-    /// poll in State.
+    /// poll in state.
+    ///
+    /// ```no_run
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// 
+    /// tokio::spawn(async move {
+    ///     let state = State::new(&configure, &broker);
+    ///     loop {
+    ///         state.poll()
+    ///     }
+    /// });
+    /// ```
     #[rustfmt::skip]
     pub async fn poll(&self) {
         let fail_nodes = self.nodes
@@ -380,6 +617,20 @@ impl State {
         }
     }
 
+    /// auto run state poll.
+    ///
+    /// ```no_run
+    /// use turn::config::Configure;
+    /// use turn::broker::Broker;
+    ///
+    /// let configure = Configure::generate().unwrap();
+    /// let broker = Broker::new(&configure);
+    /// 
+    /// State::new(&configure, &broker)
+    ///     .run()
+    ///     .await
+    ///     .unwrap();
+    /// ```
     #[rustfmt::skip]
     pub async fn run(self: Arc<Self>) -> anyhow::Result<()> {
         let delay = Duration::from_secs(60);
@@ -391,5 +642,22 @@ impl State {
         }).await?;
         Ok(())
     }
+    
+    pub fn new(c: &Arc<Configure>, b: &Arc<Broker>) -> Arc<Self> {
+        Arc::new(Self {
+            conf: c.clone(),
+            broker: b.clone(),
+            buckets: BucketTable::new(),
+            nonces: NonceTable::new(),
+            channel_bonds: create_table(),
+            channels: create_table(),
+            port_bonds: create_table(),
+            ports: create_table(),
+            nodes: create_table()
+        })
+    }
 }
 
+fn create_table<K, V>() -> RwLock<HashMap<K, V>> {
+    RwLock::new(HashMap::with_capacity(1024))
+}
