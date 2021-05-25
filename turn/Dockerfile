@@ -13,14 +13,14 @@ RUN apt update \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && mkdir /usr/local/src/Mysticeti
 
-COPY ./src /usr/local/src/Mysticeti/src
-COPY ./Cargo.toml /usr/local/src/Mysticeti/Cargo.toml
+COPY ./src /usr/local/src/turn/src
+COPY ./Cargo.toml /usr/local/src/turn/Cargo.toml
 COPY $MYSTICETI_CONFIG $MYSTICETI_CONFIG
 
-RUN cd /usr/local/src/Mysticeti \
+RUN cd /usr/local/src/turn \
     && cargo build --release \
-    && cp /usr/local/src/Mysticeti/target/release/mysticeti /usr/local/bin/Mysticeti \
-    && chmod +x /usr/local/bin/Mysticeti
+    && cp /usr/local/src/turn/target/release/turn /usr/local/bin/turn \
+    && chmod +x /usr/local/bin/turn
     
 EXPOSE 3478
-CMD ["Mysticeti"]
+CMD turn --listen 0.0.0.0:3478
