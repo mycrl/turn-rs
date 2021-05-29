@@ -3,7 +3,7 @@
 import Nats from "nats"
 
 /** 
- * @module Mysticeti/Subscription
+ * @module mystical/Subscription
  */
 
 /**
@@ -66,7 +66,7 @@ export default class Subscription {
      * @returns {Promise<void>}
      * @public
      * @example
-     * const mysticeti = new Mysticeti({
+     * const mysticeti = new mystical({
      *     server: "localhost:4222"
      * })
      * 

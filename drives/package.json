@@ -5,7 +5,7 @@
     "description": "Rust ❤️ WebRTC STUN/TURN Server",
     "main": "src/index.ts",
     "author": "Mr.Panda <xivistudios@gmail.com>",
-    "homepage": "https://github.com/Mycrl/Mysticeti#readme",
+    "homepage": "https://github.com/Mycrl/mystical#readme",
     "license": "MIT",
     "keywords": [
         "webrtc",
@@ -14,11 +14,11 @@
         "mysticeti"
     ],
     "bugs": {
-        "url": "https://github.com/Mycrl/Mysticeti/issues"
+        "url": "https://github.com/Mycrl/mystical/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/Mycrl/Mysticeti.git"
+        "url": "git+https://github.com/Mycrl/mystical.git"
     },
     "scripts": {
         "dev": "node ./example.js"

@@ -1,7 +1,7 @@
 <!--lint disable no-literal-urls-->
 <div align="center">
   <img 
-    alt="Mysticeti"
+    alt="mystical"
     src="./logo.svg" 
     width="200px"
   />
@@ -11,16 +11,16 @@
   <strong>WebRTC Server implemented by ❤️ Rust</strong>
 </div>
 <div align="center">
-  <img src="https://img.shields.io/github/workflow/status/Mycrl/Mysticeti/Mysticeti Tests"/>
-  <img src="https://img.shields.io/github/languages/top/Mycrl/Mysticeti"/>
-  <img src="https://img.shields.io/github/license/Mycrl/Mysticeti"/>
-  <img src="https://img.shields.io/github/issues/Mycrl/Mysticeti"/>
-  <img src="https://img.shields.io/github/stars/Mycrl/Mysticeti"/>
+  <img src="https://img.shields.io/github/workflow/status/Mycrl/mystical/mystical Tests"/>
+  <img src="https://img.shields.io/github/languages/top/Mycrl/mystical"/>
+  <img src="https://img.shields.io/github/license/Mycrl/mystical"/>
+  <img src="https://img.shields.io/github/issues/Mycrl/mystical"/>
+  <img src="https://img.shields.io/github/stars/Mycrl/mystical"/>
 </div>
 <br/>
 <br/>
 
-Mysticeti is a WebRTC server solution implemented using Rust and supports the SFU/MCU model. Compared with other ongoing projects, the current project prioritizes WebRTC one-to-many live broadcasting, but this does not mean that the project will give up peer-to-peer two-way dialogue.
+mystical is a WebRTC server solution implemented using Rust and supports the SFU/MCU model. Compared with other ongoing projects, the current project prioritizes WebRTC one-to-many live broadcasting, but this does not mean that the project will give up peer-to-peer two-way dialogue.
 
 ## Table of contents
 
@@ -51,7 +51,7 @@ Mysticeti is a WebRTC server solution implemented using Rust and supports the SF
 You need to install the Rust toolchain, if you have already installed it, you can skip it, [Install Rust](https://www.rust-lang.org/tools/install), then get the source code:
 
 ```bash
-git clone https://github.com/Mycrl/Mysticeti
+git clone https://github.com/Mycrl/mystical
 ```
 
 And, you need to install the openssl toolchain.
@@ -81,7 +81,7 @@ brew install openssl
 Compile the entire workspace in release mode:
 
 ```bash
-cd Mysticeti
+cd mystical
 cargo build --release
 ```
 
@@ -92,7 +92,7 @@ After the compilation is complete, you can find the binary file in the "target/r
 If you only need to compile the turn server separately:
 
 ```bash
-cd Mysticeti/turn
+cd mystical/turn
 cargo build --release
 ```
 

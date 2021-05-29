@@ -1,6 +1,6 @@
-import Mysticeti from "./src/index.js"
+import mystical from "./src/index.js"
 
-const mysticeti = new Mysticeti({
+const mysticeti = new mystical({
     server: "localhost:4222"
 })
 

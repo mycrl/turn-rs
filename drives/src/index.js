@@ -5,14 +5,14 @@ import { EventEmitter } from "events"
 import Subscription from "./subscription.js"
 
 /** 
- * @module Mysticeti 
+ * @module mystical 
  */
 
 /**
  * @extends EventEmitter
  * @class
  */
-export default class Mysticeti extends EventEmitter {
+export default class mystical extends EventEmitter {
     
     /**
      * @param {strings} options.server - nats server url.
@@ -27,7 +27,7 @@ export default class Mysticeti extends EventEmitter {
     }
     
     /**
-     * init Mysticeti.
+     * init mystical.
      * @returns {Promise<void>}
      * @private
      */
@@ -40,7 +40,7 @@ export default class Mysticeti extends EventEmitter {
     /**
      * @public
      * @example
-     * new Mysticeti({
+     * new mystical({
      *     server: "localhost:4222"
      * }).Broker.auth
      */

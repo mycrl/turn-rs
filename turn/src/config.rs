@@ -2,10 +2,9 @@ use serde::Deserialize;
 use anyhow::Result;
 use clap::Clap;
 use std::{
-    fs::File, 
-    io::Read,
-    sync::Arc,
+    fs::read_to_string,
     net::SocketAddr,
+    sync::Arc
 };
 
 /// config model.
@@ -92,30 +91,24 @@ impl Configure {
     /// other cli parameters will be ignored. 
     /// the configuration file will overwrite all parameter configurations. 
     /// at the same time, the configuration file path can be specified 
-    /// by setting the `MYSTICETI_CONFIG` environment variable.
+    /// by setting the `MYSTICAL_CONFIG` environment variable.
     pub fn generate() -> Result<Arc<Self>> {
-        let opt = Configure::parse();
-        Ok(Arc::new(match opt.config {
-            Some(p) => read_file(p)?,
-            None => match std::env::var("MYSTICETI_CONFIG") {
-                Ok(p) => read_file(p)?,
-                Err(_) => opt
-            }
+        let config = Configure::parse();
+        Ok(Arc::new(match config.config {
+            Some(p) => Self::read_file(p)?,
+            None => config
         }))
     }
-}
 
-/// read configure file.
-///
-/// read the configuration from the configuration file, 
-/// there may be cases where the parse fail.
-#[inline(always)]
-fn read_file(path: String) -> Result<Configure> {
-    log::info!("load conf file {:?}", &path);
-    let mut buf = String::new();
-    let mut file = File::open(path)?;
-    file.read_to_string(&mut buf)?;
-    Ok(toml::from_str(&buf)?)
+    /// read configure file.
+    ///
+    /// read the configuration from the configuration file, 
+    /// there may be cases where the parse fail.
+    #[inline(always)]
+    fn read_file(path: String) -> Result<Configure> {
+        log::info!("load conf file {:?}", &path);
+        Ok(toml::from_str(&read_to_string(path)?)?)
+    }
 }
 
 /// realm needs to be clearly configured, the default 

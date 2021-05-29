@@ -11,11 +11,11 @@ RUN ln -snf /usr/share/zoneinfo/$TimeZone /etc/localtime \
 RUN apt update \
     && apt install -y curl software-properties-common build-essential libssl-dev pkg-config \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-    && mkdir /usr/local/src/Mysticeti
+    && mkdir /usr/local/src/mystical
 
 COPY ./src /usr/local/src/turn/src
 COPY ./Cargo.toml /usr/local/src/turn/Cargo.toml
-COPY $MYSTICETI_CONFIG $MYSTICETI_CONFIG
+COPY $MYSTICAL_CONFIG $MYSTICAL_CONFIG
 
 RUN cd /usr/local/src/turn \
     && cargo build --release \
