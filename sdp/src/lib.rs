@@ -1,8 +1,11 @@
 pub mod connection;
 pub mod bandwidth;
 pub mod origin;
+pub mod timing;
 
 use connection::Connection;
+use bandwidth::Bandwidth;
+use timing::Timing;
 use origin::Origin;
 use anyhow::{
     ensure,
@@ -13,6 +16,20 @@ use std::convert::{
     TryFrom,
     Into
 };
+
+#[allow(non_snake_case)]
+#[allow(non_upper_case_globals)]
+pub mod Flag {
+    pub const Origin: &'static str = "o=";
+    pub const SessionName: &'static str = "s=";
+    pub const SessionInfo: &'static str = "i=";
+    pub const Uri: &'static str = "u=";
+    pub const Email: &'static str = "e=";
+    pub const Phone: &'static str = "p=";
+    pub const Connection: &'static str = "c=";
+    pub const Bandwidth: &'static str = "b=";
+    pub const Timing: &'static str = "t=";
+}
 
 /// Network type.
 #[derive(Debug, PartialEq, Eq)]
@@ -66,7 +83,7 @@ pub enum AddrKind {
 /// either side of the "=" sign, however, the value can contain a leading
 /// whitespace as part of its syntax, i.e., that whitespace is part of
 /// the value.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Sdp<'a> {
     /// Origin ("o=")
     pub origin: Option<Origin<'a>>,
@@ -116,7 +133,41 @@ pub struct Sdp<'a> {
     pub phone: Option<&'a str>,
     /// Connection Information ("c=")
     pub connection: Option<Connection>,
-    
+    /// Bandwidth ("b=")
+    pub bandwidth: Option<Bandwidth>,
+    /// Timing ("t=")
+    pub timing: Option<Timing>,
+}
+
+impl<'a> TryFrom<&'a str> for Sdp<'a> {
+    type Error = anyhow::Error;
+    #[rustfmt::skip]
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        let mut sdp = Self::default();
+
+    for line in value.lines() {
+        if line.len() < 2 {
+            continue;
+        }
+
+        let flag = line.get(..2).unwrap();
+        let data = line.get(2..).unwrap();
+        match flag {
+            Flag::Origin => sdp.origin = Some(Origin::try_from(data)?),
+            Flag::SessionName => sdp.session_name = placeholder(data),
+            Flag::SessionInfo => sdp.session_info = placeholder(data),
+            Flag::Uri => sdp.uri = placeholder(data),
+            Flag::Email => sdp.email = placeholder(data),
+            Flag::Phone => sdp.phone = placeholder(data),
+            Flag::Connection => sdp.connection = Some(Connection::try_from(data)?),
+            Flag::Bandwidth => sdp.bandwidth = Some(Bandwidth::try_from(data)?),
+            Flag::Timing => sdp.timing = Some(Timing::try_from(data)?),
+            _ => continue
+        }
+    }
+
+        Ok(sdp)
+    }
 }
 
 impl Into<&'static str> for NetKind {
@@ -189,5 +240,13 @@ impl<'a> TryFrom<&'a str> for AddrKind {
             "IP6" => Ok(Self::IP6),
             _ => Err(anyhow!("invalid addrtype!"))
         }
+    }
+}
+
+fn placeholder(source: &str) -> Option<&str> {
+    if source != "-" {
+        Some(source)
+    } else {
+        None
     }
 }

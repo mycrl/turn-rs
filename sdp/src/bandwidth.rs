@@ -21,6 +21,7 @@ pub enum BwKind {
 /// session or media.  The <bwtype> is an alphanumeric modifier giving
 /// the meaning of the <bandwidth> figure.  Two values are defined in
 /// this specification
+#[derive(Debug)]
 pub struct Bandwidth {
     /// CT If the bandwidth of a session or media in a session is different
     /// from the bandwidth implicit from the scope, a "b=CT:..." line

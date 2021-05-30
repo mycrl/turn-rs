@@ -2,7 +2,8 @@ use std::net::IpAddr;
 use anyhow::ensure;
 use super::{
     NetKind,
-    AddrKind
+    AddrKind,
+    placeholder
 };
 
 use std::convert::{
@@ -119,7 +120,7 @@ impl<'a> TryFrom<&'a str> for Origin<'a> {
             unicast_address: values[5].parse()?,
             nettype: NetKind::try_from(values[3])?,
             addrtype: AddrKind::try_from(values[4])?,
-            username: if values[0] == "-" { None } else { Some(values[0]) },
+            username: placeholder(values[0]),
         })
     }
 }
