@@ -1,8 +1,10 @@
+pub mod repeat_times;
 pub mod connection;
 pub mod bandwidth;
 pub mod origin;
 pub mod timing;
 
+use repeat_times::RepeatTimes;
 use connection::Connection;
 use bandwidth::Bandwidth;
 use timing::Timing;
@@ -17,10 +19,6 @@ use std::convert::{
     Into
 };
 
-pub trait Attribute {
-    
-}
-
 #[allow(non_snake_case)]
 #[allow(non_upper_case_globals)]
 pub mod Flag {
@@ -33,6 +31,7 @@ pub mod Flag {
     pub const Connection: &'static str = "c=";
     pub const Bandwidth: &'static str = "b=";
     pub const Timing: &'static str = "t=";
+    pub const RepeatTimes: &'static str = "r=";
 }
 
 /// Network type.
@@ -141,6 +140,8 @@ pub struct Sdp<'a> {
     pub bandwidth: Option<Bandwidth>,
     /// Timing ("t=")
     pub timing: Option<Timing>,
+    /// Repeat Times ("r=")
+    pub repeat_times: Option<RepeatTimes>,
 }
 
 impl<'a> TryFrom<&'a str> for Sdp<'a> {
@@ -149,26 +150,26 @@ impl<'a> TryFrom<&'a str> for Sdp<'a> {
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         let mut sdp = Self::default();
 
-    for line in value.lines() {
-        if line.len() < 2 {
-            continue;
-        }
+        for line in value.lines() {
+            if line.len() < 2 {
+                continue;
+            }
 
-        let flag = line.get(..2).unwrap();
-        let data = line.get(2..).unwrap();
-        match flag {
-            Flag::Origin => sdp.origin = Some(Origin::try_from(data)?),
-            Flag::SessionName => sdp.session_name = placeholder(data),
-            Flag::SessionInfo => sdp.session_info = placeholder(data),
-            Flag::Uri => sdp.uri = placeholder(data),
-            Flag::Email => sdp.email = placeholder(data),
-            Flag::Phone => sdp.phone = placeholder(data),
-            Flag::Connection => sdp.connection = Some(Connection::try_from(data)?),
-            Flag::Bandwidth => sdp.bandwidth = Some(Bandwidth::try_from(data)?),
-            Flag::Timing => sdp.timing = Some(Timing::try_from(data)?),
-            _ => continue
+            let (flag, data) = line.split_at(2);
+            match flag {
+                Flag::Origin => sdp.origin = Some(Origin::try_from(data)?),
+                Flag::SessionName => sdp.session_name = placeholder(data),
+                Flag::SessionInfo => sdp.session_info = placeholder(data),
+                Flag::Uri => sdp.uri = placeholder(data),
+                Flag::Email => sdp.email = placeholder(data),
+                Flag::Phone => sdp.phone = placeholder(data),
+                Flag::Connection => sdp.connection = Some(Connection::try_from(data)?),
+                Flag::Bandwidth => sdp.bandwidth = Some(Bandwidth::try_from(data)?),
+                Flag::Timing => sdp.timing = Some(Timing::try_from(data)?),
+                Flag::RepeatTimes => sdp.repeat_times = Some(RepeatTimes::try_from(data)?),
+                _ => continue
+            }
         }
-    }
 
         Ok(sdp)
     }
