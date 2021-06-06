@@ -87,13 +87,13 @@ cargo build --release
 
 After the compilation is complete, you can find the binary file in the "target/release" directory.
 
-### Turn server
+### Docker compose
 
-If you only need to compile the turn server separately:
+Use docker-compose to start all services:
 
 ```bash
-cd mystical/turn
-cargo build --release
+cd mystical
+docker-compose up -d
 ```
 
 ## Code style

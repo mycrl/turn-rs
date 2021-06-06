@@ -8,10 +8,11 @@ lto = true
 
 [workspace]
 members = [
-    "turn",
     "sdp",
     "rtp",
     "srtp",
     "stun",
-    "random_port"
+    "random_port",
+    "bridge",
+    "bin/turn"
 ]

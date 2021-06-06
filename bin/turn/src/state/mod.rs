@@ -21,7 +21,7 @@ use std::{
 };
 
 use super::{
-    config::Configure,
+    argv::Argv,
     broker::Broker
 };
 
@@ -38,7 +38,7 @@ type Addr = Arc<SocketAddr>;
 /// long-term valid passwords，does not support short-term 
 /// valid passwords.
 pub struct State {
-    conf: Arc<Configure>,
+    conf: Arc<Argv>,
     broker: Arc<Broker>,
     nonces: NonceTable,
     buckets: BucketTable,
@@ -55,11 +55,11 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -76,11 +76,11 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -124,13 +124,13 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -159,13 +159,13 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -199,13 +199,13 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -274,13 +274,13 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -318,13 +318,13 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -374,13 +374,13 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -477,11 +477,11 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -507,11 +507,11 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -548,11 +548,11 @@ impl State {
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// let state = State::new(&configure, &broker);
     ///
@@ -579,10 +579,10 @@ impl State {
     /// poll in state.
     ///
     /// ```no_run
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// 
     /// tokio::spawn(async move {
@@ -620,10 +620,10 @@ impl State {
     /// auto run state poll.
     ///
     /// ```no_run
-    /// use turn::config::Configure;
+    /// use turn::config::Argv;
     /// use turn::broker::Broker;
     ///
-    /// let configure = Configure::generate().unwrap();
+    /// let configure = Argv::generate().unwrap();
     /// let broker = Broker::new(&configure);
     /// 
     /// State::new(&configure, &broker)
@@ -643,7 +643,7 @@ impl State {
         Ok(())
     }
     
-    pub fn new(c: &Arc<Configure>, b: &Arc<Broker>) -> Arc<Self> {
+    pub fn new(c: &Arc<Argv>, b: &Arc<Broker>) -> Arc<Self> {
         Arc::new(Self {
             conf: c.clone(),
             broker: b.clone(),
