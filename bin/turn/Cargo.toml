@@ -1,0 +1,20 @@
+[package]
+name = "turn"
+version = "0.1.0"
+edition = "2018"
+authors = ["Mr.Panda <xivistudios@gmail.com>"]
+
+[dependencies]
+clap = "~3.0.0-beta.2"
+stun = { path = "../../stun" }
+random_port = { path = "../../random_port" }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.61"
+async-nats = "0.9.9"
+env_logger = "0.8.2"
+num_cpus = "1.13.0"
+log = "0.4.11"
+bytes = "1"
+anyhow = "1.0"
+rand = "0.7"

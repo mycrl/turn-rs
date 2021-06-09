@@ -1,0 +1,20 @@
+version: "3"
+services:
+  turn:
+    build:
+      context: .
+      dockerfile: ./bin/turn/Dockerfile
+    depends_on:
+      - nats
+    restart: unless-stopped
+    environment:
+      - TURN_NATS=nats:4222
+    deploy:
+      replicas: 1
+    ports:
+      - 3478:3478
+  nats:
+    image: nats:latest
+    restart: unless-stopped
+    deploy:
+      replicas: 1
