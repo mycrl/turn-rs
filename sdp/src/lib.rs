@@ -19,19 +19,19 @@ use std::convert::{
     Into
 };
 
-#[allow(non_snake_case)]
-#[allow(non_upper_case_globals)]
-pub mod Flag {
-    pub const Origin: &'static str = "o=";
-    pub const SessionName: &'static str = "s=";
-    pub const SessionInfo: &'static str = "i=";
-    pub const Uri: &'static str = "u=";
-    pub const Email: &'static str = "e=";
-    pub const Phone: &'static str = "p=";
-    pub const Connection: &'static str = "c=";
-    pub const Bandwidth: &'static str = "b=";
-    pub const Timing: &'static str = "t=";
-    pub const RepeatTimes: &'static str = "r=";
+/// Sdp keys.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Key {
+    Origin,
+    SessionName,
+    SessionInfo,
+    Uri,
+    Email,
+    Phone,
+    Connection,
+    Bandwidth,
+    Timing,
+    RepeatTimes
 }
 
 /// Network type.
@@ -144,31 +144,31 @@ pub struct Sdp<'a> {
     pub repeat_times: Option<RepeatTimes>,
 }
 
+impl<'a> Sdp<'a> {
+    pub fn handle_line(&mut self, key: Key, data: &'a str) -> anyhow::Result<()> {
+        Ok(match key {
+            Key::Origin => self.origin = Some(Origin::try_from(data)?),
+            Key::SessionName => self.session_name = placeholder(data),
+            Key::SessionInfo => self.session_info = placeholder(data),
+            Key::Uri => self.uri = placeholder(data),
+            Key::Email => self.email = placeholder(data),
+            Key::Phone => self.phone = placeholder(data),
+            Key::Connection => self.connection = Some(Connection::try_from(data)?),
+            Key::Bandwidth => self.bandwidth = Some(Bandwidth::try_from(data)?),
+            Key::Timing => self.timing = Some(Timing::try_from(data)?),
+            Key::RepeatTimes => self.repeat_times = Some(RepeatTimes::try_from(data)?),
+        })
+    }
+}
+
 impl<'a> TryFrom<&'a str> for Sdp<'a> {
     type Error = anyhow::Error;
     #[rustfmt::skip]
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         let mut sdp = Self::default();
-
         for line in value.lines() {
-            if line.len() < 2 {
-                continue;
-            }
-
-            let (flag, data) = line.split_at(2);
-            match flag {
-                Flag::Origin => sdp.origin = Some(Origin::try_from(data)?),
-                Flag::SessionName => sdp.session_name = placeholder(data),
-                Flag::SessionInfo => sdp.session_info = placeholder(data),
-                Flag::Uri => sdp.uri = placeholder(data),
-                Flag::Email => sdp.email = placeholder(data),
-                Flag::Phone => sdp.phone = placeholder(data),
-                Flag::Connection => sdp.connection = Some(Connection::try_from(data)?),
-                Flag::Bandwidth => sdp.bandwidth = Some(Bandwidth::try_from(data)?),
-                Flag::Timing => sdp.timing = Some(Timing::try_from(data)?),
-                Flag::RepeatTimes => sdp.repeat_times = Some(RepeatTimes::try_from(data)?),
-                _ => continue
-            }
+            let (key, data) = line.split_at(2);
+            sdp.handle_line(Key::try_from(key)?, data)?;
         }
 
         Ok(sdp)
@@ -244,6 +244,73 @@ impl<'a> TryFrom<&'a str> for AddrKind {
             "IP4" => Ok(Self::IP4),
             "IP6" => Ok(Self::IP6),
             _ => Err(anyhow!("invalid addrtype!"))
+        }
+    }
+}
+
+impl Into<&'static str> for Key {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::Key;
+    /// use std::convert::*;
+    ///
+    /// let origin: &str = Key::Origin.into();
+    /// let session_name: &str = Key::SessionName.into();
+    /// let session_info: &str = Key::SessionInfo.into();
+    ///
+    /// assert_eq!(origin, "o=");
+    /// assert_eq!(session_name, "s=");
+    /// assert_eq!(session_info, "i=");
+    /// ```
+    #[rustfmt::skip]
+    fn into(self) -> &'static str {
+        match self {
+            Self::Origin =>          "o=",
+            Self::SessionName =>     "s=",
+            Self::SessionInfo =>     "i=",
+            Self::Uri =>             "u=",
+            Self::Email =>           "e=",
+            Self::Phone =>           "p=",
+            Self::Connection =>      "c=",
+            Self::Bandwidth =>       "b=",
+            Self::Timing =>          "t=",
+            Self::RepeatTimes =>     "r="
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Key {
+    type Error = anyhow::Error;
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::Key;
+    /// use std::convert::*;
+    ///
+    /// let uri: Key = Key::try_from("u=").unwrap();
+    /// let origin: Key = Key::try_from("o=").unwrap();
+    /// let session_name: Key = Key::try_from("s=").unwrap();
+    /// let session_info: Key = Key::try_from("i=").unwrap();
+    ///
+    /// assert_eq!(uri, Key::Uri);
+    /// assert_eq!(origin, Key::Origin);
+    /// assert_eq!(session_name, Key::SessionName);
+    /// assert_eq!(session_info, Key::SessionInfo);
+    /// ```
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        match value {
+            "o=" => Ok(Self::Origin),
+            "s=" => Ok(Self::SessionName),
+            "i=" => Ok(Self::SessionInfo),
+            "u=" => Ok(Self::Uri),
+            "e=" => Ok(Self::Email),
+            "p=" => Ok(Self::Phone),
+            "c=" => Ok(Self::Connection),
+            "b=" => Ok(Self::Bandwidth),
+            "t=" => Ok(Self::Timing),
+            "r=" => Ok(Self::RepeatTimes),
+            _ => Err(anyhow!("invalid sdp key!"))
         }
     }
 }

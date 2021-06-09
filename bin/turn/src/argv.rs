@@ -27,7 +27,7 @@ pub struct Argv {
     #[clap(long)]
     #[clap(default_value = "127.0.0.1:3478")]
     #[clap(about = "service external address and port")]
-    pub local: SocketAddr,
+    pub external: SocketAddr,
     /// the address and port bound by UDP Server. 
     /// currently, it does not support binding multiple 
     /// addresses at the same time. the bound address 
@@ -44,7 +44,7 @@ pub struct Argv {
     /// allocation require communication with the control center.
     #[clap(long)]
     #[clap(default_value = "127.0.0.1:4222")]
-    #[clap(about = "control the address and port of the service")]
+    #[clap(about = "nats server connection url")]
     pub nats: String,
     /// tshe buffer size is used to determine the maximum 
     /// data allocation size (byte) owned by each thread pool. 
@@ -54,7 +54,7 @@ pub struct Argv {
     /// the time The space utilization rate is not high.
     #[clap(long)]
     #[clap(default_value = "1280")]
-    #[clap(about = "udp read buffer size")]
+    #[clap(about = "udp cache buffer size")]
     pub buffer: usize,
     /// by default, the thread pool is used to process UDP packets. 
     /// because UDP uses SysCall to ensure concurrency security, 

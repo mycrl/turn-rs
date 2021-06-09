@@ -13,6 +13,5 @@ members = [
     "srtp",
     "stun",
     "random_port",
-    "bridge",
     "bin/turn"
 ]

@@ -45,7 +45,7 @@ impl Thread {
     /// # Example
     ///
     /// ```no_run
-    /// let c = config::Argv::generate()?;
+    /// let c = argv::Argv::generate()?;
     /// let t = broker::Broker::new(&c).await?;
     /// let s = state::State::new(t);
     /// 
@@ -93,7 +93,7 @@ impl Thread {
     /// # Example
     ///
     /// ```no_run
-    /// let c = config::Argv::generate()?;
+    /// let c = argv::Argv::generate()?;
     /// let t = broker::Broker::new(&c).await?;
     /// let s = state::State::new(t);
     /// 

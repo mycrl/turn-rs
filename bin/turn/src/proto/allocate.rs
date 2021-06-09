@@ -70,11 +70,11 @@ async fn resolve<'a>(
     port: u16,
     w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
-    let alloc_addr = Arc::new(SocketAddr::new(ctx.conf.local.ip(), port));
+    let alloc_addr = Arc::new(SocketAddr::new(ctx.conf.external.ip(), port));
     let mut pack = MessageWriter::derive(Kind::AllocateResponse, m, w);
     pack.append::<XorRelayedAddress>(alloc_addr.as_ref().clone());
     pack.append::<XorMappedAddress>(ctx.addr.as_ref().clone());
-    pack.append::<ResponseOrigin>(ctx.conf.local.clone());
+    pack.append::<ResponseOrigin>(ctx.conf.external.clone());
     pack.append::<Lifetime>(600);
     pack.try_into(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))

@@ -50,7 +50,7 @@ impl Broker {
     /// key of the current user.
     ///
     /// ```no_run
-    /// let c = config::Argv::generate()?;
+    /// let c = argv::Argv::generate()?;
     /// let broker = Broker::new(&c).await?;
     /// let source_addr = "127.0.0.1:8080".parse().unwrap();
     /// let res = broker.auth(&source_addr, "panda").await?;
