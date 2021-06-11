@@ -435,7 +435,7 @@ impl State {
             .write()
             .await
             .entry((a.clone(), c))
-            .or_insert(source.clone());
+            .or_insert_with(|| source.clone());
         Some(())
     }
 
@@ -494,11 +494,9 @@ impl State {
         if delay == 0 { 
             self.remove(a).await; 
         } else {
-            self.nodes
-                .write()
-                .await
-                .get_mut(a)
-                .map(|n| n.set_lifetime(delay));
+            if let Some(n) = self.nodes.write().await.get_mut(a) {
+                n.set_lifetime(delay)
+            }
         }
     }
 

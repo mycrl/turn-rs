@@ -429,7 +429,7 @@ impl<'a> TryFrom<&'a [u8]> for MessageReader<'a> {
         // check if the message size is overflow
         let kind = Kind::try_from(util::as_u16(&buf[..2]))?;
         let size = util::as_u16(&buf[2..4]) as usize;
-        ensure!(&buf[4..8] == &COOKIE[..], "missing cookie");
+        ensure!(buf[4..8] == COOKIE[..], "missing cookie");
         ensure!(count_size >= size + 20, "missing len");
 
         // get transaction id

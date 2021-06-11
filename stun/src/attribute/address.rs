@@ -63,7 +63,7 @@ impl Addr {
         let xor_addr = if is_xor { 
             xor(a, token)
         } else { 
-            a.clone()
+            *a
         };
 
         buf.put_u8(if xor_addr.is_ipv4() {

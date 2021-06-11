@@ -45,9 +45,9 @@ use stun::attribute::{
 pub fn process<'a>(ctx: Context, payload: MessageReader, w: &'a mut BytesMut) -> Result<Response<'a>> {
     log::info!("{:?} request binding", &ctx.addr);
     let mut pack = MessageWriter::derive(Kind::BindingResponse, &payload, w);
-    pack.append::<XorMappedAddress>(ctx.addr.as_ref().clone());
-    pack.append::<MappedAddress>(ctx.addr.as_ref().clone());
-    pack.append::<ResponseOrigin>(ctx.conf.external.clone());
+    pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
+    pack.append::<MappedAddress>(*ctx.addr.as_ref());
+    pack.append::<ResponseOrigin>(*ctx.conf.external);
     pack.append::<Software>(SOFTWARE);
     pack.try_into(None)?;
     Ok(Some((w, ctx.addr)))

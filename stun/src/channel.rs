@@ -32,6 +32,6 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
         let size = util::as_u16(&buf[2..4]) as usize;
         ensure!(size <= len - 4, "data body len < size");
         let number = util::as_u16(&buf[..2]);
-        Ok(Self { number, buf })
+        Ok(Self { buf, number })
     }
 }
