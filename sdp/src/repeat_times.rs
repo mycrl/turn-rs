@@ -1,11 +1,12 @@
+use super::util::short_time;
 use anyhow::{
     ensure,
     Result
 };
 
-use std::convert::{
-    TryFrom,
-    Into
+use std::{
+    convert::TryFrom,
+    fmt
 };
 
 /// Repeat Times ("r=")
@@ -46,30 +47,29 @@ use std::convert::{
 /// explicitly list the session times.
 #[derive(Debug)]
 pub struct RepeatTimes {
-    pub repeat_interval: u64,
-    pub active_duration: u64,
-    pub offsets_from_start_time: u64
+    pub repeat_interval: f64,
+    pub active_duration: f64,
+    pub offsets_from_start_time: f64
 }
 
-impl Into<String> for RepeatTimes {
+impl fmt::Display for RepeatTimes {
     /// # Unit Test
     ///
     /// ```
     /// use sdp::repeat_times::*;
-    /// use std::convert::*;
     ///
     /// let temp = "86400 3600 0 1".to_string();
     /// let timing = RepeatTimes {
-    ///     repeat_interval: 86400,
-    ///     active_duration: 3600,
-    ///     offsets_from_start_time: 1
+    ///     repeat_interval: 86400.0,
+    ///     active_duration: 3600.0,
+    ///     offsets_from_start_time: 1.0
     /// };
     ///
-    /// let instance: String = timing.into();
-    /// assert_eq!(instance, temp);
+    /// assert_eq!(format!("{}", timing), temp);
     /// ```
-    fn into(self) -> String {
-        format!(
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f, 
             "{} {} 0 {}",
             self.repeat_interval,
             self.active_duration,
@@ -89,16 +89,16 @@ impl<'a> TryFrom<&'a str> for RepeatTimes {
     /// let temp = "1d 1h 0 1s";
     /// let instance: RepeatTimes = RepeatTimes::try_from(temp).unwrap();
     /// 
-    /// assert_eq!(instance.repeat_interval, 86400);
-    /// assert_eq!(instance.active_duration, 3600);
-    /// assert_eq!(instance.offsets_from_start_time, 1);
+    /// assert_eq!(instance.repeat_interval, 86400.0);
+    /// assert_eq!(instance.active_duration, 3600.0);
+    /// assert_eq!(instance.offsets_from_start_time, 1.0);
     ///
     /// let temp = "86400 3600 0 1";
     /// let instance: RepeatTimes = RepeatTimes::try_from(temp).unwrap();
     /// 
-    /// assert_eq!(instance.repeat_interval, 86400);
-    /// assert_eq!(instance.active_duration, 3600);
-    /// assert_eq!(instance.offsets_from_start_time, 1);
+    /// assert_eq!(instance.repeat_interval, 86400.0);
+    /// assert_eq!(instance.active_duration, 3600.0);
+    /// assert_eq!(instance.offsets_from_start_time, 1.0);
     /// ```
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         let values = value.split(' ').collect::<Vec<&str>>();
@@ -109,15 +109,4 @@ impl<'a> TryFrom<&'a str> for RepeatTimes {
             offsets_from_start_time: short_time(values[3])?
         })
     }
-}
-
-fn short_time(time: &str) -> Result<u64> {
-    let (data, last) = time.split_at(time.len() - 1);
-    Ok(match last {
-        "d" => data.parse::<u64>()? * 86400,
-        "h" => data.parse::<u64>()? * 3600,
-        "m" => data.parse::<u64>()? * 60,
-        "s" => data.parse::<u64>()?,
-        _ => time.parse::<u64>()?
-    })
 }

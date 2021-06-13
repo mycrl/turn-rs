@@ -3,9 +3,9 @@ use anyhow::{
     anyhow
 };
 
-use std::convert::{
-    TryFrom,
-    Into
+use std::{
+    convert::TryFrom,
+    fmt
 };
 
 /// Bandwidth Kind
@@ -42,12 +42,11 @@ pub struct Bandwidth {
     pub bandwidth: usize
 }
 
-impl Into<String> for Bandwidth {
+impl fmt::Display for Bandwidth {
     /// # Unit Test
     ///
     /// ```
     /// use sdp::bandwidth::*;
-    /// use std::convert::*;
     ///
     /// let temp = "AS:128".to_string();
     /// let bandwidth = Bandwidth {
@@ -55,14 +54,13 @@ impl Into<String> for Bandwidth {
     ///     bandwidth: 128
     /// };
     ///
-    /// let instance: String = bandwidth.into();
-    /// assert_eq!(instance, temp);
+    /// assert_eq!(format!("{}", bandwidth), temp);
     /// ```
-    fn into(self) -> String {
-        let bwtype: &'static str = self.bwtype.into();
-        format!(
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
             "{}:{}",
-            bwtype,
+            self.bwtype,
             self.bandwidth
         )
     }
@@ -92,21 +90,19 @@ impl<'a> TryFrom<&'a str> for Bandwidth {
     }
 }
 
-impl Into<&'static str> for BwKind {
+impl fmt::Display for BwKind {
     /// # Unit Test
     ///
     /// ```
     /// use sdp::bandwidth::*;
-    /// use std::convert::*;
     ///
-    /// let kind: &'static str = BwKind::AS.into();
-    /// assert_eq!(kind, "AS");
+    /// assert_eq!(format!("{}", BwKind::AS), "AS");
     /// ```
-    fn into(self) -> &'static str {
-        match self {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
             Self::CT => "CT",
             Self::AS => "AS"
-        }
+        })
     }
 }
 

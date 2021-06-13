@@ -1,7 +1,7 @@
 use anyhow::ensure;
-use std::convert::{
-    TryFrom,
-    Into
+use std::{
+    convert::TryFrom,
+    fmt
 };
 
 /// Timing ("t=")
@@ -38,28 +38,22 @@ pub struct Timing {
     pub stop: u64
 }
 
-impl Into<String> for Timing {
+impl fmt::Display for Timing {
     /// # Unit Test
     ///
     /// ```
     /// use sdp::timing::*;
-    /// use std::convert::*;
     ///
     /// let temp = "0 0".to_string();
     /// let timing = Timing {
     ///     start: 0,
     ///     stop: 0
     /// };
-    ///
-    /// let instance: String = timing.into();
-    /// assert_eq!(instance, temp);
+    /// 
+    /// assert_eq!(format!("{}", timing), temp);
     /// ```
-    fn into(self) -> String {
-        format!(
-            "{} {}",
-            self.start,
-            self.stop
-        )
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.start, self.stop)
     }
 }
 

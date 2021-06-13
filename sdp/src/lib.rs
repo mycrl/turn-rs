@@ -1,10 +1,13 @@
 pub mod repeat_times;
+pub mod time_zones;
 pub mod connection;
 pub mod bandwidth;
 pub mod origin;
 pub mod timing;
+mod util;
 
 use repeat_times::RepeatTimes;
+use time_zones::TimeZones;
 use connection::Connection;
 use bandwidth::Bandwidth;
 use timing::Timing;
@@ -14,9 +17,9 @@ use anyhow::{
     anyhow
 };
 
-use std::convert::{
-    TryFrom,
-    Into
+use std::{
+    convert::TryFrom,
+    fmt
 };
 
 /// Sdp keys.
@@ -31,7 +34,8 @@ pub enum Key {
     Connection,
     Bandwidth,
     Timing,
-    RepeatTimes
+    RepeatTimes,
+    TimeZones,
 }
 
 /// Network type.
@@ -142,21 +146,24 @@ pub struct Sdp<'a> {
     pub timing: Option<Timing>,
     /// Repeat Times ("r=")
     pub repeat_times: Option<RepeatTimes>,
+    /// Time Zones ("z=")
+    pub time_zones: Option<TimeZones>,
 }
 
 impl<'a> Sdp<'a> {
     pub fn handle_line(&mut self, key: Key, data: &'a str) -> anyhow::Result<()> {
         Ok(match key {
             Key::Origin => self.origin = Some(Origin::try_from(data)?),
-            Key::SessionName => self.session_name = placeholder(data),
-            Key::SessionInfo => self.session_info = placeholder(data),
-            Key::Uri => self.uri = placeholder(data),
-            Key::Email => self.email = placeholder(data),
-            Key::Phone => self.phone = placeholder(data),
+            Key::SessionName => self.session_name = util::placeholder(data),
+            Key::SessionInfo => self.session_info = util::placeholder(data),
+            Key::Uri => self.uri = util::placeholder(data),
+            Key::Email => self.email = util::placeholder(data),
+            Key::Phone => self.phone = util::placeholder(data),
             Key::Connection => self.connection = Some(Connection::try_from(data)?),
             Key::Bandwidth => self.bandwidth = Some(Bandwidth::try_from(data)?),
             Key::Timing => self.timing = Some(Timing::try_from(data)?),
             Key::RepeatTimes => self.repeat_times = Some(RepeatTimes::try_from(data)?),
+            Key::TimeZones => self.time_zones = Some(TimeZones::try_from(data)?),
         })
     }
 }
@@ -175,18 +182,16 @@ impl<'a> TryFrom<&'a str> for Sdp<'a> {
     }
 }
 
-impl Into<&'static str> for NetKind {
+impl fmt::Display for NetKind {
     /// # Unit Test
     ///
     /// ```
     /// use sdp::NetKind;
-    /// use std::convert::*;
     ///
-    /// let kind: &'static str = NetKind::IN.into();
-    /// assert_eq!(kind, "IN");
+    /// assert_eq!(format!("{}", NetKind::IN), "IN");
     /// ```
-    fn into(self) -> &'static str {
-        "IN"
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "IN")
     }
 }
 
@@ -207,23 +212,20 @@ impl<'a> TryFrom<&'a str> for NetKind {
     }
 }
 
-impl Into<&'static str> for AddrKind {
+impl fmt::Display for AddrKind {
     /// # Unit Test
     ///
     /// ```
     /// use sdp::AddrKind;
-    /// use std::convert::*;
     ///
-    /// let ipv4_kind: &'static str = AddrKind::IP4.into();
-    /// let ipv6_kind: &'static str = AddrKind::IP6.into();
-    /// assert_eq!(ipv4_kind, "IP4");
-    /// assert_eq!(ipv6_kind, "IP6");
+    /// assert_eq!(format!("{}", AddrKind::IP4), "IP4");
+    /// assert_eq!(format!("{}", AddrKind::IP6), "IP6");
     /// ```
-    fn into(self) -> &'static str {
-        match self {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
             Self::IP4 => "IP4",
             Self::IP6 => "IP6",
-        }
+        })
     }
 }
 
@@ -248,24 +250,19 @@ impl<'a> TryFrom<&'a str> for AddrKind {
     }
 }
 
-impl Into<&'static str> for Key {
+impl fmt::Display for Key {
     /// # Unit Test
     ///
     /// ```
     /// use sdp::Key;
-    /// use std::convert::*;
     ///
-    /// let origin: &str = Key::Origin.into();
-    /// let session_name: &str = Key::SessionName.into();
-    /// let session_info: &str = Key::SessionInfo.into();
-    ///
-    /// assert_eq!(origin, "o=");
-    /// assert_eq!(session_name, "s=");
-    /// assert_eq!(session_info, "i=");
+    /// assert_eq!(format!("{}", Key::Origin), "o=");
+    /// assert_eq!(format!("{}", Key::SessionName), "s=");
+    /// assert_eq!(format!("{}", Key::SessionInfo), "i=");
     /// ```
     #[rustfmt::skip]
-    fn into(self) -> &'static str {
-        match self {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
             Self::Origin =>          "o=",
             Self::SessionName =>     "s=",
             Self::SessionInfo =>     "i=",
@@ -275,8 +272,9 @@ impl Into<&'static str> for Key {
             Self::Connection =>      "c=",
             Self::Bandwidth =>       "b=",
             Self::Timing =>          "t=",
-            Self::RepeatTimes =>     "r="
-        }
+            Self::RepeatTimes =>     "r=",
+            Self::TimeZones =>       "z=",
+        })
     }
 }
 
@@ -310,15 +308,8 @@ impl<'a> TryFrom<&'a str> for Key {
             "b=" => Ok(Self::Bandwidth),
             "t=" => Ok(Self::Timing),
             "r=" => Ok(Self::RepeatTimes),
+            "z=" => Ok(Self::TimeZones),
             _ => Err(anyhow!("invalid sdp key!"))
         }
-    }
-}
-
-fn placeholder(source: &str) -> Option<&str> {
-    if source != "-" {
-        Some(source)
-    } else {
-        None
     }
 }

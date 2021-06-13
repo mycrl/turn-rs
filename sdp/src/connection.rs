@@ -5,9 +5,9 @@ use super::{
     AddrKind
 };
 
-use std::convert::{
-    TryFrom,
-    Into
+use std::{
+    convert::TryFrom,
+    fmt
 };
 
 /// Connection Information
@@ -28,13 +28,12 @@ pub struct Connection {
     pub connection_address: IpAddr,
 }
 
-impl Into<String> for Connection {
+impl fmt::Display for Connection {
     /// # Unit Test
     ///
     /// ```
     /// use sdp::*;
     /// use sdp::connection::*;
-    /// use std::convert::*;
     ///
     /// let temp = "IN IP4 0.0.0.0".to_string();
     /// let connection = Connection {
@@ -43,16 +42,14 @@ impl Into<String> for Connection {
     ///     connection_address: "0.0.0.0".parse().unwrap()
     /// };
     ///
-    /// let instance: String = connection.into();
-    /// assert_eq!(instance, temp);
+    /// assert_eq!(format!("{}", connection), temp);
     /// ```
-    fn into(self) -> String {
-        let nettype: &'static str = self.nettype.into();
-        let addrtype: &'static str = self.addrtype.into();
-        format!(
-            "{} {} {:?}",
-            nettype,
-            addrtype,
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f, 
+            "{} {} {:?}", 
+            self.nettype, 
+            self.addrtype, 
             self.connection_address
         )
     }

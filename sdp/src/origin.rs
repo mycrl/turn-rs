@@ -3,12 +3,12 @@ use anyhow::ensure;
 use super::{
     NetKind,
     AddrKind,
-    placeholder
+    util::placeholder
 };
 
-use std::convert::{
-    TryFrom,
-    Into
+use std::{
+    convert::TryFrom,
+    fmt
 };
 
 /// Origin
@@ -54,13 +54,12 @@ pub struct Origin<'a> {
     pub unicast_address: IpAddr,
 }
 
-impl<'a> Into<String> for Origin<'a> {
+impl<'a> fmt::Display for Origin<'a> {
     /// # Unit Test
     ///
     /// ```
     /// use sdp::*;
     /// use sdp::origin::*;
-    /// use std::convert::*;
     ///
     /// let temp = "- 9216395717180620054 2 IN IP4 127.0.0.1".to_string();
     /// let origin = Origin {
@@ -72,19 +71,17 @@ impl<'a> Into<String> for Origin<'a> {
     ///     unicast_address: "127.0.0.1".parse().unwrap()
     /// };
     ///
-    /// let instance: String = origin.into();
-    /// assert_eq!(instance, temp);
+    /// assert_eq!(format!("{}", origin), temp);
     /// ```
-    fn into(self) -> String {
-        let nettype: &'static str = self.nettype.into();
-        let addrtype: &'static str = self.addrtype.into();
-        format!(
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f, 
             "{} {} {} {} {} {:?}",
             self.username.unwrap_or("-"),
             self.sess_id,
             self.sess_version,
-            nettype,
-            addrtype,
+            self.nettype,
+            self.addrtype,
             self.unicast_address
         )
     }
