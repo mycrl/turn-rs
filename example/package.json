@@ -1,0 +1,19 @@
+{
+    "name": "example",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "start": "pm2-runtime process.yml"
+    },
+    "author": "",
+    "license": "UNLICENSED",
+    "dependencies": {
+        "control": "../control",
+        "express": "^4.17.1",
+        "ws": "^7.4.6"
+    },
+    "devDependencies": {
+        "pm2": "^5.1.0"
+    }
+}

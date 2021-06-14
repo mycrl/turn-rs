@@ -1,10 +1,12 @@
+pub mod attributes;
 pub mod repeat_times;
 pub mod time_zones;
 pub mod connection;
 pub mod bandwidth;
 pub mod origin;
 pub mod timing;
-mod util;
+pub mod media;
+pub mod util;
 
 use repeat_times::RepeatTimes;
 use time_zones::TimeZones;
@@ -147,7 +149,7 @@ pub struct Sdp<'a> {
     /// Repeat Times ("r=")
     pub repeat_times: Option<RepeatTimes>,
     /// Time Zones ("z=")
-    pub time_zones: Option<TimeZones>,
+    pub time_zones: Option<TimeZones>
 }
 
 impl<'a> Sdp<'a> {

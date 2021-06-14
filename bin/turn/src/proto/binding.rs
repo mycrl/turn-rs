@@ -47,7 +47,7 @@ pub fn process<'a>(ctx: Context, payload: MessageReader, w: &'a mut BytesMut) ->
     let mut pack = MessageWriter::derive(Kind::BindingResponse, &payload, w);
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
     pack.append::<MappedAddress>(*ctx.addr.as_ref());
-    pack.append::<ResponseOrigin>(*ctx.conf.external);
+    pack.append::<ResponseOrigin>(ctx.conf.external.clone());
     pack.append::<Software>(SOFTWARE);
     pack.try_into(None)?;
     Ok(Some((w, ctx.addr)))

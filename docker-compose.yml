@@ -12,9 +12,11 @@ services:
     deploy:
       replicas: 1
     ports:
-      - 3478:3478
+      - 3478:3478/udp
   nats:
     image: nats:latest
     restart: unless-stopped
     deploy:
       replicas: 1
+    ports:
+      - 4222:4222
