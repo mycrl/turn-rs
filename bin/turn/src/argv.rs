@@ -4,10 +4,9 @@ use std::{
     sync::Arc
 };
 
-/// cli args.
 #[derive(Clap)]
 #[clap(
-    name = env!("CARGO_PKG_NAME"),
+    name = "TURN (Traversal Using Relays around NAT)",
     version = env!("CARGO_PKG_VERSION"),
     author = env!("CARGO_PKG_AUTHORS")
 )]
