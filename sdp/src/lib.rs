@@ -369,7 +369,7 @@ impl fmt::Display for Encoding {
     /// # Unit Test
     ///
     /// ```
-    /// use sdp::::*;
+    /// use sdp::*;
     ///
     /// assert_eq!(format!("{}", Encoding::Audio), "audio");
     /// assert_eq!(format!("{}", Encoding::Video), "video");
@@ -393,7 +393,7 @@ impl<'a> TryFrom<&'a str> for Encoding {
     /// # Unit Test
     ///
     /// ```
-    /// use sdp::::*;
+    /// use sdp::*;
     /// use std::convert::TryFrom;
     ///
     /// assert_eq!(Encoding::try_from("text").unwrap(), Encoding::Text);
@@ -419,7 +419,7 @@ impl fmt::Display for Proto {
     /// # Unit Test
     ///
     /// ```
-    /// use sdp::::*;
+    /// use sdp::*;
     ///
     /// assert_eq!(format!("{}", Proto::Udp), "UDP");
     /// assert_eq!(format!("{}", Proto::Tls), "TLS");
@@ -443,7 +443,7 @@ impl<'a> TryFrom<&'a str> for Proto {
     /// # Unit Test
     ///
     /// ```
-    /// use sdp::::*;
+    /// use sdp::*;
     /// use std::convert::TryFrom;
     ///
     /// assert_eq!(Proto::try_from("UDP").unwrap(), Proto::Udp);

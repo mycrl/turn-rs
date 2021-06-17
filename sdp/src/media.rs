@@ -1,8 +1,4 @@
-use anyhow::{
-    ensure,
-    anyhow
-};
-
+use anyhow::ensure;
 use std::{
     convert::TryFrom,
     fmt
@@ -118,6 +114,7 @@ impl fmt::Display for Media {
     ///
     /// ```
     /// use sdp::media::*;
+    /// use sdp::*;
     ///
     /// let media = Media {
     ///     encoding: Encoding::Video,
@@ -181,6 +178,7 @@ impl<'a> TryFrom<&'a str> for Media {
     /// # Unit Test
     ///
     /// ```
+    /// use sdp::*;
     /// use sdp::media::*;
     /// use std::convert::TryFrom;
     ///
@@ -230,6 +228,7 @@ impl fmt::Display for Port {
     ///
     /// ```
     /// use sdp::media::*;
+    /// use sdp::*;
     ///
     /// let port = Port {
     ///     num: 9,
@@ -260,6 +259,7 @@ impl<'a> TryFrom<&'a str> for Port {
     /// # Unit Test
     ///
     /// ```
+    /// use sdp::*;
     /// use sdp::media::*;
     /// use std::convert::TryFrom;
     ///
