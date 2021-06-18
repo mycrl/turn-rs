@@ -16,18 +16,14 @@
   <img src="https://img.shields.io/github/license/Mycrl/mystical"/>
   <img src="https://img.shields.io/github/issues/Mycrl/mystical"/>
   <img src="https://img.shields.io/github/stars/Mycrl/mystical"/>
+  <img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2FMycrl%2Fmystical.svg?type=shield"/>
 </div>
 <br/>
 <br/>
 
 mystical is a WebRTC server solution implemented using Rust and supports the SFU/MCU model. Compared with other ongoing projects, the current project prioritizes WebRTC one-to-many live broadcasting, but this does not mean that the project will give up peer-to-peer two-way dialogue.
 
-
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FMycrl%2Fmystical.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FMycrl%2Fmystical?ref=badge_large)
-
 ## Table of contents
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FMycrl%2Fmystical.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FMycrl%2Fmystical?ref=badge_shield)
-
 
 * [Roadmap](#roadmap)
 * [Building](#building)
@@ -106,5 +102,8 @@ docker-compose up -d
 The coding style of this project may not conform to the community style or the habits of most people, but it conforms to my own style. I have paranoid requirements for the code format, I know this is a bad habit, and the current project is also independently developed and maintained by me. If you have more suggestions, you can tell me.
 
 ## License
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FMycrl%2Fmystical.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FMycrl%2Fmystical?ref=badge_large)
+
 [GPL](./LICENSE)
 Copyright (c) 2020 Mr.Panda.
