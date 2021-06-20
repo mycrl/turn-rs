@@ -1,4 +1,4 @@
-name: cargo test
+name: cargo-test
 on:
   push:
     branches: [main]
