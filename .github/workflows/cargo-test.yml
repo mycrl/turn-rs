@@ -1,4 +1,4 @@
-name: Auto testing
+name: cargo test
 on:
   push:
     branches: [main]

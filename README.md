@@ -11,12 +11,10 @@
   <strong>WebRTC Server implemented by ❤️ Rust</strong>
 </div>
 <div align="center">
-  <img src="https://img.shields.io/github/workflow/status/Mycrl/mystical/mystical Tests"/>
-  <img src="https://img.shields.io/github/languages/top/Mycrl/mystical"/>
+  <img src="https://img.shields.io/github/workflow/status/Mycrl/mystical/cargo test"/>
   <img src="https://img.shields.io/github/license/Mycrl/mystical"/>
   <img src="https://img.shields.io/github/issues/Mycrl/mystical"/>
   <img src="https://img.shields.io/github/stars/Mycrl/mystical"/>
-  <img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2FMycrl%2Fmystical.svg?type=shield"/>
 </div>
 <br/>
 <br/>
