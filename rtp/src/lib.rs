@@ -108,10 +108,10 @@ impl<'a> Rtp<'a> {
     ///     payload: &payload[..]
     /// };
     /// 
-    /// rtp.into(&mut writer);
+    /// rtp.into_to_bytes(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
-    pub fn into(self, buf: &mut BytesMut) {
+    pub fn into_to_bytes(self, buf: &mut BytesMut) {
         self.header.into(buf);
         if let Some(e) = self.extension {
             e.into(buf);

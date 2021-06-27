@@ -140,11 +140,11 @@ impl Header {
     /// };
     /// 
     /// 
-    /// header.into(&mut writer);
+    /// header.into_to_bytes(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
     #[rustfmt::skip]
-    pub fn into(self, buf: &mut BytesMut) {
+    pub fn into_to_bytes(self, buf: &mut BytesMut) {
         let mut basic = [0u8; 2];
         
         basic[0] = (basic[0] & LE_VERSION_MASK) | (self.version << 6);

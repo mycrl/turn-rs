@@ -74,7 +74,7 @@ async fn resolve<'a>(
     let mut pack = MessageWriter::derive(Kind::AllocateResponse, m, w);
     pack.append::<XorRelayedAddress>(*alloc_addr.as_ref());
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
-    pack.append::<ResponseOrigin>(ctx.conf.external.clone());
+    pack.append::<ResponseOrigin>(ctx.conf.external);
     pack.append::<Lifetime>(600);
     pack.try_into(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))

@@ -34,14 +34,16 @@ impl Attributes {
             "ptime" => values[1].parse()?,
             "maxptime" => values[1].parse()?,
             "rtpmap" => RtpValue::try_from(values[1])?
-        }
+        };
+
+        Ok(())
     }
 }
 
 impl<'a> TryFrom<&'a str> for RtpValue {
     type Error = anyhow::Error;
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        let values = line.split('/').collect::<Vec<&str>>();
+        let values = value.split('/').collect::<Vec<&str>>();
         ensure!(!values.is_empty(), "invalid attributes rtpmap!");
         Ok(Self {
             encoding: Encoding::try_from(values[0])?,

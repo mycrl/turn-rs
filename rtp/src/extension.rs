@@ -44,10 +44,10 @@ impl Extension {
     ///     kind: 48862,
     /// };
     /// 
-    /// extension.into(&mut writer);
+    /// extension.into_to_bytes(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
-    pub fn into(self, buf: &mut BytesMut) {
+    pub fn into_to_bytes(self, buf: &mut BytesMut) {
         buf.put_u16(self.kind);
         buf.put_u16(self.data.len() as u16);
         for item in self.data {

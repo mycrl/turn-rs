@@ -493,10 +493,8 @@ impl State {
     pub async fn refresh(&self, a: &Addr, delay: u32) {
         if delay == 0 { 
             self.remove(a).await; 
-        } else {
-            if let Some(n) = self.nodes.write().await.get_mut(a) {
-                n.set_lifetime(delay)
-            }
+        } else if let Some(n) = self.nodes.write().await.get_mut(a) {
+            n.set_lifetime(delay);
         }
     }
 
