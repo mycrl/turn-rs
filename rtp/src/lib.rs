@@ -112,9 +112,9 @@ impl<'a> Rtp<'a> {
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
     pub fn into_to_bytes(self, buf: &mut BytesMut) {
-        self.header.into(buf);
+        self.header.into_to_bytes(buf);
         if let Some(e) = self.extension {
-            e.into(buf);
+            e.into_to_bytes(buf);
         }
 
         buf.put(self.payload);

@@ -9,11 +9,13 @@ pub mod media;
 pub mod util;
 
 use repeat_times::RepeatTimes;
-use time_zones::TimeZones;
+use attributes::Attributes;
 use connection::Connection;
+use time_zones::TimeZones;
 use bandwidth::Bandwidth;
 use timing::Timing;
 use origin::Origin;
+use media::Media;
 use anyhow::{
     ensure,
     anyhow
@@ -38,6 +40,8 @@ pub enum Key {
     Timing,
     RepeatTimes,
     TimeZones,
+    Attributes,
+    Media,
 }
 
 /// Network type.
@@ -56,62 +60,14 @@ pub enum AddrKind {
     IP6,
 }
 
-/// media type.
-/// 
-/// <media> is the media type.  Currently defined media are "audio",
-/// "video", "text", "application", and "message"
-#[derive(Debug, PartialEq, Eq)]
-pub enum Encoding {
-    Audio,
-    Video,
-    Text,
-    Application,
-    Message
-}
-
-/// media proto.
-///
-/// <proto> is the transport protocol.  The meaning of the transport
-/// protocol is dependent on the address type field in the relevant
-/// "c=" field.  Thus a "c=" field of IP4 indicates that the transport
-/// protocol runs over IP4.  The following transport protocols are
-/// defined, but may be extended through registration of new protocols
-/// with IANA (see [Section 8](https://datatracker.ietf.org/doc/html/rfc4566#section-8)):
-/// 
-/// *  udp: denotes an unspecified protocol running over UDP.
-/// 
-/// *  RTP/AVP: denotes RTP [19](https://datatracker.ietf.org/doc/html/rfc4566#ref-19) 
-///    used under the RTP Profile for Audio and Video Conferences 
-///    with Minimal Control [20](https://datatracker.ietf.org/doc/html/rfc4566#ref-20) 
-///    running over UDP.
-/// 
-/// *  RTP/SAVP: denotes the Secure Real-time Transport Protocol 
-///    [23](https://datatracker.ietf.org/doc/html/rfc4566#ref-23)
-///    running over UDP.
-///
-/// The main reason to specify the transport protocol in addition to
-/// the media format is that the same standard media formats may be
-/// carried over different transport protocols even when the network
-/// protocol is the same -- a historical example is vat Pulse Code
-/// Modulation (PCM) audio and RTP PCM audio; another might be TCP/RTP
-/// PCM audio.  In addition, relays and monitoring tools that are
-/// transport-protocol-specific but format-independent are possible.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Proto {
-    Udp,
-    Tls,
-    Rtp,
-    Avp,
-    Savp
-}
-
 /// SDP: Session Description Protocol
 ///
 /// An SDP description is denoted by the media type "application/sdp"
 /// (See Section 8).
 /// 
 /// An SDP description is entirely textual.  SDP field names and
-/// attribute names use only the US-ASCII subset of UTF-8 [RFC3629], but
+/// attribute names use only the US-ASCII subset of UTF-8 
+/// [RFC3629](https://datatracker.ietf.org/doc/html/rfc3629), but
 /// textual fields and attribute values MAY use the full ISO 10646
 /// character set in UTF-8 encoding, or some other character set defined
 /// by the "a=charset:" attribute (Section 6.10).  Field and attribute
@@ -178,9 +134,10 @@ pub struct Sdp<'a> {
     pub session_info: Option<&'a str>,
     /// URI ("u=")
     /// The "u=" line (uri-field) provides a URI (Uniform Resource
-    /// Identifier) [RFC3986].  The URI should be a pointer to additional
-    /// human readable information about the session.  This line is OPTIONAL.
-    /// No more than one "u=" line is allowed per session description.
+    /// Identifier) [RFC3986](https://datatracker.ietf.org/doc/html/rfc3986).  
+    /// The URI should be a pointer to additional human readable information 
+    /// about the session.  This line is OPTIONAL. No more than one "u=" 
+    /// line is allowed per session description.
     pub uri: Option<&'a str>,
     /// Email Address and Phone Number ("e=" and "p=")
     /// The "e=" line (email-field) and "p=" line (phone-field) specify
@@ -198,7 +155,11 @@ pub struct Sdp<'a> {
     /// Repeat Times ("r=")
     pub repeat_times: Option<RepeatTimes>,
     /// Time Zones ("z=")
-    pub time_zones: Option<TimeZones>
+    pub time_zones: Option<TimeZones>,
+    /// Attributes ("a=")
+    pub attributes: Attributes,
+    /// Media ("m=")
+    pub media: Option<Media>,
 }
 
 impl<'a> Sdp<'a> {
@@ -215,6 +176,8 @@ impl<'a> Sdp<'a> {
             Key::Timing => self.timing = Some(Timing::try_from(data)?),
             Key::RepeatTimes => self.repeat_times = Some(RepeatTimes::try_from(data)?),
             Key::TimeZones => self.time_zones = Some(TimeZones::try_from(data)?),
+            Key::Attributes => self.attributes.handle(data)?,
+            Key::Media => self.media = Some(Media::try_from(data)?),
         })
     }
 }
@@ -225,8 +188,12 @@ impl<'a> TryFrom<&'a str> for Sdp<'a> {
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         let mut sdp = Self::default();
         for line in value.lines() {
-            let (key, data) = line.split_at(2);
-            sdp.handle_line(Key::try_from(key)?, data)?;
+            if !line.is_empty() {
+                let (key, data) = line.split_at(2);
+                if let Ok(k) = Key::try_from(key) {
+                    sdp.handle_line(k, data)?;
+                }   
+            }
         }
 
         Ok(sdp)
@@ -325,6 +292,8 @@ impl fmt::Display for Key {
             Self::Timing =>          "t=",
             Self::RepeatTimes =>     "r=",
             Self::TimeZones =>       "z=",
+            Self::Attributes =>      "a=",
+            Self::Media =>           "m=",
         })
     }
 }
@@ -360,107 +329,9 @@ impl<'a> TryFrom<&'a str> for Key {
             "t=" => Ok(Self::Timing),
             "r=" => Ok(Self::RepeatTimes),
             "z=" => Ok(Self::TimeZones),
+            "a=" => Ok(Self::Attributes),
+            "m=" => Ok(Self::Media),
             _ => Err(anyhow!("invalid sdp key!"))
-        }
-    }
-}
-
-impl fmt::Display for Encoding {
-    /// # Unit Test
-    ///
-    /// ```
-    /// use sdp::*;
-    ///
-    /// assert_eq!(format!("{}", Encoding::Audio), "audio");
-    /// assert_eq!(format!("{}", Encoding::Video), "video");
-    /// assert_eq!(format!("{}", Encoding::Text), "text");
-    /// assert_eq!(format!("{}", Encoding::Application), "application");
-    /// assert_eq!(format!("{}", Encoding::Message), "message");
-    /// ```
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self {
-            Self::Audio => "audio",
-            Self::Video => "video",
-            Self::Text => "text",
-            Self::Application => "application",
-            Self::Message => "message"
-        })
-    }
-}
-
-impl<'a> TryFrom<&'a str> for Encoding {
-    type Error = anyhow::Error;
-    /// # Unit Test
-    ///
-    /// ```
-    /// use sdp::*;
-    /// use std::convert::TryFrom;
-    ///
-    /// assert_eq!(Encoding::try_from("text").unwrap(), Encoding::Text);
-    /// assert_eq!(Encoding::try_from("audio").unwrap(), Encoding::Audio);
-    /// assert_eq!(Encoding::try_from("video").unwrap(), Encoding::Video);
-    /// assert_eq!(Encoding::try_from("message").unwrap(), Encoding::Message);
-    /// assert_eq!(Encoding::try_from("application").unwrap(), Encoding::Application);
-    /// assert!(Encoding::try_from("panda").is_err());
-    /// ```
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        match value {
-            "text" => Ok(Self::Text),
-            "audio" => Ok(Self::Audio),
-            "video" => Ok(Self::Video),
-            "message" => Ok(Self::Message),
-            "application" => Ok(Self::Application),
-            _ => Err(anyhow!("invalid media type!"))
-        }
-    }
-}
-
-impl fmt::Display for Proto {
-    /// # Unit Test
-    ///
-    /// ```
-    /// use sdp::*;
-    ///
-    /// assert_eq!(format!("{}", Proto::Udp), "UDP");
-    /// assert_eq!(format!("{}", Proto::Tls), "TLS");
-    /// assert_eq!(format!("{}", Proto::Rtp), "RTP");
-    /// assert_eq!(format!("{}", Proto::Avp), "AVP");
-    /// assert_eq!(format!("{}", Proto::Savp), "SAVP");
-    /// ```
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self {
-            Self::Udp => "UDP",
-            Self::Tls => "TLS",
-            Self::Rtp => "RTP",
-            Self::Avp => "AVP",
-            Self::Savp => "SAVP"
-        })
-    }
-}
-
-impl<'a> TryFrom<&'a str> for Proto {
-    type Error = anyhow::Error;
-    /// # Unit Test
-    ///
-    /// ```
-    /// use sdp::*;
-    /// use std::convert::TryFrom;
-    ///
-    /// assert_eq!(Proto::try_from("UDP").unwrap(), Proto::Udp);
-    /// assert_eq!(Proto::try_from("TLS").unwrap(), Proto::Tls);
-    /// assert_eq!(Proto::try_from("RTP").unwrap(), Proto::Rtp);
-    /// assert_eq!(Proto::try_from("AVP").unwrap(), Proto::Avp);
-    /// assert_eq!(Proto::try_from("SAVP").unwrap(), Proto::Savp);
-    /// assert!(Proto::try_from("udp").is_err());
-    /// ```
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        match value {
-            "UDP" => Ok(Self::Udp),
-            "TLS" => Ok(Self::Tls),
-            "RTP" => Ok(Self::Rtp),
-            "AVP" => Ok(Self::Avp),
-            "SAVP" => Ok(Self::Savp),
-            _ => Err(anyhow!("invalid media proto!"))
         }
     }
 }

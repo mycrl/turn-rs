@@ -1,13 +1,62 @@
-use anyhow::ensure;
+use anyhow::{
+    ensure,
+    anyhow
+};
+
 use std::{
     convert::TryFrom,
     fmt
 };
 
-use super::{
-    Encoding,
-    Proto
-};
+/// media type.
+/// 
+/// <media> is the media type.  Currently defined media are "audio",
+/// "video", "text", "application", and "message"
+#[derive(Debug, PartialEq, Eq)]
+pub enum Encoding {
+    Audio,
+    Video,
+    Text,
+    Application,
+    Message
+}
+
+/// media proto.
+///
+/// <proto> is the transport protocol.  The meaning of the transport
+/// protocol is dependent on the address type field in the relevant
+/// "c=" field.  Thus a "c=" field of IP4 indicates that the transport
+/// protocol runs over IP4.  The following transport protocols are
+/// defined, but may be extended through registration of new protocols
+/// with IANA (see [Section 8](https://datatracker.ietf.org/doc/html/rfc4566#section-8)):
+/// 
+/// *  udp: denotes an unspecified protocol running over UDP.
+/// 
+/// *  RTP/AVP: denotes RTP [19](https://datatracker.ietf.org/doc/html/rfc4566#ref-19) 
+///    used under the RTP Profile for Audio and Video Conferences 
+///    with Minimal Control [20](https://datatracker.ietf.org/doc/html/rfc4566#ref-20) 
+///    running over UDP.
+/// 
+/// *  RTP/SAVP: denotes the Secure Real-time Transport Protocol 
+///    [23](https://datatracker.ietf.org/doc/html/rfc4566#ref-23)
+///    running over UDP.
+///
+/// The main reason to specify the transport protocol in addition to
+/// the media format is that the same standard media formats may be
+/// carried over different transport protocols even when the network
+/// protocol is the same -- a historical example is vat Pulse Code
+/// Modulation (PCM) audio and RTP PCM audio; another might be TCP/RTP
+/// PCM audio.  In addition, relays and monitoring tools that are
+/// transport-protocol-specific but format-independent are possible.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Proto {
+    Udp,
+    Tls,
+    Rtp,
+    Avp,
+    Savp,
+    Savpf
+}
 
 /// media port.
 /// 
@@ -209,7 +258,7 @@ impl<'a> TryFrom<&'a str> for Media {
             protos.push(Proto::try_from(p)?);
         }
 
-        let mut fmts = Vec::with_capacity(15);
+        let mut fmts = Vec::with_capacity(30);
         for f in values[3..].iter() {
             fmts.push(f.parse()?);
         }
@@ -281,5 +330,107 @@ impl<'a> TryFrom<&'a str> for Port {
                 None => None
             }
         })
+    }
+}
+
+impl fmt::Display for Encoding {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::media::*;
+    ///
+    /// assert_eq!(format!("{}", Encoding::Audio), "audio");
+    /// assert_eq!(format!("{}", Encoding::Video), "video");
+    /// assert_eq!(format!("{}", Encoding::Text), "text");
+    /// assert_eq!(format!("{}", Encoding::Application), "application");
+    /// assert_eq!(format!("{}", Encoding::Message), "message");
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self::Audio =>       "audio",
+            Self::Video =>       "video",
+            Self::Text =>        "text",
+            Self::Application => "application",
+            Self::Message =>     "message"
+        })
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Encoding {
+    type Error = anyhow::Error;
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::media::*;
+    /// use std::convert::TryFrom;
+    ///
+    /// assert_eq!(Encoding::try_from("text").unwrap(), Encoding::Text);
+    /// assert_eq!(Encoding::try_from("audio").unwrap(), Encoding::Audio);
+    /// assert_eq!(Encoding::try_from("video").unwrap(), Encoding::Video);
+    /// assert_eq!(Encoding::try_from("message").unwrap(), Encoding::Message);
+    /// assert_eq!(Encoding::try_from("application").unwrap(), Encoding::Application);
+    /// assert!(Encoding::try_from("panda").is_err());
+    /// ```
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        match value {
+            "text" =>           Ok(Self::Text),
+            "audio" =>          Ok(Self::Audio),
+            "video" =>          Ok(Self::Video),
+            "message" =>        Ok(Self::Message),
+            "application" =>    Ok(Self::Application),
+            _ => Err(anyhow!("invalid media type!"))
+        }
+    }
+}
+
+impl fmt::Display for Proto {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::media::*;
+    ///
+    /// assert_eq!(format!("{}", Proto::Udp), "UDP");
+    /// assert_eq!(format!("{}", Proto::Tls), "TLS");
+    /// assert_eq!(format!("{}", Proto::Rtp), "RTP");
+    /// assert_eq!(format!("{}", Proto::Avp), "AVP");
+    /// assert_eq!(format!("{}", Proto::Savp), "SAVP");
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self::Udp =>    "UDP",
+            Self::Tls =>    "TLS",
+            Self::Rtp =>    "RTP",
+            Self::Avp =>    "AVP",
+            Self::Savp =>   "SAVP",
+            Self::Savpf =>  "SAVPF",
+        })
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Proto {
+    type Error = anyhow::Error;
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::media::*;
+    /// use std::convert::TryFrom;
+    ///
+    /// assert_eq!(Proto::try_from("UDP").unwrap(), Proto::Udp);
+    /// assert_eq!(Proto::try_from("TLS").unwrap(), Proto::Tls);
+    /// assert_eq!(Proto::try_from("RTP").unwrap(), Proto::Rtp);
+    /// assert_eq!(Proto::try_from("AVP").unwrap(), Proto::Avp);
+    /// assert_eq!(Proto::try_from("SAVP").unwrap(), Proto::Savp);
+    /// assert!(Proto::try_from("udp").is_err());
+    /// ```
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        match value {
+            "UDP" =>    Ok(Self::Udp),
+            "TLS" =>    Ok(Self::Tls),
+            "RTP" =>    Ok(Self::Rtp),
+            "AVP" =>    Ok(Self::Avp),
+            "SAVP" =>   Ok(Self::Savp),
+            "SAVPF" =>  Ok(Self::Savpf),
+            _ => Err(anyhow!("invalid media proto!"))
+        }
     }
 }
