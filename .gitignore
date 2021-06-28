@@ -7,3 +7,4 @@ Cargo.lock
 *pcapng*
 *package-lock.json*
 /workflow
+build/
