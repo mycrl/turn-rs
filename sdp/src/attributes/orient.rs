@@ -8,6 +8,10 @@ use std::{
     fmt
 };
 
+/// Normally this is only used for a whiteboard or presentation tool.  It
+/// specifies the orientation of the workspace on the screen.  Permitted
+/// values are "portrait", "landscape", and "seascape" (upside-down
+/// landscape).s
 #[derive(Debug, PartialEq, Eq)]
 pub enum Orient {
     Portrait,

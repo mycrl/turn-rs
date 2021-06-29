@@ -9,6 +9,66 @@ use std::{
     fmt
 };
 
+/// This attribute maps from an RTP payload type number (as used in an
+/// "m=" line) to an encoding name denoting the payload format to be
+/// used.  It also provides information on the clock rate and encoding
+/// parameters.  Note that the payload type number is indicated in a
+/// 7-bit field, limiting the values to inclusively between 0 and 127.
+/// 
+/// Although an RTP profile can make static assignments of payload type
+/// numbers to payload formats, it is more common for that assignment to
+/// be done dynamically using "a=rtpmap:" attributes.  As an example of a
+/// static payload type, consider u-law PCM encoded single-channel audio
+/// sampled at 8 kHz.  This is completely defined in the RTP audio/video
+/// profile as payload type 0, so there is no need for an "a=rtpmap:"
+/// attribute, and the media for such a stream sent to UDP port 49232 can
+/// be specified as:
+/// 
+/// m=audio 49232 RTP/AVP 0
+/// 
+/// An example of a dynamic payload type is 16-bit linear encoded stereo
+/// audio sampled at 16 kHz.  If we wish to use the dynamic RTP/AVP
+/// payload type 98 for this stream, additional information is required
+/// o decode it:
+/// 
+/// m=audio 49232 RTP/AVP 98
+/// a=rtpmap:98 L16/16000/2
+/// 
+/// Up to one "a=rtpmap:" attribute can be defined for each media format
+/// specified.  Thus, we might have the following:
+/// 
+/// m=audio 49230 RTP/AVP 96 97 98
+/// a=rtpmap:96 L8/8000
+/// a=rtpmap:97 L16/8000
+/// a=rtpmap:98 L16/11025/2
+/// 
+/// RTP profiles that specify the use of dynamic payload types MUST
+/// define the set of valid encoding names and/or a means to register
+/// encoding names if that profile is to be used with SDP.  The "RTP/AVP"
+/// and "RTP/SAVP" profiles use media subtypes for encoding names, under
+/// the top-level media type denoted in the "m=" line.  In the example
+/// above, the media types are "audio/L8" and "audio/L16".
+/// 
+/// For audio streams, encoding-params indicates the number of audio
+/// channels.  This parameter is OPTIONAL and may be omitted if the
+/// number of channels is one, provided that no additional parameters are
+/// needed.
+/// 
+/// For video streams, no encoding parameters are currently specified.
+/// 
+/// Additional encoding parameters MAY be defined in the future, but
+/// codec-specific parameters SHOULD NOT be added.  Parameters added to
+/// an "a=rtpmap:" attribute SHOULD only be those required for a session
+/// directory to make the choice of appropriate media to participate in a
+/// session.  Codec-specific parameters should be added in other
+/// attributes (for example, "a=fmtp:").
+/// 
+/// Note: RTP audio formats typically do not include information about
+/// the number of samples per packet.  If a non-default (as defined in
+/// the RTP Audio/Video Profile 
+/// [RFC3551](https://datatracker.ietf.org/doc/html/rfc3551)) 
+/// packetization is required, the "a=ptime:" attribute is used as given 
+/// in [Section 6.4](https://datatracker.ietf.org/doc/html/rfc8866#section-6.4).
 #[derive(Debug)]
 pub struct RtpValue {
     pub codec: Codec,

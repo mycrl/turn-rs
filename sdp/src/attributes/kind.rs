@@ -8,6 +8,30 @@ use std::{
     fmt
 };
 
+/// This specifies the type of the multimedia conference.  Allowed values
+/// are "broadcast", "meeting", "moderated", "test", and "H332".  These
+/// values have implications for other options that are likely to be
+/// appropriate:
+/// 
+/// *  When "a=type:broadcast" is specified, "a=recvonly" is probably
+/// appropriate for those connecting.
+/// 
+/// *  When "a=type:meeting" is specified, "a=sendrecv" is likely to be
+/// appropriate.
+/// 
+/// *  "a=type:moderated" suggests the use of a floor control tool and
+/// that the media tools be started so as to mute new sites joining
+/// the multimedia conference.
+/// 
+/// *  Specifying "a=type:H332" indicates that this loosely coupled
+/// session is part of an H.332 session as defined in the ITU H.332
+/// specification [ITU.H332.1998](https://datatracker.ietf.org/doc/
+/// html/rfc8866#ref-ITU.H332.1998). Media tools should be started 
+/// using "a=recvonly".
+/// 
+/// *  Specifying "a=type:test" is suggested as a hint that, unless
+/// explicitly requested otherwise, receivers can safely avoid
+/// displaying this session description to users.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Kind {
     Broadcast,
