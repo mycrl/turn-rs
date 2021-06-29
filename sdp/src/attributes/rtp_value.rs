@@ -5,7 +5,7 @@ use anyhow::{
 };
 
 use std::{
-    convert::TryFrom,
+    convert::TryFrom, 
     fmt
 };
 
@@ -14,6 +14,35 @@ pub struct RtpValue {
     pub codec: Codec,
     pub frequency: Option<u64>,
     pub channels: Option<u8>
+}
+
+impl fmt::Display for RtpValue {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::attributes::*;
+    ///
+    /// let rtp = RtpValue {
+    ///     codec: Codec::Vp9,
+    ///     frequency: Some(9000),
+    ///     channels: None
+    /// };
+    ///
+    /// assert_eq!(format!("{}", rtp), "VP9/9000");
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.codec)?;
+
+        if let Some(frequency) = self.frequency {
+            write!(f, "/{}", frequency)?;
+        }
+
+        if let Some(channel) = self.channels {
+            write!(f, "/{}", channel)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a> TryFrom<&'a str> for RtpValue {
