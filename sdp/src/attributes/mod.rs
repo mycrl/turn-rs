@@ -8,16 +8,15 @@ pub use orient::Orient;
 pub use codec::Codec;
 pub use kind::Kind;
 
+use itertools::Itertools;
 use anyhow::{
     Result,
-    ensure,
-    anyhow
+    ensure
 };
 
 use std::{
     collections::HashMap,
-    convert::TryFrom,
-    fmt
+    convert::TryFrom
 };
 
 #[derive(Debug, Default)]
@@ -25,6 +24,7 @@ pub struct Attributes<'a> {
     pub ptime: Option<u64>,
     pub maxptime: Option<u64>,
     pub rtp_map: HashMap<u8, RtpValue>,
+    pub fmtp: HashMap<u8, HashMap<&'a str, &'a str>>,
     pub orient: Option<Orient>,
     pub charset: Option<&'a str>,
     pub sdplang: Option<&'a str>,
@@ -36,6 +36,7 @@ pub struct Attributes<'a> {
     pub sendrecv: bool,
     pub sendonly: bool,
     pub inactive: bool,
+    pub extmap: HashMap<u8, &'a str>
 }
 
 impl<'a> Attributes<'a> {
@@ -54,7 +55,7 @@ impl<'a> Attributes<'a> {
     /// ```
     pub fn handle(&mut self, line: &'a str) -> Result<()> {
         let values = line.split(':').collect::<Vec<&str>>();
-        ensure!(values.len() >= 2, "invalid attributes!");
+        ensure!(!values.is_empty(), "invalid attributes!");
         match values[0] {
             "ptime" => self.handle_ptime(values[1]),
             "maxptime" => self.handle_maxptime(values[1]),
@@ -66,6 +67,8 @@ impl<'a> Attributes<'a> {
             "lang" => self.handle_lang(values[1]),
             "framerate" => self.handle_framerate(values[1]),
             "quality" => self.handle_quality(values[1]),
+            "fmtp" => self.handle_fmtp(values[1]),
+            "extmap" => self.handle_extmap(values[1]),
             _ => Ok(())
         }
     }
@@ -107,7 +110,7 @@ impl<'a> Attributes<'a> {
     
     fn handle_lang(&mut self, value: &'a str) -> Result<()> {
         self.lang = Some(value);
-        Ok(())
+        Ok(()) 
     }
     
     fn handle_framerate(&mut self, value: &str) -> Result<()> {
@@ -120,6 +123,31 @@ impl<'a> Attributes<'a> {
         ensure!(values.len() == 2, "invalid rtpmap!");
         let rtp = RtpValue::try_from(values[1])?;
         self.rtp_map.insert(values[0].parse()?, rtp);
+        Ok(())
+    }
+    
+    fn handle_fmtp(&mut self, value: &'a str) -> Result<()> {
+        let values = value.split(' ').collect::<Vec<&str>>();
+        ensure!(values.len() == 2, "invalid fmtp!");
+        let key: u8 = values[0].parse()?;
+        values[1]
+            .split(';')
+            .map(|x| x.split('=').collect_tuple::<(&'a str, &'a str)>())
+            .filter(|x| x.is_some())
+            .for_each(|option| {
+                let (k, v) = option.unwrap();
+                self.fmtp
+                    .entry(key)
+                    .or_insert_with(|| HashMap::with_capacity(10))
+                    .insert(k, v);
+            });
+        Ok(())
+    }
+
+    fn handle_extmap(&mut self, value: &'a str) -> Result<()> {
+        let values = value.split(' ').collect::<Vec<&str>>();
+        ensure!(values.len() == 2, "invalid extmap!");
+        self.extmap.insert(values[0].parse()?, values[1]);
         Ok(())
     }
 }
