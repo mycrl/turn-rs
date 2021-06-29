@@ -157,7 +157,7 @@ pub struct Sdp<'a> {
     /// Time Zones ("z=")
     pub time_zones: Option<TimeZones>,
     /// Attributes ("a=")
-    pub attributes: Attributes,
+    pub attributes: Attributes<'a>,
     /// Media ("m=")
     pub media: Option<Media>,
 }

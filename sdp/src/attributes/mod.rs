@@ -26,16 +26,16 @@ pub struct Attributes<'a> {
     pub maxptime: Option<u64>,
     pub rtp_map: HashMap<u8, RtpValue>,
     pub orient: Option<Orient>,
-    pub type: Option<Kind>,
-    pub recvonly: bool,
-    pub sendrecv: bool,
-    pub sendonly: bool,
-    pub inactive: bool,
     pub charset: Option<&'a str>,
     pub sdplang: Option<&'a str>,
     pub lang: Option<&'a str>,
     pub framerate: Option<u16>,
     pub quality: Option<u8>,
+    pub kind: Option<Kind>,
+    pub recvonly: bool,
+    pub sendrecv: bool,
+    pub sendonly: bool,
+    pub inactive: bool,
 }
 
 impl<'a> Attributes<'a> {
@@ -52,7 +52,7 @@ impl<'a> Attributes<'a> {
     /// assert_eq!(value.frequency, Some(9000));
     /// assert_eq!(value.channels, None);
     /// ```
-    pub fn handle(&mut self, line: &str) -> Result<()> {
+    pub fn handle(&mut self, line: &'a str) -> Result<()> {
         let values = line.split(':').collect::<Vec<&str>>();
         ensure!(values.len() >= 2, "invalid attributes!");
         match values[0] {
@@ -60,7 +60,7 @@ impl<'a> Attributes<'a> {
             "maxptime" => self.handle_maxptime(values[1]),
             "rtpmap" => self.handle_rtpmap(values[1]),
             "orient" => self.handle_orient(values[1]),
-            "type" => self.handle_type(values[1]),
+            "type" => self.handle_kind (values[1]),
             "charset" => self.handle_charset(values[1]),
             "sdplang" => self.handle_sdplang(values[1]),
             "lang" => self.handle_lang(values[1]),
@@ -90,27 +90,22 @@ impl<'a> Attributes<'a> {
         Ok(())
     }
     
-    fn handle_type(&mut self, value: &str) -> Result<()> {
-        self.type = Some(Kind::try_from(value)?);
+    fn handle_kind(&mut self, value: &str) -> Result<()> {
+        self.kind = Some(Kind::try_from(value)?);
         Ok(())
     }
     
-    fn handle_charset(&mut self, value: &str) -> Result<()> {
+    fn handle_charset(&mut self, value: &'a str) -> Result<()> {
         self.charset = Some(value);
         Ok(())
     }
     
-    fn handle_sdplang(&mut self, value: &str) -> Result<()> {
+    fn handle_sdplang(&mut self, value: &'a str) -> Result<()> {
         self.sdplang = Some(value);
         Ok(())
     }
     
-    fn handle_lang(&mut self, value: &str) -> Result<()> {
-        self.lang = Some(value);
-        Ok(())
-    }
-    
-    fn handle_lang(&mut self, value: &str) -> Result<()> {
+    fn handle_lang(&mut self, value: &'a str) -> Result<()> {
         self.lang = Some(value);
         Ok(())
     }

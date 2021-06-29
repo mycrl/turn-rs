@@ -1,11 +1,10 @@
+use super::Codec;
 use anyhow::{
     Result,
-    ensure,
-    anyhow
+    ensure
 };
 
 use std::{
-    collections::HashMap,
     convert::TryFrom,
     fmt
 };
