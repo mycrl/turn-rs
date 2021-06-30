@@ -1,3 +1,4 @@
+use super::util::tuple3_from_split;
 use std::net::IpAddr;
 use anyhow::ensure;
 use super::{
@@ -90,12 +91,11 @@ impl<'a> TryFrom<&'a str> for Connection {
     /// assert_eq!(instance.connection_address.count, None);
     /// ```
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        let values = value.split(' ').collect::<Vec<&str>>();
-        ensure!(values.len() == 3, "invalid connection information!");
+        let (n, a, c) = tuple3_from_split(value, ' ', "invalid connection information!")?;
         Ok(Self {
-            nettype: NetKind::try_from(values[0])?,
-            addrtype: AddrKind::try_from(values[1])?,
-            connection_address: Addr::try_from(values[2])?,
+            nettype: NetKind::try_from(n)?,
+            addrtype: AddrKind::try_from(a)?,
+            connection_address: Addr::try_from(c)?,
         })
     }
 }

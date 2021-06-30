@@ -1,8 +1,5 @@
-use anyhow::{
-    ensure,
-    anyhow
-};
-
+use super::util::tuple2_from_split;
+use anyhow::anyhow;
 use std::{
     convert::TryFrom,
     fmt
@@ -81,11 +78,10 @@ impl<'a> TryFrom<&'a str> for Bandwidth {
     /// assert_eq!(instance.bandwidth, 128);
     /// ```
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        let values = value.split(':').collect::<Vec<&str>>();
-        ensure!(values.len() == 2, "invalid band width!");
+        let (t, w) = tuple2_from_split(value, ':', "invalid band width!")?;
         Ok(Self {
-            bwtype: BwKind::try_from(values[0])?,
-            bandwidth: values[1].parse()?,
+            bwtype: BwKind::try_from(t)?,
+            bandwidth: w.parse()?,
         })
     }
 }

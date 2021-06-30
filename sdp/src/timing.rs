@@ -1,4 +1,4 @@
-use anyhow::ensure;
+use super::util::tuple2_from_split;
 use std::{
     convert::TryFrom,
     fmt
@@ -72,11 +72,10 @@ impl<'a> TryFrom<&'a str> for Timing {
     /// assert_eq!(instance.stop, 0);
     /// ```
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        let values = value.split(' ').collect::<Vec<&str>>();
-        ensure!(values.len() == 2, "invalid timing!");
+        let (sa, st) = tuple2_from_split(value, ' ', "invalid timing!")?;
         Ok(Self {
-            start: values[0].parse::<u64>()?,
-            stop: values[1].parse::<u64>()?
+            start: sa.parse::<u64>()?,
+            stop: st.parse::<u64>()?
         })
     }
 }

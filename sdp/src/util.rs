@@ -42,6 +42,47 @@ pub fn placeholder(source: &str) -> Option<&str> {
     }
 }
 
+/// # Unit Test
+///
+/// ```
+/// use sdp::util::*;
+///
+/// assert_eq!(tuple2_from_split("1/2", '/', '').unwrap(), ("1", "2", "3"));
+/// assert_eq!(tuple2_from_split("1:2", ':', '').unwrap(), ("1", "2", "3"));
+/// assert!(tuple2_from_split("1 2", ':', 'a').is_err());
+/// ```
+pub fn tuple2_from_split<'a>(
+    value: &'a str, 
+    pat: char,
+    msg: &'a str
+) -> Result<(&'a str, &'a str)> {
+    let mut split = value.split(pat);
+    let v1 = split.next().ok_or(msg)?;
+    let v2 = split.next().ok_or(msg)?;
+    Ok((v1, v2))
+}
+
+/// # Unit Test
+///
+/// ```
+/// use sdp::util::*;
+///
+/// assert_eq!(tuple3_from_split("1/2/3", '/', '').unwrap(), ("1", "2", "3"));
+/// assert_eq!(tuple3_from_split("1:2:3", ':', '').unwrap(), ("1", "2", "3"));
+/// assert!(tuple3_from_split("1 2 3", ':', '').is_err());
+/// ```
+pub fn tuple3_from_split<'a>(
+    value: &'a str, 
+    pat: char, 
+    msg: &'a str
+) -> Result<(&'a str, &'a str, &'a str)> {
+    let mut split = value.split(pat);
+    let v1 = split.next().ok_or(msg)?;
+    let v2 = split.next().ok_or(msg)?;
+    let v3 = split.next().ok_or(msg)?;
+    Ok((v1, v2, v3))
+}
+
 fn parse_f64(value: &str) -> Result<f64> {
     Ok(value.parse::<f64>()?)
 }
