@@ -1,3 +1,4 @@
+mod mid;
 mod codec;
 mod kind;
 mod orient;
@@ -7,6 +8,7 @@ pub use rtp_value::RtpValue;
 pub use orient::Orient;
 pub use codec::Codec;
 pub use kind::Kind;
+pub use mid::Mid;
 
 use itertools::Itertools;
 use anyhow::{
@@ -357,7 +359,10 @@ pub struct Attributes<'a> {
     /// is used), even if started in inactive mode.
     pub inactive: bool,
     /// SDP extmap Attribute
-    pub extmap: HashMap<u8, &'a str>
+    pub extmap: HashMap<u8, &'a str>,
+    
+    pub mid: Option<Mid>,
+    
 }
 
 impl<'a> Attributes<'a> {
