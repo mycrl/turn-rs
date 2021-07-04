@@ -12,6 +12,5 @@ members = [
     "rtp",
     "srtp",
     "stun",
-    "random_port",
     "bin/turn"
 ]
