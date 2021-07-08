@@ -13,13 +13,32 @@ pub use mid::Mid;
 use itertools::Itertools;
 use anyhow::{
     Result,
-    ensure
+    ensure,
+    anyhow
 };
 
 use std::{
     collections::HashMap,
-    convert::TryFrom
+    convert::TryFrom,
+    fmt
 };
+
+/// sdp attributes keys.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Key {
+    Fmtp,
+    Lang,
+    RtpMap,
+    ExtMap,
+    Charset,
+    SdpLang,
+    Ptime,
+    MaxPtime,
+    Orient,
+    Type,
+    Framerate,
+    Quality
+}
 
 #[derive(Debug, Default)]
 pub struct Attributes<'a> {
@@ -382,66 +401,20 @@ impl<'a> Attributes<'a> {
     pub fn handle(&mut self, line: &'a str) -> Result<()> {
         let values = line.split(':').collect::<Vec<&str>>();
         ensure!(!values.is_empty(), "invalid attributes!");
-        match values[0] {
-            "ptime" => self.handle_ptime(values[1]),
-            "maxptime" => self.handle_maxptime(values[1]),
-            "rtpmap" => self.handle_rtpmap(values[1]),
-            "orient" => self.handle_orient(values[1]),
-            "type" => self.handle_kind (values[1]),
-            "charset" => self.handle_charset(values[1]),
-            "sdplang" => self.handle_sdplang(values[1]),
-            "lang" => self.handle_lang(values[1]),
-            "framerate" => self.handle_framerate(values[1]),
-            "quality" => self.handle_quality(values[1]),
-            "fmtp" => self.handle_fmtp(values[1]),
-            "extmap" => self.handle_extmap(values[1]),
-            _ => Ok(())
-        }
-    }
-    
-    fn handle_quality(&mut self, value: &str) -> Result<()> {
-        self.quality = Some(value.parse()?);
-        Ok(())
-    }
-    
-    fn handle_ptime(&mut self, value: &str) -> Result<()> {
-        self.ptime = Some(value.parse()?);
-        Ok(())
-    }
-
-    fn handle_maxptime(&mut self, value: &str) -> Result<()> {
-        self.maxptime = Some(value.parse()?);
-        Ok(())
-    }
-    
-    fn handle_orient(&mut self, value: &str) -> Result<()> {
-        self.orient = Some(Orient::try_from(value)?);
-        Ok(())
-    }
-    
-    fn handle_kind(&mut self, value: &str) -> Result<()> {
-        self.kind = Some(Kind::try_from(value)?);
-        Ok(())
-    }
-    
-    fn handle_charset(&mut self, value: &'a str) -> Result<()> {
-        self.charset = Some(value);
-        Ok(())
-    }
-    
-    fn handle_sdplang(&mut self, value: &'a str) -> Result<()> {
-        self.sdplang = Some(value);
-        Ok(())
-    }
-    
-    fn handle_lang(&mut self, value: &'a str) -> Result<()> {
-        self.lang = Some(value);
-        Ok(()) 
-    }
-    
-    fn handle_framerate(&mut self, value: &str) -> Result<()> {
-        self.framerate = Some(value.parse()?);
-        Ok(())
+        Ok(match Key::try_from(values[0])? {
+            Key::Fmtp      => self.handle_fmtp(values[1])?,
+            Key::Lang      => self.lang = Some(values[1]),
+            Key::RtpMap    => self.handle_rtpmap(values[1])?,
+            Key::ExtMap    => self.handle_extmap(values[1])?,
+            Key::Charset   => self.charset = Some(values[1]),
+            Key::SdpLang   => self.sdplang = Some(values[1]),
+            Key::Ptime     => self.ptime = Some(values[1].parse()?),
+            Key::MaxPtime  => self.maxptime = Some(values[1].parse()?),
+            Key::Orient    => self.orient = Some(Orient::try_from(values[1])?),
+            Key::Type      => self.kind = Some(Kind::try_from(values[1])?),
+            Key::Framerate => self.framerate = Some(values[1].parse()?),
+            Key::Quality   => self.quality = Some(values[1].parse()?),
+        })
     }
     
     fn handle_rtpmap(&mut self, value: &str) -> Result<()> {
@@ -475,5 +448,71 @@ impl<'a> Attributes<'a> {
         ensure!(values.len() == 2, "invalid extmap!");
         self.extmap.insert(values[0].parse()?, values[1]);
         Ok(())
+    }
+}
+
+impl fmt::Display for Key {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::Key;
+    ///
+    /// assert_eq!(format!("{}", Key::Origin), "o=");
+    /// assert_eq!(format!("{}", Key::SessionName), "s=");
+    /// assert_eq!(format!("{}", Key::SessionInfo), "i=");
+    /// ```
+    #[rustfmt::skip]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self::Fmtp      => "fmtp",
+            Self::Lang      => "lang",
+            Self::RtpMap    => "rtpmap",
+            Self::ExtMap    => "extmap",
+            Self::Charset   => "charset",
+            Self::SdpLang   => "sdplang",
+            Self::Ptime     => "ptime",
+            Self::MaxPtime  => "maxptime",
+            Self::Orient    => "orient",
+            Self::Type      => "type",
+            Self::Framerate => "framerate",
+            Self::Quality   => "quality",
+        })
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Key {
+    type Error = anyhow::Error;
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::Key;
+    /// use std::convert::*;
+    ///
+    /// let uri: Key = Key::try_from("u=").unwrap();
+    /// let origin: Key = Key::try_from("o=").unwrap();
+    /// let session_name: Key = Key::try_from("s=").unwrap();
+    /// let session_info: Key = Key::try_from("i=").unwrap();
+    ///
+    /// assert_eq!(uri, Key::Uri);
+    /// assert_eq!(origin, Key::Origin);
+    /// assert_eq!(session_name, Key::SessionName);
+    /// assert_eq!(session_info, Key::SessionInfo);
+    /// ```
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        match value {
+            "fmtp"      => Ok(Self::Fmtp),
+            "lang"      => Ok(Self::Lang),
+            "rtpmap"    => Ok(Self::RtpMap),
+            "extmap"    => Ok(Self::ExtMap),
+            "charset"   => Ok(Self::Charset),
+            "sdplang"   => Ok(Self::SdpLang),
+            "ptime"     => Ok(Self::Ptime),
+            "maxptime"  => Ok(Self::MaxPtime),
+            "orient"    => Ok(Self::Orient),
+            "type"      => Ok(Self::Type),
+            "framerate" => Ok(Self::Framerate),
+            "quality"   => Ok(Self::Quality),
+            _ => Err(anyhow!("invalid sdp attributes keys!"))
+        }
     }
 }
