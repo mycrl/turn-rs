@@ -36,6 +36,7 @@ mystical is a WebRTC server solution implemented using Rust and supports the SFU
   - [x] STUN
 - [ ] WebRTC
   - [x] RTP
+  - [ ] RTCP
   - [ ] SRTP
   - [ ] DTLS
   - [ ] SDP

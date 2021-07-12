@@ -45,6 +45,6 @@
 /// +- Encrypted Portion*                      Authenticated Portion ---+
 /// ```
 #[derive(Debug, Clone)]
-pub struct SRtp {
+pub struct Srtp {
     
 }

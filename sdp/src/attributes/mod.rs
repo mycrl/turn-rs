@@ -401,7 +401,12 @@ impl<'a> Attributes<'a> {
     pub fn handle(&mut self, line: &'a str) -> Result<()> {
         let values = line.split(':').collect::<Vec<&str>>();
         ensure!(!values.is_empty(), "invalid attributes!");
-        Ok(match Key::try_from(values[0])? {
+        let key = match Key::try_from(values[0]) {
+            Ok(k) => k,
+            _ => return Ok(())
+        };
+        
+        Ok(match key {
             Key::Fmtp      => self.handle_fmtp(values[1])?,
             Key::Lang      => self.lang = Some(values[1]),
             Key::RtpMap    => self.handle_rtpmap(values[1])?,
@@ -425,6 +430,13 @@ impl<'a> Attributes<'a> {
         Ok(())
     }
     
+    fn handle_extmap(&mut self, value: &'a str) -> Result<()> {
+        let values = value.split(' ').collect::<Vec<&str>>();
+        ensure!(values.len() == 2, "invalid extmap!");
+        self.extmap.insert(values[0].parse()?, values[1]);
+        Ok(())
+    }
+    
     fn handle_fmtp(&mut self, value: &'a str) -> Result<()> {
         let values = value.split(' ').collect::<Vec<&str>>();
         ensure!(values.len() == 2, "invalid fmtp!");
@@ -440,13 +452,6 @@ impl<'a> Attributes<'a> {
                     .or_insert_with(|| HashMap::with_capacity(10))
                     .insert(k, v);
             });
-        Ok(())
-    }
-
-    fn handle_extmap(&mut self, value: &'a str) -> Result<()> {
-        let values = value.split(' ').collect::<Vec<&str>>();
-        ensure!(values.len() == 2, "invalid extmap!");
-        self.extmap.insert(values[0].parse()?, values[1]);
         Ok(())
     }
 }
