@@ -107,8 +107,8 @@
   }
 
   const OPTIONS = {
-    iceTransportPolicy: "relay",
-    iceServers: [TURN_OPTIONS]
+    // iceTransportPolicy: "relay",
+    // iceServers: [TURN_OPTIONS]
   }
 
   window.onload = () => new Vue({
@@ -132,8 +132,8 @@
     },
     methods: {
       async start() {
-        OPTIONS.iceServers[0].username = this.username
-        OPTIONS.iceServers[0].credential = this.password
+        // OPTIONS.iceServers[0].username = this.username
+        // OPTIONS.iceServers[0].credential = this.password
         this.localStream = await navigator.mediaDevices.getDisplayMedia()
         document.getElementById("self").srcObject = this.localStream
         this.login = false
