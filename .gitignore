@@ -8,3 +8,4 @@ Cargo.lock
 *package-lock.json*
 /workflow
 build/
+.DS_Store
