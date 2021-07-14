@@ -24,7 +24,15 @@ pub struct Handshake {
     sequence: u16,
     offset: u32,
     version: u16,
+    fragment_length: u16,
     
+}
+
+impl TryFrom<&[u8]> for Handshake {
+    type Error = anyhow::Error;
+    fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
+        
+    }
 }
 
 pub struct Dtls {
