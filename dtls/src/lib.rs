@@ -23,18 +23,12 @@ pub struct Dtls {
 impl TryFrom<&[u8]> for Dtls {
     type Error = anyhow::Error;
     fn try_from(mut buf: &[u8]) -> Result<Self, Self::Error> {
-        let content = Content::try_from(buf.get_u8())?;
-        let version = buf.get_u16();
-        let epoch = buf.get_u16();
-        let sequence = buf.get_uint(6);
-        let length = buf.get_u16();
-
         Ok(Self {
-            content,
-            version,
-            epoch,
-            length,
-            sequence,
+            content: Content::try_from(buf.get_u8())?,
+            version: buf.get_u16(),
+            epoch: buf.get_u16(),
+            sequence: buf.get_uint(6),
+            length: buf.get_u16(),
             fragment: Vec::with_capacity(5)
         })
     }
