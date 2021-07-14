@@ -1,38 +1,14 @@
+mod payload;
+
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
+use payload::Payload;
 use bytes::Buf;
 
 #[repr(u8)]
 #[derive(TryFromPrimitive)]
 pub enum Content {
     Handshake = 0x16
-}
-
-pub enum Payload {
-    Handshake(Handshake)   
-}
-
-#[repr(u8)]
-#[derive(TryFromPrimitive)]
-pub enum HandshakeKind {
-    ClientHello = 0x01
-}
-
-pub struct Handshake {
-    kind: HandshakeKind,
-    length: u32,
-    sequence: u16,
-    offset: u32,
-    version: u16,
-    fragment_length: u16,
-    
-}
-
-impl TryFrom<&[u8]> for Handshake {
-    type Error = anyhow::Error;
-    fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
-        
-    }
 }
 
 pub struct Dtls {
