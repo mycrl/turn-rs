@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0"
 openssl = "0.10.35"
+tokio = { version = "1", features = ["full"] }
