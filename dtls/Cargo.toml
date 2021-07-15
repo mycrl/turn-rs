@@ -6,5 +6,4 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
-bytes = "1"
-num_enum = "0.5.0"
+openssl = "0.10.35"
