@@ -1,13 +1,7 @@
-mod server;
-
 use openssl::ssl::{SslMethod, SslConnector};
 use std::io::{Read, Write};
 use std::net::UdpSocket;
 use std::thread;
-use server::{
-    Server,
-    Cert
-};
 
 use std::io::*;
 
@@ -42,11 +36,11 @@ impl Write for Client {
 
 fn main() {
     thread::spawn(|| {
-        Server::new(
+        dtls::Server::new(
             "0.0.0.0:8080".parse().unwrap(), 
-            Cert {
-                private: "d:/mystical/workflow/mycrl.link.key",
-                chain: "d:/mystical/workflow/mycrl.link.pem"
+            dtls::Cert {
+                private: "d:/mystical/workflow/client-key.pem",
+                chain: "d:/mystical/workflow/client-cert.pem"
             }
         )
         .unwrap()

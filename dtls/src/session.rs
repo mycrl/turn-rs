@@ -30,7 +30,9 @@ impl<'a> Session<'a> {
 
 impl<'a> Read for Session<'a> {
     fn read(&mut self, dst: &mut [u8]) -> Result<usize> {
+        println!("start read");
         let src = self.reader.recv().unwrap();
+        println!("read =====================> {}", src.len());
         if src.len() > dst.len() {
             return Err(Error::new(ErrorKind::WriteZero, "not enough capacity!"));
         }
@@ -45,6 +47,7 @@ impl<'a> Read for Session<'a> {
 
 impl Write for Session<'_> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        println!("write =====================> {}", buf.len());
         self.socket.send_to(buf, self.addr)
     }
 
