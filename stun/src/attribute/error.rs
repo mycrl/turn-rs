@@ -22,20 +22,20 @@ use std::convert::{
 #[derive(PartialEq, Eq)]
 #[derive(Copy, Clone, Debug)]
 pub enum Kind {
-    TryAlternate = 0x0300,
-    BadRequest = 0x0400,
-    Unauthorized = 0x0401,
-    Forbidden = 0x0403,
-    RequestTimedout = 0x0408,
-    UnknownAttribute = 0x0420,
-    AllocationMismatch = 0x0437,
-    StaleNonce = 0x0438,
-    AddressFamilyNotSupported = 0x0440,
-    WrongCredentials = 0x0441,
+    TryAlternate                = 0x0300,
+    BadRequest                  = 0x0400,
+    Unauthorized                = 0x0401,
+    Forbidden                   = 0x0403,
+    RequestTimedout             = 0x0408,
+    UnknownAttribute            = 0x0420,
+    AllocationMismatch          = 0x0437,
+    StaleNonce                  = 0x0438,
+    AddressFamilyNotSupported   = 0x0440,
+    WrongCredentials            = 0x0441,
     UnsupportedTransportAddress = 0x0442,
-    AllocationQuotaReached = 0x0486,
-    ServerError = 0x0500,
-    InsufficientCapacity = 0x0508,
+    AllocationQuotaReached      = 0x0486,
+    ServerError                 = 0x0500,
+    InsufficientCapacity        = 0x0508,
 }
 
 /// stun message error attribute. 
@@ -133,20 +133,20 @@ impl Into<&'static str> for Kind {
     /// ```
     fn into(self) -> &'static str {
         match self {
-            Self::TryAlternate => "Try Alternate",
-            Self::BadRequest => "Bad Request",
-            Self::Unauthorized => "Unauthorized",
-            Self::Forbidden => "Forbidden",
-            Self::RequestTimedout => "Request Timed out",
-            Self::UnknownAttribute => "Unknown Attribute",
-            Self::AllocationMismatch => "Allocation Mismatch",
-            Self::StaleNonce => "Stale Nonce",
-            Self::AddressFamilyNotSupported => "Address Family not Supported",
-            Self::WrongCredentials => "Wrong Credentials",
-            Self::UnsupportedTransportAddress => "Unsupported Transport Address",
-            Self::AllocationQuotaReached => "Allocation Quota Reached",
-            Self::ServerError => "Server Error",
-            Self::InsufficientCapacity => "Insufficient Capacity",
+            Self::TryAlternate                  => "Try Alternate",
+            Self::BadRequest                    => "Bad Request",
+            Self::Unauthorized                  => "Unauthorized",
+            Self::Forbidden                     => "Forbidden",
+            Self::RequestTimedout               => "Request Timed out",
+            Self::UnknownAttribute              => "Unknown Attribute",
+            Self::AllocationMismatch            => "Allocation Mismatch",
+            Self::StaleNonce                    => "Stale Nonce",
+            Self::AddressFamilyNotSupported     => "Address Family not Supported",
+            Self::WrongCredentials              => "Wrong Credentials",
+            Self::UnsupportedTransportAddress   => "Unsupported Transport Address",
+            Self::AllocationQuotaReached        => "Allocation Quota Reached",
+            Self::ServerError                   => "Server Error",
+            Self::InsufficientCapacity          => "Insufficient Capacity",
         }
     }
 }

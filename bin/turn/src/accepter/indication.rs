@@ -66,7 +66,7 @@ use stun::attribute::{
 /// 
 /// The resulting UDP datagram is then sent to the peer.
 #[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let pp = match m.get::<XorPeerAddress>() {
         Some(x) => x?.port(),
         _ => return Ok(None),
@@ -91,6 +91,6 @@ pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut
     let mut pack = MessageWriter::derive(Kind::DataIndication, &m, w);
     pack.append::<XorPeerAddress>(*s.as_ref());
     pack.append::<Data>(d);
-    pack.try_into(None)?;
+    pack.fold(None)?;
     Ok(Some((w, a)))
 }

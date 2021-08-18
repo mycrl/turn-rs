@@ -28,29 +28,29 @@ use stun::attribute::ErrKind::{
 
 /// return create permission error response
 #[inline(always)]
-fn reject<'a>(
+fn reject<'a, 'b>(
     ctx: Context, 
-    m: MessageReader<'a>, 
+    m: MessageReader<'a, 'b>, 
     w: &'a mut BytesMut,
     e: ErrKind,
 ) -> Result<Response<'a>> {
     let mut pack = MessageWriter::derive(Kind::CreatePermissionError, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
-    pack.try_into(None)?;
+    pack.fold(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
 /// return create permission ok response
 #[inline(always)]
-fn resolve<'a>(
+fn resolve<'a, 'b>(
     ctx: &Context, 
-    m: &MessageReader<'a>, 
+    m: &MessageReader<'a, 'b>, 
     p: &[u8;16], 
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     MessageWriter::derive(Kind::CreatePermissionResponse, m, w)
-        .try_into(Some(p))?;
+        .fold(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -93,7 +93,7 @@ fn resolve<'a>(
 /// "stateless stack approach".  Retransmitted CreatePermission
 /// requests will simply refresh the permissions.
 #[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get::<UserName>() {
         Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized),

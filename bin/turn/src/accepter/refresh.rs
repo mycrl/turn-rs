@@ -22,30 +22,30 @@ use stun::attribute::{
 
 /// return refresh error response
 #[inline(always)]
-fn reject<'a>(
+fn reject<'a, 'b>(
     ctx: Context, 
-    m: MessageReader<'a>, 
+    m: MessageReader<'a, 'b>, 
     w: &'a mut BytesMut, 
     e: ErrKind
 ) -> Result<Response<'a>> {
     let mut pack = MessageWriter::derive(Kind::RefreshError, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.try_into(None)?;
+    pack.fold(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
 /// return refresh ok response
 #[inline(always)]
-pub fn resolve<'a>(
+pub fn resolve<'a, 'b>(
     ctx: &Context, 
-    m: &MessageReader<'a>, 
+    m: &MessageReader<'a, 'b>, 
     lifetime: u32,
     p: &[u8; 16],
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     let mut pack = MessageWriter::derive(Kind::RefreshResponse, m , w);
     pack.append::<Lifetime>(lifetime);
-    pack.try_into(Some(p))?;
+    pack.fold(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -89,7 +89,7 @@ pub fn resolve<'a>(
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
 #[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get::<UserName>() {
         Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized),

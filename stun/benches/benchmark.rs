@@ -1,5 +1,4 @@
-use std::convert::TryFrom;
-use stun::Payload;
+use stun::Decoder;
 use criterion::*;
 
 const CHANNEL_BIND: [u8; 108] = [
@@ -163,18 +162,23 @@ const CHANNEL_DATA: [u8; 1128] = [
     0xec, 0x47, 0x60, 0x34, 0xbc, 0xf5, 0xd4, 0x21
 ];
 
-fn decoder(bytes: &[u8]) {
-    Payload::try_from(bytes).unwrap();
-}
-
 fn criterion_benchmark(c: &mut Criterion) {
+    let mut group = c.benchmark_group("stun_decoder");
+    let mut codec = Decoder::new();
+
     let channel_bind = &CHANNEL_BIND[..];
     let channel_data = &CHANNEL_DATA[..];
-    let mut group = c.benchmark_group("stun_decoder");
+
     group.throughput(Throughput::Bytes(channel_bind.len() as u64));
-    group.bench_function("decoder_channel_bind", |b| b.iter(|| decoder(channel_bind)));
+    group.bench_function("decoder_channel_bind", |b| b.iter(|| {
+        codec.decode(channel_bind).unwrap();
+    }));
+
     group.throughput(Throughput::Bytes(channel_data.len() as u64));
-    group.bench_function("decoder_channel_data", |b| b.iter(|| decoder(channel_data)));
+    group.bench_function("decoder_channel_data", |b| b.iter(|| {
+        codec.decode(channel_data).unwrap();
+    }));
+    
     group.finish();
 }
 

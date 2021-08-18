@@ -21,28 +21,28 @@ pub use error::{
 #[derive(TryFromPrimitive)]
 #[derive(PartialEq, Eq, Hash)]
 pub enum AttrKind {
-    UserName = 0x0006,
-    Data = 0x0013,
-    Realm = 0x0014,
-    Nonce = 0x0015,
-    XorPeerAddress = 0x0012,
-    XorRelayedAddress = 0x0016,
-    XorMappedAddress = 0x0020,
-    MappedAddress = 0x0001,
-    ResponseOrigin = 0x802B,
-    Software = 0x8022,
-    MessageIntegrity = 0x0008,
-    ErrorCode = 0x0009,
-    Lifetime = 0x000D,
-    ReqeestedTransport = 0x0019,
-    Fingerprint = 0x8028,
-    ChannelNumber = 0x000C,
+    UserName            = 0x0006,
+    Data                = 0x0013,
+    Realm               = 0x0014,
+    Nonce               = 0x0015,
+    XorPeerAddress      = 0x0012,
+    XorRelayedAddress   = 0x0016,
+    XorMappedAddress    = 0x0020,
+    MappedAddress       = 0x0001,
+    ResponseOrigin      = 0x802B,
+    Software            = 0x8022,
+    MessageIntegrity    = 0x0008,
+    ErrorCode           = 0x0009,
+    Lifetime            = 0x000D,
+    ReqeestedTransport  = 0x0019,
+    Fingerprint         = 0x8028,
+    ChannelNumber       = 0x000C,
 }
 
 /// dyn stun/turn message attribute.
 pub trait Property<'a> {
     type Error;
-    // current attribute inner type.
+    /// current attribute inner type.
     type Inner;
     /// get current attribute type.
     fn kind() -> AttrKind;

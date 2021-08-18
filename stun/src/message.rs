@@ -22,24 +22,10 @@ use bytes::{
 };
 
 const ZOER_BUF: [u8; 10] = [0u8; 10];
-const COOKIE: [u8; 4] = [0x21, 0x12, 0xA4, 0x42];
+const COOKIE: [u8; 4] = 0x2112A442u32.to_be_bytes();
 
 /// (username, password, realm)
 type Auth = [u8; 16];
-
-/// stun message reader.
-pub struct MessageReader<'a> {
-    /// message type.
-    pub kind: Kind,
-    /// message transaction id.
-    pub token: &'a [u8],
-    /// message source bytes.
-    raw: &'a [u8],
-    /// message valid block bytes size.
-    valid_offset: u16,
-    // message attribute list.
-    attributes: Vec<(AttrKind, &'a [u8])>,
-}
 
 /// stun message writer.
 pub struct MessageWriter<'a> {
@@ -47,7 +33,7 @@ pub struct MessageWriter<'a> {
     raw: &'a mut BytesMut,
 }
 
-impl<'a> MessageWriter<'a> {
+impl<'a, 'b> MessageWriter<'a> {
     /// rely on old message to create new message.
     ///
     /// # Unit Test
@@ -65,15 +51,16 @@ impl<'a> MessageWriter<'a> {
     ///     0x57, 0x62, 0x4b, 0x2b
     /// ];
     ///   
+    /// let mut attributes = Vec::new();
     /// let mut buf = BytesMut::new();
-    /// let old = MessageReader::try_from(&buffer[..]).unwrap();
+    /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
     /// assert_eq!(&buf[..], &buffer[..]);
     /// ```
     #[rustfmt::skip]
     pub fn derive(
         kind: Kind, 
-        reader: &MessageReader<'a>, 
+        reader: &MessageReader<'a, 'b>, 
         raw: &'a mut BytesMut
     ) -> Self {
         unsafe { raw.set_len(0) }
@@ -119,7 +106,8 @@ impl<'a> MessageWriter<'a> {
     /// ];
     ///
     /// let mut buf = BytesMut::new();
-    /// let old = MessageReader::try_from(&buffer[..]).unwrap();
+    /// let mut attributes = Vec::new();
+    /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message = MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
     /// message.append::<UserName>("panda");
     /// assert_eq!(&new_buf[..], &buf[..]);
@@ -183,13 +171,14 @@ impl<'a> MessageWriter<'a> {
     ///     0xed, 0x41, 0xb6, 0xbe
     /// ];
     /// 
+    /// let mut attributes = Vec::new();
     /// let mut buf = BytesMut::with_capacity(1280);
-    /// let old = MessageReader::try_from(&buffer[..]).unwrap();
+    /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message = MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
-    /// message.try_into(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
+    /// message.fold(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
-    pub fn try_into(&mut self, auth: Option<&Auth>) -> Result<()> {
+    pub fn fold(&mut self, auth: Option<&Auth>) -> Result<()> {
         // write attribute list size.
         let size = (self.raw.len() - 20) as u16;
         let size_buf = size.to_be_bytes();
@@ -240,10 +229,11 @@ impl<'a> MessageWriter<'a> {
     ///     0xed, 0x41, 0xb6, 0xbe
     /// ];
     /// 
+    /// let mut attributes = Vec::new();
     /// let mut buf = BytesMut::from(&buffer[..]);
-    /// let old = MessageReader::try_from(&buffer[..]).unwrap();
+    /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message = MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
-    /// message.try_into(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
+    /// message.fold(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
     #[rustfmt::skip]
@@ -288,7 +278,21 @@ impl<'a> MessageWriter<'a> {
     }
 }
 
-impl<'a> MessageReader<'a> {
+/// stun message reader.
+pub struct MessageReader<'a, 'b> {
+    /// message type.
+    pub kind: Kind,
+    /// message transaction id.
+    pub token: &'a [u8],
+    /// message source bytes.
+    raw: &'a [u8],
+    /// message valid block bytes size.
+    valid_offset: u16,
+    // message attribute list.
+    attributes: &'b Vec<(AttrKind, &'a [u8])>,
+}
+
+impl<'a, 'b> MessageReader<'a, 'b> {
     /// get attribute.
     ///
     /// get attribute from message attribute list.
@@ -308,7 +312,8 @@ impl<'a> MessageReader<'a> {
     ///     0x57, 0x62, 0x4b, 0x2b
     /// ];
     /// 
-    /// let message = MessageReader::try_from(&buffer[..]).unwrap();
+    /// let mut attributes = Vec::new();
+    /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// assert!(message.get::<UserName>().is_none());
     /// ```
     #[rustfmt::skip]
@@ -359,7 +364,8 @@ impl<'a> MessageReader<'a> {
     ///     0xb1, 0x03, 0xb2, 0x6d
     /// ];
     /// 
-    /// let message = MessageReader::try_from(&buffer[..]).unwrap();
+    /// let mut attributes = Vec::new();
+    /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let result = message.integrity(&util::long_key("panda", "panda", "raspberry")).is_ok();
     /// assert!(result);
     /// ```
@@ -393,10 +399,7 @@ impl<'a> MessageReader<'a> {
 
         Ok(())
     }
-}
 
-impl<'a> TryFrom<&'a [u8]> for MessageReader<'a> {
-    type Error = anyhow::Error;
     /// # Unit Test
     ///
     /// ```
@@ -411,14 +414,14 @@ impl<'a> TryFrom<&'a [u8]> for MessageReader<'a> {
     ///     0x72, 0x52, 0x64, 0x48,
     ///     0x57, 0x62, 0x4b, 0x2b
     /// ];
-    ///         
-    /// let message = MessageReader::try_from(&buffer[..]).unwrap();
+    /// 
+    /// let mut attributes = Vec::new();
+    /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// assert_eq!(message.kind, Kind::BindingRequest);
     /// assert!(message.get::<UserName>().is_none());
     /// ```
-    fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
+    pub fn decode(buf: &'a [u8], attributes: &'b mut Vec<(AttrKind, &'a [u8])>) -> Result<MessageReader<'a, 'b>> {
         ensure!(buf.len() >= 20, "message len < 20");
-        let mut attributes = Vec::with_capacity(6);
         let mut find_valid_offset = false;
         let mut valid_offset = 0;
         let count_size = buf.len();

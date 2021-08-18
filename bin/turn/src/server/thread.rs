@@ -1,14 +1,15 @@
 use tokio::net::UdpSocket;
 use bytes::BytesMut;
 use std::{
-    net::SocketAddr, 
+    net::SocketAddr,
+    mem::transmute,
     sync::Arc
 };
 
 use crate::{
-    proto::Proto,
+    accepter::Accepter,
+    state::State,
     argv::Argv,
-    state::State
 };
 
 /// thread local context.
@@ -18,20 +19,20 @@ pub struct ThreadLocal {
 }
 
 /// server thread worker.
-pub struct Thread {
+pub struct Thread<'a> {
+    accepter: Accepter<'a>,
     socket: Arc<UdpSocket>,
     writer: BytesMut,
     reader: Vec<u8>,
-    proto: Proto,
 }
 
-impl Thread {
+impl<'a> Thread<'a> {
     #[rustfmt::skip]
     pub fn builder(local: ThreadLocal, socket: &Arc<UdpSocket>) -> Self {
         Self {
             writer: BytesMut::with_capacity(local.conf.buffer),
             reader: vec![0u8; local.conf.buffer],
-            proto: Proto::builder(local),
+            accepter: Accepter::builder(local),
             socket: socket.clone(),
         }
     }
@@ -67,7 +68,12 @@ impl Thread {
             None => return
         };
 
-        let (b, p) = match self.proto.handler(
+        let (b, p) = match unsafe {
+            transmute::<
+                &mut Accepter<'a>, 
+                &mut Accepter<'_>
+            >(&mut self.accepter)
+        }.handler(
             &self.reader[..s], 
             &mut self.writer, 
             a
