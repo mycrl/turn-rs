@@ -43,55 +43,5 @@
 //!
 
 pub mod attribute;
-pub mod util;
-mod message;
-mod channel;
-
-use anyhow::Result;
-use std::convert::TryFrom;
-use num_enum::TryFromPrimitive;
-pub use channel::ChannelData;
-pub use message::*;
-
-/// message type.
-#[repr(u16)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq, Hash, Debug)]
-pub enum Kind {
-    BindingRequest = 0x0001,
-    BindingResponse = 0x0101,
-    BindingError = 0x0111,
-    AllocateRequest = 0x0003,
-    AllocateResponse = 0x0103,
-    AllocateError = 0x0113,
-    CreatePermissionRequest = 0x0008,
-    CreatePermissionResponse = 0x0108,
-    CreatePermissionError = 0x0118,
-    SendIndication = 0x0016,
-    DataIndication = 0x0017,
-    ChannelBindRequest = 0x0009,
-    ChannelBindResponse = 0x0109,
-    ChannelBindError = 0x0119,
-    RefreshRequest = 0x0004,
-    RefreshResponse = 0x0104,
-    RefreshError = 0x0114,
-}
-
-/// stun message payload.
-pub enum Payload<'a> {
-    /// stun message.
-    Message(MessageReader<'a>),
-    /// channel data message.
-    ChannelData(ChannelData<'a>),
-}
-
-impl<'a> TryFrom<&'a [u8]> for Payload<'a> {
-    type Error = anyhow::Error;
-    fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
-        assert!(buf.len() >= 4);
-        Ok(match buf[0] >> 4 == 4 {
-            true => Self::ChannelData(ChannelData::try_from(buf)?),
-            false => Self::Message(MessageReader::try_from(buf)?),
-        })
-    }
-}
+mod util;
+pub mod codec;

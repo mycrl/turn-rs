@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use anyhow::ensure;
-use super::util;
+use crate::util;
 
 /// channel data message.
 pub struct ChannelData<'a> {

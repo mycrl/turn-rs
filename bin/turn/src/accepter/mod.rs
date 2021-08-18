@@ -15,13 +15,13 @@ use super::{
 };
 
 use std::{
-    convert::TryFrom, 
     net::SocketAddr, 
     sync::Arc
 };
 
 use stun::{
     Kind, 
+    Decoder,
     Payload,
     MessageReader as Message,
 };
@@ -43,18 +43,22 @@ pub(crate) type Response<'a> = Option<(
 pub struct Context {
     pub conf: Arc<Argv>,
     pub state: Arc<State>,
-    pub addr: Arc<SocketAddr>,
+    pub addr: Arc<SocketAddr>
 }
 
 /// process udp message 
 /// and return message + address.
-pub struct Proto {
-    pub local: ThreadLocal
+pub struct Accepter<'a> {
+    pub local: ThreadLocal,
+    decoder: Decoder<'a>,
 }
 
-impl Proto {
+impl<'a> Accepter<'a> {
     pub fn builder(local: ThreadLocal) -> Self {
-        Self { local }
+        Self { 
+            decoder: Decoder::new(),
+            local 
+        }
     }
     
     /// process udp data
@@ -166,9 +170,9 @@ impl Proto {
     /// The client may have multiple allocations on a server at the same
     /// time.
     #[rustfmt::skip]
-    pub async fn handler<'a>(&self, b: &'a [u8], w: &'a mut BytesMut, a: SocketAddr) -> Result<Response<'a>> {
+    pub async fn handler(&mut self, b: &'a [u8], w: &'a mut BytesMut, a: SocketAddr) -> Result<Response<'a>> {
         let ctx = self.get_context(a);
-        Ok(match Payload::try_from(b)? {
+        Ok(match self.decoder.decode(b)? {
             Payload::ChannelData(x) => channel_data::process(ctx, x).await,
             Payload::Message(x) => Self::message_process(ctx, x, w).await?,
         })
@@ -298,7 +302,7 @@ impl Proto {
     /// data traffic that exceeds the bandwidth quota.
     #[rustfmt::skip]
     #[inline(always)]
-    async fn message_process<'a>(ctx: Context, m: Message<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+    async fn message_process(ctx: Context, m: Message<'a, '_>, w: &'a mut BytesMut) -> Result<Response<'a>> {
         match m.kind {
             Kind::BindingRequest => binding::process(ctx, m, w),
             Kind::AllocateRequest => allocate::process(ctx, m, w).await,

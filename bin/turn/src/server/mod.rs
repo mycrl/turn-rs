@@ -50,7 +50,9 @@ pub async fn run(f: Arc<Argv>, c: Arc<State>) -> Result<()> {
     for _ in 0..threads {
         let mut cx = Thread::builder(tl.clone(), &s);
         tokio::spawn(async move {
-            loop { cx.poll().await; }
+            loop {
+                cx.poll().await;
+            }
         });
     }
     

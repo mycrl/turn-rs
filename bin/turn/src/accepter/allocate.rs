@@ -37,9 +37,9 @@ use stun::attribute::ErrKind::{
 
 /// return allocate error response
 #[inline(always)]
-async fn reject<'a>(
+async fn reject<'a, 'b>(
     ctx: Context, 
-    m: MessageReader<'a>,
+    m: MessageReader<'a, 'b>,
     w: &'a mut BytesMut,
     e: ErrKind, 
 ) -> Result<Response<'a>> {
@@ -48,7 +48,7 @@ async fn reject<'a>(
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
     pack.append::<Nonce>(&nonce);
-    pack.try_into(None)?;
+    pack.encode(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -63,9 +63,9 @@ async fn reject<'a>(
 /// example, a server may choose this technique to implement the
 /// EVEN-PORT attribute.
 #[inline(always)]
-async fn resolve<'a>(
+async fn resolve<'a, 'b>(
     ctx: &Context,
-    m: &MessageReader<'a>,
+    m: &MessageReader<'a, 'b>,
     p: &[u8; 16],
     port: u16,
     w: &'a mut BytesMut,
@@ -76,7 +76,7 @@ async fn resolve<'a>(
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
     pack.append::<ResponseOrigin>(ctx.conf.external);
     pack.append::<Lifetime>(600);
-    pack.try_into(Some(p))?;
+    pack.encode(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -97,7 +97,7 @@ async fn resolve<'a>(
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
 #[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get::<UserName>() {
         Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized).await,

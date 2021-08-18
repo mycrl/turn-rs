@@ -49,6 +49,6 @@ pub fn process<'a>(ctx: Context, payload: MessageReader, w: &'a mut BytesMut) ->
     pack.append::<MappedAddress>(*ctx.addr.as_ref());
     pack.append::<ResponseOrigin>(ctx.conf.external);
     pack.append::<Software>(SOFTWARE);
-    pack.try_into(None)?;
+    pack.encode(None)?;
     Ok(Some((w, ctx.addr)))
 }

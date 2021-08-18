@@ -29,16 +29,16 @@ use stun::attribute::ErrKind::{
 
 /// return channel binding error response
 #[inline(always)]
-fn reject<'a>(
+fn reject<'a, 'b>(
     ctx: Context, 
-    m: MessageReader<'a>, 
+    m: MessageReader<'a, 'b>, 
     w: &'a mut BytesMut,
     e: ErrKind, 
 ) -> Result<Response<'a>> {
     let mut pack = MessageWriter::derive(Kind::ChannelBindError, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
-    pack.try_into(None)?;
+    pack.encode(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -51,7 +51,7 @@ fn resolve<'a>(
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     MessageWriter::derive(Kind::ChannelBindResponse, m, w)
-        .try_into(Some(p))?;
+        .encode(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -86,7 +86,7 @@ fn resolve<'a>(
 /// transaction would initially fail but succeed on a
 /// retransmission.
 #[rustfmt::skip]
-pub async fn process<'a>(ctx: Context, m: MessageReader<'a>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut BytesMut) -> Result<Response<'a>> {
     let u = match m.get::<UserName>() {
         Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized),
