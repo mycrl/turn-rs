@@ -465,12 +465,6 @@ impl<'a, 'b> MessageReader<'a, 'b> {
             find_valid_offset = true;
         }
 
-        // skip the attributes that are not supported.
-        let attrkind = match AttrKind::try_from(key) {
-            Err(_) => continue,
-            Ok(a) => a
-        };
-
         // get attribute size
         let size = u16::from_be_bytes([
             buf[offset + 2],
@@ -483,19 +477,28 @@ impl<'a, 'b> MessageReader<'a, 'b> {
             break;
         }
 
-        // get attribute body
-        // insert attribute to attributes list.
-        attributes.push((attrkind, &buf[
-            offset..
-            offset + size
-        ]));
-
+        // body range.
+        let range = offset..(offset + size);
+        
         // if there are padding bytes, 
         // skip padding size.
-        let psize = util::pad_size(size);
         if size > 0 {
-            offset += size + psize;
+            offset += size;
+            offset += util::pad_size(size);
         }
+        
+        // skip the attributes that are not supported.
+        let attrkind = match AttrKind::try_from(key) {
+            Err(_) => continue,
+            Ok(a) => a
+        };
+        
+        // get attribute body
+        // insert attribute to attributes list.
+        attributes.push((
+            attrkind, 
+            &buf[range]
+        ));
     }
 
         Ok(Self {
