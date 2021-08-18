@@ -37,6 +37,12 @@ pub enum AttrKind {
     ReqeestedTransport  = 0x0019,
     Fingerprint         = 0x8028,
     ChannelNumber       = 0x000C,
+    
+    // ice
+    IceControlled       = 0x8029,
+    Priority            = 0x0024,
+    UseCandidate        = 0x0025,
+    IceControlling      = 0x802A,
 }
 
 /// dyn stun/turn message attribute.
@@ -573,5 +579,99 @@ impl<'a> Property<'a> for ChannelNumber {
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u16(buf))
+    }
+}
+
+/// The ICE-CONTROLLING attribute is present in a Binding request.  The
+/// attribute indicates that the client believes it is currently in the
+/// controlling role.  The content of the attribute is a 64-bit unsigned
+/// integer in network byte order, which contains a random number.  As
+/// for the ICE-CONTROLLED attribute, the number is used for solving role
+/// conflicts.  An agent MUST use the same number for all Binding
+/// requests, for all streams, within an ICE session, unless it has
+/// received a 487 response, in which case it MUST change the number.  
+/// The agent MAY change the number when an ICE restart occurs.
+pub struct IceControlling;
+impl<'a> Property<'a> for IceControlling {
+    type Inner = u64;
+    type Error = anyhow::Error;
+    fn kind() -> AttrKind {
+        AttrKind::IceControlling
+    }
+
+    fn into(value: Self::Inner, buf: &mut BytesMut, _: &[u8]) {
+        buf.put_u64(value)
+    }
+
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+        Ok(util::as_u64(buf))
+    }
+}
+
+/// The USE-CANDIDATE attribute indicates that the candidate pair
+/// resulting from this check will be used for transmission of data.  The
+/// attribute has no content (the Length field of the attribute is zero);
+/// it serves as a flag.  It has an attribute value of 0x0025..
+pub struct UseCandidate;
+impl<'a> Property<'a> for UseCandidate {
+    type Inner = ();
+    type Error = anyhow::Error;
+    fn kind() -> AttrKind {
+        AttrKind::UseCandidate
+    }
+
+    fn into(_: Self::Inner, _: &mut BytesMut, _: &[u8]) {
+        ()    
+    }
+    
+    fn try_from(_: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+        Ok(())
+    }
+}
+
+/// The ICE-CONTROLLED attribute is present in a Binding request.  The
+/// attribute indicates that the client believes it is currently in the
+/// controlled role.  The content of the attribute is a 64-bit unsigned
+/// integer in network byte order, which contains a random number.  The
+/// number is used for solving role conflicts, when it is referred to as
+/// the "tiebreaker value".  An ICE agent MUST use the same number for
+/// all Binding requests, for all streams, within an ICE session, unless
+/// it has received a 487 response, in which case it MUST change the
+/// number. The agent MAY change the number when an ICE restart occurs.
+pub struct IceControlled;
+impl<'a> Property<'a> for IceControlled {
+    type Inner = u64;
+    type Error = anyhow::Error;
+    fn kind() -> AttrKind {
+        AttrKind::IceControlled
+    }
+
+    fn into(value: Self::Inner, buf: &mut BytesMut, _: &[u8]) {
+        buf.put_u64(value)
+    }
+
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+        Ok(util::as_u64(buf))
+    }
+}
+
+/// The PRIORITY attribute indicates the priority that is to be
+/// associated with a peer-reflexive candidate, if one will be discovered
+/// by this check.  It is a 32-bit unsigned integer and has an attribute
+/// value of 0x0024.
+pub struct Priority;
+impl<'a> Property<'a> for Priority {
+    type Inner = u32;
+    type Error = anyhow::Error;
+    fn kind() -> AttrKind {
+        AttrKind::Priority
+    }
+
+    fn into(value: Self::Inner, buf: &mut BytesMut, _: &[u8]) {
+        buf.put_u32(value)
+    }
+
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+        Ok(util::as_u32(buf))
     }
 }
