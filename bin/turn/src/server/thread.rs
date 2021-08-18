@@ -69,7 +69,10 @@ impl<'a> Thread<'a> {
         };
 
         let (b, p) = match unsafe {
-            transmute::<&mut Accepter<'a>, &mut Accepter<'_>>(&mut self.accepter)
+            transmute::<
+                &mut Accepter<'a>, 
+                &mut Accepter<'_>
+            >(&mut self.accepter)
         }.handler(
             &self.reader[..s], 
             &mut self.writer, 

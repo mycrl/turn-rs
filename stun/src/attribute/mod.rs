@@ -42,7 +42,7 @@ pub enum AttrKind {
 /// dyn stun/turn message attribute.
 pub trait Property<'a> {
     type Error;
-    // current attribute inner type.
+    /// current attribute inner type.
     type Inner;
     /// get current attribute type.
     fn kind() -> AttrKind;

@@ -91,6 +91,6 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
     let mut pack = MessageWriter::derive(Kind::DataIndication, &m, w);
     pack.append::<XorPeerAddress>(*s.as_ref());
     pack.append::<Data>(d);
-    pack.encode(None)?;
+    pack.fold(None)?;
     Ok(Some((w, a)))
 }

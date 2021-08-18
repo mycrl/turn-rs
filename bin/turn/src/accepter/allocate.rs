@@ -48,7 +48,7 @@ async fn reject<'a, 'b>(
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
     pack.append::<Nonce>(&nonce);
-    pack.encode(None)?;
+    pack.fold(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -76,7 +76,7 @@ async fn resolve<'a, 'b>(
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
     pack.append::<ResponseOrigin>(ctx.conf.external);
     pack.append::<Lifetime>(600);
-    pack.encode(Some(p))?;
+    pack.fold(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 

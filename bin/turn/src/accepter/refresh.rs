@@ -30,7 +30,7 @@ fn reject<'a, 'b>(
 ) -> Result<Response<'a>> {
     let mut pack = MessageWriter::derive(Kind::RefreshError, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.encode(None)?;
+    pack.fold(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -45,7 +45,7 @@ pub fn resolve<'a, 'b>(
 ) -> Result<Response<'a>> {
     let mut pack = MessageWriter::derive(Kind::RefreshResponse, m , w);
     pack.append::<Lifetime>(lifetime);
-    pack.encode(Some(p))?;
+    pack.fold(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
