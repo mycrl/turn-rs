@@ -422,7 +422,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// ```
     pub fn decode(buf: &'a [u8], attributes: &'b mut Vec<(AttrKind, &'a [u8])>) -> Result<MessageReader<'a, 'b>> {
         ensure!(buf.len() >= 20, "message len < 20");
-        let mut find_valid_offset = false;
+        let mut find_integrity = false;
         let mut valid_offset = 0;
         let count_size = buf.len();
 
@@ -455,14 +455,14 @@ impl<'a, 'b> MessageReader<'a, 'b> {
 
         // whether the MessageIntegrity attribute has been found, 
         // if found, record the current offset position.
-        if !find_valid_offset {
+        if !find_integrity {
             valid_offset = offset as u16;
         }
 
         // check whether the current attribute is MessageIntegrity, 
         // if it is, mark this attribute has been found.
         if key == AttrKind::MessageIntegrity as u16 {
-            find_valid_offset = true;
+            find_integrity = true;
         }
 
         // get attribute size
