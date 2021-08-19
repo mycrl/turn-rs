@@ -35,16 +35,15 @@ const BINDING: [u8; 96] = [
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut stun_decoder = c.benchmark_group("stun_decoder");
+    let mut codec = Decoder::new();
     
     let channel_bind = &CHANNEL_BIND[..];
-    let mut codec = Decoder::new();
     stun_decoder.throughput(Throughput::Bytes(channel_bind.len() as u64));
     stun_decoder.bench_function("decoder_channel_bind", |b| b.iter(|| {
         codec.decode(channel_bind).unwrap();
     }));
     
     let binding = &BINDING[..];
-    let mut codec = Decoder::new();
     stun_decoder.throughput(Throughput::Bytes(binding.len() as u64));
     stun_decoder.bench_function("decoder_binding", |b| b.iter(|| {
         codec.decode(binding).unwrap();
