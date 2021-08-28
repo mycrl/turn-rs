@@ -62,6 +62,10 @@ pub fn tuple2_from_split<'a>(
     let mut split = value.split(pat);
     let v1 = split.next().ok_or_else(|| anyhow!(msg))?;
     let v2 = split.next().ok_or_else(|| anyhow!(msg))?;
+    if split.next().is_some() {
+        return Err(anyhow!(msg))
+    }
+    
     Ok((v1, v2))
 }
 
@@ -83,6 +87,10 @@ pub fn tuple3_from_split<'a>(
     let v1 = split.next().ok_or_else(|| anyhow!(msg))?;
     let v2 = split.next().ok_or_else(|| anyhow!(msg))?;
     let v3 = split.next().ok_or_else(|| anyhow!(msg))?;
+    if split.next().is_some() {
+        return Err(anyhow!(msg))
+    }
+    
     Ok((v1, v2, v3))
 }
 

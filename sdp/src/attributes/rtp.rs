@@ -1,3 +1,4 @@
+use crate::util::tuple2_from_split;
 use super::Codec;
 use anyhow::{
     Result,
@@ -5,9 +6,15 @@ use anyhow::{
 };
 
 use std::{
+    collections::HashMap,
     convert::TryFrom, 
     fmt
 };
+
+#[derive(Debug, Default)]
+pub struct RtpMap(
+    HashMap<u8, RtpValue>
+);
 
 /// This attribute maps from an RTP payload type number (as used in an
 /// "m=" line) to an encoding name denoting the payload format to be
@@ -123,10 +130,32 @@ impl<'a> TryFrom<&'a str> for RtpValue {
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         let values = value.split('/').collect::<Vec<&str>>();
         ensure!(!values.is_empty(), "invalid attributes rtpmap!");
+        ensure!(values[0].len() > 0, "invalid attributes rtpmap!");
         Ok(Self {
             codec: Codec::try_from(values[0])?,
             frequency: if let Some(c) = values.get(1) { Some(c.parse()?) } else { None },
             channels: if let Some(c) = values.get(2) { Some(c.parse()?) } else { None }
         })
+    }
+}
+
+impl RtpMap {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use sdp::attributes::*;
+    /// use std::convert::*;
+    ///
+    /// let mut rtpmap = RtpMap::default();
+    /// 
+    /// assert!(rtpmap.insert("107 rtx/90000").is_ok());
+    /// assert!(rtpmap.insert("101 rtx/90000/2").is_ok());
+    /// assert!(rtpmap.insert("108 H264/90000").is_ok());
+    /// assert!(rtpmap.insert("98").is_err());
+    /// ```
+    pub fn insert(&mut self, value: &str) -> Result<()> {
+        let (k, v) = tuple2_from_split(value, ' ', "invalid rtpmap!")?;
+        self.0.insert(k.parse()?, RtpValue::try_from(v)?);
+        Ok(())
     }
 }

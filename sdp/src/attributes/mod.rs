@@ -1,24 +1,26 @@
+mod rtp;
 mod mid;
+mod fmtp;
 mod codec;
 mod kind;
 mod orient;
-mod rtp_value;
+mod extension;
 
-pub use rtp_value::RtpValue;
 pub use orient::Orient;
 pub use codec::Codec;
+pub use extension::*;
 pub use kind::Kind;
 pub use mid::Mid;
+pub use fmtp::*;
+pub use rtp::*;
 
-use itertools::Itertools;
+use super::util::*;
 use anyhow::{
     Result,
-    ensure,
     anyhow
 };
 
 use std::{
-    collections::HashMap,
     convert::TryFrom,
     fmt
 };
@@ -99,7 +101,7 @@ pub struct Attributes<'a> {
     /// clock-rate = integer
     /// encoding-params = channels
     /// channels = integer
-    pub rtpmap: HashMap<u8, RtpValue>,
+    pub rtpmap: RtpMap,
     /// Name:  fmtp
     /// Value:  fmtp-value
     /// Usage Level:  media
@@ -125,7 +127,7 @@ pub struct Attributes<'a> {
     /// 
     /// The "a=fmtp:" attribute may be used to specify parameters for any
     /// protocol and format that defines use of such parameters.
-    pub fmtp: HashMap<u8, HashMap<&'a str, &'a str>>,
+    pub fmtp: Fmtp<'a>,
     /// orient (Orientation)
     /// 
     /// Name:  orient
@@ -378,7 +380,7 @@ pub struct Attributes<'a> {
     /// is used), even if started in inactive mode.
     pub inactive: bool,
     /// SDP extmap Attribute
-    pub extmap: HashMap<u8, &'a str>,
+    pub extmap: ExtMap<'a>,
     
     pub mid: Option<Mid>,
     
@@ -399,60 +401,26 @@ impl<'a> Attributes<'a> {
     /// assert_eq!(value.channels, None);
     /// ```
     pub fn handle(&mut self, line: &'a str) -> Result<()> {
-        let values = line.split(':').collect::<Vec<&str>>();
-        ensure!(!values.is_empty(), "invalid attributes!");
-        let key = match Key::try_from(values[0]) {
+        let (k, v) = tuple2_from_split(line, ':', "invalid attributes!")?;
+        let key = match Key::try_from(k) {
             Ok(k) => k,
             _ => return Ok(())
         };
         
         Ok(match key {
-            Key::Fmtp      => self.handle_fmtp(values[1])?,
-            Key::Lang      => self.lang = Some(values[1]),
-            Key::RtpMap    => self.handle_rtpmap(values[1])?,
-            Key::ExtMap    => self.handle_extmap(values[1])?,
-            Key::Charset   => self.charset = Some(values[1]),
-            Key::SdpLang   => self.sdplang = Some(values[1]),
-            Key::Ptime     => self.ptime = Some(values[1].parse()?),
-            Key::MaxPtime  => self.maxptime = Some(values[1].parse()?),
-            Key::Orient    => self.orient = Some(Orient::try_from(values[1])?),
-            Key::Type      => self.kind = Some(Kind::try_from(values[1])?),
-            Key::Framerate => self.framerate = Some(values[1].parse()?),
-            Key::Quality   => self.quality = Some(values[1].parse()?),
+            Key::Fmtp      => self.fmtp.insert(v)?,
+            Key::RtpMap    => self.rtpmap.insert(v)?,
+            Key::ExtMap    => self.extmap.insert(v)?,
+            Key::Lang      => self.lang = Some(v),
+            Key::Charset   => self.charset = Some(v),
+            Key::SdpLang   => self.sdplang = Some(v),
+            Key::Ptime     => self.ptime = Some(v.parse()?),
+            Key::MaxPtime  => self.maxptime = Some(v.parse()?),
+            Key::Orient    => self.orient = Some(Orient::try_from(v)?),
+            Key::Type      => self.kind = Some(Kind::try_from(v)?),
+            Key::Framerate => self.framerate = Some(v.parse()?),
+            Key::Quality   => self.quality = Some(v.parse()?),
         })
-    }
-    
-    fn handle_rtpmap(&mut self, value: &str) -> Result<()> {
-        let values = value.split(' ').collect::<Vec<&str>>();
-        ensure!(values.len() == 2, "invalid rtpmap!");
-        let rtp = RtpValue::try_from(values[1])?;
-        self.rtpmap.insert(values[0].parse()?, rtp);
-        Ok(())
-    }
-    
-    fn handle_extmap(&mut self, value: &'a str) -> Result<()> {
-        let values = value.split(' ').collect::<Vec<&str>>();
-        ensure!(values.len() == 2, "invalid extmap!");
-        self.extmap.insert(values[0].parse()?, values[1]);
-        Ok(())
-    }
-    
-    fn handle_fmtp(&mut self, value: &'a str) -> Result<()> {
-        let values = value.split(' ').collect::<Vec<&str>>();
-        ensure!(values.len() == 2, "invalid fmtp!");
-        let key: u8 = values[0].parse()?;
-        values[1]
-            .split(';')
-            .map(|x| x.split('=').collect_tuple::<(&'a str, &'a str)>())
-            .filter(|x| x.is_some())
-            .for_each(|option| {
-                let (k, v) = option.unwrap();
-                self.fmtp
-                    .entry(key)
-                    .or_insert_with(|| HashMap::with_capacity(10))
-                    .insert(k, v);
-            });
-        Ok(())
     }
 }
 
