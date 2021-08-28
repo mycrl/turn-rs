@@ -12,7 +12,7 @@ use anyhow::Result;
 /// 
 /// It is a media-level attribute, and it is not dependent on
 /// charset.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Fmtp<'a>(
     HashMap<(u8, &'a str), &'a str>
 );
@@ -45,5 +45,11 @@ impl<'a> Fmtp<'a> {
         }
         
         Ok(())
+    }
+}
+
+impl<'a> Default for Fmtp<'a> {
+    fn default() -> Self {
+        Self(HashMap::with_capacity(50))
     }
 }

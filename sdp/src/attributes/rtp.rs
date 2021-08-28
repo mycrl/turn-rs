@@ -11,7 +11,7 @@ use std::{
     fmt
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct RtpMap(
     HashMap<u8, RtpValue>
 );
@@ -157,5 +157,11 @@ impl RtpMap {
         let (k, v) = tuple2_from_split(value, ' ', "invalid rtpmap!")?;
         self.0.insert(k.parse()?, RtpValue::try_from(v)?);
         Ok(())
+    }
+}
+
+impl Default for RtpMap {
+    fn default() -> Self {
+        Self(HashMap::with_capacity(50))
     }
 }

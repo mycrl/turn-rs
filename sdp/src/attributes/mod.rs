@@ -14,7 +14,6 @@ pub use mid::Mid;
 pub use fmtp::*;
 pub use rtp::*;
 
-use super::util::*;
 use anyhow::{
     Result,
     anyhow
@@ -44,6 +43,7 @@ pub enum Key {
 
 #[derive(Debug, Default)]
 pub struct Attributes<'a> {
+    others: Vec<&'a str>,
     /// ptime (Packet Time)
     /// 
     /// Name:  ptime
@@ -381,12 +381,16 @@ pub struct Attributes<'a> {
     pub inactive: bool,
     /// SDP extmap Attribute
     pub extmap: ExtMap<'a>,
-    
     pub mid: Option<Mid>,
     
 }
 
 impl<'a> Attributes<'a> {
+    fn other(&mut self, line: &'a str) -> Result<()> {
+        self.others.push(line);
+        Ok(())
+    }
+    
     /// # Unit Test
     ///
     /// ```
@@ -401,10 +405,19 @@ impl<'a> Attributes<'a> {
     /// assert_eq!(value.channels, None);
     /// ```
     pub fn handle(&mut self, line: &'a str) -> Result<()> {
-        let (k, v) = tuple2_from_split(line, ':', "invalid attributes!")?;
+        let mut iter = line.split(':');
+        let k = iter.next().ok_or_else(|| {
+            anyhow!("invalid attributes!")
+        })?;
+        
+        let v = match iter.next() {
+            None => return self.other(line),
+            Some(v) => v,
+        };
+        
         let key = match Key::try_from(k) {
+            Err(_) => return self.other(line),
             Ok(k) => k,
-            _ => return Ok(())
         };
         
         Ok(match key {

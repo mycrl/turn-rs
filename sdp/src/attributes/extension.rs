@@ -16,7 +16,7 @@ use anyhow::Result;
 /// attribute defines the mapping from the extension numbers used in
 /// packet headers into extension names as documented in
 /// specifications and appropriately registered.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ExtMap<'a>(
     HashMap<u8, &'a str>
 );
@@ -39,5 +39,11 @@ impl<'a> ExtMap<'a> {
         let (k, v) = tuple2_from_split(value, ' ', "invalid extmap!")?;
         self.0.insert(k.parse()?, v);
         Ok(())
+    }
+}
+
+impl<'a> Default for ExtMap<'a> {
+    fn default() -> Self {
+        Self(HashMap::with_capacity(50))
     }
 }
