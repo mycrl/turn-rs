@@ -1,7 +1,7 @@
 <!--lint disable no-literal-urls-->
 <div align="center">
   <img 
-    alt="mystical"
+    alt="mystery"
     src="./logo.svg" 
     width="200px"
   />
@@ -11,15 +11,15 @@
   <strong>WebRTC Server implemented by ❤️ Rust</strong>
 </div>
 <div align="center">
-  <img src="https://img.shields.io/github/workflow/status/Mycrl/mystical/cargo-test"/>
-  <img src="https://img.shields.io/github/license/Mycrl/mystical"/>
-  <img src="https://img.shields.io/github/issues/Mycrl/mystical"/>
-  <img src="https://img.shields.io/github/stars/Mycrl/mystical"/>
+  <img src="https://img.shields.io/github/workflow/status/Mycrl/mystery/cargo-test"/>
+  <img src="https://img.shields.io/github/license/Mycrl/mystery"/>
+  <img src="https://img.shields.io/github/issues/Mycrl/mystery"/>
+  <img src="https://img.shields.io/github/stars/Mycrl/mystery"/>
 </div>
 <br/>
 <br/>
 
-mystical is a WebRTC server solution implemented using Rust and supports the SFU/MCU model. Compared with other ongoing projects, the current project prioritizes WebRTC one-to-many live broadcasting, but this does not mean that the project will give up peer-to-peer two-way dialogue.
+mystery is a WebRTC server solution implemented using Rust and supports the SFU/MCU model. Compared with other ongoing projects, the current project prioritizes WebRTC one-to-many live broadcasting, but this does not mean that the project will give up peer-to-peer two-way dialogue.
 
 ## Table of contents
 
@@ -51,7 +51,7 @@ mystical is a WebRTC server solution implemented using Rust and supports the SFU
 You need to install the Rust toolchain, if you have already installed it, you can skip it, [Install Rust](https://www.rust-lang.org/tools/install), then get the source code:
 
 ```bash
-git clone https://github.com/Mycrl/mystical
+git clone https://github.com/Mycrl/mystery
 ```
 
 And, you need to install the openssl toolchain.
@@ -81,7 +81,7 @@ brew install openssl
 Compile the entire workspace in release mode:
 
 ```bash
-cd mystical
+cd mystery
 cargo build --release
 ```
 
@@ -92,7 +92,7 @@ After the compilation is complete, you can find the binary file in the "target/r
 Use docker-compose to start all services:
 
 ```bash
-cd mystical
+cd mystery
 docker-compose up -d
 ```
 
@@ -102,7 +102,7 @@ The coding style of this project may not conform to the community style or the h
 
 ## License
 
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FMycrl%2Fmystical.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FMycrl%2Fmystical?ref=badge_large)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FMycrl%2Fmystery.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FMycrl%2Fmystery?ref=badge_large)
 
 [GPL](./LICENSE)
 Copyright (c) 2020 Mr.Panda.
