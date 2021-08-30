@@ -4,6 +4,15 @@ use std::{
     fmt
 };
 
+/// The a=mid attribute is used as an identifier of 
+/// the media described by the m= line.
+/// 
+/// Every time a new m= line media is added to the 
+/// SDP message, the value of a=mid is incremented by 1.
+/// 
+/// The media-identifier-attribute has the following 
+/// format in ABNF notation, as described in 
+/// [RFC5234](https://www.rfc-editor.org/rfc/rfc5234.txt)
 #[derive(Debug, PartialEq, Eq)]
 pub enum Mid {
     Audio,

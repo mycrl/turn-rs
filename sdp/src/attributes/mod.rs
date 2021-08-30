@@ -379,8 +379,9 @@ pub struct Attributes<'a> {
     /// stream.  Note that an RTP-based system MUST still send RTCP (if RTCP
     /// is used), even if started in inactive mode.
     pub inactive: bool,
-    /// SDP extmap Attribute
+    /// sdp extmap attribute
     pub extmap: ExtMap<'a>,
+    /// sdp mid attribute
     pub mid: Option<Mid>,
     
 }
