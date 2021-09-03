@@ -39,7 +39,7 @@ mystery is a WebRTC server solution implemented using Rust and supports the SFU/
   - [ ] RTCP
   - [ ] SRTP
   - [ ] DTLS
-  - [ ] SDP
+  - [x] SDP
   - [ ] ICE
 - [ ] SFU
 - [ ] MCU
