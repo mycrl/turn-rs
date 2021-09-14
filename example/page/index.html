@@ -1,0 +1,28 @@
+<html>
+    <head>
+        <title>WebRTC Room</title>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width,initial-scale=1.0">
+        <link href="./style.css" rel="stylesheet" type="text/css">
+        <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    </head>
+    <body>
+        <div id="App">
+            <div class="login" v-show="login">
+                <div class="box">
+                    <p class="title">登录</p>
+                    <input type="text" placeholder="Domain" v-model="domain"/>
+                    <input type="text" placeholder="用户名" v-model="username"/>
+                    <input type="password" placeholder="密码" v-model="password"/>
+                    <button @click="start">确认</button>
+                </div>
+            </div>
+            <div class="room">
+                <video ref="self" autoplay :style="style"></video>
+                <video class="node" v-for="u of users" :id="u" :key="u" :style="style" autoplay></video>
+            </div>
+        </div>
+    </body>
+    <script src="./index.js"></script>
+</html>

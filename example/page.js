@@ -1,35 +1,36 @@
-const http = require("http")
-const express = require("express")
-const { Server } = require("ws")
-const { resolve } = require("path")
+const http = require('http')
+const express = require('express')
+const { Server } = require('ws')
+const { resolve } = require('path')
 
 const app = express()
 const server = http.createServer(app)
 const Ws = new Server({ server })
 
-app.get("/", function (_req, res) {
-    res.sendFile(resolve("./index.html"))
+app.use(express.static(resolve('./page')))
+app.get('/', function (_req, res) {
+    res.sendFile(resolve('./page/index.html'))
 })
 
 global.pools = {}
 
-Ws.on("connection", function (socket) {
+Ws.on('connection', function (socket) {
     let username = null
 
-    socket.on("close", function () {
+    socket.on('close', function () {
         delete pools[username]
     })
 
-    socket.on("error", function () {
+    socket.on('error', function () {
         delete pools[username]
     })
 
-    socket.on("message", function (packet) {
+    socket.on('message', function (packet) {
         let m = JSON.parse(packet.toString())
-        if (m.type === "connected") {
+        if (m.type === 'connected') {
             socket.send(JSON.stringify({
                 users: Object.keys(pools),
-                type: "users"
+                type: 'users'
             }))
 
             username = m.from
@@ -46,4 +47,4 @@ Ws.on("connection", function (socket) {
     })
 })
 
-server.listen(80)
+server.listen(8080)

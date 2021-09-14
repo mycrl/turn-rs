@@ -30,7 +30,6 @@
 //!
 
 pub mod header;
-pub mod payload;
 pub mod extension;
 
 use header::Header;
