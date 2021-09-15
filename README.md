@@ -32,21 +32,10 @@ mystery is a WebRTC server solution implemented using Rust and supports the SFU/
 
 ## Roadmap
 
-| Task    | State     |
-|---------|-----------|
-| TURN    | Done      |
-| STUN    | Done      |
-| RTP     | Testing   |
-| SDP     | Testing   |
-| RTCP    | Doing     |
-| RTP     | Doing     |
-| SRTP    | Todo      |
-| SRTCP   | Todo      |
-| DTLS    | Todo      |
-| ICE     | Todo      |
-| SFU     | Blocked   |
-| MCU     | Blocked   |
-| Control | Blocked   |
+| TURN     | STUN     | RTP      | SDP      | RTCP     | RTP      | SRTP     | SRTCP    | DTLS     | ICE      | SFU      | MCU      | Control  |
+|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|
+| Done     | Done     | Testing  | Testing  | Doing    | Doing    | Todo     | Todo     | Todo     | Todo     | Blocked  | Blocked  | Blocked  |
+
 
 ## Building
 
