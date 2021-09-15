@@ -107,13 +107,13 @@ impl<'a> Rtp<'a> {
     ///     payload: &payload[..]
     /// };
     /// 
-    /// rtp.into_to_bytes(&mut writer);
+    /// rtp.encode(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
-    pub fn into_to_bytes(self, buf: &mut BytesMut) {
-        self.header.into_to_bytes(buf);
+    pub fn encode(self, buf: &mut BytesMut) {
+        self.header.encode(buf);
         if let Some(e) = self.extension {
-            e.into_to_bytes(buf);
+            e.encode(buf);
         }
 
         buf.put(self.payload);

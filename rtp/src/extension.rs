@@ -23,7 +23,7 @@ pub struct Extension {
     /// defined by profile.
     pub kind: u16,
     /// header extension list.
-    pub data: Vec<u32>, 
+    pub data: Vec<u8>, 
 }
 
 impl Extension {
@@ -44,15 +44,13 @@ impl Extension {
     ///     kind: 48862,
     /// };
     /// 
-    /// extension.into_to_bytes(&mut writer);
+    /// extension.encode(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
-    pub fn into_to_bytes(self, buf: &mut BytesMut) {
+    pub fn encode(self, buf: &mut BytesMut) {
         buf.put_u16(self.kind);
         buf.put_u16(self.data.len() as u16);
-        for item in self.data {
-            buf.put_u32(item);
-        }
+        buf.put(&self.data[..])
     }
 }
 
@@ -81,18 +79,14 @@ impl<'a> TryFrom<&'a mut Bytes> for Extension {
         ensure!(buf.len() >= 4, "buf len < 4");
         
         let kind = buf.get_u16();
-        let count = buf.get_u16() as usize;
+        let size = (buf.get_u16() * 4) as usize;
         
-        let is_overflow = buf.len() >= count * 4;
-        ensure!(is_overflow, "buf len is too short");
-        
-        let data = (0..count)
-            .map(|_| buf.get_u32())
-            .collect::<Vec<u32>>();
+        ensure!(buf.len() >= size, "buf len is too short");
+        let data = Vec::from(&buf[0..size]);
         
         Ok(Self {
-            kind,
-            data
+            data,
+            kind
         })
     }
 }
