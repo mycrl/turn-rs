@@ -32,9 +32,11 @@ mystery is a WebRTC server solution implemented using Rust and supports the SFU/
 
 ## Roadmap
 
+Important: The project was developed by myself. This is just my side project, so the development progress will be slower. If you are looking for the mature and highly supported webrtc component of rust instead of the media control center implementation, you can follow this project: [webrtc.rs](https://webrtc.rs/)
+
 ### Base protocols support: 
 
-* [x] [turn](https://github.com/Mycrl/mystery/tree/dev/bin/turn)
+* [x] [turn](https://github.com/Mycrl/mystery/tree/dev/bin/turn) (add support for session node grouping)
 * [x] [stun](https://github.com/Mycrl/mystery/tree/dev/stun)
 * [ ] [testing] [rtp](https://github.com/Mycrl/mystery/tree/dev/rtp) (there are some undetermined realizations for the time being)
 * [ ] [testing] [sdp](https://github.com/Mycrl/mystery/tree/dev/sdp) (partial support of the protocol)
