@@ -95,7 +95,5 @@ The coding style of this project may not conform to the community style or the h
 
 ## License
 
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FMycrl%2Fmystery.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FMycrl%2Fmystery?ref=badge_large)
-
 [GPL](./LICENSE)
 Copyright (c) 2020 Mr.Panda.
