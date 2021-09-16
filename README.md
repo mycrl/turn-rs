@@ -37,7 +37,7 @@ Important: The project was developed by myself. This is just my side project, so
 ### Base protocols support: 
 
 * [x] [turn](https://github.com/Mycrl/mystery/tree/dev/bin/turn) (add support for session node grouping)
-* [x] [stun](https://github.com/Mycrl/mystery/tree/dev/stun)
+* [x] [stun](https://github.com/Mycrl/mystery/tree/dev/stun) (superfast parser! The throughput of a single thread is as high as 2Gib/s! 30 million stun packets can be processed in one second!)
 * [ ] [testing] [rtp](https://github.com/Mycrl/mystery/tree/dev/rtp) (there are some undetermined realizations for the time being)
 * [ ] [testing] [sdp](https://github.com/Mycrl/mystery/tree/dev/sdp) (partial support of the protocol)
 * [ ] [doing] [rtcp](https://github.com/Mycrl/mystery/tree/dev/rtcp)
