@@ -32,9 +32,24 @@ mystery is a WebRTC server solution implemented using Rust and supports the SFU/
 
 ## Roadmap
 
-| TURN     | STUN     | RTP      | SDP      | RTCP     | RTP      | SRTP     | SRTCP    | DTLS     | ICE      | SFU      | MCU      | Control  |
-|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|----------|
-| Done     | Done     | Testing  | Testing  | Doing    | Doing    | Todo     | Todo     | Todo     | Todo     | Blocked  | Blocked  | Blocked  |
+### Base protocols support: 
+
+* [x] [turn](https://github.com/Mycrl/mystery/tree/dev/bin/turn)
+* [x] [stun](https://github.com/Mycrl/mystery/tree/dev/stun)
+* [ ] [testing] [rtp](https://github.com/Mycrl/mystery/tree/dev/rtp) (there are some undetermined realizations for the time being)
+* [ ] [testing] [sdp](https://github.com/Mycrl/mystery/tree/dev/sdp) (partial support of the protocol)
+* [ ] [doing] [rtcp](https://github.com/Mycrl/mystery/tree/dev/rtcp)
+* [ ] [srtp](https://github.com/Mycrl/mystery/tree/dev/srtp)
+* [ ] [srtcp](https://github.com/Mycrl/mystery/tree/dev/srtcp)
+* [ ] [doing] [dtls](https://github.com/Mycrl/mystery/tree/dev/dtls) (the encryption process is not clear)
+
+### Peripheral components:
+
+* [ ] [ice](https://github.com/Mycrl/mystery/tree/dev/ice)
+* [ ] [sfu](https://github.com/Mycrl/mystery/tree/dev/sfu)
+* [ ] [mcu](https://github.com/Mycrl/mystery/tree/dev/mcu)
+* [ ] [control](https://github.com/Mycrl/mystery/tree/dev/control) (node.js driver, cluster control center)
+* [ ] [media codec](https://github.com/Mycrl/mystery/tree/dev/codec) (ffmpeg or intel media sdk?)
 
 
 ## Building
