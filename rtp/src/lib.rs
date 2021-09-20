@@ -30,15 +30,14 @@
 //!
 
 pub mod header;
-pub mod extension;
+pub mod extensions;
 
 use header::Header;
-use extension::Extension;
+use extensions::Extensions;
 use std::convert::TryFrom;
 use bytes::{
     BytesMut,
-    BufMut,
-    Bytes
+    BufMut
 };
 
 /// ### RTP Data Transfer Protocol
@@ -60,7 +59,7 @@ use bytes::{
 #[derive(Debug, Clone)]
 pub struct Rtp<'a> {
     pub header: Header,
-    pub extension: Option<Extension>,
+    pub extensions: Option<Extensions<'a>>,
     pub payload: &'a [u8],
 }
 
@@ -71,21 +70,15 @@ impl<'a> Rtp<'a> {
     /// use rtp::Rtp;
     /// use bytes::BytesMut;
     /// use rtp::header::Header;
-    /// use rtp::extension::Extension;
+    /// use rtp::extensions::*;
     ///
     /// let buffer = [
     ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
-    ///     0x9d, 0xfc, 0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
-    ///     0x41, 0x00, 0x8b, 0x00, 0x60, 0x90, 0x80, 0xab, 0x35, 0x51
-    /// ];
-    ///
-    /// let payload = [
-    ///     0x60, 0x90, 0x80, 0xab, 0x35, 0x51
+    ///     0x9d, 0xfc, 0xbe, 0xde, 0x00, 0x01, 0x22, 0xaa, 0x36, 0x3f
     /// ];
     ///
     /// let mut writer = BytesMut::new();
     /// let header = Header {
-    ///     version: 2,
     ///     padding: false,
     ///     extension: true,
     ///     marker: false,
@@ -96,24 +89,26 @@ impl<'a> Rtp<'a> {
     ///     csrc_list: Vec::new(),
     /// };
     /// 
-    /// let extension = Some(Extension {
-    ///     data: vec![576434995, 1090554624],
-    ///     kind: 48862,
-    /// });
+    /// let extensions = Some(Extensions(vec![
+    ///     Extension {
+    ///         data: &[0xaa, 0x36, 0x3f],
+    ///         kind: 2,
+    ///     }
+    /// ]));
     /// 
     /// let rtp = Rtp {
     ///     header,
-    ///     extension,
-    ///     payload: &payload[..]
+    ///     extensions,
+    ///     payload: &[]
     /// };
     /// 
     /// rtp.encode(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
     pub fn encode(self, buf: &mut BytesMut) {
-        self.header.encode(buf);
-        if let Some(e) = self.extension {
-            e.encode(buf);
+        self.header.into(buf);
+        if let Some(e) = self.extensions {
+            e.into(buf);
         }
 
         buf.put(self.payload);
@@ -130,16 +125,10 @@ impl<'a> TryFrom<&'a [u8]> for Rtp<'a> {
     ///
     /// let buffer = [
     ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
-    ///     0x9d, 0xfc, 0xbe, 0xde, 0x00, 0x02, 0x22, 0x5b, 0xb3, 0x33,
-    ///     0x41, 0x00, 0x8b, 0x00, 0x60, 0x90, 0x80, 0xab, 0x35, 0x51
-    /// ];
-    ///
-    /// let payload = [
-    ///     0x60, 0x90, 0x80, 0xab, 0x35, 0x51
+    ///     0x9d, 0xfc, 0xbe, 0xde, 0x00, 0x01, 0x22, 0xaa, 0x36, 0x3f
     /// ];
     /// 
     /// let rtp = Rtp::try_from(&buffer[..]).unwrap();
-    /// assert_eq!(rtp.header.version, 2);
     /// assert_eq!(rtp.header.padding, false);
     /// assert_eq!(rtp.header.extension, true);
     /// assert_eq!(rtp.header.marker, false);
@@ -149,31 +138,29 @@ impl<'a> TryFrom<&'a [u8]> for Rtp<'a> {
     /// assert_eq!(rtp.header.ssrc, 1744739836);
     /// assert_eq!(rtp.header.csrc_list.len(), 0);
     ///
-    /// let extension = rtp.extension.unwrap();
-    /// assert_eq!(extension.kind, 48862);
-    /// assert_eq!(extension.data.len(), 2);
-    /// assert_eq!(extension.data[0], 576434995);
-    /// assert_eq!(extension.data[1], 1090554624);
-    ///
-    /// assert_eq!(rtp.payload, &payload);
+    /// let extensions = rtp.extensions.unwrap();
+    /// assert_eq!(extensions.0.len(), 1);
+    /// assert_eq!(extensions.0[0].kind, 2);
     /// ```
     #[rustfmt::skip]
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
-        let mut bytes = Bytes::from_static(unsafe {
-            std::mem::transmute(buf)
-        });
+        let mut offset = 0;
 
-        let header = Header::try_from(&mut bytes)?;
-        let extension = if header.extension {
-            Some(Extension::try_from(&mut bytes)?)
+        let header = Header::try_from(buf)?;
+        offset += header.len();
+
+        let extensions = if header.extension {
+            let es = Extensions::try_from(&buf[offset..])?;
+            offset += es.len();
+            Some(es)
         } else {
             None 
         };
 
         Ok(Self {
             header,
-            extension,
-            payload: &buf[buf.len() - bytes.len()..],
+            extensions,
+            payload: &buf[offset..],
         })
     }
 }

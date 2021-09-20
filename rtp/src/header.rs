@@ -3,7 +3,6 @@ use anyhow::ensure;
 use bytes::{
     BytesMut,
     BufMut,
-    Bytes,
     Buf
 };
 
@@ -38,11 +37,6 @@ const LE_PAYLOAD_KIND_MASK: u8 = !PAYLOAD_KIND_MASK;
 /// ```
 #[derive(Debug, Clone)]
 pub struct Header {
-    /// This field identifies the version of RTP.  The version defined by
-    /// this specification is two (2).  (The value 1 is used by the first
-    /// draft version of RTP and the value 0 is used by the protocol
-    /// initially implemented in the "vat" audio tool.)
-    pub version: u8,
     /// If the padding bit is set, the packet contains one or more
     /// additional padding octets at the end which are not part of the
     /// payload.  The last octet of the padding contains a count of how
@@ -118,6 +112,24 @@ impl Header {
     /// # Unit Test
     ///
     /// ```
+    /// use rtp::header::Header;
+    /// use std::convert::TryFrom;
+    ///
+    /// let mut buffer = [
+    ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
+    ///     0x9d, 0xfc
+    /// ];
+    /// 
+    /// let header = Header::try_from(&buffer[..]).unwrap();
+    /// assert_eq!(header.len(), 12);
+    /// ```
+    pub fn len(&self) -> usize {
+        12 + (self.csrc_list.len() * 4)
+    }
+
+    /// # Unit Test
+    ///
+    /// ```
     /// use bytes::BytesMut;
     /// use rtp::header::Header;
     ///
@@ -128,7 +140,6 @@ impl Header {
     /// 
     /// let mut writer = BytesMut::new();
     /// let header = Header {
-    ///     version: 2,
     ///     padding: false,
     ///     extension: true,
     ///     marker: false,
@@ -140,14 +151,14 @@ impl Header {
     /// };
     /// 
     /// 
-    /// header.encode(&mut writer);
+    /// header.into(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
     #[rustfmt::skip]
-    pub fn encode(self, buf: &mut BytesMut) {
+    pub fn into(self, buf: &mut BytesMut) {
         let mut basic = [0u8; 2];
         
-        basic[0] = (basic[0] & LE_VERSION_MASK) | (self.version << 6);
+        basic[0] = (basic[0] & LE_VERSION_MASK) | (2 << 6);
         basic[0] = if self.padding { basic[0] | 1 << 5 } else { basic[0] & !(1 << 5) };
         basic[0] = if self.extension { basic[0] | 1 << 4 } else { basic[0] & !(1 << 4) };
         basic[0] = (basic[0] & LE_CSRC_COUNT_MASK) | ((self.csrc_list.len() as u8) << 0);
@@ -166,22 +177,20 @@ impl Header {
     }
 }
 
-impl<'a> TryFrom<&'a mut Bytes> for Header {
+impl<'a> TryFrom<&'a [u8]> for Header {
     type Error = anyhow::Error;
     /// # Unit Test
     ///
     /// ```
-    /// use bytes::Bytes;
     /// use rtp::header::Header;
     /// use std::convert::TryFrom;
     ///
-    /// let mut buffer = Bytes::from_static(&[
+    /// let mut buffer = [
     ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
     ///     0x9d, 0xfc
-    /// ]);
+    /// ];
     /// 
-    /// let header = Header::try_from(&mut buffer).unwrap();
-    /// assert_eq!(header.version, 2);
+    /// let header = Header::try_from(&buffer[..]).unwrap();
     /// assert_eq!(header.padding, false);
     /// assert_eq!(header.extension, true);
     /// assert_eq!(header.marker, false);
@@ -192,19 +201,22 @@ impl<'a> TryFrom<&'a mut Bytes> for Header {
     /// assert_eq!(header.csrc_list.len(), 0);
     /// ```
     #[rustfmt::skip]
-    fn try_from(buf: &'a mut Bytes) -> Result<Self, Self::Error> {
+    fn try_from(mut buf: &'a [u8]) -> Result<Self, Self::Error> {
         ensure!(buf.len() >= 12, "buf len < 12");
         
+        // lock rtp version in rfc 3550
         let version = (buf[0] & VERSION_MASK) >> 6;
+        ensure!(version == 2, "rtp version is not rfc3550!");
+        
         let padding = ((buf[0] & PADDING_MASK) >> 5) == 1;
         let extension = ((buf[0] & EXTENSION_MASK) >> 4) == 1;
         let csrc_count = (buf[0] & CSRC_COUNT_MASK) as usize;
         let marker = ((buf[1] & MARKER_MASK) >> 7) == 1;
         let payload_kind = buf[1] & PAYLOAD_KIND_MASK;
+        buf.advance(2);
         
         let size = 10 + (csrc_count * 4);
-        ensure!(buf.len() >= size, "buf len is too short");
-        buf.advance(2);
+        ensure!(buf.len() >= size, "buf len is too short!");
         
         let sequence_number = buf.get_u16();
         let timestamp = buf.get_u32();
@@ -217,7 +229,6 @@ impl<'a> TryFrom<&'a mut Bytes> for Header {
         Ok(Self {
             ssrc,
             marker,
-            version,
             padding,
             csrc_list,
             extension,
