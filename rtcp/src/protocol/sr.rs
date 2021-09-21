@@ -1,9 +1,6 @@
 use std::convert::TryFrom;
 use anyhow::Result;
-use bytes::{
-    BytesMut,
-    Buf
-};
+use bytes::Buf;
 
 pub struct Sr {
     /// NTP timestamp: 64 bits
@@ -57,9 +54,37 @@ pub struct Sr {
     pub sender_octet_count: u32,
 }
 
-impl TryFrom<&mut BytesMut> for Sr {
+impl TryFrom<&[u8]> for Sr {
     type Error = anyhow::Error;
-    fn try_from(buf: &mut BytesMut) -> Result<Self, Self::Error> {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use bytes::BytesMut;
+    /// use rtp::header::Header;
+    ///
+    /// let buffer = [
+    ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
+    ///     0x9d, 0xfc
+    /// ];
+    /// 
+    /// let mut writer = BytesMut::new();
+    /// let header = Header {
+    ///     version: 2,
+    ///     padding: false,
+    ///     extension: true,
+    ///     marker: false,
+    ///     payload_kind: 114,
+    ///     sequence_number: 1265,
+    ///     timestamp: 4169613229,
+    ///     ssrc: 1744739836,
+    ///     csrc_list: Vec::new(),
+    /// };
+    /// 
+    /// 
+    /// header.into_to_bytes(&mut writer);
+    /// assert_eq!(&writer[..], &buffer[..]);
+    /// ```
+    fn try_from(mut buf: &[u8]) -> Result<Self, Self::Error> {
         let ntp_timestamp = buf.get_u64();
         let rtp_timestamp = buf.get_u32();
         let sender_packet_count = buf.get_u32();
