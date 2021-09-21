@@ -259,7 +259,6 @@ impl<'a> TryFrom<&'a [u8]> for Rtp<'a> {
     fn try_from(mut buf: &'a [u8]) -> Result<Self, Self::Error> {
         ensure!(buf.len() >= 12, "buf len < 12");
         
-        // lock rtp version in rfc 3550
         let version = (buf[0] & VERSION_MASK) >> 6;
         ensure!(version == 2, "rtp version is not rfc3550!");
         
