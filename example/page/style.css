@@ -6,7 +6,7 @@
 
 .login {
     background-color: #fff;
-    position: absolute;
+    position: fixed;
     width: 100%;
     height: 100%;
     top: 0;
@@ -15,7 +15,7 @@
 }
 
 .login .box {
-    width: 300px;
+    width: 200px;
     border: 1px solid #eee;
     margin: 0 auto;
     margin-top: 35vh;
@@ -49,16 +49,7 @@
     color: #fff;
 }
 
-.room {
-    background-color: #000;
-    position: absolute;
-    display: table;
+#remote {
     width: 100%;
     height: 100%;
-    top: 0;
-    left: 0;
-}
-
-.room video {
-    float: left;
 }

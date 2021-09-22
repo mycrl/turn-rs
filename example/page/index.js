@@ -3,27 +3,20 @@ new Vue({
     data: {
         peers: {},
         room: null,
-        users: [],
         login: true,
-        username: null,
+        username: String(Date.now()),
         password: null,
         localStream: null,
         socket: null,
         uid: String(Date.now()),
-        domain: null,
+        domain: location.host,
         style: {}
-    },
-    watch: {
-        users() {
-            this.layout()
-        }
     },
     methods: {
         async start() {
             this.localStream = navigator.platform === 'Win32' ?
                 await navigator.mediaDevices.getDisplayMedia() :
                 await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            this.$refs.self.srcObject = this.localStream
             this.socket = new WebSocket('wss://' + this.domain)
             this.socket.onmessage = this.onmessage.bind(this)
             this.socket.onopen = () => {
@@ -101,15 +94,11 @@ new Vue({
                 this.peers[name].addTrack(track, this.localStream)
             })
 
-            this.users.push(name)
             this.peers[name].addEventListener('connectionstatechange', async event => {
                 if (this.peers[name].connectionState === 'connected') {
-                    document.querySelector(`#${name}`).srcObject = remoteStream
+                    document.getElementById('remote').srcObject = remoteStream
                 }
             })
-        },
-        layout() {
-            
         }
     }
 })

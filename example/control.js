@@ -3,7 +3,7 @@
 const Control = require('control')
 
 const control = new Control({
-    server: 'voice.faszialespecialist.com:4222'
+    server: 'localhost:4222'
 })
 
 control.on('ready', () => {
