@@ -44,11 +44,11 @@ use stun::attribute::{
 #[rustfmt::skip]
 pub fn process<'a>(ctx: Context, payload: MessageReader, w: &'a mut BytesMut) -> Result<Response<'a>> {
     log::info!("{:?} request binding", &ctx.addr);
-    let mut pack = MessageWriter::derive(Kind::BindingResponse, &payload, w);
+    let mut pack = MessageWriter::extend(Kind::BindingResponse, &payload, w);
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
     pack.append::<MappedAddress>(*ctx.addr.as_ref());
     pack.append::<ResponseOrigin>(ctx.conf.external);
     pack.append::<Software>(SOFTWARE);
-    pack.fold(None)?;
+    pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
 }

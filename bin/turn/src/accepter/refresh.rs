@@ -28,9 +28,9 @@ fn reject<'a, 'b>(
     w: &'a mut BytesMut, 
     e: ErrKind
 ) -> Result<Response<'a>> {
-    let mut pack = MessageWriter::derive(Kind::RefreshError, &m, w);
+    let mut pack = MessageWriter::extend(Kind::RefreshError, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.fold(None)?;
+    pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -43,9 +43,9 @@ pub fn resolve<'a, 'b>(
     p: &[u8; 16],
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
-    let mut pack = MessageWriter::derive(Kind::RefreshResponse, m , w);
+    let mut pack = MessageWriter::extend(Kind::RefreshResponse, m , w);
     pack.append::<Lifetime>(lifetime);
-    pack.fold(Some(p))?;
+    pack.flush(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 

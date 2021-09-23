@@ -54,11 +54,11 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let mut attributes = Vec::new();
     /// let mut buf = BytesMut::new();
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
-    /// MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
+    /// MessageWriter::extend(Kind::BindingRequest, &old, &mut buf);
     /// assert_eq!(&buf[..], &buffer[..]);
     /// ```
     #[rustfmt::skip]
-    pub fn derive(
+    pub fn extend(
         kind: Kind, 
         reader: &MessageReader<'a, 'b>, 
         raw: &'a mut BytesMut
@@ -108,7 +108,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let mut buf = BytesMut::new();
     /// let mut attributes = Vec::new();
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
-    /// let mut message = MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
+    /// let mut message = MessageWriter::extend(Kind::BindingRequest, &old, &mut buf);
     /// message.append::<UserName>("panda");
     /// assert_eq!(&new_buf[..], &buf[..]);
     /// ```
@@ -174,11 +174,11 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let mut attributes = Vec::new();
     /// let mut buf = BytesMut::with_capacity(1280);
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
-    /// let mut message = MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
-    /// message.fold(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
+    /// let mut message = MessageWriter::extend(Kind::BindingRequest, &old, &mut buf);
+    /// message.flush(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
-    pub fn fold(&mut self, auth: Option<&Auth>) -> Result<()> {
+    pub fn flush(&mut self, auth: Option<&Auth>) -> Result<()> {
         // write attribute list size.
         let size = (self.raw.len() - 20) as u16;
         let size_buf = size.to_be_bytes();
@@ -232,8 +232,8 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let mut attributes = Vec::new();
     /// let mut buf = BytesMut::from(&buffer[..]);
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
-    /// let mut message = MessageWriter::derive(Kind::BindingRequest, &old, &mut buf);
-    /// message.fold(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
+    /// let mut message = MessageWriter::extend(Kind::BindingRequest, &old, &mut buf);
+    /// message.flush(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
     #[rustfmt::skip]

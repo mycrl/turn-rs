@@ -35,10 +35,10 @@ fn reject<'a, 'b>(
     w: &'a mut BytesMut,
     e: ErrKind, 
 ) -> Result<Response<'a>> {
-    let mut pack = MessageWriter::derive(Kind::ChannelBindError, &m, w);
+    let mut pack = MessageWriter::extend(Kind::ChannelBindError, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
-    pack.fold(None)?;
+    pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -50,8 +50,8 @@ fn resolve<'a>(
     p: &[u8; 16], 
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
-    MessageWriter::derive(Kind::ChannelBindResponse, m, w)
-        .fold(Some(p))?;
+    MessageWriter::extend(Kind::ChannelBindResponse, m, w)
+        .flush(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 

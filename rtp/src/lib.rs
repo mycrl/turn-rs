@@ -175,11 +175,11 @@ impl<'a> Rtp<'a> {
     /// };
     /// 
     /// let mut writer = BytesMut::new();
-    /// rtp.into(&mut writer);
+    /// rtp.write(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
     #[rustfmt::skip]
-    pub fn into(self, buf: &mut BytesMut) {
+    pub fn write(self, buf: &mut BytesMut) {
         let is_pd = self.padding.is_some();
         let is_es = self.extensions.is_some();
         let cc = match &self.csrc {
@@ -207,7 +207,7 @@ impl<'a> Rtp<'a> {
         }
 
         if let Some(e) = self.extensions {
-            e.into(buf);
+            e.write(buf);
         }
 
         if let Some(p) = self.payload {

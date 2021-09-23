@@ -34,10 +34,10 @@ fn reject<'a, 'b>(
     w: &'a mut BytesMut,
     e: ErrKind,
 ) -> Result<Response<'a>> {
-    let mut pack = MessageWriter::derive(Kind::CreatePermissionError, &m, w);
+    let mut pack = MessageWriter::extend(Kind::CreatePermissionError, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
-    pack.fold(None)?;
+    pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
 }
 
@@ -49,8 +49,8 @@ fn resolve<'a, 'b>(
     p: &[u8;16], 
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
-    MessageWriter::derive(Kind::CreatePermissionResponse, m, w)
-        .fold(Some(p))?;
+    MessageWriter::extend(Kind::CreatePermissionResponse, m, w)
+        .flush(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 

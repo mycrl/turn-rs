@@ -188,10 +188,10 @@ impl<'a> Extensions<'a> {
     ///     } 
     /// ]);
     /// 
-    /// extensions.into(&mut writer);
+    /// extensions.write(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
-    pub fn into(self, buf: &mut BytesMut) {
+    pub fn write(self, buf: &mut BytesMut) {
         buf.put_u16(0xBEDE);
         buf.put_u16(self.0.len() as u16);
 

@@ -88,9 +88,9 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
     };
 
     let s = Arc::new(SocketAddr::new(ctx.conf.external.ip(), p));
-    let mut pack = MessageWriter::derive(Kind::DataIndication, &m, w);
+    let mut pack = MessageWriter::extend(Kind::DataIndication, &m, w);
     pack.append::<XorPeerAddress>(*s.as_ref());
     pack.append::<Data>(d);
-    pack.fold(None)?;
+    pack.flush(None)?;
     Ok(Some((w, a)))
 }

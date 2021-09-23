@@ -14,9 +14,32 @@ new Vue({
     },
     methods: {
         async start() {
-            this.localStream = navigator.platform === 'Win32' ?
-                await navigator.mediaDevices.getDisplayMedia() :
-                await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            if (navigator.platform === 'Win32') {
+                this.localStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: true, 
+                    audio: {
+                        echoCancellation: true,
+                        groupId: (await navigator.mediaDevices.enumerateDevices())[1].groupId
+                    } 
+                })
+                
+                this.audioStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: false, 
+                    audio: {
+                        echoCancellation: true,
+                        groupId: (await navigator.mediaDevices.enumerateDevices())[2].groupId
+                    }
+                })
+            } else {
+                this.localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: {
+                        width: 10,
+                        height: 10
+                    }, 
+                    audio: true
+                })
+            }
+
             this.socket = new WebSocket('wss://' + this.domain)
             this.socket.onmessage = this.onmessage.bind(this)
             this.socket.onopen = () => {
@@ -93,6 +116,12 @@ new Vue({
             this.localStream.getTracks().forEach(track => {
                 this.peers[name].addTrack(track, this.localStream)
             })
+            
+            if (this.audioStream) {
+                this.audioStream.getTracks().forEach(track => {
+                    this.peers[name].addTrack(track, this.audioStream)
+                })
+            }
 
             this.peers[name].addEventListener('connectionstatechange', async event => {
                 if (this.peers[name].connectionState === 'connected') {
