@@ -14,11 +14,13 @@ const LE_HEAD_MASK: u8 = 0b00001111;
 /// Each extension element starts with a byte containing an ID and a
 /// length:
 ///
+/// ```text
 /// 0
 /// 0 1 2 3 4 5 6 7
 /// +-+-+-+-+-+-+-+-+
 /// |  ID   |  len  |
 /// +-+-+-+-+-+-+-+-+
+/// ```
 /// 
 /// 
 /// The 4-bit ID is the local identifier of this element in the range
@@ -136,7 +138,7 @@ impl<'a> TryFrom<&'a [u8]> for Extension<'a> {
 /// feast day of the Venerable Bede).
 /// 
 /// 
-/// ```bash
+/// ```text
 ///  0                   1                   2                   3
 ///  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+

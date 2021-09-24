@@ -53,7 +53,7 @@ const LE_PAYLOAD_KIND_MASK: u8 = !PAYLOAD_KIND_MASK;
 
 /// ### RTP Data Transfer Protocol
 ///
-/// ```bash
+/// ```text
 ///   0                   1                   2                   3
 ///  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -75,44 +75,47 @@ pub struct Rtp<'a> {
     /// marker bits or specify that there is no marker bit by changing the
     /// number of bits in the payload type field.
     pub marker: bool,
+    /// [RFC 3551]: https://tools.ietf.org/html/rfc3551
+    ///
     /// This field identifies the format of the RTP payload and determines
     /// its interpretation by the application.  A profile MAY specify a
     /// default static mapping of payload type codes to payload formats.
     /// Additional payload type codes MAY be defined dynamically through
     /// non-RTP means.  A set of default mappings for audio and video is 
-    /// specified in the companion RFC 3551 
-    /// [1](https://tools.ietf.org/html/rfc3551). An RTP source MAY change 
+    /// specified in the companion [RFC 3551]. An RTP source MAY change 
     /// the payload type during a session, but this field SHOULD NOT be used 
     /// for multiplexing separate media streams.
     /// 
     /// A receiver MUST ignore packets with payload types that it does not
     /// understand.
     pub kind: u8,
+    /// [Section 9.1]: https://tools.ietf.org/html/rfc3550#section-9.1
+    /// [17]: https://tools.ietf.org/html/rfc3550#ref-17
+    ///
     /// The sequence number increments by one for each RTP data packet
     /// sent, and may be used by the receiver to detect packet loss and to
     /// restore packet sequence.  The initial value of the sequence number
     /// SHOULD be random (unpredictable) to make known-plaintext attacks
     /// on encryption more difficult, even if the source itself does not
-    /// encrypt according to the method in 
-    /// [Section 9.1](https://tools.ietf.org/html/rfc3550#section-9.1), 
-    /// because the packets may flow through a translator that does.  
-    /// Techniques for choosing unpredictable numbers are discussed in 
-    /// [17](https://tools.ietf.org/html/rfc3550#ref-17).
+    /// encrypt according to the method in [Section 9.1], because the 
+    /// packets may flow through a translator that does. Techniques for 
+    /// choosing unpredictable numbers are discussed in [17].
     pub sequence_number: u16,
     /// The timestamp reflects the sampling instant of the first octet in
     /// the RTP data packet.
     pub timestamp: u32,
+    /// [Appendix A.6]: https://tools.ietf.org/html/rfc3550#appendix-A.6
+    /// [Section 8]: https://tools.ietf.org/html/rfc3550#section-8
+    ///
     /// The SSRC field identifies the synchronization source.  This
     /// identifier SHOULD be chosen randomly, with the intent that no two
     /// synchronization sources within the same RTP session will have the
     /// same SSRC identifier.  An example algorithm for generating a
-    /// random identifier is presented in 
-    /// [Appendix A.6](https://tools.ietf.org/html/rfc3550#appendix-A.6).  
+    /// random identifier is presented in [Appendix A.6].  
     /// Although the probability of multiple sources choosing the same 
     /// identifier is low, all RTP implementations must be prepared to 
-    /// detect and resolve collisions.  
-    /// [Section 8](https://tools.ietf.org/html/rfc3550#section-8) 
-    /// describes the probability of collision along with a mechanism for 
+    /// detect and resolve collisions. 
+    /// [Section 8] describes the probability of collision along with a mechanism for 
     /// resolving collisions and detecting RTP-level forwarding loops based 
     /// on the uniqueness of the SSRC identifier.  If a source changes its 
     /// source transport address, it must also choose a new SSRC identifier 
