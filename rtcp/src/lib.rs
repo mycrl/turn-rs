@@ -1,1 +1,1 @@
-pub(crate) mod protocol;
+pub mod protocol;

@@ -6,7 +6,7 @@ pub struct Source {
     /// SSRC_n (source identifier): 32 bits
     /// The SSRC identifier of the source to which the information in this
     /// reception report block pertains.
-    identifier: u32,
+    pub identifier: u32,
     /// fraction lost: 8 bits
     /// The fraction of RTP data packets from source SSRC_n lost since the
     /// previous SR or RR packet was sent, expressed as a fixed point
@@ -20,7 +20,7 @@ pub struct Source {
     /// one received, and that there will be no reception report block 
     /// issued for a source if all packets from that source sent during 
     /// the last reporting interval have been lost.
-    fraction_lost: u8,
+    pub fraction_lost: u8,
     /// cumulative number of packets lost: 24 bits
     /// The total number of RTP data packets from source SSRC_n that have
     /// been lost since the beginning of reception.  This number is
@@ -31,7 +31,7 @@ pub struct Source {
     /// if there are duplicates.  The number of packets expected is
     /// defined to be the extended last sequence number received, as
     /// defined next, less the initial sequence number received.
-    cnopl: u32,
+    pub cnopl: u32,
     /// extended highest sequence number received: 32 bits
     /// The low 16 bits contain the highest sequence number received in an
     /// RTP data packet from source SSRC_n, and the most significant 16
@@ -40,7 +40,7 @@ pub struct Source {
     /// algorithm in Appendix A.1.  Note that different receivers within
     /// the same session will generate different extensions to the
     /// sequence number if their start times differ significantly.
-    ehsnr: u32,
+    pub ehsnr: u32,
     /// interarrival jitter: 32 bits
     /// An estimate of the statistical variance of the RTP data packet
     /// interarrival time, measured in timestamp units and expressed as an
@@ -81,12 +81,12 @@ pub struct Source {
     /// See [Section 6.4.4](https://datatracker.ietf.org/doc/html/rfc3550#section-6.4.4) 
     /// for a discussion of the effects of varying packet duration and delay
     /// before transmission.
-    interarrival_jitter: u32,
+    pub interarrival_jitter: u32,
     /// last SR timestamp (LSR): 32 bits
     /// The middle 32 bits out of 64 in the NTP timestamp received as part 
     /// of the most recent RTCP sender report (SR) packet from source SSRC_n.  
     /// If no SR has been received yet, the field is set to zero.
-    lsr: u32,
+    pub lsr: u32,
     /// delay since last SR (DLSR): 32 bits
     /// The delay, expressed in units of 1/65536 seconds, between
     /// receiving the last SR packet from source SSRC_n and sending this
@@ -124,11 +124,26 @@ pub struct Source {
     /// LSR  -0xb705:2000 (46853.125 s)
     /// -------------------------------
     /// delay 0x0006:2000 (    6.125 s)
-    dlsr: u32
+    pub dlsr: u32
 }
 
 impl TryFrom<&[u8]> for Source {
     type Error = anyhow::Error;
+    /// # Unit Test
+    ///
+    /// ```
+    /// use rtcp::protocol::header::Header;
+    ///
+    /// let buffer = [
+    ///     0x80, 0xc8, 0x00, 0x06, 0x79, 0x26, 0x69, 0x55,
+    ///     0xe8, 0xe2, 0xe2, 0x17, 0xd4, 0x2f, 0x05, 0x91,
+    ///     0x36, 0x01, 0xb0, 0xaf, 0x34, 0x85, 0x78, 0x5e,
+    ///     0x2d, 0xbc, 0x2a, 0x98
+    /// ];
+    ///
+    /// let len = Header::peek_len(&buffer);
+    /// assert_eq!(len, 28);
+    /// ```
     fn try_from(mut buf: &[u8]) -> Result<Self, Self::Error> {
         Ok(Self {
             identifier: buf.get_u32(),
@@ -142,7 +157,7 @@ impl TryFrom<&[u8]> for Source {
     }
 }
 
-pub struct Sr {
+pub struct SenderReport {
     /// NTP timestamp: 64 bits
     /// Indicates the wallclock time when this report was sent so 
     /// that it may be used in combination with timestamps returned 
@@ -201,35 +216,22 @@ pub struct Sr {
     pub sources: Option<Vec<Source>>,
 }
 
-impl TryFrom<&[u8]> for Sr {
+impl TryFrom<&[u8]> for SenderReport {
     type Error = anyhow::Error;
     /// # Unit Test
     ///
     /// ```
-    /// use bytes::BytesMut;
-    /// use rtp::header::Header;
+    /// use rtcp::protocol::header::Header;
     ///
     /// let buffer = [
-    ///     0x90, 0x72, 0x04, 0xf1, 0xf8, 0x87, 0x3f, 0xad, 0x67, 0xfe,
-    ///     0x9d, 0xfc
+    ///     0x80, 0xc8, 0x00, 0x06, 0x79, 0x26, 0x69, 0x55,
+    ///     0xe8, 0xe2, 0xe2, 0x17, 0xd4, 0x2f, 0x05, 0x91,
+    ///     0x36, 0x01, 0xb0, 0xaf, 0x34, 0x85, 0x78, 0x5e,
+    ///     0x2d, 0xbc, 0x2a, 0x98
     /// ];
-    /// 
-    /// let mut writer = BytesMut::new();
-    /// let header = Header {
-    ///     version: 2,
-    ///     padding: false,
-    ///     extension: true,
-    ///     marker: false,
-    ///     payload_kind: 114,
-    ///     sequence_number: 1265,
-    ///     timestamp: 4169613229,
-    ///     ssrc: 1744739836,
-    ///     csrc_list: Vec::new(),
-    /// };
-    /// 
-    /// 
-    /// header.into_to_bytes(&mut writer);
-    /// assert_eq!(&writer[..], &buffer[..]);
+    ///
+    /// let len = Header::peek_len(&buffer);
+    /// assert_eq!(len, 28);
     /// ```
     fn try_from(mut buf: &[u8]) -> Result<Self, Self::Error> {
         let ntp_time = buf.get_u64();

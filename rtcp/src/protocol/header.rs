@@ -80,7 +80,11 @@ impl TryFrom<&[u8]> for Header {
     /// # Unit Test
     ///
     /// ```
-    /// use rtcp::protocol::header::Header;
+    /// use std::convert::TryFrom;
+    /// use rtcp::protocol::{
+    ///     PacketKind,
+    ///     header::Header
+    /// };
     ///
     /// let buffer = [
     ///     0x80, 0xc8, 0x00, 0x06, 0x79, 0x26, 0x69, 0x55,
@@ -89,8 +93,12 @@ impl TryFrom<&[u8]> for Header {
     ///     0x2d, 0xbc, 0x2a, 0x98
     /// ];
     ///
-    /// let len = Header::peek_len(&buffer);
-    /// assert_eq!(len, 28);
+    /// let header = Header::try_from(&buffer).unwrap();
+    /// assert_eq!(header.version, 2);
+    /// assert_eq!(header.padding, false);
+    /// assert_eq!(header.pt, PacketKind::SR);
+    /// assert_eq!(header.rc, 0);
+    /// assert_eq!(header.ssrc, 0x79266955);
     /// ```
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
         assert!(buf.len() >= 8);
