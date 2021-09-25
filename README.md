@@ -23,12 +23,11 @@ mystery is a WebRTC server solution implemented using Rust and supports the SFU/
 
 ## Table of contents
 
-* [Roadmap](#roadmap)
-* [Building](#building)
-  * [Prerequisites](#prerequisites)
-  * [Build workspace](#build-workspace)
-  * [Turn Server](#turn-server)
-* [Code style](#code-style)
+* [roadmap](#roadmap)
+* [building](#building)
+  * [prerequisites](#prerequisites)
+  * [build workspace](#build-workspace)
+  * [docker compose](#docker-compose)
 
 ## Roadmap
 
