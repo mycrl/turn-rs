@@ -12,7 +12,7 @@ use super::attribute::{
 };
 
 use super::{
-    Kind,
+    Method,
     util
 };
 
@@ -27,7 +27,6 @@ const COOKIE: [u8; 4] = 0x2112A442u32.to_be_bytes();
 /// (username, password, realm)
 type Auth = [u8; 16];
 
-/// stun message writer.
 pub struct MessageWriter<'a> {
     token: &'a [u8],
     raw: &'a mut BytesMut,
@@ -54,17 +53,17 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let mut attributes = Vec::new();
     /// let mut buf = BytesMut::new();
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
-    /// MessageWriter::extend(Kind::BindingRequest, &old, &mut buf);
+    /// MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
     /// assert_eq!(&buf[..], &buffer[..]);
     /// ```
     #[rustfmt::skip]
     pub fn extend(
-        kind: Kind, 
+        method: Method, 
         reader: &MessageReader<'a, 'b>, 
         raw: &'a mut BytesMut
     ) -> Self {
         unsafe { raw.set_len(0) }
-        raw.put_u16(kind as u16);
+        raw.put_u16(method.into());
         raw.put_u16(0);
         raw.put(&COOKIE[..]);
         raw.put(reader.token);
@@ -108,7 +107,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let mut buf = BytesMut::new();
     /// let mut attributes = Vec::new();
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
-    /// let mut message = MessageWriter::extend(Kind::BindingRequest, &old, &mut buf);
+    /// let mut message = MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
     /// message.append::<UserName>("panda");
     /// assert_eq!(&new_buf[..], &buf[..]);
     /// ```
@@ -174,7 +173,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let mut attributes = Vec::new();
     /// let mut buf = BytesMut::with_capacity(1280);
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
-    /// let mut message = MessageWriter::extend(Kind::BindingRequest, &old, &mut buf);
+    /// let mut message = MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
     /// message.flush(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
@@ -232,7 +231,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let mut attributes = Vec::new();
     /// let mut buf = BytesMut::from(&buffer[..]);
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
-    /// let mut message = MessageWriter::extend(Kind::BindingRequest, &old, &mut buf);
+    /// let mut message = MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
     /// message.flush(Some(&util::long_key("panda", "panda", "raspberry"))).unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
@@ -278,10 +277,9 @@ impl<'a, 'b> MessageWriter<'a> {
     }
 }
 
-/// stun message reader.
 pub struct MessageReader<'a, 'b> {
     /// message type.
-    pub kind: Kind,
+    pub method: Method,
     /// message transaction id.
     pub token: &'a [u8],
     /// message source bytes.
@@ -417,7 +415,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// 
     /// let mut attributes = Vec::new();
     /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
-    /// assert_eq!(message.kind, Kind::BindingRequest);
+    /// assert_eq!(message.method, Method::Binding(Kind::Request));
     /// assert!(message.get::<UserName>().is_none());
     /// ```
     pub fn decode(buf: &'a [u8], attributes: &'b mut Vec<(AttrKind, &'a [u8])>) -> Result<MessageReader<'a, 'b>> {
@@ -430,7 +428,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         // message size
         // check fixed magic cookie
         // check if the message size is overflow
-        let kind = Kind::try_from(util::as_u16(&buf[..2]))?;
+        let method = Method::try_from(util::as_u16(&buf[..2]))?;
         let size = util::as_u16(&buf[2..4]) as usize;
         ensure!(buf[4..8] == COOKIE[..], "missing cookie");
         ensure!(count_size >= size + 20, "missing len");
@@ -502,8 +500,8 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     }
 
         Ok(Self {
-            kind,
             token,
+            method,
             raw: buf,
             attributes,
             valid_offset,

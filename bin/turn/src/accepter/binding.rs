@@ -2,6 +2,7 @@ use anyhow::Result;
 use bytes::BytesMut;
 use stun::{
     Kind, 
+    Method,
     MessageReader,
     MessageWriter,
 };
@@ -44,7 +45,8 @@ use stun::attribute::{
 #[rustfmt::skip]
 pub fn process<'a>(ctx: Context, payload: MessageReader, w: &'a mut BytesMut) -> Result<Response<'a>> {
     log::info!("{:?} request binding", &ctx.addr);
-    let mut pack = MessageWriter::extend(Kind::BindingResponse, &payload, w);
+    let method = Method::Binding(Kind::Response);
+    let mut pack = MessageWriter::extend(method, &payload, w);
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
     pack.append::<MappedAddress>(*ctx.addr.as_ref());
     pack.append::<ResponseOrigin>(ctx.conf.external);

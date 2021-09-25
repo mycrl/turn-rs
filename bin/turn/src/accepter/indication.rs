@@ -11,7 +11,7 @@ use super::{
 };
 
 use stun::{ 
-    Kind, 
+    Method,
     MessageReader, 
     MessageWriter
 };
@@ -87,8 +87,9 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         Some(p) => p,
     };
 
+    let method = Method::DataIndication;
     let s = Arc::new(SocketAddr::new(ctx.conf.external.ip(), p));
-    let mut pack = MessageWriter::extend(Kind::DataIndication, &m, w);
+    let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<XorPeerAddress>(*s.as_ref());
     pack.append::<Data>(d);
     pack.flush(None)?;

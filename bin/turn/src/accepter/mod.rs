@@ -20,7 +20,8 @@ use std::{
 };
 
 use stun::{
-    Kind, 
+    Kind,
+    Method, 
     Decoder,
     Payload,
     MessageReader as Message,
@@ -303,13 +304,13 @@ impl<'a> Accepter<'a> {
     #[rustfmt::skip]
     #[inline(always)]
     async fn message_process(ctx: Context, m: Message<'a, '_>, w: &'a mut BytesMut) -> Result<Response<'a>> {
-        match m.kind {
-            Kind::BindingRequest => binding::process(ctx, m, w),
-            Kind::AllocateRequest => allocate::process(ctx, m, w).await,
-            Kind::CreatePermissionRequest => create_permission::process(ctx, m, w).await,
-            Kind::SendIndication => indication::process(ctx, m, w).await,
-            Kind::ChannelBindRequest => channel_bind::process(ctx, m, w).await,
-            Kind::RefreshRequest => refresh::process(ctx, m, w).await,
+        match m.method {
+            Method::Binding(Kind::Request) => binding::process(ctx, m, w),
+            Method::Allocate(Kind::Request) => allocate::process(ctx, m, w).await,
+            Method::CreatePermission(Kind::Request) => create_permission::process(ctx, m, w).await,
+            Method::ChannelBind(Kind::Request) => channel_bind::process(ctx, m, w).await,
+            Method::Refresh(Kind::Request) => refresh::process(ctx, m, w).await,
+            Method::SendIndication => indication::process(ctx, m, w).await,
             _ => Ok(None)
         }
     }

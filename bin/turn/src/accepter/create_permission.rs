@@ -7,6 +7,7 @@ use super::{
 
 use stun::{
     Kind, 
+    Method,
     MessageReader,
     MessageWriter 
 };
@@ -34,7 +35,8 @@ fn reject<'a, 'b>(
     w: &'a mut BytesMut,
     e: ErrKind,
 ) -> Result<Response<'a>> {
-    let mut pack = MessageWriter::extend(Kind::CreatePermissionError, &m, w);
+    let method = Method::CreatePermission(Kind::Error);
+    let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
     pack.flush(None)?;
@@ -49,8 +51,8 @@ fn resolve<'a, 'b>(
     p: &[u8;16], 
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
-    MessageWriter::extend(Kind::CreatePermissionResponse, m, w)
-        .flush(Some(p))?;
+    let method = Method::CreatePermission(Kind::Response);
+    MessageWriter::extend(method, m, w).flush(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 

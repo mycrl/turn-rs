@@ -13,7 +13,8 @@ use std::{
 use stun::{
     MessageReader,
     MessageWriter,
-    Kind
+    Method,
+    Kind,
 };
 
 use stun::attribute::{
@@ -43,8 +44,9 @@ async fn reject<'a, 'b>(
     w: &'a mut BytesMut,
     e: ErrKind, 
 ) -> Result<Response<'a>> {
+    let method = Method::Allocate(Kind::Error);
     let nonce = ctx.state.get_nonce(&ctx.addr).await;
-    let mut pack = MessageWriter::extend(Kind::AllocateError, &m, w);
+    let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
     pack.append::<Nonce>(&nonce);
@@ -70,8 +72,9 @@ async fn resolve<'a, 'b>(
     port: u16,
     w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
+    let method = Method::Allocate(Kind::Response);
     let alloc_addr = Arc::new(SocketAddr::new(ctx.conf.external.ip(), port));
-    let mut pack = MessageWriter::extend(Kind::AllocateResponse, m, w);
+    let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<XorRelayedAddress>(*alloc_addr.as_ref());
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
     pack.append::<ResponseOrigin>(ctx.conf.external);

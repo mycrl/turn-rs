@@ -7,6 +7,7 @@ use super::{
 
 use stun::{
     Kind, 
+    Method,
     MessageReader,
     MessageWriter
 };
@@ -28,7 +29,8 @@ fn reject<'a, 'b>(
     w: &'a mut BytesMut, 
     e: ErrKind
 ) -> Result<Response<'a>> {
-    let mut pack = MessageWriter::extend(Kind::RefreshError, &m, w);
+    let method = Method::Refresh(Kind::Error);
+    let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
@@ -43,7 +45,8 @@ pub fn resolve<'a, 'b>(
     p: &[u8; 16],
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
-    let mut pack = MessageWriter::extend(Kind::RefreshResponse, m , w);
+    let method = Method::Refresh(Kind::Response);
+    let mut pack = MessageWriter::extend(method, m , w);
     pack.append::<Lifetime>(lifetime);
     pack.flush(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))

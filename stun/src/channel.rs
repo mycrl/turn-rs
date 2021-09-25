@@ -2,7 +2,38 @@ use std::convert::TryFrom;
 use anyhow::ensure;
 use crate::util;
 
-/// channel data message.
+/// The ChannelData Message
+/// 
+/// The ChannelData message is used to carry application data between the
+/// client and the server.  It has the following format:
+/// 
+/// ```text
+/// 0                   1                   2                   3
+/// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |         Channel Number        |            Length             |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |                                                               |
+/// /                       Application Data                        /
+/// /                                                               /
+/// |                                                               |
+/// |                               +-------------------------------+
+/// |                               |
+/// +-------------------------------+
+/// 
+///                               Figure 5
+/// ```
+/// 
+/// The Channel Number field specifies the number of the channel on which
+/// the data is traveling, and thus, the address of the peer that is
+/// sending or is to receive the data.
+/// 
+/// The Length field specifies the length in bytes of the application
+/// data field (i.e., it does not include the size of the ChannelData
+/// header).  Note that 0 is a valid length.
+/// 
+/// The Application Data field carries the data the client is trying to
+/// send to the peer, or that the peer is sending to the client.
 pub struct ChannelData<'a> {
     /// channnel data bytes.
     pub buf: &'a [u8],

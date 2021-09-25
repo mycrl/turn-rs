@@ -1,22 +1,89 @@
-mod address;
-mod error;
+pub mod address;
+pub mod error;
 
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 use std::net::SocketAddr;
-pub use address::Addr;
 use crate::util;
 use bytes::{
     BytesMut,
     BufMut
 };
 
+pub use address::Addr;
 pub use error::{
     Kind as ErrKind,
     Error
 };
 
-/// attribute type.
+/// STUN Attributes Registry
+///
+/// [RFC8126]: https://datatracker.ietf.org/doc/html/rfc8126
+/// [RFC5389]: https://datatracker.ietf.org/doc/html/rfc5389
+/// [RFC8489]: https://datatracker.ietf.org/doc/html/rfc8489
+///
+/// A STUN attribute type is a hex number in the range 0x0000-0xFFFF.
+/// STUN attribute types in the range 0x0000-0x7FFF are considered
+/// comprehension-required; STUN attribute types in the range
+/// 0x8000-0xFFFF are considered comprehension-optional.  A STUN agent
+/// handles unknown comprehension-required and comprehension-optional
+/// attributes differently.
+/// 
+/// STUN attribute types in the first half of the comprehension-required
+/// range (0x0000-0x3FFF) and in the first half of the comprehension-
+/// optional range (0x8000-0xBFFF) are assigned by IETF Review [RFC8126].
+/// STUN attribute types in the second half of the comprehension-required
+/// range (0x4000-0x7FFF) and in the second half of the comprehension-
+/// optional range (0xC000-0xFFFF) are assigned by Expert Review
+/// [RFC8126].  The responsibility of the expert is to verify that the
+/// selected codepoint(s) are not in use and that the request is not for
+/// an abnormally large number of codepoints.  Technical review of the
+/// extension itself is outside the scope of the designated expert
+/// responsibility.
+/// 
+/// IANA has updated the names for attributes 0x0002, 0x0004, 0x0005,
+/// 0x0007, and 0x000B as well as updated the reference from [RFC5389] to
+/// [RFC8489] for each the following STUN methods.
+/// 
+/// In addition, [RFC5389] introduced a mistake in the name of attribute
+/// 0x0003; [RFC5389] called it CHANGE-ADDRESS when it was actually
+/// previously called CHANGE-REQUEST.  Thus, IANA has updated the
+/// description for 0x0003 to read "Reserved; was CHANGE-REQUEST prior to
+/// [RFC5389]".
+/// 
+/// Comprehension-required range (0x0000-0x7FFF):
+/// 0x0000: Reserved
+/// 0x0001: MAPPED-ADDRESS
+/// 0x0002: Reserved; was RESPONSE-ADDRESS prior to [RFC5389]
+/// 0x0003: Reserved; was CHANGE-REQUEST prior to [RFC5389]
+/// 0x0004: Reserved; was SOURCE-ADDRESS prior to [RFC5389]
+/// 0x0005: Reserved; was CHANGED-ADDRESS prior to [RFC5389]
+/// 0x0006: USERNAME
+/// 0x0007: Reserved; was PASSWORD prior to [RFC5389]
+/// 0x0008: MESSAGE-INTEGRITY
+/// 0x0009: ERROR-CODE
+/// 0x000A: UNKNOWN-ATTRIBUTES
+/// 0x000B: Reserved; was REFLECTED-FROM prior to [RFC5389]
+/// 0x0014: REALM
+/// 0x0015: NONCE
+/// 0x0020: XOR-MAPPED-ADDRESS
+/// 
+/// Comprehension-optional range (0x8000-0xFFFF)
+/// 0x8022: SOFTWARE
+///  0x8023: ALTERNATE-SERVER
+/// 0x8028: FINGERPRINT
+/// 
+/// IANA has added the following attribute to the "STUN Attributes"
+/// registry:
+/// 
+/// Comprehension-required range (0x0000-0x7FFF):
+/// 0x001C: MESSAGE-INTEGRITY-SHA256
+/// 0x001D: PASSWORD-ALGORITHM
+///  0x001E: USERHASH
+/// 
+/// Comprehension-optional range (0x8000-0xFFFF)
+/// 0x8002: PASSWORD-ALGORITHMS
+/// 0x8003: ALTERNATE-DOMAIN
 #[repr(u16)]
 #[derive(TryFromPrimitive)]
 #[derive(PartialEq, Eq, Hash)]
@@ -419,7 +486,7 @@ impl<'a> Property<'a> for ResponseOrigin {
 /// can be as long as 509 bytes when encoding them or 763 bytes when
 /// decoding them).
 /// 
-/// ```bash
+/// ```text
 ///   0                   1                   2                   3
 ///   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
