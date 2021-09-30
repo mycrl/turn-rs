@@ -76,6 +76,7 @@ impl<'a> Accepter<'a> {
     /// The client uses the server as a relay to send packets to these peers
     /// and to receive packets from these peers.
     /// 
+    /// ```text
     ///                                     Peer A
     ///                                     Server-Reflexive    +---------+
     ///                                    Transport Address   |         |
@@ -108,6 +109,8 @@ impl<'a> Accepter<'a> {
     ///          192.0.2.1:7000       192.0.2.15:50000    192.0.2.210:49191
     /// 
     ///                                Figure 1
+    /// 
+    /// ```
     /// 
     /// Figure 1 shows a typical deployment.  In this figure, the TURN client
     /// and the TURN server are separated by a NAT, with the client on the

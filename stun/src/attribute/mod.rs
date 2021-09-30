@@ -125,6 +125,10 @@ pub trait Property<'a> {
     fn try_from(buf: &'a [u8], t: &'a [u8]) -> Result<Self::Inner, Self::Error>;
 }
 
+/// [RFC8265]: https://datatracker.ietf.org/doc/html/rfc8265
+/// [RFC5389]: https://datatracker.ietf.org/doc/html/rfc5389
+/// [RFC3629]: https://datatracker.ietf.org/doc/html/rfc3629
+///
 /// The USERNAME attribute is used for message integrity.  It identifies
 /// the username and password combination used in the message-integrity
 /// check.
@@ -175,6 +179,10 @@ impl<'a> Property<'a> for Data {
     }
 }
 
+/// [RFC3629]: https://datatracker.ietf.org/doc/html/rfc3629
+/// [RFC3261]: https://datatracker.ietf.org/doc/html/rfc3261
+/// [RFC8265]: https://datatracker.ietf.org/doc/html/rfc8265
+///
 /// The REALM attribute may be present in requests and responses.  It
 /// contains text that meets the grammar for "realm-value" as described
 /// in [RFC3261] but without the double quotes and their surrounding
@@ -206,6 +214,9 @@ impl<'a> Property<'a> for Realm {
     }
 }
 
+/// [RFC3261]: https://datatracker.ietf.org/doc/html/rfc3261
+/// [RFC7616]: https://datatracker.ietf.org/doc/html/rfc7616
+///
 /// The NONCE attribute may be present in requests and responses.  It
 /// contains a sequence of qdtext or quoted-pair, which are defined in
 /// [RFC3261].  Note that this means that the NONCE attribute will not
@@ -231,6 +242,8 @@ impl<'a> Property<'a> for Nonce {
     }
 }
 
+/// [RFC3629]: https://datatracker.ietf.org/doc/html/rfc3629
+///
 /// The SOFTWARE attribute contains a textual description of the software
 /// being used by the agent sending the message.  It is used by clients
 /// and servers.  Its value SHOULD include manufacturer and version
@@ -257,6 +270,9 @@ impl<'a> Property<'a> for Software {
     }
 }
 
+/// [RFC2104]: https://datatracker.ietf.org/doc/html/rfc2104
+/// [RFC5769]: https://datatracker.ietf.org/doc/html/rfc5769
+/// 
 /// The MESSAGE-INTEGRITY attribute contains an HMAC-SHA1 [RFC2104] of
 /// the STUN message.  The MESSAGE-INTEGRITY attribute can be present in
 /// any STUN message type.  Since it uses the SHA-1 hash, the HMAC will
@@ -302,6 +318,8 @@ impl<'a> Property<'a> for MessageIntegrity {
     }
 }
 
+/// [RFC5389]: https://datatracker.ietf.org/doc/html/rfc5389
+///
 /// The XOR-PEER-ADDRESS specifies the address and port of the peer as
 /// seen from the TURN server.  (For example, the peer's server-reflexive
 /// transport address if the peer is behind a NAT.)  It is encoded in the
@@ -323,6 +341,8 @@ impl<'a> Property<'a> for XorPeerAddress {
     }
 }
 
+/// [RFC5389]: https://datatracker.ietf.org/doc/html/rfc5389
+///
 /// The XOR-RELAYED-ADDRESS is present in Allocate responses.  It
 /// specifies the address and port that the server allocated to the
 /// client.  It is encoded in the same way as XOR-MAPPED-ADDRESS
@@ -344,6 +364,8 @@ impl<'a> Property<'a> for XorRelayedAddress {
     }
 }
 
+/// [RFC3489]: https://datatracker.ietf.org/doc/html/rfc3489
+///
 /// The XOR-MAPPED-ADDRESS attribute is identical to the MAPPED-ADDRESS
 /// attribute, except that the reflexive transport address is obfuscated
 /// through the XOR function.
@@ -380,7 +402,7 @@ impl<'a> Property<'a> for XorRelayedAddress {
 /// Note: XOR-MAPPED-ADDRESS and MAPPED-ADDRESS differ only in their
 /// encoding of the transport address.  The former encodes the transport
 /// address by XOR'ing it with the magic cookie.  The latter encodes it
-/// directly in binary.  RFC 3489 originally specified only MAPPED-
+/// directly in binary.  [RFC3489] originally specified only MAPPED-
 /// ADDRESS.  However, deployment experience found that some NATs rewrite
 /// the 32-bit binary payloads containing the NAT's public IP address,
 /// such as STUN's MAPPED-ADDRESS attribute, in the well-meaning but
@@ -404,6 +426,8 @@ impl<'a> Property<'a> for XorMappedAddress {
     }
 }
 
+/// [RFC3489]: https://datatracker.ietf.org/doc/html/rfc3489
+///
 /// The MAPPED-ADDRESS attribute indicates a reflexive transport address
 /// of the client.  It consists of an 8-bit address family and a 16-bit
 /// port, followed by a fixed-length value representing the IP address.
@@ -474,6 +498,10 @@ impl<'a> Property<'a> for ResponseOrigin {
     }
 }
 
+/// [RFC7231]: https://datatracker.ietf.org/doc/html/rfc7231
+/// [RFC3261]: https://datatracker.ietf.org/doc/html/rfc3261
+/// [RFC3629]: https://datatracker.ietf.org/doc/html/rfc3629
+///
 /// The ERROR-CODE attribute is used in error response messages.  It
 /// contains a numeric error code value in the range of 300 to 699 plus a
 /// textual reason phrase encoded in UTF-8 [RFC3629]; it is also
@@ -571,6 +599,8 @@ impl<'a> Property<'a> for ReqeestedTransport {
     }
 }
 
+/// [RFC1952]: https://datatracker.ietf.org/doc/html/rfc1952
+///
 /// The FINGERPRINT attribute MAY be present in all STUN messages.
 /// 
 /// The value of the attribute is computed as the CRC-32 of the STUN
@@ -578,7 +608,7 @@ impl<'a> Property<'a> for ReqeestedTransport {
 /// XOR'ed with the 32-bit value 0x5354554e.  (The XOR operation ensures
 /// that the FINGERPRINT test will not report a false positive on a
 /// packet containing a CRC-32 generated by an application protocol.)
-/// The 32-bit CRC is the one defined in ITU V.42 [ITU.V42.2002], which
+/// The 32-bit CRC is the one defined in ITU V.42, which
 /// has a generator polynomial of x^32 + x^26 + x^23 + x^22 + x^16 + x^12
 /// + x^11 + x^10 + x^8 + x^7 + x^5 + x^4 + x^2 + x + 1.  See the sample
 /// code for the CRC-32 in Section 8 of [RFC1952].

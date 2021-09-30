@@ -5,7 +5,8 @@ use crate::util;
 /// The ChannelData Message
 /// 
 /// The ChannelData message is used to carry application data between the
-/// client and the server.  It has the following format:
+/// client and the server.  
+/// It has the following format:
 /// 
 /// ```text
 /// 0                   1                   2                   3

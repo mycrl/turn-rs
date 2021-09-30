@@ -17,7 +17,6 @@ use std::net::{
     SocketAddr
 };
 
-/// ip family type.
 pub const FAMILY_IPV4: u8 = 0x01;
 pub const FAMILY_IPV6: u8 = 0x02;
 
@@ -48,8 +47,8 @@ pub const FAMILY_IPV6: u8 = 0x02;
 /// 
 /// The address family can take on the following values:
 /// 
-/// 0x01:IPv4
-/// 0x02:IPv6
+/// * 0x01:IPv4
+/// * 0x02:IPv6
 /// 
 /// The first 8 bits of the MAPPED-ADDRESS MUST be set to 0 and MUST be
 /// ignored by receivers.  These bits are present for aligning parameters
