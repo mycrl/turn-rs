@@ -2,8 +2,8 @@ pub mod receiver_report;
 pub mod sender_report;
 pub mod header;
 
-use receiver_report::ReceiverReport;
-use sender_report::SenderReport;
+use report::receiver::ReceiverReport;
+use report::sender::SenderReport;
 use header::Header;
 
 use anyhow::Result;
