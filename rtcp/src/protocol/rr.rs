@@ -1,6 +1,11 @@
-use super::Source;
-use anyhow::Result;
 use std::convert::TryFrom;
+use anyhow::Result;
+use bytes::Buf;
+use super::{
+    Source,
+    PADDING_MASK,
+    RC_MASK
+};
 
 /// # RR: Receiver Report RTCP Packet
 ///
@@ -41,11 +46,37 @@ use std::convert::TryFrom;
 /// An empty RR packet (RC = 0) MUST be put at the head of a compound
 /// RTCP packet when there is no data transmission or reception to
 /// report.
-pub struct ReceiverReport {
+pub struct Rr {
+    /// padding (P): 1 bit
+    /// If the padding bit is set, this individual RTCP packet contains
+    /// some additional padding octets at the end which are not part of
+    /// the control information but are included in the length field.  The
+    /// last octet of the padding is a count of how many padding octets
+    /// should be ignored, including itself (it will be a multiple of
+    /// four).  Padding may be needed by some encryption algorithms with
+    /// fixed block sizes.  In a compound RTCP packet, padding is only
+    /// required on one individual packet because the compound packet is
+    /// encrypted as a whole for the method in rfc3550 section-9.1.  
+    /// Thus, padding MUST only be added to the last individual packet, 
+    /// and if padding is added to that packet, the padding bit MUST be set 
+    /// only on that packet.  This convention aids the header validity 
+    /// checks described in rfc3550 A.2 and allows detection of packets 
+    /// from some early implementations that incorrectly set the padding 
+    /// bit on the first individual packet and add padding to the last 
+    /// individual packet.
+    pub padding: bool,
+    /// reception report count (RC): 5 bits
+    /// The number of reception report blocks contained in this packet.  A
+    /// value of zero is valid.
+    pub rc: u8,
+    /// SSRC: 32 bits
+    /// The synchronization source identifier for the originator of this
+    /// SR packet.
+    pub ssrc: u32,
     pub sources: Option<Vec<Source>>,
 }
 
-impl TryFrom<&[u8]> for ReceiverReport {
+impl TryFrom<&[u8]> for Rr {
     type Error = anyhow::Error;
     /// # Unit Test
     ///
@@ -62,20 +93,44 @@ impl TryFrom<&[u8]> for ReceiverReport {
     /// let len = Header::peek_len(&buffer);
     /// assert_eq!(len, 28);
     /// ```
-    fn try_from(mut buf: &[u8]) -> Result<Self, Self::Error> {
-        let sources = if buf.len() == 0 {
-            Ok(Self { sources: None })
+    fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {assert!(buf.len() >= 4);
+        assert!(buf.len() >= 4);
+
+        let rc = buf[0] & RC_MASK;
+        let padding = ((buf[0] & PADDING_MASK) >> 5) == 1;
+        
+        let pd_size = if padding {
+            buf[buf.len() - 1] as usize
+        } else {
+            0
+        };
+
+        let pl_size = buf.len() - pd_size;
+        let mut body = &buf[2..pl_size];
+
+        let ssrc = body.get_u32();
+        let remaining = body.remaining();
+        if remaining == 0 {
+            return Ok(Self { 
+                sources: None,
+                padding,
+                ssrc,
+                rc
+            })
         }
         
-        let step_num = buf.len() / 24;
+        let step_num = remaining / 24;
         let mut list = Vec::with_capacity(step_num);
         for i in 0..step_num {
-            let slice = &buf[i * 24..(i + 1) * 24];
+            let slice = &body[i * 24..(i + 1) * 24];
             list.push(Source::try_from(slice)?);
         }
 
         Ok(Self {
-            sources: Some(list)
+            sources: Some(list),
+            padding,
+            ssrc,
+            rc
         })
     }
 }

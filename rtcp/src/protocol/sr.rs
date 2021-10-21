@@ -1,7 +1,11 @@
-use super::Source;
 use std::convert::TryFrom;
 use anyhow::Result;
 use bytes::Buf;
+use super::{
+    Source,
+    RC_MASK,
+    PADDING_MASK
+};
 
 /// # SR: Sender Report RTCP Packet
 ///
@@ -47,7 +51,33 @@ use bytes::Buf;
 /// followed by a fourth profile-specific extension section if defined.
 /// The first section, the header, is 8 octets long.  The fields have the
 /// following meaning:
-pub struct SenderReport {
+pub struct Sr {
+    /// padding (P): 1 bit
+    /// If the padding bit is set, this individual RTCP packet contains
+    /// some additional padding octets at the end which are not part of
+    /// the control information but are included in the length field.  The
+    /// last octet of the padding is a count of how many padding octets
+    /// should be ignored, including itself (it will be a multiple of
+    /// four).  Padding may be needed by some encryption algorithms with
+    /// fixed block sizes.  In a compound RTCP packet, padding is only
+    /// required on one individual packet because the compound packet is
+    /// encrypted as a whole for the method in rfc3550 section-9.1.  
+    /// Thus, padding MUST only be added to the last individual packet, 
+    /// and if padding is added to that packet, the padding bit MUST be set 
+    /// only on that packet.  This convention aids the header validity 
+    /// checks described in rfc3550 A.2 and allows detection of packets 
+    /// from some early implementations that incorrectly set the padding 
+    /// bit on the first individual packet and add padding to the last 
+    /// individual packet.
+    pub padding: bool,
+    /// reception report count (RC): 5 bits
+    /// The number of reception report blocks contained in this packet.  A
+    /// value of zero is valid.
+    pub rc: u8,
+    /// SSRC: 32 bits
+    /// The synchronization source identifier for the originator of this
+    /// SR packet.
+    pub ssrc: u32,
     /// NTP timestamp: 64 bits
     /// Indicates the wallclock time when this report was sent so 
     /// that it may be used in combination with timestamps returned 
@@ -106,7 +136,7 @@ pub struct SenderReport {
     pub sources: Option<Vec<Source>>,
 }
 
-impl TryFrom<&[u8]> for SenderReport {
+impl TryFrom<&[u8]> for Sr {
     type Error = anyhow::Error;
     /// # Unit Test
     ///
@@ -123,31 +153,49 @@ impl TryFrom<&[u8]> for SenderReport {
     /// let len = Header::peek_len(&buffer);
     /// assert_eq!(len, 28);
     /// ```
-    fn try_from(mut buf: &[u8]) -> Result<Self, Self::Error> {
-        let ntp_time = buf.get_u64();
-        let rtp_time = buf.get_u32();
-        let sender_packet_count = buf.get_u32();
-        let sender_octet_count = buf.get_u32();
+    fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
+        assert!(buf.len() >= 4);
 
-        let remaining = buf.remaining();
+        let rc = buf[0] & RC_MASK;
+        let padding = ((buf[0] & PADDING_MASK) >> 5) == 1;
+        
+        let pd_size = if padding {
+            buf[buf.len() - 1] as usize
+        } else {
+            0
+        };
+
+        let pl_size = buf.len() - pd_size;
+        let mut body = &buf[2..pl_size];
+    
+        let ssrc = body.get_u32();
+        let ntp_time = body.get_u64();
+        let rtp_time = body.get_u32();
+        let sender_packet_count = body.get_u32();
+        let sender_octet_count = body.get_u32();
+
+        let remaining = body.remaining();
         let sources = if remaining == 0 {
             None
         } else {
             let step_num = remaining / 24;
             let mut list = Vec::with_capacity(step_num);
             for i in 0..step_num {
-                list.push(Source::try_from(&buf[i * 24..(i + 1) * 24])?);
+                list.push(Source::try_from(&body[i * 24..(i + 1) * 24])?);
             }
 
             Some(list)
         };
 
         Ok(Self {
+            rc,
+            padding,
             sender_packet_count,
             sender_octet_count,
             ntp_time,
             rtp_time,
-            sources
+            sources,
+            ssrc
         })
     }
 }
