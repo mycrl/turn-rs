@@ -14,7 +14,8 @@
                 "./target:/usr/local/src/target"
             ],
             "environment": [
-                "TURN_NATS=nats:4222"
+                "TURN_NATS=nats:4222",
+                "RUST_BACKTRACE=1"
             ],
             "deploy": {
                 "replicas": 1
