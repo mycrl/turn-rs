@@ -9,7 +9,7 @@ mod refresh;
 use anyhow::Result;
 use bytes::BytesMut;
 use super::{
-    argv::Argv,
+    env::Environment,
     state::State,
     server::ThreadLocal
 };
@@ -42,7 +42,7 @@ pub(crate) type Response<'a> = Option<(
 
 /// message context
 pub struct Context {
-    pub conf: Arc<Argv>,
+    pub conf: Arc<Environment>,
     pub state: Arc<State>,
     pub addr: Arc<SocketAddr>
 }

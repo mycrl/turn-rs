@@ -15,7 +15,9 @@
             ],
             "environment": [
                 "TURN_NATS=nats:4222",
-                "RUST_BACKTRACE=1"
+                "RUST_BACKTRACE=1",
+                "RUST_LOG=info",
+                "TURN_LISTEN=0.0.0.0:3478"
             ],
             "deploy": {
                 "replicas": 1

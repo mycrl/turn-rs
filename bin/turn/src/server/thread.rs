@@ -9,13 +9,13 @@ use std::{
 use crate::{
     accepter::Accepter,
     state::State,
-    argv::Argv,
+    env::Environment,
 };
 
 /// thread local context.
 pub struct ThreadLocal {
     pub state: Arc<State>,
-    pub conf: Arc<Argv>,
+    pub conf: Arc<Environment>,
 }
 
 /// server thread worker.
@@ -30,8 +30,8 @@ impl<'a> Thread<'a> {
     #[rustfmt::skip]
     pub fn builder(local: ThreadLocal, socket: &Arc<UdpSocket>) -> Self {
         Self {
-            writer: BytesMut::with_capacity(local.conf.buffer),
-            reader: vec![0u8; local.conf.buffer],
+            reader: vec![0u8; 4096],
+            writer: BytesMut::with_capacity(4096),
             accepter: Accepter::builder(local),
             socket: socket.clone(),
         }
@@ -46,7 +46,7 @@ impl<'a> Thread<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// let c = argv::Argv::generate()?;
+    /// let c = env::Environment::generate()?;
     /// let t = broker::Broker::new(&c).await?;
     /// let s = state::State::new(t);
     /// 
@@ -68,12 +68,11 @@ impl<'a> Thread<'a> {
             None => return
         };
 
-        let (b, p) = match unsafe {
-            transmute::<
-                &mut Accepter<'a>, 
-                &mut Accepter<'_>
-            >(&mut self.accepter)
-        }.handler(
+        let accepter: &mut Accepter<'_> = unsafe {
+            transmute(&mut self.accepter)
+        };
+
+        let (b, p) = match accepter.handler(
             &self.reader[..s], 
             &mut self.writer, 
             a
@@ -99,7 +98,7 @@ impl<'a> Thread<'a> {
     /// # Example
     ///
     /// ```no_run
-    /// let c = argv::Argv::generate()?;
+    /// let c = env::Environment::generate()?;
     /// let t = broker::Broker::new(&c).await?;
     /// let s = state::State::new(t);
     /// 

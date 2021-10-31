@@ -1,7 +1,7 @@
 pub mod request;
 pub mod response;
 
-use super::argv::Argv;
+use super::env::Environment;
 use response::Response;
 use anyhow::Result;
 use std::{
@@ -23,20 +23,20 @@ struct Topic {
     auth: String
 }
 
-/// Broker
+/// Bridge
 ///
-/// The Broker is the main component of turn. 
+/// The Bridge is the main component of turn. 
 /// It handles services, calls actions, 
 /// emits events and communicates with remote nodes. 
-/// You must create a Broker instance on every node.
-pub struct Broker {
+/// You must create a Bridge instance on every node.
+pub struct Bridge {
     nats: Connection,
     topic: Topic
 }
 
-impl Broker {
+impl Bridge {
     /// connect nats server.
-    pub async fn new(c: &Arc<Argv>) -> Result<Arc<Self>> {
+    pub async fn new(c: &Arc<Environment>) -> Result<Arc<Self>> {
         Ok(Arc::new(Self { 
             nats: connect(c.nats.as_str()).await?,
             topic: Topic {
@@ -50,16 +50,26 @@ impl Broker {
     /// key of the current user.
     ///
     /// ```no_run
-    /// let c = argv::Argv::generate()?;
-    /// let broker = Broker::new(&c).await?;
+    /// let c = env::Environment::generate()?;
+    /// let Bridge = Bridge::new(&c).await?;
     /// let source_addr = "127.0.0.1:8080".parse().unwrap();
-    /// let res = broker.auth(&source_addr, "panda").await?;
+    /// let res = Bridge.auth(&source_addr, "panda").await?;
     /// // res.password
     /// ```
     #[rustfmt::skip]
     pub async fn auth(&self, a: &SocketAddr, u: &str) -> Result<response::Auth> {
-        let req = request::Auth { username: u.to_string(), addr: *a };
-        let message = self.nats.request(&self.topic.auth, Into::<Vec<u8>>::into(req)).await?;
-        Response::<response::Auth>::try_from(message.data.as_slice())?.into_result()
+        let message = self
+            .nats
+            .request(
+                &self.topic.auth, 
+                Into::<Vec<u8>>::into(request::Auth { 
+                    username: u.to_string(), 
+                    addr: *a 
+                })
+            ).await?;
+        Response
+            ::<response::Auth>
+            ::try_from(message.data.as_slice())?
+            .into_result()
     }
 }
