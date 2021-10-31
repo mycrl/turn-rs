@@ -2,12 +2,12 @@ pub mod sdes;
 pub mod sr;
 pub mod rr;
 
-use rr::Rr;
-use sr::Sr;
+pub use rr::Rr;
+pub use sr::Sr;
 
 use anyhow::Result;
-use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
+use num_enum::TryFromPrimitive;
 use bytes::{
     BytesMut,
     Buf 
@@ -19,6 +19,7 @@ pub const RC_MASK: u8 = 0b00011111;
 
 /// RTCP packet type.
 #[repr(u8)]
+#[derive(PartialEq, Eq, Debug)]
 #[derive(TryFromPrimitive)]
 pub enum PacketKind {
     SR      = 0xC8,
@@ -158,17 +159,27 @@ impl TryFrom<&[u8]> for Source {
     /// # Unit Test
     ///
     /// ```
-    /// use rtcp::protocol::header::Header;
+    /// use std::convert::TryFrom;
+    /// use rtcp::protocol::Source;
     ///
     /// let buffer = [
-    ///     0x80, 0xc8, 0x00, 0x06, 0x79, 0x26, 0x69, 0x55,
-    ///     0xe8, 0xe2, 0xe2, 0x17, 0xd4, 0x2f, 0x05, 0x91,
-    ///     0x36, 0x01, 0xb0, 0xaf, 0x34, 0x85, 0x78, 0x5e,
-    ///     0x2d, 0xbc, 0x2a, 0x98
+    ///     0x00, 0x00, 0x00, 0x01,
+    ///     0x02,
+    ///     0x00, 0x00, 0x03,
+    ///     0x00, 0x00, 0x00, 0x04,
+    ///     0x00, 0x00, 0x00, 0x05,
+    ///     0x00, 0x00, 0x00, 0x06,
+    ///     0x00, 0x00, 0x00, 0x07,
     /// ];
     ///
-    /// let len = Header::peek_len(&buffer);
-    /// assert_eq!(len, 28);
+    /// let souce = Source::try_from(&buffer[..]).unwrap();
+    /// assert_eq!(souce.identifier, 1);
+    /// assert_eq!(souce.fraction_lost, 2);
+    /// assert_eq!(souce.cnopl, 3);
+    /// assert_eq!(souce.ehsnr, 4);
+    /// assert_eq!(souce.interarrival_jitter, 5);
+    /// assert_eq!(souce.lsr, 6);
+    /// assert_eq!(souce.dlsr, 7);
     /// ```
     fn try_from(mut buf: &[u8]) -> Result<Self, Self::Error> {
         Ok(Self {
@@ -195,6 +206,19 @@ pub enum Rtcp {
 impl Rtcp {
     /// packet type (PT): 8 bits
     /// Contains the constant 200 to identify this as an RTCP SR packet. 
+    ///
+    /// # Unit Test
+    ///
+    /// ```
+    /// use rtcp::protocol::{
+    ///     PacketKind,
+    ///     Rtcp
+    /// };
+    ///
+    /// let buffer = [0x80, 0xc8];
+    /// let kind = Rtcp::packet_kind(&buffer).unwrap();
+    /// assert_eq!(kind, PacketKind::SR);
+    /// ```
     pub fn packet_kind(buf: &[u8]) -> Result<PacketKind> {
         assert!(buf.len() >= 2);
         Ok(PacketKind::try_from(buf[1])?)
@@ -210,16 +234,13 @@ impl Rtcp {
     /// # Unit Test
     ///
     /// ```
-    /// use rtcp::protocol::header::Header;
+    /// use rtcp::protocol::{
+    ///     PacketKind,
+    ///     Rtcp
+    /// };
     ///
-    /// let buffer = [
-    ///     0x80, 0xc8, 0x00, 0x06, 0x79, 0x26, 0x69, 0x55,
-    ///     0xe8, 0xe2, 0xe2, 0x17, 0xd4, 0x2f, 0x05, 0x91,
-    ///     0x36, 0x01, 0xb0, 0xaf, 0x34, 0x85, 0x78, 0x5e,
-    ///     0x2d, 0xbc, 0x2a, 0x98
-    /// ];
-    ///
-    /// let len = Header::peek_len(&buffer);
+    /// let buffer = [0x80, 0xc8, 0x00, 0x06];
+    /// let len = Rtcp::peek_len(&buffer);
     /// assert_eq!(len, 28);
     /// ```
     pub fn peek_len(buf: &[u8]) -> usize {
@@ -249,7 +270,6 @@ impl RtcpDecoder {
     /// # Unit Test
     ///
     /// ```
-    /// use std::convert::TryFrom;
     /// use rtcp::protocol::RtcpDecoder;
     ///
     /// let buffer = [
@@ -271,7 +291,6 @@ impl RtcpDecoder {
     /// # Unit Test
     ///
     /// ```
-    /// use std::convert::TryFrom;
     /// use rtcp::protocol::RtcpDecoder;
     ///
     /// let buffer = [
@@ -285,6 +304,7 @@ impl RtcpDecoder {
     /// decoder.extend(&buffer);
     ///
     /// let rtcp = decoder.accept().unwrap();
+    /// assert!(rtcp.is_some());
     /// ```
     pub fn accept(&mut self) -> Result<Option<Rtcp>> {
         if self.buf.len() <= 4 {

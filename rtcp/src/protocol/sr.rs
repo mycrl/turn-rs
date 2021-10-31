@@ -141,17 +141,25 @@ impl TryFrom<&[u8]> for Sr {
     /// # Unit Test
     ///
     /// ```
-    /// use rtcp::protocol::header::Header;
+    /// use std::convert::TryFrom;
+    /// use rtcp::protocol::Sr;
     ///
     /// let buffer = [
-    ///     0x80, 0xc8, 0x00, 0x06, 0x79, 0x26, 0x69, 0x55,
-    ///     0xe8, 0xe2, 0xe2, 0x17, 0xd4, 0x2f, 0x05, 0x91,
-    ///     0x36, 0x01, 0xb0, 0xaf, 0x34, 0x85, 0x78, 0x5e,
-    ///     0x2d, 0xbc, 0x2a, 0x98
+    ///     0x80, 0xc8, 0x00, 0x06, 0x0a, 0xc8, 0x30, 0xb2, 
+    ///     0xc3, 0x4c, 0x3b, 0xe9, 0x46, 0x91, 0xdf, 0xbf, 
+    ///     0xd3, 0x62, 0xe8, 0xd8, 0x20, 0x64, 0x7c, 0x37, 
+    ///     0xe1, 0xe0, 0x32, 0x9d
     /// ];
     ///
-    /// let len = Header::peek_len(&buffer);
-    /// assert_eq!(len, 28);
+    /// let sr = Sr::try_from(&buffer[..]).unwrap();
+    /// assert_eq!(sr.padding, false);
+    /// assert_eq!(sr.rc, 0);
+    /// assert_eq!(sr.ssrc, 0x0ac830b2);
+    /// assert_eq!(sr.ntp_time, 0xc34c3be94691dfbf);
+    /// assert_eq!(sr.rtp_time, 0xd362e8d8);
+    /// assert_eq!(sr.sender_packet_count, 543456311);
+    /// assert_eq!(sr.sender_octet_count, 3789566621);
+    /// assert!(sr.sources.is_none());
     /// ```
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
         assert!(buf.len() >= 4);
@@ -166,7 +174,7 @@ impl TryFrom<&[u8]> for Sr {
         };
 
         let pl_size = buf.len() - pd_size;
-        let mut body = &buf[2..pl_size];
+        let mut body = &buf[4..pl_size];
     
         let ssrc = body.get_u32();
         let ntp_time = body.get_u64();
