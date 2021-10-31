@@ -1,0 +1,55 @@
+* {
+    margin: 0;
+    padding: 0;
+    font-size: 12px;
+}
+
+.login {
+    background-color: #fff;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 10;
+}
+
+.login .box {
+    width: 200px;
+    border: 1px solid #eee;
+    margin: 0 auto;
+    margin-top: 35vh;
+    padding: 20px;
+    border-radius: 5px;
+}
+
+.login .box .title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #555;
+    margin-bottom: 20px;
+}
+
+.login .box input {
+    width: 100%;
+    height: 35px;
+    margin-top: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    text-indent: 10px;
+}
+
+.login .box button {
+    width: 100%;
+    height: 35px;
+    border: 0;
+    border-radius: 5px;
+    margin-top: 30px;
+    background-color: #0c9cf8;
+    color: #fff;
+}
+
+#remote {
+    width: 100%;
+    height: 100%;
+}

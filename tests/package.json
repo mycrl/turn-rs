@@ -1,5 +1,0 @@
-{
-    "scripts": {
-        "unit-tests": "node ./src/beautify.js"
-    }
-}
