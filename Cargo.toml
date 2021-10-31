@@ -13,7 +13,6 @@ members = [
     "srtp",
     "rtcp",
     "srtcp",
-    "dtls",
     "stun",
     "bin/turn"
 ]
