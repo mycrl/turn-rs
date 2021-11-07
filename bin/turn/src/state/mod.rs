@@ -44,6 +44,7 @@ pub struct State {
     nonces: NonceTable,
     buckets: BucketTable,
     nodes: RwLock<HashMap<Addr, Node>>,
+    users: RwLock<HashMap<String, Addr>>,
     ports: RwLock<HashMap<(u32, u16), Addr>>,
     port_bonds: RwLock<HashMap<Addr, HashMap<Addr, u16>>>,
     channels: RwLock<HashMap<(u32, u16), Channel>>,
@@ -87,6 +88,7 @@ impl State {
     ///
     /// // state.get_key(&addr, "panda")
     /// ```
+    #[rustfmt::skip]
     pub async fn get_key(&self, a: &Addr, u: &str) -> Option<Arc<[u8; 16]>> {
         let key = self.nodes
             .read()
@@ -102,13 +104,16 @@ impl State {
             Err(_) => return None
         };
         
+        let key = long_key(
+            u, 
+            &auth.password, 
+            &self.conf.realm
+        );
+        
         let node = Node::new(
             auth.group, 
-            long_key(
-                u, 
-                &auth.password, 
-                &self.conf.realm
-            )
+            u.to_string(),
+            key
         );
 
         let key = node.get_password();
@@ -116,6 +121,10 @@ impl State {
             .write()
             .await
             .insert(a.clone(), node);
+        self.users
+            .write()
+            .await
+            .insert(u.to_string(), a.clone());
         Some(key)
     }
 
@@ -146,6 +155,7 @@ impl State {
     ///
     /// assert_eq!(state.get_channel_bond(&addr, 0x4000).unwrap(), peer);
     /// ```
+    #[rustfmt::skip]
     pub async fn get_channel_bond(&self, a: &Addr, c: u16) -> Option<Addr> {
         self.channel_bonds
             .read()
@@ -182,6 +192,7 @@ impl State {
     /// assert_eq!(state.get_port_bond(&addr, peer_port), some(peer));
     /// assert_eq!(state.get_port_bond(&peer, addr_port), some(addr));
     /// ```
+    #[rustfmt::skip]
     pub async fn get_port_bond(&self, a: &Addr, p: u16) -> Option<Addr> {
         let g = self.nodes
             .read()
@@ -222,6 +233,7 @@ impl State {
     /// assert_eq!(state.get_bond_port(&addr, &peer), some(peer_port));
     /// assert_eq!(state.get_bond_port(&peer, &addr), some(addr_port));
     /// ```
+    #[rustfmt::skip]
     pub async fn get_bond_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
         self.port_bonds
             .read()
@@ -518,7 +530,6 @@ impl State {
     #[rustfmt::skip]
     pub async fn remove(&self, a: &Addr) {
         let mut ports = self.ports.write().await;
-
         let node = match self.nodes.write().await.remove(a) {
             Some(n) => n,
             None => return
@@ -533,11 +544,45 @@ impl State {
             self.remove_channel(node.group, c).await;
         }
 
-        self.nonces.remove(a).await;
+        self.nonces
+            .remove(a)
+            .await;
         self.port_bonds
             .write()
             .await
             .remove(a);
+        self.users
+            .write()
+            .await
+            .remove(&node.username);
+    }
+
+    /// remove a node from username.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::env::Environment;
+    /// use turn::bridge::Bridge;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let argvure = Environment::generate().unwrap();
+    /// let bridge = Bridge::new(&argvure);
+    /// let state = State::new(&argvure, &bridge);
+    ///
+    /// state.get_key(&addr, "panda").await;
+    /// state.remove_from_user("panda").await;
+    /// ```
+    #[rustfmt::skip]
+    pub async fn remove_from_user(&self, u: &str) {
+        let users = self.users.read().await;
+        let addr = match users.get(u) {
+            Some(u) => u.clone(),
+            None => return
+        };
+
+        self.remove(&addr)
+            .await;
     }
     
     /// remove channel in State. 
@@ -650,7 +695,8 @@ impl State {
             channels: create_table(),
             port_bonds: create_table(),
             ports: create_table(),
-            nodes: create_table()
+            nodes: create_table(),
+            users: create_table(),
         })
     }
 }

@@ -1,5 +1,4 @@
 use std::convert::TryFrom;
-use anyhow::Result;
 use bytes::Buf;
 use super::{
     Source,

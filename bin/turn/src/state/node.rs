@@ -12,9 +12,10 @@ pub struct Node {
     pub channels: Vec<u16>,
     pub ports: Vec<u16>,
     pub group: u32,
-    timer: Instant,
-    lifetime: u64,
-    password: Arc<[u8; 16]>
+    pub timer: Instant,
+    pub lifetime: u64,
+    pub password: Arc<[u8; 16]>,
+    pub username: String,
 }
 
 impl Node {
@@ -26,13 +27,18 @@ impl Node {
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// // Node::new(0, key.clone());
     /// ```
-    pub fn new(group: u32, password: [u8; 16]) -> Self {
+    pub fn new(
+        group: u32, 
+        username: String,
+        password: [u8; 16]
+    ) -> Self {
         Self {
             channels: Vec::with_capacity(5),
             ports: Vec::with_capacity(10),
             timer: Instant::now(),
             password: Arc::new(password),
             lifetime: 600,
+            username,
             group,
         }
     }

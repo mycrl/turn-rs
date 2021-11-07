@@ -12,14 +12,15 @@ use state::State;
 #[tokio::main]
 #[rustfmt::skip]
 async fn main() -> Result<()> {
-   env_logger::builder()
-       .format_module_path(false)
-       .init();
+    env_logger::builder()
+        .format_module_path(false)
+        .init();
    
-   let e = Environment::new();
-   let b = Bridge::new(&e).await?;
-   let s = State::new(&e, &b);
-   server::run(e, s.clone()).await?;
-   s.run().await?;
-   Ok(())
+    let env = Environment::new();
+    let bridge = Bridge::new(&env).await?;
+    let state = State::new(&env, &bridge);
+    server::run(env, state.clone()).await?;
+    bridge.set_state(state.clone());
+    state.run().await?;
+    Ok(())
 }
