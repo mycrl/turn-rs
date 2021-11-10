@@ -40,6 +40,7 @@ pub enum Bit {
 pub struct RandomPort {
     buckets: Vec<u64>,
     range: Range<u16>,
+    bit_high: usize,
     high: usize,
 }
 
@@ -75,6 +76,7 @@ impl RandomPort {
         let size = Self::bucket_size(&range);
         Self { 
             buckets: vec![u64::MAX; size],
+            bit_high: Self::bit_high(&range),
             high: size - 1,
             range
         }
@@ -156,11 +158,7 @@ impl RandomPort {
             return None
         };
         
-        if offset == 8 {
-            return None
-        }
-        
-        if i == self.high && offset > 0 {
+        if i == self.high && offset > self.bit_high {
             return None
         }
         
@@ -260,5 +258,9 @@ impl RandomPort {
     /// ```
     pub fn bucket_size(range: &Range<u16>) -> usize {
         ((range.end - range.start) as f32 / 64.0).ceil() as usize
+    }
+    
+    pub fn bit_high(range: &Range<u16>) {
+        ((range.end - range.start) as f32 % 64.0).ceil() as usize
     }
 }
