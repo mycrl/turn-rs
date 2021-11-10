@@ -107,9 +107,9 @@ impl RandomPort {
 
     loop {
         if let Some(i) = self.find_high(start) {
-            index = Some(i);
+            index = Some(i as usize);
             break;
-        };
+        }
 
         if start == self.high {
             start = 0;
@@ -127,8 +127,8 @@ impl RandomPort {
             None => return None
         };
 
-        self.write(start, bi as usize, Bit::Low);
-        Some(bi)
+        self.write(start, bi, Bit::Low);
+        Some(self.range.start + (start * 64 + bi) as u16)
     }
     
     /// find the high bit in the bucket.
@@ -148,21 +148,23 @@ impl RandomPort {
     /// assert_eq!(pool.find_high(0), Some(2));
     /// assert_eq!(pool.find_high(1), Some(0));
     /// ```
-    pub fn find_high(&self, i: usize) -> Option<u16> {
+    pub fn find_high(&self, i: usize) -> Option<u32> {
         let value = self.buckets[i];
         let offset = if value != u64::MIN {
-            value.leading_zeros() as u16
+            value.leading_zeros()
         } else {
             return None
         };
         
-        let start = self.range.start;
-        let index = start + (i as u16 * 64 + offset);
-        if index <= self.range.end {
-            Some(index)
-        } else {
-            None
+        if offset == 8 {
+            return None
         }
+        
+        if i == self.high && offset > 0 {
+            return None
+        }
+        
+        Some(offset)
     }
 
     /// write bit flag in the bucket.
