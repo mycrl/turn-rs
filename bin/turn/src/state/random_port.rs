@@ -40,7 +40,7 @@ pub enum Bit {
 pub struct RandomPort {
     buckets: Vec<u64>,
     range: Range<u16>,
-    bit_high: usize,
+    bit_high: u32,
     high: usize,
 }
 
@@ -260,7 +260,18 @@ impl RandomPort {
         ((range.end - range.start) as f32 / 64.0).ceil() as usize
     }
     
-    pub fn bit_high(range: &Range<u16>) {
-        ((range.end - range.start) as f32 % 64.0).ceil() as usize
+    /// compute bucket last bit max offset from range.
+    ///
+    /// # Unit Test
+    ///
+    /// ```
+    /// use random_port::RandomPort;
+    ///
+    /// let range = 49152..65535;
+    /// let size = RandomPort::bit_high(&range);
+    /// assert_eq!(size, 63);
+    /// ```
+    pub fn bit_high(range: &Range<u16>) -> u32 {
+        ((range.end - range.start) as f32 % 64.0).ceil() as u32
     }
 }
