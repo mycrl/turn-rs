@@ -20,7 +20,6 @@ async fn main() -> Result<()> {
     let bridge = Bridge::new(&env).await?;
     let state = State::new(&env, &bridge);
     server::run(env, state.clone()).await?;
-    bridge.set_state(state.clone());
     state.run().await?;
     Ok(())
 }

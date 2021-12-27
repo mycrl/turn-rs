@@ -556,34 +556,6 @@ impl State {
             .await
             .remove(&node.username);
     }
-
-    /// remove a node from username.
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
-    ///
-    /// state.get_key(&addr, "panda").await;
-    /// state.remove_from_user("panda").await;
-    /// ```
-    #[rustfmt::skip]
-    pub async fn remove_from_user(&self, u: &str) {
-        let users = self.users.read().await;
-        let addr = match users.get(u) {
-            Some(u) => u.clone(),
-            None => return
-        };
-
-        self.remove(&addr)
-            .await;
-    }
     
     /// remove channel in State. 
     ///
