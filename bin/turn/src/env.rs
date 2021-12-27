@@ -4,7 +4,7 @@ use std::{
     sync::Arc
 };
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(
     name = "TURN (Traversal Using Relays around NAT)",
     version = env!("CARGO_PKG_VERSION"),
@@ -18,7 +18,6 @@ pub struct Environment {
     /// but each node can be configured as a different domain. 
     /// this is a good idea to divide the nodes by namespace.
     #[clap(
-        about = "service realm name",
         default_value = option_env!("TURN_REALM")
             .unwrap_or("localhost")
     )]
@@ -30,7 +29,6 @@ pub struct Environment {
     /// you need to manually specify the server external IP 
     /// address and service listening port.
     #[clap(
-        about = "service external address and port",
         default_value = option_env!("TURN_EXTERNAL")
             .unwrap_or("127.0.0.1:3478")
     )]
@@ -42,7 +40,6 @@ pub struct Environment {
     /// addresses at the same time. the bound address 
     /// supports ipv4 and ipv6.
     #[clap(
-        about = "service bind address and port",
         default_value = option_env!("TURN_LISTEN")
             .unwrap_or("127.0.0.1:3478")
     )]
@@ -56,7 +53,6 @@ pub struct Environment {
     /// functions such as authorization authentication and port 
     /// allocation require communication with the control center.
     #[clap(
-        about = "nats server connection url",
         default_value = option_env!("TURN_NATS")
             .unwrap_or("127.0.0.1:4222")
     )]
@@ -68,12 +64,13 @@ pub struct Environment {
     /// using multiple threads may not bring a very significant 
     /// performance improvement, but setting the number of CPU 
     /// cores can process data to the greatest extent package.
-    #[clap(about = "runtime threads size")]
     pub threads: Option<usize>,
 }
 
 impl Environment {
     pub fn new() -> Arc<Self> {
-        Arc::new(Self::parse())
+        let env = Self::parse();
+        println!("{:?}", env);
+        Arc::new(env)
     }
 }

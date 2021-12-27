@@ -1,11 +1,11 @@
 [package]
 name = "turn"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 
 [dependencies]
-clap = "3.0.0-beta.5"
+clap = { version = "3.0.0-beta.5", features = ["derive"] }
 stun = { path = "../../stun" }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }

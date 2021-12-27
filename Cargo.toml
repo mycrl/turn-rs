@@ -14,7 +14,5 @@ members = [
     "rtcp",
     "srtcp",
     "stun",
-    "bin/turn",
-    
-    "callback"
+    "bin/turn"
 ]
