@@ -17,7 +17,8 @@ pub enum Codec {
     Av1x,
     Rtx,
     Red,
-    Ulpfec
+    Ulpfec,
+    Opus
 }
 
 impl fmt::Display for Codec {
@@ -40,7 +41,8 @@ impl fmt::Display for Codec {
             Self::Av1x =>   "AV1X",
             Self::Rtx =>    "rtx",
             Self::Red =>    "red",
-            Self::Ulpfec => "ulpfec"
+            Self::Ulpfec => "ulpfec",
+            Self::Opus  =>  "opus"
         })
     }
 }
@@ -70,6 +72,7 @@ impl<'a> TryFrom<&'a str> for Codec {
             "rtx" =>    Ok(Self::Rtx),
             "red" =>    Ok(Self::Red),
             "ulpfec" => Ok(Self::Ulpfec),
+            "opus" =>   Ok(Self::Opus),
             _ => Err(anyhow!("invalid codec!"))
         }
     }
