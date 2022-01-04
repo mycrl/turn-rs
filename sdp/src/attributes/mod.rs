@@ -3,6 +3,7 @@ mod mid;
 mod fmtp;
 mod codec;
 mod kind;
+mod ssrc;
 mod orient;
 mod extension;
 
@@ -11,6 +12,7 @@ pub use codec::Codec;
 pub use extension::*;
 pub use kind::Kind;
 pub use mid::Mid;
+pub use ssrc::*;
 pub use fmtp::*;
 pub use rtp::*;
 
