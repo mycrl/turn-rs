@@ -40,7 +40,8 @@ pub enum Key {
     Orient,
     Type,
     Framerate,
-    Quality
+    Quality,
+    Ssrc,
 }
 
 #[derive(Debug, Default)]
@@ -385,6 +386,8 @@ pub struct Attributes<'a> {
     pub extmap: ExtMap<'a>,
     /// sdp mid attribute
     pub mid: Option<Mid>,
+    /// sdp ssrc attribute
+    pub ssrc: Ssrc<'a>,
     
 }
 
@@ -436,6 +439,7 @@ impl<'a> Attributes<'a> {
             Key::Type      => self.kind = Some(Kind::try_from(v)?),
             Key::Framerate => self.framerate = Some(v.parse()?),
             Key::Quality   => self.quality = Some(v.parse()?),
+            Key::Ssrc      => self.ssrc.insert(v)?,
         })
     }
 }
@@ -465,6 +469,7 @@ impl fmt::Display for Key {
             Self::Type      => "type",
             Self::Framerate => "framerate",
             Self::Quality   => "quality",
+            Self::Ssrc      => "ssrc",
         })
     }
 }
@@ -501,6 +506,7 @@ impl<'a> TryFrom<&'a str> for Key {
             "type"      => Ok(Self::Type),
             "framerate" => Ok(Self::Framerate),
             "quality"   => Ok(Self::Quality),
+            "ssrc"      => Ok(Self::Ssrc),
             _ => Err(anyhow!("invalid sdp attributes keys!"))
         }
     }
