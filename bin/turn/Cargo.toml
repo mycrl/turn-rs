@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 
 [dependencies]
-structopt = { version = "0.3", default-features = false }
+clap = { version = "3", features = ["derive", "env"] }
 stun = { path = "../../stun" }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }

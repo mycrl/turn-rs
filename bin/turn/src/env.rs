@@ -1,11 +1,11 @@
-use structopt::StructOpt;
+use clap::Parser;
 use std::{
     net::SocketAddr,
     sync::Arc,
 };
 
-#[derive(StructOpt, Debug)]
-#[structopt(
+#[derive(Parser, Debug)]
+#[clap(
     name = "TURN (Traversal Using Relays around NAT)",
     version = env!("CARGO_PKG_VERSION"),
     author = env!("CARGO_PKG_AUTHORS")
@@ -17,7 +17,7 @@ pub struct Environment {
     /// for a single node, this configuration is fixed, 
     /// but each node can be configured as a different domain. 
     /// this is a good idea to divide the nodes by namespace.
-    #[structopt(default_value = "localhost", env = "TURN_REALM")]
+    #[clap(default_value = "localhost", env = "TURN_REALM")]
     pub realm: String,
     /// external:
     ///
@@ -25,7 +25,7 @@ pub struct Environment {
     /// for the case of exposing the service to the outside, 
     /// you need to manually specify the server external IP 
     /// address and service listening port.
-    #[structopt(default_value = "127.0.0.1:3478", env = "TURN_EXTERNAL")]
+    #[clap(default_value = "127.0.0.1:3478", env = "TURN_EXTERNAL")]
     pub external: SocketAddr,
     /// listen:
     ///
@@ -33,7 +33,7 @@ pub struct Environment {
     /// currently, it does not support binding multiple 
     /// addresses at the same time. the bound address 
     /// supports ipv4 and ipv6.
-    #[structopt(default_value = "127.0.0.1:3478", env = "TURN_LISTEN")]
+    #[clap(default_value = "127.0.0.1:3478", env = "TURN_LISTEN")]
     pub listen: SocketAddr,
     /// nats:
     ///
@@ -43,7 +43,7 @@ pub struct Environment {
     /// the service will only have the basic STUN binding function. 
     /// functions such as authorization authentication and port 
     /// allocation require communication with the control center.
-    #[structopt(default_value = "127.0.0.1:4222", env = "TURN_NATS")]
+    #[clap(default_value = "127.0.0.1:4222", env = "TURN_NATS")]
     pub nats: String,
     /// threads:
     ///
@@ -52,11 +52,12 @@ pub struct Environment {
     /// using multiple threads may not bring a very significant 
     /// performance improvement, but setting the number of CPU 
     /// cores can process data to the greatest extent package.
+    #[clap(env = "TURN_THREADS")]
     pub threads: Option<usize>,
 }
 
 impl Environment {
     pub fn new() -> Arc<Self> {
-        Arc::new(Self::from_args())
+        Arc::new(Self::parse())
     }
 }
