@@ -2,7 +2,7 @@
 name = "rtp"
 version = "0.1.0"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 bytes = "1"
