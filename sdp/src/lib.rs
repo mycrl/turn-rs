@@ -1,4 +1,5 @@
 pub mod attributes;
+pub mod encryption;
 pub mod repeat_times;
 pub mod time_zones;
 pub mod connection;
@@ -8,6 +9,7 @@ pub mod timing;
 pub mod media;
 pub mod util;
 
+use encryption::EncryptionKey;
 use repeat_times::RepeatTimes;
 use attributes::Attributes;
 use connection::Connection;
@@ -42,6 +44,7 @@ pub enum Key {
     TimeZones,
     Attributes,
     Media,
+    EncryptionKey,
 }
 
 /// Network type.
@@ -145,6 +148,7 @@ pub struct Sdp<'a> {
     /// is not necessarily the same person that created the session
     /// description.
     pub email: Option<&'a str>,
+    /// Phone number ("p=")
     pub phone: Option<&'a str>,
     /// Connection Information ("c=")
     pub connection: Option<Connection>,
@@ -156,6 +160,8 @@ pub struct Sdp<'a> {
     pub repeat_times: Option<RepeatTimes>,
     /// Time Zones ("z=")
     pub time_zones: Option<TimeZones>,
+    /// encryption key ("k=")
+    pub encryption_key: Option<EncryptionKey<'a>>,
     /// Attributes ("a=")
     pub attributes: Attributes<'a>,
     /// Media ("m=")
@@ -178,6 +184,7 @@ impl<'a> Sdp<'a> {
             Key::TimeZones => self.time_zones = Some(TimeZones::try_from(data)?),
             Key::Attributes => self.attributes.handle(data)?,
             Key::Media => self.media = Some(Media::try_from(data)?),
+            Key::EncryptionKey => self.encryption_key = Some(EncryptionKey::try_from(data)?),
         })
     }
 }
@@ -294,6 +301,7 @@ impl fmt::Display for Key {
             Self::TimeZones =>       "z=",
             Self::Attributes =>      "a=",
             Self::Media =>           "m=",
+            Self::EncryptionKey =>   "k="
         })
     }
 }
@@ -331,6 +339,7 @@ impl<'a> TryFrom<&'a str> for Key {
             "z=" => Ok(Self::TimeZones),
             "a=" => Ok(Self::Attributes),
             "m=" => Ok(Self::Media),
+            "k=" => Ok(Self::EncryptionKey),
             _ => Err(anyhow!("invalid sdp key!"))
         }
     }
