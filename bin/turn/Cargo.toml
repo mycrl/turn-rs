@@ -17,3 +17,11 @@ log = "0.4.11"
 bytes = "1"
 anyhow = "1.0"
 rand = "0.7"
+
+[profile.release]
+codegen-units = 1
+overflow-checks = false
+panic = "abort"
+opt-level = 3
+debug = false
+lto = true
