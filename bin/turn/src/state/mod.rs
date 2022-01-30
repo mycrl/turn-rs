@@ -23,7 +23,7 @@ use std::{
 
 use super::{
     env::Environment,
-    bridge::Bridge
+    controller::Publish
 };
 
 type Addr = Arc<SocketAddr>;
@@ -40,7 +40,7 @@ type Addr = Arc<SocketAddr>;
 /// valid passwords.
 pub struct State {
     conf: Arc<Environment>,
-    bridge: Arc<Bridge>,
+    controller: Arc<Publish>,
     nonces: NonceTable,
     buckets: BucketTable,
     nodes: RwLock<HashMap<Addr, Node>>,
@@ -58,12 +58,12 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// assert!(state.get_nonce(&addr).len() == 16);
     /// ```
@@ -79,12 +79,12 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// // state.get_key(&addr, "panda")
     /// ```
@@ -99,7 +99,7 @@ impl State {
             return key
         }
 
-        let auth = match self.bridge.auth(a, u).await {
+        let auth = match self.controller.auth(a, u).await {
             Ok(a) => a,
             Err(_) => return None
         };
@@ -135,14 +135,14 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -171,14 +171,14 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -212,14 +212,14 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -288,14 +288,14 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -332,14 +332,14 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -388,14 +388,14 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -491,12 +491,12 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.refresh(&addr, 600);
@@ -517,12 +517,12 @@ impl State {
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.remove(&addr);
@@ -557,18 +557,46 @@ impl State {
             .remove(&node.username);
     }
     
+    
+    /// remove a node from username.
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::env::Environment;
+    /// use turn::controller::Publish;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let argvure = Environment::generate().unwrap();
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
+    ///
+    /// state.get_key(&addr, "panda");
+    /// state.remove_from_user("panda");
+    /// ```
+    #[rustfmt::skip]
+    pub async fn remove_from_user(&self, u: &str) -> Option<Addr> {
+        let addr = match self.users.read().await.get(u) {
+            Some(a) => a.clone(),
+            None => return None,
+        };
+        
+        self.remove(&addr).await;
+        Some(addr)
+    }
+    
     /// remove channel in State. 
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
-    /// let state = State::new(&argvure, &bridge);
+    /// let controller = Publish::new(&argvure);
+    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// assert!(state.remove_channel(0, 0x4000).is_none());
@@ -594,13 +622,13 @@ impl State {
     ///
     /// ```no_run
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
+    /// let controller = Publish::new(&argvure);
     /// 
     /// tokio::spawn(async move {
-    ///     let state = State::new(&argvure, &bridge);
+    ///     let state = State::new(&argvure, &controller);
     ///     loop {
     ///         state.poll()
     ///     }
@@ -635,12 +663,12 @@ impl State {
     ///
     /// ```no_run
     /// use turn::env::Environment;
-    /// use turn::bridge::Bridge;
+    /// use turn::controller::Publish;
     ///
     /// let argvure = Environment::generate().unwrap();
-    /// let bridge = Bridge::new(&argvure);
+    /// let controller = Publish::new(&argvure);
     /// 
-    /// State::new(&argvure, &bridge)
+    /// State::new(&argvure, &controller)
     ///     .run()
     ///     .await
     ///     .unwrap();
@@ -657,10 +685,10 @@ impl State {
         Ok(())
     }
     
-    pub fn new(c: &Arc<Environment>, b: &Arc<Bridge>) -> Arc<Self> {
+    pub fn new(c: &Arc<Environment>, b: &Arc<Publish>) -> Arc<Self> {
         Arc::new(Self {
             conf: c.clone(),
-            bridge: b.clone(),
+            controller: b.clone(),
             buckets: BucketTable::new(),
             nonces: NonceTable::new(),
             channel_bonds: create_table(),

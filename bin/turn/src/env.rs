@@ -33,8 +33,8 @@ pub struct Environment {
     /// currently, it does not support binding multiple 
     /// addresses at the same time. the bound address 
     /// supports ipv4 and ipv6.
-    #[clap(default_value = "127.0.0.1:3478", env = "TURN_LISTEN")]
-    pub listen: SocketAddr,
+    #[clap(default_value = "127.0.0.1:3478", env = "TURN_LISTENING")]
+    pub listening: SocketAddr,
     /// nats:
     ///
     /// specify the remote control service. 

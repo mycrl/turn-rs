@@ -40,7 +40,7 @@ fn get_threads(threads: Option<usize>) -> usize {
 /// ```
 #[rustfmt::skip]
 pub async fn run(f: Arc<Environment>, c: Arc<State>) -> Result<()> {
-    let s = Arc::new(UdpSocket::bind(f.listen).await?);
+    let s = Arc::new(UdpSocket::bind(f.listening).await?);
     let threads = get_threads(f.threads);
     let tl = ThreadLocal {
         state: c.clone(),
@@ -63,7 +63,7 @@ pub async fn run(f: Arc<Environment>, c: Arc<State>) -> Result<()> {
     
     log::info!(
         "udp bind to {}",
-        f.listen
+        f.listening
     );
 
     Ok(())
