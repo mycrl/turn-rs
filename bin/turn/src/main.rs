@@ -1,12 +1,13 @@
+mod controller;
 mod accepter;
 mod server;
-mod bridge;
 mod state;
 mod env;
 
+use async_nats::connect;
 use anyhow::Result;
 use env::Environment;
-use bridge::Bridge;
+use controller::*;
 use state::State;
 
 #[tokio::main]
@@ -17,9 +18,12 @@ async fn main() -> Result<()> {
         .init();
    
     let env = Environment::new();
-    let bridge = Bridge::new(&env).await?;
-    let state = State::new(&env, &bridge);
-    server::run(env, state.clone()).await?;
+    let conn = connect(env.nats.as_str()).await?;
+    let controller = Publish::new(&env, conn.clone());
+    let state = State::new(&env, &controller);
+    
+    server::run(env.clone(), state.clone()).await?;
+    create_subscribe(&env, conn, state.clone()).await?;
     state.run().await?;
     Ok(())
 }

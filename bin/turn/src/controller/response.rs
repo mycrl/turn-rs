@@ -1,5 +1,13 @@
-use serde::Deserialize;
-use std::convert::TryFrom;
+use serde::{
+    Serialize,
+    Deserialize
+};
+
+use std::convert::{
+    Into,
+    TryFrom,
+};
+
 use anyhow::{
     Result,
     anyhow
@@ -12,10 +20,16 @@ pub struct Auth {
     pub group: u32,
 }
 
+/// close response struct.
+#[derive(Serialize)]
+pub struct Close {
+    pub addr: String,
+}
+
 /// response from nats request.
 ///
 /// data is empty when error is not empty.
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Response<T> {
     pub error: Option<String>,
     pub data: Option<T>
@@ -44,6 +58,31 @@ impl<'a, T: Deserialize<'a>> TryFrom<&'a [u8]> for Response<T> {
     type Error = anyhow::Error;
     fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
         Ok(serde_json::from_slice(value)?)
+    }
+}
+
+impl<T: Serialize> Into<Vec<u8>> for Response<T> {
+    /// # Example
+    ///
+    /// ```no_run
+    /// let res_buf = [
+    ///     0x7b, 0x22, 0x65, 0x72, 0x72, 
+    ///     0x6f, 0x72, 0x22, 0x3a, 0x6e,
+    ///     0x75, 0x6c, 0x6c, 0x2c, 0x22, 
+    ///     0x64, 0x61, 0x74, 0x61, 0x22,
+    ///     0x3a, 0x7b, 0x22, 0x67, 0x72,
+    ///     0x6f, 0x75, 0x70, 0x22, 0x3a,
+    ///     0x30, 0x2c, 0x22, 0x70, 0x61,
+    ///     0x73, 0x73, 0x77, 0x6f, 0x72,
+    ///     0x64, 0x22, 0x3a, 0x22, 0x70,
+    ///     0x61, 0x6e, 0xx64, 0x61, 0x22,
+    ///     0x7d, 0x7d
+    /// ];
+    ///
+    /// // Response<Auth>::try_from(&res_buf[..]).unwrap()
+    /// ```
+    fn into(self) -> Vec<u8> {
+        serde_json::to_vec(&self).unwrap()
     }
 }
 
@@ -81,5 +120,18 @@ impl<T> Response<T> {
                 Some(a) => Ok(a)
             }
         }
+    }
+    
+    /// builde result from params.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// Response<()>::from(Some("failed!".to_string()), None);
+    /// ```
+    pub fn from(error: Option<String>, data: Option<T>) -> Self
+    where T : Serialize 
+    {
+        Self { error, data }
     }
 }

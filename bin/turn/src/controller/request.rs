@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
-use std::{
-    convert::TryFrom,
-    convert::Into
+use std::convert::{
+    TryFrom,
+    Into
 };
 
 use serde::{
@@ -12,6 +12,7 @@ use serde::{
 /// auth request struct.
 #[derive(Serialize)]
 pub struct Auth {
+    pub realm: String,
     pub addr: SocketAddr,
     pub username: String
 }
@@ -37,7 +38,7 @@ pub struct Close {
     pub username: String
 }
 
-impl TryFrom<Vec<u8>> for Close {
+impl TryFrom<&[u8]> for Close {
     type Error = anyhow::Error;
     /// uncheck input serialization.
     ///
@@ -49,7 +50,7 @@ impl TryFrom<Vec<u8>> for Close {
     ///     username: "panda".to_string()
     /// })
     /// ```
-    fn try_from(buf: Vec<u8>) -> Result<Self, Self::Error> {
-        Ok(serde_json::from_slice(&buf)?)
+    fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
+        Ok(serde_json::from_slice(buf)?)
     }
 }
