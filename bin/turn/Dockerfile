@@ -1,6 +1,9 @@
 FROM rust:latest as builder
-WORKDIR app
-COPY . .
+WORKDIR /app
+
+COPY ./bin/turn ./bin/turn
+COPY ./stun ./stun
+
 RUN cd ./bin/turn \
     && cargo build --release
 RUN cp -r ./target/release/turn /usr/local/bin/turn \
