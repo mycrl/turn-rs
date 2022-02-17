@@ -27,8 +27,8 @@ use std::{
 };
 
 /// sdp attributes keys.
-#[derive(Debug, PartialEq, Eq)]
-pub enum Key {
+#[derive(Debug)]
+pub enum AttrKind {
     Fmtp,
     Lang,
     RtpMap,
@@ -44,9 +44,8 @@ pub enum Key {
     Ssrc,
 }
 
-#[derive(Debug, Default)]
-pub struct Attributes<'a> {
-    others: Vec<&'a str>,
+#[derive(Debug)]
+pub enum Attributes<'a> {
     /// ptime (Packet Time)
     /// 
     /// Name:  ptime
@@ -66,7 +65,7 @@ pub struct Attributes<'a> {
     /// not be necessary to know "a=ptime:" to decode RTP or vat audio, and
     /// it is intended as a recommendation for the encoding/packetization of
     /// audio.
-    pub ptime: Option<u64>,
+    Ptime(u64),
     /// maxptime (Maximum Packet Time)
     /// 
     /// Name:  maxptime
@@ -90,7 +89,7 @@ pub struct Attributes<'a> {
     /// [RFC2327](https://datatracker.ietf.org/doc/html/rfc2327), 
     /// and implementations that have not been updated will ignore
     /// this attribute.
-    pub maxptime: Option<u64>,
+    MaxPtime(u64),
     /// Name:  rtpmap
     /// Value:  rtpmap-value
     /// Usage Level:  media
@@ -104,7 +103,7 @@ pub struct Attributes<'a> {
     /// clock-rate = integer
     /// encoding-params = channels
     /// channels = integer
-    pub rtpmap: RtpMap,
+    Rtpmap(RtpMap),
     /// Name:  fmtp
     /// Value:  fmtp-value
     /// Usage Level:  media
@@ -130,7 +129,7 @@ pub struct Attributes<'a> {
     /// 
     /// The "a=fmtp:" attribute may be used to specify parameters for any
     /// protocol and format that defines use of such parameters.
-    pub fmtp: Fmtp<'a>,
+    Fmtp(Fmtp<'a>),
     /// orient (Orientation)
     /// 
     /// Name:  orient
@@ -148,7 +147,7 @@ pub struct Attributes<'a> {
     /// 
     /// Example:
     /// a=orient:portrait
-    pub orient: Option<Orient>,
+    Orient(Orient),
     /// Name:  charset
     /// Value:  charset-value
     /// Usage Level:  session
@@ -178,7 +177,7 @@ pub struct Attributes<'a> {
     /// are valid according to the definition of the selected character set.
     /// Furthermore, charset-dependent fields MUST NOT contain the bytes 0x00
     /// (Nul), 0x0A (LF), and 0x0d (CR).
-    pub charset: Option<&'a str>,
+    Charset(&'a str),
     /// Name:  sdplang
     /// Value:  sdplang-value
     /// Usage Level:  session, media
@@ -215,7 +214,7 @@ pub struct Attributes<'a> {
     /// distributed with sufficient scope to cross geographic boundaries, 
     /// where the language of recipients cannot be assumed, or where the 
     /// session is in a different language from the locally assumed norm.
-    pub sdplang: Option<&'a str>,
+    SdpLang(&'a str),
     /// Name:  lang
     /// Value:  lang-value
     /// Usage Level:  session, media
@@ -261,7 +260,7 @@ pub struct Attributes<'a> {
     /// indicate such intentions.  Without such semantics, it is assumed that
     /// for a negotiated session one of the declared languages will be
     /// selected and used.
-    pub lang: Option<&'a str>,
+    Lang(&'a str),
     /// Name:  framerate
     /// Value:  framerate-value
     /// Usage Level:  media
@@ -277,7 +276,7 @@ pub struct Attributes<'a> {
     /// intended as a recommendation for the encoding of video data.  Decimal
     /// representations of fractional values are allowed.  It is defined only
     /// for video media.
-    pub framerate: Option<u16>,
+    Framerate(u16),
     /// Name:  quality
     /// Value:  quality-value
     /// Usage Level:  media
@@ -305,7 +304,7 @@ pub struct Attributes<'a> {
     /// | 0  | the worst still-image quality the      |
     /// |    | codec designer thinks is still usable. |
     /// +----+----------------------------------------+
-    pub quality: Option<u8>,
+    Quality(u8),
     /// Name:  type
     /// Value:  type-value
     /// Usage Level:  session
@@ -323,7 +322,7 @@ pub struct Attributes<'a> {
     /// 
     /// Example:
     /// a=type:moderated
-    pub kind: Option<Kind>,
+    Kind(Kind),
     /// Name:  recvonly
     /// Value:
     /// Usage Level:  session, media
@@ -337,7 +336,7 @@ pub struct Attributes<'a> {
     /// only, not to any associated control protocol.  An RTP-based system in
     /// receive-only mode MUST still send RTCP packets as described in
     /// [RFC3550](https://datatracker.ietf.org/doc/html/rfc3550#section-6).
-    pub recvonly: bool,
+    Recvonly(bool),
     /// Name:  sendonly
     /// Value:
     /// Usage Level:  session, media
@@ -353,7 +352,7 @@ pub struct Attributes<'a> {
     /// receive-vonly mode.  Note that send-only mode applies only to the
     /// media, and any associated control protocol (e.g., RTCP) SHOULD still
     /// be received and processed as normal.
-    pub sendrecv: bool,
+    Sendrecv(bool),
     /// Name:  inactive
     /// Value:
     /// Usage Level:  session, media
@@ -367,7 +366,7 @@ pub struct Attributes<'a> {
     /// can put other users on hold.  No media is sent over an inactive media
     /// stream.  Note that an RTP-based system MUST still send RTCP (if RTCP
     /// is used), even if started in inactive mode.
-    pub sendonly: bool,
+    Sendonly(bool),
     /// Name:  inactive
     /// Value:
     /// Usage Level:  session, media
@@ -381,22 +380,18 @@ pub struct Attributes<'a> {
     /// can put other users on hold.  No media is sent over an inactive media
     /// stream.  Note that an RTP-based system MUST still send RTCP (if RTCP
     /// is used), even if started in inactive mode.
-    pub inactive: bool,
+    Inactive(bool),
     /// sdp extmap attribute
-    pub extmap: ExtMap<'a>,
+    Extmap(ExtMap<'a>),
     /// sdp mid attribute
-    pub mid: Option<Mid>,
+    Mid(Mid),
     /// sdp ssrc attribute
-    pub ssrc: Ssrc<'a>,
+    Ssrc(Ssrc<'a>),
     
 }
 
-impl<'a> Attributes<'a> {
-    fn other(&mut self, line: &'a str) -> Result<()> {
-        self.others.push(line);
-        Ok(())
-    }
-    
+impl<'a> TryFrom<&'a str> for Attributes<'a> {
+    type Error = anyhow::Error;
     /// # Unit Test
     ///
     /// ```
@@ -410,7 +405,7 @@ impl<'a> Attributes<'a> {
     /// assert_eq!(value.frequency, Some(9000));
     /// assert_eq!(value.channels, None);
     /// ```
-    pub fn handle(&mut self, line: &'a str) -> Result<()> {
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         let mut iter = line.split(':');
         let k = iter.next().ok_or_else(|| {
             anyhow!("invalid attributes!")
@@ -421,38 +416,38 @@ impl<'a> Attributes<'a> {
             Some(v) => v,
         };
         
-        let key = match Key::try_from(k) {
+        let key = match AttrKind::try_from(k) {
             Err(_) => return self.other(line),
             Ok(k) => k,
         };
         
         Ok(match key {
-            Key::Fmtp      => self.fmtp.insert(v)?,
-            Key::RtpMap    => self.rtpmap.insert(v)?,
-            Key::ExtMap    => self.extmap.insert(v)?,
-            Key::Lang      => self.lang = Some(v),
-            Key::Charset   => self.charset = Some(v),
-            Key::SdpLang   => self.sdplang = Some(v),
-            Key::Ptime     => self.ptime = Some(v.parse()?),
-            Key::MaxPtime  => self.maxptime = Some(v.parse()?),
-            Key::Orient    => self.orient = Some(Orient::try_from(v)?),
-            Key::Type      => self.kind = Some(Kind::try_from(v)?),
-            Key::Framerate => self.framerate = Some(v.parse()?),
-            Key::Quality   => self.quality = Some(v.parse()?),
-            Key::Ssrc      => self.ssrc.insert(v)?,
+            AttrKind::Fmtp      => self.fmtp.insert(v)?,
+            AttrKind::RtpMap    => self.rtpmap.insert(v)?,
+            AttrKind::ExtMap    => self.extmap.insert(v)?,
+            AttrKind::Lang      => self.lang = Some(v),
+            AttrKind::Charset   => self.charset = Some(v),
+            AttrKind::SdpLang   => self.sdplang = Some(v),
+            AttrKind::Ptime     => self.ptime = Some(v.parse()?),
+            AttrKind::MaxPtime  => self.maxptime = Some(v.parse()?),
+            AttrKind::Orient    => self.orient = Some(Orient::try_from(v)?),
+            AttrKind::Type      => self.kind = Some(Kind::try_from(v)?),
+            AttrKind::Framerate => self.framerate = Some(v.parse()?),
+            AttrKind::Quality   => self.quality = Some(v.parse()?),
+            AttrKind::Ssrc      => self.ssrc.insert(v)?,
         })
     }
 }
 
-impl fmt::Display for Key {
+impl fmt::Display for AttrKind {
     /// # Unit Test
     ///
     /// ```
-    /// use sdp::Key;
+    /// use sdp::AttrKind;
     ///
-    /// assert_eq!(format!("{}", Key::Origin), "o=");
-    /// assert_eq!(format!("{}", Key::SessionName), "s=");
-    /// assert_eq!(format!("{}", Key::SessionInfo), "i=");
+    /// assert_eq!(format!("{}", AttrKind::Origin), "o=");
+    /// assert_eq!(format!("{}", AttrKind::SessionName), "s=");
+    /// assert_eq!(format!("{}", AttrKind::SessionInfo), "i=");
     /// ```
     #[rustfmt::skip]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -474,23 +469,23 @@ impl fmt::Display for Key {
     }
 }
 
-impl<'a> TryFrom<&'a str> for Key {
+impl<'a> TryFrom<&'a str> for AttrKind {
     type Error = anyhow::Error;
     /// # Unit Test
     ///
     /// ```
-    /// use sdp::Key;
+    /// use sdp::AttrKind;
     /// use std::convert::*;
     ///
-    /// let uri: Key = Key::try_from("u=").unwrap();
-    /// let origin: Key = Key::try_from("o=").unwrap();
-    /// let session_name: Key = Key::try_from("s=").unwrap();
-    /// let session_info: Key = Key::try_from("i=").unwrap();
+    /// let uri: AttrKind = AttrKind::try_from("u=").unwrap();
+    /// let origin: AttrKind = AttrKind::try_from("o=").unwrap();
+    /// let session_name: AttrKind = AttrKind::try_from("s=").unwrap();
+    /// let session_info: AttrKind = AttrKind::try_from("i=").unwrap();
     ///
-    /// assert_eq!(uri, Key::Uri);
-    /// assert_eq!(origin, Key::Origin);
-    /// assert_eq!(session_name, Key::SessionName);
-    /// assert_eq!(session_info, Key::SessionInfo);
+    /// assert_eq!(uri, AttrKind::Uri);
+    /// assert_eq!(origin, AttrKind::Origin);
+    /// assert_eq!(session_name, AttrKind::SessionName);
+    /// assert_eq!(session_info, AttrKind::SessionInfo);
     /// ```
     fn try_from(value: &'a str) -> Result<Self, Self::Error> {
         match value {

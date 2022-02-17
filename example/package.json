@@ -11,6 +11,7 @@
     "dependencies": {
         "control": "file:../control",
         "express": "^4.17.1",
+        "nats": "^2.4.0",
         "ws": "^7.4.6"
     },
     "devDependencies": {
