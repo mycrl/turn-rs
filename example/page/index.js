@@ -10,7 +10,8 @@ new Vue({
         socket: null,
         uid: String(Date.now()),
         domain: location.host,
-        style: {}
+        style: {},
+        isOffer: false
     },
     methods: {
         async start() {
@@ -92,13 +93,11 @@ new Vue({
                 candidate && this.emit({ type: 'icecandidate', to: name, candidate })
             })
 
-            this.localStream.getTracks().forEach(track => {
-                this.peers[name].addTrack(track, this.localStream)
-            })
-            
-            if (this.audioStream) {
-                this.audioStream.getTracks().forEach(track => {
-                    this.peers[name].addTrack(track, this.audioStream)
+            if (this.localStream) {
+                this.localStream.getTracks().forEach(track => {
+                    if (track.kind === "audio") {
+                        this.peers[name].addTrack(track, this.localStream)   
+                    }
                 })
             }
 

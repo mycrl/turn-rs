@@ -196,7 +196,7 @@ impl Rpc {
     /// extension.into(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
-    pub async fn caller<Q, S, T>(&self, topic: &str, caller: T) -> RpcCaller<Q, S>
+    pub fn caller<Q, S, T>(&self, topic: &str, caller: T) -> RpcCaller<Q, S>
     where T: Caller<Q, S> + 'static
     {
         RpcCaller::new(topic, self.0.clone(), caller)
