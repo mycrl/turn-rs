@@ -8,13 +8,13 @@ lto = true
 
 [workspace]
 members = [
+    "rpc",
     "sdp",
     "rtp",
     "srtp",
     "rtcp",
     "srtcp",
     "stun",
-    "dtls",
     "bin/turn",
     "bin/signaling"
 ]
