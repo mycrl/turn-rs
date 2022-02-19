@@ -11,13 +11,17 @@ pub mod util;
 
 use encryption::EncryptionKey;
 use repeat_times::RepeatTimes;
-use attributes::Attributes;
 use connection::Connection;
 use time_zones::TimeZones;
 use bandwidth::Bandwidth;
 use timing::Timing;
 use origin::Origin;
 use media::Media;
+use attributes::{
+    Attributes,
+    AttrKind,
+};
+
 use anyhow::{
     ensure,
     anyhow
@@ -153,19 +157,19 @@ pub struct Sdp<'a> {
     /// Connection Information ("c=")
     pub connection: Option<Connection>,
     /// Bandwidth ("b=")
-    pub bandwidth: Option<Bandwidth>,
+    pub bandwidth: Vec<Bandwidth>,
     /// Timing ("t=")
     pub timing: Option<Timing>,
     /// Repeat Times ("r=")
     pub repeat_times: Option<RepeatTimes>,
     /// Time Zones ("z=")
-    pub time_zones: Option<TimeZones>,
+    pub time_zones: Vec<TimeZones>,
     /// encryption key ("k=")
     pub encryption_key: Option<EncryptionKey<'a>>,
     /// Attributes ("a=")
-    pub attributes: Attributes<'a>,
+    pub attributes: Vec<(AttrKind, Attributes<'a>)>,
     /// Media ("m=")
-    pub media: Option<Media>,
+    pub media: Vec<Media>,
 }
 
 impl<'a> Sdp<'a> {
@@ -178,12 +182,12 @@ impl<'a> Sdp<'a> {
             Key::Email => self.email = util::placeholder(data),
             Key::Phone => self.phone = util::placeholder(data),
             Key::Connection => self.connection = Some(Connection::try_from(data)?),
-            Key::Bandwidth => self.bandwidth = Some(Bandwidth::try_from(data)?),
+            Key::Bandwidth => self.bandwidth.push(Bandwidth::try_from(data)?),
             Key::Timing => self.timing = Some(Timing::try_from(data)?),
             Key::RepeatTimes => self.repeat_times = Some(RepeatTimes::try_from(data)?),
-            Key::TimeZones => self.time_zones = Some(TimeZones::try_from(data)?),
-            Key::Attributes => self.attributes.handle(data)?,
-            Key::Media => self.media = Some(Media::try_from(data)?),
+            Key::TimeZones => self.time_zones.push(TimeZones::try_from(data)?),
+            Key::Attributes => self.attributes.push(Attributes::try_from(data)?),
+            Key::Media => self.media.push(Media::try_from(data)?),
             Key::EncryptionKey => self.encryption_key = Some(EncryptionKey::try_from(data)?),
         })
     }

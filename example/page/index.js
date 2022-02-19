@@ -14,33 +14,12 @@ new Vue({
     },
     methods: {
         async start() {
-            if (navigator.platform === 'Win32') {
-                this.localStream = await navigator.mediaDevices.getDisplayMedia({ 
-                    video: true, 
-                    audio: {
-                        echoCancellation: true,
-                        groupId: (await navigator.mediaDevices.enumerateDevices())[1].groupId
-                    } 
-                })
-                
-                this.audioStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: false, 
-                    audio: {
-                        echoCancellation: true,
-                        groupId: (await navigator.mediaDevices.enumerateDevices())[2].groupId
-                    }
-                })
-            } else {
-                this.localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: {
-                        width: 10,
-                        height: 10
-                    }, 
-                    audio: true
-                })
-            }
+            this.localStream = await navigator.mediaDevices.getUserMedia({ 
+                video: true,
+                audio: true
+            })
 
-            this.socket = new WebSocket('wss://' + this.domain)
+            this.socket = new WebSocket('ws://' + this.domain)
             this.socket.onmessage = this.onmessage.bind(this)
             this.socket.onopen = () => {
                 this.emit({ type: 'connected', broadcast: true })
@@ -96,9 +75,9 @@ new Vue({
         createPeer(name) {
             const remoteStream = new MediaStream()
             this.peers[name] = new RTCPeerConnection({
-                iceTransportPolicy: 'relay',
+                // iceTransportPolicy: 'relay',
                 iceServers: [{
-                    urls: 'turn:' + this.domain,
+                    urls: 'turn:render.psyai.net',
                     credentialType: 'password',
                     credential: this.password,
                     username: this.username,
