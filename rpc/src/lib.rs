@@ -26,6 +26,7 @@ use anyhow::{
 /// ```
 #[async_trait]
 pub trait Servicer<Q, S> {
+    fn topic(&self) -> String;
     async fn handler(&self, message: Q) -> S;
 }
 
@@ -46,8 +47,8 @@ pub trait Servicer<Q, S> {
 ///     }
 /// }
 /// ```
-#[async_trait]
 pub trait Caller<Q, S> {
+    fn topic(&self) -> String;
     fn serializer(&self, message: Q) -> Vec<u8>;
     fn deserializer(&self, data: &[u8]) -> Result<S>;
 }
@@ -56,18 +57,18 @@ pub trait Caller<Q, S> {
 pub struct RpcCaller<Q, S> {
     topic: String,
     conn: Connection,
-    caller: Box<dyn Caller<Q, S>>
+    caller: Box<dyn Caller<Q, S> + Send + Sync>
 }
 
 impl<Q, S> RpcCaller<Q, S> {
     pub fn new(
         topic: &str, 
         conn: Connection, 
-        caller: impl Caller<Q, S> + 'static
+        caller: Box<dyn Caller<Q, S> + Send + Sync>
     ) -> Self {
         Self {
             topic: topic.to_string(),
-            caller: Box::new(caller),
+            caller,
             conn
         }
     }
@@ -152,13 +153,13 @@ impl Rpc {
     /// extension.into(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
-    pub async fn servicer<Q, S, T>(&self, topic: &str, service: T) -> Result<&Self>
+    pub async fn servicer<Q, S, T>(&self, service: T) -> Result<&Self>
     where
         T: Servicer<Q, S> + Send + Sync + 'static,
         Q: Deserialize<'static> + Send + Sync,
         S: Serialize + Send + Sync,
     {
-        let sub = self.0.subscribe(topic).await?;
+        let sub = self.0.subscribe(&service.topic()).await?;
         tokio::spawn(async move {
             while let Some(payload) = sub.next().await {
                 let data = unsafe {
@@ -196,9 +197,13 @@ impl Rpc {
     /// extension.into(&mut writer);
     /// assert_eq!(&writer[..], &buffer[..]);
     /// ```
-    pub fn caller<Q, S, T>(&self, topic: &str, caller: T) -> RpcCaller<Q, S>
-    where T: Caller<Q, S> + 'static
+    pub fn caller<Q, S, T>(&self, caller: T) -> RpcCaller<Q, S>
+    where T: Caller<Q, S> + Send + Sync + 'static
     {
-        RpcCaller::new(topic, self.0.clone(), caller)
+        RpcCaller::new(
+            &caller.topic(), 
+            self.0.clone(), 
+            Box::new(caller)
+        )
     }
 }
