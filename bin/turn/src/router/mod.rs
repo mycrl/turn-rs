@@ -1,34 +1,31 @@
-mod bucket_table;
-mod random_port;
-mod nonce_table;
-mod channel;
-mod node;
+pub mod nodes;
+mod channels;
+mod nonces;
+mod ports;
 
-use node::Node;
-use channel::Channel;
-use nonce_table::NonceTable;
-use bucket_table::BucketTable;
+use nodes::Nodes;
+use ports::Ports;
+use nonces::Nonces;
+use channels::Channels;
 use stun::util::long_key;
-use tokio::sync::RwLock;
 use tokio::time::{
     Duration,
     sleep
 };
 
 use std::{
-    collections::HashMap,
     net::SocketAddr,
     sync::Arc
 };
 
 use super::{
     env::Environment,
-    controller::Publish
+    controller::AuthCaller
 };
 
 type Addr = Arc<SocketAddr>;
 
-/// Single State Tree.
+/// Router State Tree.
 ///
 /// this state management example maintains the status of all 
 /// nodes in the current service and adds a node grouping model. 
@@ -38,20 +35,67 @@ type Addr = Arc<SocketAddr>;
 /// it should be noted that the node key only supports 
 /// long-term valid passwords，does not support short-term 
 /// valid passwords.
-pub struct State {
+pub struct Router {
     conf: Arc<Environment>,
-    controller: Arc<Publish>,
-    nonces: NonceTable,
-    buckets: BucketTable,
-    nodes: RwLock<HashMap<Addr, Node>>,
-    users: RwLock<HashMap<String, Addr>>,
-    ports: RwLock<HashMap<(u32, u16), Addr>>,
-    port_bonds: RwLock<HashMap<Addr, HashMap<Addr, u16>>>,
-    channels: RwLock<HashMap<(u32, u16), Channel>>,
-    channel_bonds: RwLock<HashMap<(Addr, u16), Addr>>,
+    controller: AuthCaller,
+    ports: Ports,
+    nonces: Nonces,
+    nodes: Nodes,
+    channels: Channels,
 }
 
-impl State {
+impl Router {
+    pub fn new(e: &Arc<Environment>, c: AuthCaller) -> Arc<Self> {
+        Arc::new(Self {
+            channels: Channels::new(),
+            nonces: Nonces::new(),
+            ports: Ports::new(),
+            nodes: Nodes::new(),
+            conf: e.clone(),
+            controller: c,
+        })
+    }
+    
+    /// get router capacity.
+    pub async fn capacity(&self) -> usize {
+        self.ports.capacity().await
+    }
+
+    /// get router allocate size.
+    pub async fn len(&self) -> usize {
+        self.ports.len().await
+    }
+    
+    /// get node the password.
+    ///
+    /// for security reasons, the server MUST NOT store the password
+    /// explicitly and MUST store the key value, which is a cryptographic
+    /// hash over the username, realm, and password.
+    ///
+    /// ```no_run
+    /// let key = stun::util::long_key("panda", "panda", "raspberry");
+    /// let node = Node::new(0, key.clone());
+    /// assert_eq!(!node.get_password(), Arc::new(key));
+    /// ```
+    pub async fn get_users(&self) -> Vec<(String, SocketAddr)> {
+        self.nodes.get_users().await
+    }
+    
+    /// get node the password.
+    ///
+    /// for security reasons, the server MUST NOT store the password
+    /// explicitly and MUST store the key value, which is a cryptographic
+    /// hash over the username, realm, and password.
+    ///
+    /// ```no_run
+    /// let key = stun::util::long_key("panda", "panda", "raspberry");
+    /// let node = Node::new(0, key.clone());
+    /// assert_eq!(!node.get_password(), Arc::new(key));
+    /// ```
+    pub async fn get_node(&self, u: &str) -> Option<nodes::Node> {
+        self.nodes.get_node(u).await
+    }
+    
     /// get the nonce of the node SocketAddr.
     ///
     /// ```no_run
@@ -90,19 +134,15 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub async fn get_key(&self, a: &Addr, u: &str) -> Option<Arc<[u8; 16]>> {
-        let key = self.nodes
-            .read()
-            .await
-            .get(a)
-            .map(|n| n.get_password());
+        let key = self.nodes.get_password(a).await;
         if key.is_some() {
             return key
         }
 
-        let auth = match self.controller.auth(a, u).await {
-            Ok(a) => a,
-            Err(_) => return None
-        };
+        let auth = self.controller
+            .call((*a.as_ref(), u.to_string()))
+            .await
+            .ok()?;
         
         let key = long_key(
             u, 
@@ -110,22 +150,9 @@ impl State {
             &self.conf.realm
         );
         
-        let node = Node::new(
-            auth.group, 
-            u.to_string(),
-            key
-        );
-
-        let key = node.get_password();
         self.nodes
-            .write()
+            .insert(a, u, key)
             .await
-            .insert(a.clone(), node);
-        self.users
-            .write()
-            .await
-            .insert(u.to_string(), a.clone());
-        Some(key)
     }
 
     /// obtain the peer address bound to the current 
@@ -157,11 +184,7 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub async fn get_channel_bond(&self, a: &Addr, c: u16) -> Option<Addr> {
-        self.channel_bonds
-            .read()
-            .await
-            .get(&(a.clone(), c))
-            .cloned()
+        self.channels.get_bond(a, c).await
     }
 
     /// obtain the peer address bound to the current
@@ -193,17 +216,8 @@ impl State {
     /// assert_eq!(state.get_port_bond(&peer, addr_port), some(addr));
     /// ```
     #[rustfmt::skip]
-    pub async fn get_port_bond(&self, a: &Addr, p: u16) -> Option<Addr> {
-        let g = self.nodes
-            .read()
-            .await
-            .get(a)?
-            .group;
-        self.ports
-            .read()
-            .await
-            .get(&(g, p))
-            .cloned()
+    pub async fn get_port_bond(&self, p: u16) -> Option<Addr> {
+        self.ports.get(p).await
     }
 
     /// get node the port.
@@ -235,12 +249,7 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub async fn get_bond_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
-        self.port_bonds
-            .read()
-            .await
-            .get(p)?
-            .get(a)
-            .copied()
+        self.ports.get_bound(a, p).await
     }
    
     /// alloc a port from State.
@@ -305,19 +314,8 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub async fn alloc_port(&self, a: &Addr) -> Option<u16> {
-        let mut nodes = self.nodes.write().await;
-        let node = nodes.get_mut(a)?;
-        let port = self.buckets
-            .alloc(node.group)
-            .await?;
-        self.ports
-            .write()
-            .await
-            .insert((node.group, port), a.clone());
-        if !node.ports.contains(&port) {
-            node.ports.push(port);    
-        }
-        
+        let port = self.ports.alloc(a).await?;
+        self.nodes.push_port(a, port).await;
         Some(port)
     }
     
@@ -352,24 +350,7 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub async fn bind_port(&self, a: &Addr, port: u16) -> Option<()> {
-        let g = self.nodes
-            .read()
-            .await
-            .get(a)?
-            .group;
-        let p = self.ports
-            .read()
-            .await
-            .get(&(g, port))?
-            .clone();
-        self.port_bonds
-            .write()
-            .await
-            .entry(a.clone())
-            .or_insert_with(|| HashMap::with_capacity(10))
-            .entry(p)
-            .or_insert(port);
-        Some(())
+        self.ports.bound(a, port).await
     }
 
     /// bind channel number for State.
@@ -408,47 +389,9 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub async fn bind_channel(&self, a: &Addr, p: u16, c: u16) -> Option<()> {
-        let ports = self.ports.read().await;
-        let mut channels = self.channels.write().await;
-        let mut nodes = self.nodes.write().await;
-        let mut is_empty = false;
-
-        let node = nodes.get_mut(a)?;
-        let channel = channels
-            .entry((node.group, c))
-            .or_insert_with(|| {
-                is_empty = true;
-                Channel::new(a)    
-            });
-
-        let is_include = if !is_empty {
-            channel.includes(a)
-        } else {
-            true 
-        };
-        
-        if !channel.is_half() && !is_include {
-            return None
-        }
-        
-        if !is_include {
-            channel.up(a);
-        }
-
-        if !is_empty && is_include {
-            channel.refresh();
-        }
-
-        let source = ports.get(&(node.group, p))?;
-        if !node.channels.contains(&c) {
-            node.channels.push(c)
-        }
-
-        self.channel_bonds
-            .write()
-            .await
-            .entry((a.clone(), c))
-            .or_insert_with(|| source.clone());
+        let source = self.ports.get(p).await?;
+        self.channels.insert(a, c, &source).await?;
+        self.nodes.push_channel(a, c).await?;
         Some(())
     }
 
@@ -504,10 +447,10 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub async fn refresh(&self, a: &Addr, delay: u32) {
-        if delay == 0 { 
-            self.remove(a).await; 
-        } else if let Some(n) = self.nodes.write().await.get_mut(a) {
-            n.set_lifetime(delay);
+        if delay > 0 { 
+            self.nodes.set_lifetime(a, delay).await;
+        } else {
+            self.remove(a).await;
         }
     }
 
@@ -528,33 +471,16 @@ impl State {
     /// state.remove(&addr);
     /// ```
     #[rustfmt::skip]
-    pub async fn remove(&self, a: &Addr) {
-        let mut ports = self.ports.write().await;
-        let node = match self.nodes.write().await.remove(a) {
-            Some(n) => n,
-            None => return
-        };
-
-        for p in node.ports {
-            self.buckets.remove(node.group, p).await;
-            ports.remove(&(node.group, p));
-        }
+    pub async fn remove(&self, a: &Addr) -> Option<()> {
+        let node = self.nodes.remove(a).await?;
+        self.ports.remove(a, &node.ports).await;
 
         for c in node.channels {
-            self.remove_channel(node.group, c).await;
+            self.channels.remove(c).await?;
         }
 
-        self.nonces
-            .remove(a)
-            .await;
-        self.port_bonds
-            .write()
-            .await
-            .remove(a);
-        self.users
-            .write()
-            .await
-            .remove(&node.username);
+        self.nonces.remove(a).await;
+        Some(())
     }
     
     
@@ -576,46 +502,9 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub async fn remove_from_user(&self, u: &str) -> Option<Addr> {
-        let addr = match self.users.read().await.get(u) {
-            Some(a) => a.clone(),
-            None => return None,
-        };
-        
+        let addr = self.nodes.get_bond(u).await?;
         self.remove(&addr).await;
         Some(addr)
-    }
-    
-    /// remove channel in State. 
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
-    ///
-    /// state.get_key(&addr, "panda");
-    /// assert!(state.remove_channel(0, 0x4000).is_none());
-    /// ```
-    #[rustfmt::skip]
-    pub async fn remove_channel(&self, g: u32, c: u16) -> Option<()> {
-        let mut channel_bonds = self.channel_bonds
-            .write()
-            .await;
-        let mut channels = self.channels
-            .write()
-            .await;
-        let channel = channels
-            .remove(&(g, c))?;
-        for a in channel {
-            channel_bonds.remove(&(a, c));
-        }
-        
-        Some(())
     }
     
     /// poll in state.
@@ -636,26 +525,12 @@ impl State {
     /// ```
     #[rustfmt::skip]
     pub async fn poll(&self) {
-        let fail_nodes = self.nodes
-            .read()
-            .await
-            .iter()
-            .filter(|(_, v)| v.is_death())
-            .map(|(k, _)| k.clone())
-            .collect::<Vec<Addr>>();
-        for a in &fail_nodes {
-            self.remove(a).await;
+        for a in self.nodes.get_deaths().await {
+            self.remove(&a).await;
         }
         
-        let fail_channels = self.channels
-            .read()
-            .await
-            .iter()
-            .filter(|(_, v)| v.is_death())
-            .map(|(k, _)| *k)
-            .collect::<Vec<(u32, u16)>>();
-        for (g, c) in fail_channels {
-            self.remove_channel(g, c).await;
+        for c in self.channels.get_deaths().await {
+            self.channels.remove(c).await;
         }
     }
 
@@ -684,23 +559,4 @@ impl State {
         }).await?;
         Ok(())
     }
-    
-    pub fn new(c: &Arc<Environment>, b: &Arc<Publish>) -> Arc<Self> {
-        Arc::new(Self {
-            conf: c.clone(),
-            controller: b.clone(),
-            buckets: BucketTable::new(),
-            nonces: NonceTable::new(),
-            channel_bonds: create_table(),
-            channels: create_table(),
-            port_bonds: create_table(),
-            ports: create_table(),
-            nodes: create_table(),
-            users: create_table(),
-        })
-    }
-}
-
-fn create_table<K, V>() -> RwLock<HashMap<K, V>> {
-    RwLock::new(HashMap::with_capacity(1024))
 }

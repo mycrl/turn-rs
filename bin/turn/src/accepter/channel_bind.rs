@@ -104,11 +104,11 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         _ => return reject(ctx, m, w, BadRequest)
     };
 
-    if !(0x4000..=0x4FFF).contains(&c) {
+    if !(0x4000..=0x7FFF).contains(&c) {
         return reject(ctx, m, w, BadRequest)
     }
 
-    let key = match ctx.state.get_key(&ctx.addr, u).await {
+    let key = match ctx.router.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -117,7 +117,7 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         return reject(ctx, m, w, Unauthorized);
     }
     
-    if ctx.state.bind_channel(&ctx.addr, p, c).await.is_none() {
+    if ctx.router.bind_channel(&ctx.addr, p, c).await.is_none() {
         return reject(ctx, m, w, InsufficientCapacity);
     }
     

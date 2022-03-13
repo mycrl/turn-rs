@@ -1,4 +1,8 @@
-use super::Addr;
+use super::{
+    ports::capacity,
+    Addr
+};
+
 use std::{
     collections::HashMap,
     sync::Arc
@@ -31,59 +35,6 @@ pub struct Nonce {
     timer: Instant
 }
 
-/// Nonce table.
-pub struct NonceTable {
-    raw: RwLock<HashMap<Addr, Nonce>>
-}
-
-impl NonceTable {
-    pub fn new() -> Self {
-        Self {
-            raw: RwLock::new(HashMap::with_capacity(1024))
-        }
-    }
-    
-    /// get session nonce string.
-    ///
-    /// each node is assigned a random string valid for 1 hour.
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// 
-    /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap(); 
-    /// let nonce_table = NonceTable::new();
-    /// // nonce_table.get(&addr)
-    /// ```
-    pub async fn get(&self, a: &Addr) -> Arc<String> {
-        if let Some(n) = self.raw.read().await.get(a) {
-            if !n.is_death() {
-                return n.unwind()   
-            }
-        }
-
-        self.raw
-            .write()
-            .await
-            .entry(a.clone())
-            .or_insert_with(Nonce::new)
-            .unwind()
-    }
-
-    /// remove session nonce string.
-    ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// 
-    /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap(); 
-    /// let nonce_table = NonceTable::new();
-    /// // nonce_table.get(&addr);
-    /// nonce_table.remove(&addr);
-    /// ```
-    pub async fn remove(&self, a: &Addr) {
-        self.raw.write().await.remove(a);
-    }
-}
-
 impl Nonce {
     pub fn new() -> Self {
         Self {
@@ -93,6 +44,8 @@ impl Nonce {
     }
 
     /// whether the nonce is dead.
+    /// 
+    /// # Examples
     ///
     /// ```no_run
     /// let nonce = Nonce::new();
@@ -103,6 +56,8 @@ impl Nonce {
     }
 
     /// unwind nonce random string.
+    /// 
+    /// # Examples
     ///
     /// ```no_run
     /// let nonce = Nonce::new();
@@ -120,5 +75,62 @@ impl Nonce {
             .take(16)
             .collect::<String>()
             .to_lowercase()
+    }
+}
+
+/// nonce table.
+pub struct Nonces {
+    map: RwLock<HashMap<Addr, Nonce>>
+}
+
+impl Nonces {
+    pub fn new() -> Self {
+        Self {
+            map: RwLock::new(HashMap::with_capacity(capacity()))
+        }
+    }
+    
+    /// get session nonce string.
+    ///
+    /// each node is assigned a random string valid for 1 hour.
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// 
+    /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap(); 
+    /// let nonce_table = Nonces::new();
+    /// // nonce_table.get(&addr)
+    /// ```
+    pub async fn get(&self, a: &Addr) -> Arc<String> {
+        if let Some(n) = self.map.read().await.get(a) {
+            if !n.is_death() {
+                return n.unwind()   
+            }
+        }
+
+        self.map
+            .write()
+            .await
+            .entry(a.clone())
+            .or_insert_with(Nonce::new)
+            .unwind()
+    }
+
+    /// remove session nonce string.
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// 
+    /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap(); 
+    /// let nonce_table = Nonces::new();
+    /// // nonce_table.get(&addr);
+    /// nonce_table.remove(&addr);
+    /// ```
+    pub async fn remove(&self, a: &Addr) {
+        self.map.write().await.remove(a);
     }
 }

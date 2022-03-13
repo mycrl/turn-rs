@@ -103,7 +103,7 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         _ => 600,
     };
 
-    let key = match ctx.state.get_key(&ctx.addr, u).await {
+    let key = match ctx.router.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -119,6 +119,6 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         l,
     );
 
-    ctx.state.refresh(&ctx.addr, l).await;
+    ctx.router.refresh(&ctx.addr, l).await;
     resolve(&ctx, &m, l, &key, w)
 }

@@ -2,7 +2,8 @@ use anyhow::Result;
 use bytes::BytesMut;
 use super::{
     Context, 
-    Response
+    Response,
+    SOFTWARE,
 };
 
 use stun::{
@@ -18,13 +19,14 @@ use stun::attribute::{
     Error,
     Realm,
     UserName,
-    XorPeerAddress
+    XorPeerAddress,
+    Software
 };
 
 use stun::attribute::ErrKind::{
     BadRequest,
     Unauthorized,
-    AllocationMismatch,
+    Forbidden,
 };
 
 /// return create permission error response
@@ -52,7 +54,9 @@ fn resolve<'a, 'b>(
     w: &'a mut BytesMut
 ) -> Result<Response<'a>> {
     let method = Method::CreatePermission(Kind::Response);
-    MessageWriter::extend(method, m, w).flush(Some(p))?;
+    let mut pack = MessageWriter::extend(method, m, w);
+    pack.append::<Software>(SOFTWARE);
+    pack.flush(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
 
@@ -101,12 +105,12 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         _ => return reject(ctx, m, w, Unauthorized),
     };
 
-    let p = match m.get::<XorPeerAddress>() {
-        Some(a) => a?.port(),
+    let peer = match m.get::<XorPeerAddress>() {
+        Some(a) => a?,
         _ => return reject(ctx, m, w, BadRequest)
     };
 
-    let key = match ctx.state.get_key(&ctx.addr, u).await {
+    let key = match ctx.router.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -115,15 +119,19 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         return reject(ctx, m, w, Unauthorized);
     }
 
-    if ctx.state.bind_port(&ctx.addr, p).await.is_none() {
-        return reject(ctx, m, w, AllocationMismatch);
+    if ctx.conf.external.ip() != peer.ip() {
+        return reject(ctx, m, w, Forbidden);
+    }
+
+    if ctx.router.bind_port(&ctx.addr, peer.port()).await.is_none() {
+        return reject(ctx, m, w, Forbidden);
     }
 
     log::info!(
         "{:?} [{:?}] bind peer={}", 
         &ctx.addr,
         u,
-        p,
+        peer,
     );
 
     resolve(&ctx, &m, &key, w)

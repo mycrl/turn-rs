@@ -2,7 +2,8 @@ use anyhow::Result;
 use bytes::BytesMut;
 use super::{ 
     Context, 
-    Response
+    Response,
+    SOFTWARE,
 };
 
 use std::{
@@ -26,9 +27,9 @@ use stun::attribute::{
     ReqeestedTransport,
     XorMappedAddress,
     XorRelayedAddress,
-    ResponseOrigin,
     Lifetime,
-    UserName
+    UserName,
+    Software
 };
 
 use stun::attribute::ErrKind::{
@@ -45,7 +46,7 @@ async fn reject<'a, 'b>(
     e: ErrKind, 
 ) -> Result<Response<'a>> {
     let method = Method::Allocate(Kind::Error);
-    let nonce = ctx.state.get_nonce(&ctx.addr).await;
+    let nonce = ctx.router.get_nonce(&ctx.addr).await;
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.conf.realm);
@@ -77,8 +78,8 @@ async fn resolve<'a, 'b>(
     let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<XorRelayedAddress>(*alloc_addr.as_ref());
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
-    pack.append::<ResponseOrigin>(ctx.conf.external);
     pack.append::<Lifetime>(600);
+    pack.append::<Software>(SOFTWARE);
     pack.flush(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
 }
@@ -110,12 +111,12 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         return reject(ctx, m, w, ServerError).await
     }
 
-    let key = match ctx.state.get_key(&ctx.addr, u).await {
+    let key = match ctx.router.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };
 
-    let port = match ctx.state.alloc_port(&ctx.addr).await {
+    let port = match ctx.router.alloc_port(&ctx.addr).await {
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };

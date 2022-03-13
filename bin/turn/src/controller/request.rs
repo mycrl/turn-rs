@@ -1,12 +1,13 @@
 use std::net::SocketAddr;
-use std::convert::{
-    TryFrom,
-    Into
-};
-
+use anyhow::Result;
 use serde::{
     Serialize,
     Deserialize
+};
+
+use std::convert::{
+    Into,
+    TryFrom,
 };
 
 /// auth request struct.
@@ -18,8 +19,6 @@ pub struct Auth {
 }
 
 impl Into<Vec<u8>> for Auth {
-    /// uncheck input serialization.
-    ///
     /// # Example
     ///
     /// ```no_run
@@ -53,4 +52,10 @@ impl TryFrom<&[u8]> for Close {
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
         Ok(serde_json::from_slice(buf)?)
     }
+}
+
+/// get node request struct.
+#[derive(Deserialize)]
+pub struct Node {
+    pub username: String
 }

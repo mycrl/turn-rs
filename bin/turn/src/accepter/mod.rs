@@ -10,7 +10,7 @@ use anyhow::Result;
 use bytes::BytesMut;
 use super::{
     env::Environment,
-    state::State,
+    router::Router,
     server::ThreadLocal
 };
 
@@ -43,7 +43,7 @@ pub(crate) type Response<'a> = Option<(
 /// message context
 pub struct Context {
     pub conf: Arc<Environment>,
-    pub state: Arc<State>,
+    pub router: Arc<Router>,
     pub addr: Arc<SocketAddr>
 }
 
@@ -321,7 +321,7 @@ impl<'a> Accepter<'a> {
     /// builder of message context from thread local.
     fn get_context(&self, a: SocketAddr) -> Context {
         Context {
-            state: self.local.state.clone(),
+            router: self.local.router.clone(),
             conf: self.local.conf.clone(),
             addr: Arc::new(a),
         }

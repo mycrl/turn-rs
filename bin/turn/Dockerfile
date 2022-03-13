@@ -1,11 +1,9 @@
 FROM rust:latest as builder
 WORKDIR /app
+COPY . .
+COPY ./.cargofile ./.cargo/config
 
-COPY ./bin/turn ./bin/turn
-COPY ./stun ./stun
-
-RUN cd ./bin/turn \
-    && cargo build --release
+RUN cargo build --release
 RUN cp -r ./target/release/turn /usr/local/bin/turn \
     && chmod +x /usr/local/bin/turn
 

@@ -1,14 +1,14 @@
 mod controller;
 mod accepter;
 mod server;
-mod state;
+mod router;
 mod env;
 
-use async_nats::connect;
+use controller::*;
 use anyhow::Result;
 use env::Environment;
-use controller::*;
-use state::State;
+use router::Router;
+use rpc::Rpc;
 
 #[tokio::main]
 #[rustfmt::skip]
@@ -18,12 +18,17 @@ async fn main() -> Result<()> {
         .init();
    
     let env = Environment::new();
-    let conn = connect(env.nats.as_str()).await?;
-    let controller = Publish::new(&env, conn.clone());
-    let state = State::new(&env, &controller);
+    let rpc = Rpc::new(env.nats.as_str()).await?;
+    let r = Router::new(
+        &env, 
+        rpc.caller(Auth::new(&env))
+    );
     
-    server::run(env.clone(), state.clone()).await?;
-    create_subscribe(&env, conn, state.clone()).await?;
-    state.run().await?;
+    rpc
+        .servicer(Close::new(&r, &env)).await?
+        .servicer(State::new(&r, &env)).await?
+        .servicer(Node::new(&r, &env)).await?;
+    server::run(&env, &r).await?;
+    r.run().await?;
     Ok(())
 }

@@ -5,7 +5,7 @@ use anyhow::Result;
 use std::sync::Arc;
 use super::{
     env::Environment,
-    state::State
+    router::Router
 };
 
 pub use thread::{
@@ -39,11 +39,11 @@ fn get_threads(threads: Option<usize>) -> usize {
 /// // run(c, s).await?
 /// ```
 #[rustfmt::skip]
-pub async fn run(f: Arc<Environment>, c: Arc<State>) -> Result<()> {
+pub async fn run(f: &Arc<Environment>, c: &Arc<Router>) -> Result<()> {
     let s = Arc::new(UdpSocket::bind(f.listening).await?);
     let threads = get_threads(f.threads);
     let tl = ThreadLocal {
-        state: c.clone(),
+        router: c.clone(),
         conf: f.clone(),
     };
     

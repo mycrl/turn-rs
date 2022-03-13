@@ -1,8 +1,17 @@
-use tokio::time::Instant;
-use super::Addr;
+use std::collections::HashMap;
+use super::{
+    ports::capacity,
+    Addr
+};
+
 use std::iter::{
     IntoIterator,
     Iterator
+};
+
+use tokio::{
+    sync::RwLock,
+    time::Instant,
 };
 
 /// channels iterator.
@@ -69,6 +78,8 @@ impl Channel {
     
     /// whether to include the current socketaddr.
     /// 
+    /// # Examples
+    ///
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
@@ -83,6 +94,8 @@ impl Channel {
 
     /// wether the peer addr has been established.
     /// 
+    /// # Examples
+    ///
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
@@ -97,6 +110,8 @@ impl Channel {
 
     /// update half addr.
     /// 
+    /// # Examples
+    ///
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
@@ -112,6 +127,8 @@ impl Channel {
 
     /// refresh channel lifetime.
     /// 
+    /// # Examples
+    ///
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
@@ -126,6 +143,8 @@ impl Channel {
     
     /// whether the channel lifetime has ended.
     /// 
+    /// # Examples
+    ///
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
@@ -144,6 +163,8 @@ impl Iterator for Iter {
     type Item = Addr;
     /// Iterator for channels.
     /// 
+    /// # Examples
+    ///
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
@@ -173,6 +194,8 @@ impl IntoIterator for Channel {
     type IntoIter = Iter;
     /// Into iterator for channels.
     /// 
+    /// # Examples
+    ///
     /// ```no_run
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
@@ -187,5 +210,141 @@ impl IntoIterator for Channel {
             inner: self,
             index: 0
         }
+    }
+}
+
+/// channels table.
+pub struct Channels {
+    map: RwLock<HashMap<u16, Channel>>,
+    bonds: RwLock<HashMap<(Addr, u16), Addr>>,
+}
+
+impl Channels {
+    pub fn new() -> Self {
+        Self {
+            map: RwLock::new(HashMap::with_capacity(capacity())),
+            bonds: RwLock::new(HashMap::with_capacity(capacity())),
+        }
+    }
+    
+    /// get bond address.
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    ///
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// let peer = Arc::new("127.0.0.1:8081".parse::<SocketAddr>().unwrap());
+    /// let channels = Channels::new();
+    ///
+    /// channels.insert(&addr, 43159, &peer).unwrap();
+    /// channels.insert(&peer, 43160, &addr).unwrap();
+    ///
+    /// assert_eq!(channels.get_bond(&addr, 43159).unwrap(), peer);
+    /// ```
+    pub async fn get_bond(&self, a: &Addr, c: u16) -> Option<Addr> {
+        self.bonds.read()
+            .await
+            .get(&(a.clone(), c))
+            .cloned()
+    }
+
+    /// insert address for peer address to channel table.
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    ///
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// let peer = Arc::new("127.0.0.1:8081".parse::<SocketAddr>().unwrap());
+    /// let channels = Channels::new();
+    ///
+    /// channels.insert(&addr, 43159, &peer).unwrap();
+    /// channels.insert(&peer, 43160, &addr).unwrap();
+    ///
+    /// assert_eq!(channels.get_bond(&addr, 43159).unwrap(), peer);
+    /// ```
+    pub async fn insert(&self,  a: &Addr, c: u16, p: &Addr) -> Option<()> {
+        let mut map = self.map.write().await;
+        let mut is_empty = false;
+
+        let channel = map
+            .entry(c)
+            .or_insert_with(|| {
+                is_empty = true;
+                Channel::new(a)    
+            });
+
+        let is_include = if !is_empty {
+            channel.includes(a)
+        } else {
+            true 
+        };
+        
+        if !channel.is_half() && !is_include {
+            return None
+        }
+        
+        if !is_include {
+            channel.up(a);
+        }
+
+        if !is_empty && is_include {
+            channel.refresh();
+        }
+
+        self.bonds
+            .write()
+            .await
+            .entry((a.clone(), c))
+            .or_insert_with(|| p.clone());
+        Some(())
+    }
+
+    /// remove channel allocate in channel table.
+    /// 
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    ///
+    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// let peer = Arc::new("127.0.0.1:8081".parse::<SocketAddr>().unwrap());
+    /// let channels = Channels::new();
+    ///
+    /// channels.insert(&addr, 43159, &peer).unwrap();
+    /// channels.insert(&peer, 43160, &addr).unwrap();
+    ///
+    /// assert!(channels.remove(&addr).is_some());
+    /// assert!(channels.remove(&peer).is_some());
+    /// ```
+    pub async fn remove(&self, c: u16) -> Option<()> {
+        let mut bonds = self.bonds.write().await;
+        for a in self.map.write().await.remove(&c)? {
+            bonds.remove(&(a, c));
+        }
+
+        Some(())
+    }
+    
+    /// get death channels.
+    /// 
+    /// ```no_run
+    /// let channels = Channels::new();
+    /// assert_eq!(channels.get_deaths().len(), 0);
+    /// ```
+    pub async fn get_deaths(&self) -> Vec<u16> {
+        self.map
+            .read()
+            .await
+            .iter()
+            .filter(|(_, v)| v.is_death())
+            .map(|(k, _)| *k)
+            .collect::<Vec<u16>>()
     }
 }

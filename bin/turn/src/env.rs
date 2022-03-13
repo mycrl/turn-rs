@@ -17,7 +17,9 @@ pub struct Environment {
     /// for a single node, this configuration is fixed, 
     /// but each node can be configured as a different domain. 
     /// this is a good idea to divide the nodes by namespace.
-    #[clap(default_value = "localhost", env = "TURN_REALM")]
+    #[clap(long)]
+    #[clap(env = "TURN_REALM")]
+    #[clap(default_value = "localhost")]
     pub realm: String,
     /// external:
     ///
@@ -25,7 +27,9 @@ pub struct Environment {
     /// for the case of exposing the service to the outside, 
     /// you need to manually specify the server external IP 
     /// address and service listening port.
-    #[clap(default_value = "127.0.0.1:3478", env = "TURN_EXTERNAL")]
+    #[clap(long)]
+    #[clap(env = "TURN_EXTERNAL")]
+    #[clap(default_value = "127.0.0.1:3478")]
     pub external: SocketAddr,
     /// listen:
     ///
@@ -33,7 +37,9 @@ pub struct Environment {
     /// currently, it does not support binding multiple 
     /// addresses at the same time. the bound address 
     /// supports ipv4 and ipv6.
-    #[clap(default_value = "127.0.0.1:3478", env = "TURN_LISTENING")]
+    #[clap(long)]
+    #[clap(env = "TURN_LISTENING")]
+    #[clap(default_value = "127.0.0.1:3478")]
     pub listening: SocketAddr,
     /// nats:
     ///
@@ -43,7 +49,9 @@ pub struct Environment {
     /// the service will only have the basic STUN binding function. 
     /// functions such as authorization authentication and port 
     /// allocation require communication with the control center.
-    #[clap(default_value = "127.0.0.1:4222", env = "TURN_NATS")]
+    #[clap(long)]
+    #[clap(env = "TURN_NATS")]
+    #[clap(default_value = "nats://127.0.0.1:4222")]
     pub nats: String,
     /// threads:
     ///
@@ -52,6 +60,7 @@ pub struct Environment {
     /// using multiple threads may not bring a very significant 
     /// performance improvement, but setting the number of CPU 
     /// cores can process data to the greatest extent package.
+    #[clap(long)]
     #[clap(env = "TURN_THREADS")]
     pub threads: Option<usize>,
 }

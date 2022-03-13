@@ -1,101 +1,204 @@
 pub mod request;
 pub mod response;
 
-use async_nats::Connection;
+use async_trait::async_trait;
 use response::Response;
-use anyhow::{
-    Result,
-    Error
+use anyhow::Result;
+use std::{
+    net::SocketAddr,
+    sync::Arc, 
 };
 
 use super::{
     env::Environment,
-    state::State,
+    router::Router,
 };
 
-use std::{
-    net::SocketAddr, 
-    sync::Arc
+use rpc::{
+    Caller,
+    Servicer,
+    RpcCaller
 };
 
-use std::convert::{
-    Into, 
-    TryFrom
-};
-
-/// Bridge Client
-///
-/// The Bridge is the main component of turn. 
-/// It handles services, calls actions, 
-/// emits events and communicates with remote nodes. 
-/// You must create a Bridge instance on every node.
-pub struct Publish {
-    conn: Connection,
+/// close action service.
+pub struct Close {
+    router: Arc<Router>,
     env: Arc<Environment>,
 }
 
-impl Publish {
-    /// connect nats publish.
-    pub fn new(env: &Arc<Environment>, conn: Connection) -> Arc<Self> {
-        Arc::new(Self { 
-            env: env.clone(),
-            conn
-        })
+impl Close {
+    pub fn new(router: &Arc<Router>, env: &Arc<Environment>) -> Self {
+        Self {
+            router: router.clone(),
+            env: env.clone()
+        }
+    }
+}
+
+#[async_trait]
+impl Servicer<request::Close, Response<()>> for Close {
+    fn topic(&self) -> String {
+        format!("turn.{}.close", self.env.realm)
     }
     
-    /// provide the user name and source address, 
-    /// request the control service to give the 
-    /// key of the current user.
+    /// uncheck input serialization.
+    ///
+    /// # Example
     ///
     /// ```no_run
-    /// let c = env::Environment::generate()?;
-    /// let Bridge = Bridge::new(&c).await?;
-    /// let source_addr = "127.0.0.1:8080".parse().unwrap();
-    /// let res = Bridge.auth(&source_addr, "panda").await?;
-    /// // res.password
+    /// Into::<Auth>::into(Auth {
+    ///     addr: "127.0.0.1:8080".parse().unwrap(),
+    ///     username: "panda".to_string()
+    /// })
     /// ```
-    #[rustfmt::skip]
-    pub async fn auth(&self, a: &SocketAddr, u: &str) -> Result<response::Auth> {
-        let message = self
-            .conn
-            .request(
-                "turn.auth", 
-                Into::<Vec<u8>>::into(request::Auth { 
-                    realm: self.env.realm.to_string(),
-                    username: u.to_string(), 
-                    addr: *a 
-                })
-            ).await?;
+    async fn handler(&self, message: request::Close) -> Response<()> {
+        let res = self.router
+            .remove_from_user(&message.username)
+            .await;
+        Response::<()>::from(match res {
+            None => Some("user is not found!".to_string()),
+            Some(_) => None,
+        }, None)
+    }
+}
+
+/// auth request service.
+pub struct Auth {
+    env: Arc<Environment>,
+}
+
+/// auth service caller type.
+pub type AuthCaller = RpcCaller<
+    (SocketAddr, String), 
+    response::Auth
+>;
+
+impl Auth {
+    pub fn new(env: &Arc<Environment>) -> Self {
+        Self { env: env.clone() }
+    }
+}
+
+impl Caller<(SocketAddr, String), response::Auth> for Auth {
+    fn topic(&self) -> String {
+        "turn.auth".to_string()
+    }
+    
+    /// uncheck input serialization.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// Into::<Auth>::into(Auth {
+    ///     addr: "127.0.0.1:8080".parse().unwrap(),
+    ///     username: "panda".to_string()
+    /// })
+    /// ```
+    fn serializer(&self, (addr, username): (SocketAddr, String)) -> Vec<u8> {
+        Into::<Vec<u8>>::into(request::Auth { 
+            realm: self.env.realm.to_string(),
+            username, 
+            addr
+        })
+    }
+
+    /// uncheck input serialization.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// Into::<Auth>::into(Auth {
+    ///     addr: "127.0.0.1:8080".parse().unwrap(),
+    ///     username: "panda".to_string()
+    /// })
+    /// ```
+    fn deserializer(&self, data: &[u8]) -> Result<response::Auth> {
         Response
             ::<response::Auth>
-            ::try_from(message.data.as_slice())?
+            ::try_from(data)?
             .into_result()
     }
 }
 
-/// create nats subscribe.
-///
-/// ```no_run
-/// let c = env::Environment::generate()?;
-/// let Bridge = Bridge::new(&c).await?;
-/// let source_addr = "127.0.0.1:8080".parse().unwrap();
-/// let res = Bridge.auth(&source_addr, "panda").await?;
-/// // res.password
-/// ```
-#[rustfmt::skip]
-pub async fn create_subscribe(env: &Arc<Environment>, conn: Connection, state: Arc<State>) -> Result<()> {
-    let sub = conn.subscribe(&format!("turn.{}.close", env.realm)).await?;
-    tokio::spawn(async move {
-        while let Some(message) = sub.next().await {
-            if let Ok(close) = request::Close::try_from(message.data.as_slice()) {
-                state.remove_from_user(&close.username).await;
-                let res = Response::<()>::from(None, None);
-                message.respond(Into::<Vec<u8>>::into(res)).await?;   
-            }
-        }
+/// state action service.
+pub struct State {
+    router: Arc<Router>,
+    env: Arc<Environment>,
+}
 
-        Ok::<(), Error>(())
-    });
+impl State {
+    pub fn new(router: &Arc<Router>, env: &Arc<Environment>) -> Self {
+        Self {
+            router: router.clone(),
+            env: env.clone()
+        }
+    }
+}
+
+#[async_trait]
+impl Servicer<(), Response<response::State>> for State {
+    fn topic(&self) -> String {
+        format!("turn.{}.state", self.env.realm)
+    }
     
-    Ok(())
+    /// uncheck input serialization.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// Into::<Auth>::into(Auth {
+    ///     addr: "127.0.0.1:8080".parse().unwrap(),
+    ///     username: "panda".to_string()
+    /// })
+    /// ```
+    async fn handler(&self, _: ()) -> Response<response::State> {
+        Response::<response::State>::from(None, Some(response::State {
+            capacity: self.router.capacity().await,
+            users: self.router.get_users().await,
+            len: self.router.len().await,
+        }))
+    }
+}
+
+/// state action service.
+pub struct Node {
+    router: Arc<Router>,
+    env: Arc<Environment>,
+}
+
+impl Node {
+    pub fn new(router: &Arc<Router>, env: &Arc<Environment>) -> Self {
+        Self {
+            router: router.clone(),
+            env: env.clone()
+        }
+    }
+}
+
+#[async_trait]
+impl Servicer<request::Node, Response<response::Node>> for Node {
+    fn topic(&self) -> String {
+        format!("turn.{}.node", self.env.realm)
+    }
+    
+    /// uncheck input serialization.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// Into::<Auth>::into(Auth {
+    ///     addr: "127.0.0.1:8080".parse().unwrap(),
+    ///     username: "panda".to_string()
+    /// })
+    /// ```
+    async fn handler(&self, req: request::Node) -> Response<response::Node> {
+        let res = self.router
+            .get_node(&req.username)
+            .await
+            .map(|n| response::Node::from(n));
+        Response::<response::Node>::from(match res {
+            None => Some("user is not found!".to_string()),
+            Some(_) => None,
+        }, res)
+    }
 }

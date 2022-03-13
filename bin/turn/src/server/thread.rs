@@ -8,13 +8,13 @@ use std::{
 
 use crate::{
     accepter::Accepter,
-    state::State,
+    router::Router,
     env::Environment,
 };
 
 /// thread local context.
 pub struct ThreadLocal {
-    pub state: Arc<State>,
+    pub router: Arc<Router>,
     pub conf: Arc<Environment>,
 }
 
@@ -30,9 +30,9 @@ impl<'a> Thread<'a> {
     #[rustfmt::skip]
     pub fn builder(local: ThreadLocal, socket: &Arc<UdpSocket>) -> Self {
         Self {
-            reader: vec![0u8; 4096],
             writer: BytesMut::with_capacity(4096),
             accepter: Accepter::builder(local),
+            reader: vec![0u8; 4096],
             socket: socket.clone(),
         }
     }
@@ -122,7 +122,7 @@ impl<'a> Thread<'a> {
 impl Clone for ThreadLocal {
     fn clone(&self) -> Self {
         Self {
-            state: self.state.clone(),
+            router: self.router.clone(),
             conf: self.conf.clone()
         }
     }
