@@ -5,9 +5,9 @@ edition = "2021"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 
 [dependencies]
+rpc = { path = "../../rpc" }
+stun = { path = "../../stun" }
 clap = { version = "3", features = ["derive", "env"] }
-rpc = { git = "https://github.com/mycrl/mystery", branch = "dev" }
-stun = { git = "https://github.com/mycrl/mystery", branch = "dev" }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.61"
