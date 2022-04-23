@@ -3,14 +3,14 @@
 <br/>
 <div align="center">
   <img 
-    alt="psyai-net"
-    src="../logo.jpg" 
-    width="70px"
+    alt="mystery"
+    src="../../logo.svg" 
+    width="200px"
   />
 </div>
 <br/>
 <div align="center">
-  <strong>Cloud Render - Signaling</strong>
+  <strong>Mystery - Signaling</strong>
 </div>
 <br/>
 
@@ -172,6 +172,7 @@ CMD signaling
 ```
 
 
-## Author
+## License
 
-[Mr.Panda](https://github.com/mycrl) - xivistudios@gmail.com
+[GPL](./LICENSE)
+Copyright (c) 2020 Mr.Panda.

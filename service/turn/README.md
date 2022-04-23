@@ -3,14 +3,14 @@
 <br/>
 <div align="center">
   <img 
-    alt="psyai-net"
-    src="../logo.jpg" 
+    alt="mystery"
+    src="../../logo.svg"
     width="70px"
   />
 </div>
 <br/>
 <div align="center">
-  <strong>Cloud Render - TURN</strong>
+  <strong>Mystery - TURN</strong>
 </div>
 <br/>
 
@@ -128,6 +128,7 @@ CMD turn
 ```
 
 
-## Author
+## License
 
-[Mr.Panda](https://github.com/mycrl) - xivistudios@gmail.com
+[GPL](./LICENSE)
+Copyright (c) 2020 Mr.Panda.
