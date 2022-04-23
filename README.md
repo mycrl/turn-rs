@@ -35,22 +35,22 @@ Important: The project was developed by myself. This is just my side project, so
 
 ### Base protocols support: 
 
-* [x] [turn](https://github.com/mycrl/mystery/tree/dev/bin/turn) (add support for session node grouping)
-* [x] [stun](https://github.com/mycrl/mystery/tree/dev/stun) (superfast parser! The throughput of a single thread is as high as 3Gib/s! 30 million stun packets can be processed in one second!)
-* [x] [rtp](https://github.com/mycrl/mystery/tree/dev/rtp) (lock the rtp version to rfc3550)
-* [x] [sdp](https://github.com/mycrl/mystery/tree/dev/sdp) (partial support of the protocol)
+* [x] [turn](https://github.com/mycrl/mystery/tree/dev/service/turn) (add support for session node grouping)
+* [x] [stun](https://github.com/mycrl/mystery/tree/dev/protocol/stun) (superfast parser! The throughput of a single thread is as high as 3Gib/s! 30 million stun packets can be processed in one second!)
+* [x] [rtp](https://github.com/mycrl/mystery/tree/dev/protocol/rtp) (lock the rtp version to rfc3550)
+* [x] [sdp](https://github.com/mycrl/mystery/tree/dev/protocol/sdp) (partial support of the protocol)
 * [ ] [doing] [rtcp](https://github.com/mycrl/mystery/tree/dev/rtcp)
-* [ ] [srtp](https://github.com/mycrl/mystery/tree/dev/srtp)
-* [ ] [srtcp](https://github.com/mycrl/mystery/tree/dev/srtcp)
+* [ ] [srtp](https://github.com/mycrl/mystery/tree/dev/protocol/srtp)
+* [ ] [srtcp](https://github.com/mycrl/mystery/tree/dev/protocol/srtcp)
 * [ ] [doing] [dtls](https://github.com/mycrl/mystery/tree/dev/dtls) (the encryption process is not clear)
 
 ### Peripheral components:
 
-* [ ] [ice](https://github.com/mycrl/mystery/tree/dev/ice)
-* [ ] [sfu](https://github.com/mycrl/mystery/tree/dev/sfu)
-* [ ] [mcu](https://github.com/mycrl/mystery/tree/dev/mcu)
+* [ ] [ice](https://github.com/mycrl/mystery/tree/dev/protocol/ice)
+* [ ] [sfu](https://github.com/mycrl/mystery/tree/dev/module/sfu)
+* [ ] [mcu](https://github.com/mycrl/mystery/tree/dev/module/mcu)
 * [ ] [control](https://github.com/mycrl/mystery/tree/dev/control) (node.js driver, cluster control center)
-* [ ] [media codec](https://github.com/mycrl/mystery/tree/dev/codec) (ffmpeg or intel media sdk?)
+* [ ] [doing] [media codec](https://github.com/mycrl/mystery/tree/dev/module/codec)
 
 
 ## Building
