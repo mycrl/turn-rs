@@ -1,0 +1,9 @@
+{
+    "name": "bytes",
+    "version": "1.0.0",
+    "private": true,
+    "main": "./src",
+    "devDependencies": {
+        "@types/node": "^17.0.34"
+    }
+}
