@@ -21,8 +21,8 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 ## Table of contents
 
 * [building](#building)
-* [Usage](#usage)
-* [External control api](https://github.com/mycrl/turn-rs/wiki/External-control-api)
+* [usage](#usage)
+* [external control api](https://github.com/mycrl/turn-rs/wiki/External-control-api)
 
 
 ## Building
