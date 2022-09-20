@@ -22,7 +22,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 * [building](#building)
 * [Usage](#usage)
-* [External control api](#external-control-api)
+* [External control api](https://github.com/mycrl/turn-rs/wiki/External-control-api)
 
 
 ## Building
@@ -93,66 +93,6 @@ The server closes log output by default, and the log output level can be set usi
 ```bash
 export RUST_LOG=<level> // error | warn | info | debug | trace
 ```
-
-## External control api
-
-> Public response
-
-| values          | type            | tips                       |
-|-----------------|-----------------|----------------------------|
-| error           | Option\<String> | error info                 |
-| data            | Option\<T>      | response data              |
-
-> Auth - `turn.auth`
-
-Request:
-
-| values          | type           | tips                       |
-|-----------------|----------------|----------------------------|
-| addr            | SocketAddr     | udp client session address |
-| realm           | String         | turn server realm          |
-| username        | String         | session username           |
-
-Response:
-
-| values          | type           | tips                       |
-|-----------------|----------------|----------------------------|
-| password        | String         | session password           |
-
-> Close - `turn.<realm>.close`
-
-Request:
-
-| values          | type           | tips                       |
-|-----------------|----------------|----------------------------|
-| username        | String         | session username           |
-
-> Get state - `turn.<realm>.state`
-
-Response:
-
-| values          | type                             | tips                       |
-|-----------------|----------------------------------|----------------------------|
-| capacity        | u32                              | turn port capacity         |
-| users           | Vec\<(String, Vec\<SocketAddr>)> | turn allocated user list   |
-| len             | u32                              | users size                 |
-
-> Get node - `turn.<realm>.node`
-
-Request:
-
-| values          | type           | tips                       |
-|-----------------|----------------|----------------------------|
-| username        | String         | session username           |
-
-Response:
-
-| values          | type       | tips                           |
-|-----------------|------------|--------------------------------|
-| channels        | Vec\<u32>  | turn allocated channel numbers |
-| ports           | Vec\<u32>  | turn allocated port numbers    |
-| timer           | u32        | allocated time                 |
-| lifetime        | u32        | allocate lifetime              |
 
 
 ## License
