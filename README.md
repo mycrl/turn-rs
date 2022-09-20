@@ -1,10 +1,6 @@
 <!--lint disable no-literal-urls-->
 <div align="center">
-  <img 
-    alt="turn-rs"
-    src="./logo.svg" 
-    width="200px"
-  />
+  <h1>TURN-RS</h1>
 </div>
 <br/>
 <div align="center">
