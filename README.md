@@ -25,9 +25,8 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 ## Table of contents
 
 * [building](#building)
-  * [prerequisites](#prerequisites)
-  * [build workspace](#build-workspace)
-  * [docker compose](#docker-compose)
+* [Usage](#usage)
+* [External control api](#external-control-api)
 
 
 ## Building
@@ -102,47 +101,62 @@ export RUST_LOG=<level> // error | warn | info | debug | trace
 ## External control api
 
 > Public response
-* error `{Option<String>}` - error info.
-* data `{Option<T>}` - response data.
+
+| values          | type           | tips                       |
+|-----------------|----------------|----------------------------|
+| error           | Option<String> | error info                 |
+| data            | Option<T>      | response data              |
 
 > Auth - `turn.auth`
 
 Request:
-* addr `{SocketAddr}` - udp client session address.
-* realm `{String}` - turn server realm.
-* username `{String}` - session username.
+
+| values          | type           | tips                       |
+|-----------------|----------------|----------------------------|
+| addr            | SocketAddr     | udp client session address |
+| realm           | String         | turn server realm          |
+| username        | String         | session username           |
 
 Response:
-* password `{String}` - session password.
-* group `{u32}` - session group id.
+
+| values          | type           | tips                       |
+|-----------------|----------------|----------------------------|
+| password        | String         | session password           |
 
 > Close - `turn.<realm>.close`
 
 Request:
-* addr `{String}` - session address.
+
+| values          | type           | tips                       |
+|-----------------|----------------|----------------------------|
+| username        | String         | session username           |
 
 > Get state - `turn.<realm>.state`
 
 Response:
-* capacity `{Number}` - turn port capacity.
-* users `{Array<[String, Array<String>]>}` - turn allocated user list.
-* len `{Number}` - users size.
+
+| values          | type                           | tips                       |
+|-----------------|--------------------------------|----------------------------|
+| capacity        | u32                            | turn port capacity         |
+| users           | Vec<(String, Vec<SocketAddr>)> | turn allocated user list   |
+| len             | u32                            | users size                 |
 
 > Get node - `turn.<realm>.node`
 
 Request:
-* username `{String}`.
+
+| values          | type           | tips                       |
+|-----------------|----------------|----------------------------|
+| username        | String         | session username           |
 
 Response:
-* channels `{Array<Number>}` - turn allocated channel numbers.
-* ports `{Array<Number>}` - turn allocated port numbers.
-* timer `{Number}` - allocated time.
-* lifetime `{Number}` - allocate lifetime.
 
-
-## Code style
-
-The coding style of this project may not conform to the community style or the habits of most people, but it conforms to my own style. I have paranoid requirements for the code format, I know this is a bad habit, and the current project is also independently developed and maintained by me. If you have more suggestions, you can tell me.
+| values          | type      | tips                           |
+|-----------------|-----------|--------------------------------|
+| channels        | Vec<u32>  | turn allocated channel numbers |
+| ports           | Vec<u32>  | turn allocated port numbers    |
+| timer           | u32       | allocated time                 |
+| lifetime        | u32       | allocate lifetime              |
 
 
 ## License

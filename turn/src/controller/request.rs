@@ -34,7 +34,7 @@ impl Into<Vec<u8>> for Auth {
 
 #[derive(Deserialize)]
 pub struct Close {
-    pub id: String
+    pub username: String
 }
 
 impl TryFrom<&[u8]> for Close {

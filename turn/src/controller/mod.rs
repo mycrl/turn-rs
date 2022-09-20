@@ -53,7 +53,7 @@ impl Servicer<request::Close, Response<()>> for Close {
     /// ```
     async fn handler(&self, message: request::Close) -> Response<()> {
         self.router
-            .remove_from_user(&message.id)
+            .remove_from_user(&message.username)
             .await;
         Response::<()>::from(None, None)
     }
