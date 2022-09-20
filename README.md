@@ -102,10 +102,10 @@ export RUST_LOG=<level> // error | warn | info | debug | trace
 
 > Public response
 
-| values          | type           | tips                       |
-|-----------------|----------------|----------------------------|
-| error           | Option<String> | error info                 |
-| data            | Option<T>      | response data              |
+| values          | type            | tips                       |
+|-----------------|-----------------|----------------------------|
+| error           | Option\<String> | error info                 |
+| data            | Option\<T>      | response data              |
 
 > Auth - `turn.auth`
 
@@ -135,11 +135,11 @@ Request:
 
 Response:
 
-| values          | type                           | tips                       |
-|-----------------|--------------------------------|----------------------------|
-| capacity        | u32                            | turn port capacity         |
-| users           | Vec<(String, Vec<SocketAddr>)> | turn allocated user list   |
-| len             | u32                            | users size                 |
+| values          | type                             | tips                       |
+|-----------------|----------------------------------|----------------------------|
+| capacity        | u32                              | turn port capacity         |
+| users           | Vec\<(String, Vec\<SocketAddr>)> | turn allocated user list   |
+| len             | u32                              | users size                 |
 
 > Get node - `turn.<realm>.node`
 
@@ -151,12 +151,12 @@ Request:
 
 Response:
 
-| values          | type      | tips                           |
-|-----------------|-----------|--------------------------------|
-| channels        | Vec<u32>  | turn allocated channel numbers |
-| ports           | Vec<u32>  | turn allocated port numbers    |
-| timer           | u32       | allocated time                 |
-| lifetime        | u32       | allocate lifetime              |
+| values          | type       | tips                           |
+|-----------------|------------|--------------------------------|
+| channels        | Vec\<u32>  | turn allocated channel numbers |
+| ports           | Vec\<u32>  | turn allocated port numbers    |
+| timer           | u32        | allocated time                 |
+| lifetime        | u32        | allocate lifetime              |
 
 
 ## License
