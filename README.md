@@ -63,7 +63,7 @@ command-line arguments take precedence over environment variables
 |-----------------|----------------|--------------------|----------------------------|
 | --realm         | localhost      | TURN_REALM         | turn working relam         |
 | --external      | 127.0.0.1:3478 | TURN_EXTERNAL      | turn server public address |
-| --listening     | 127.0.0.1:3478 | TURN_BIND          | turn server udp bind port  |
+| --bind          | 127.0.0.1:3478 | TURN_BIND          | turn server udp bind port  |
 | --nats          | 127.0.0.1:4222 | TURN_NATS          | nats server connection url |
 | --nats_token    |                | TURN_NATS_TOKEN    |                            |
 | --nats_tls_cert |                | TURN_NATS_TLS_CERT |                            |
@@ -84,7 +84,7 @@ export TURN_BIND="127.0.0.1:3478"
 Or else use command-line arguments:
 
 ```bash
-turn --listening=127.0.0.1:8080 --external=127.0.0.1:8080
+turn --bind=127.0.0.1:8080 --external=127.0.0.1:8080
 ```
 
 ### Logs
