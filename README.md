@@ -65,9 +65,9 @@ command-line arguments take precedence over environment variables
 | --external      | 127.0.0.1:3478 | TURN_EXTERNAL      | turn server public address |
 | --bind          | 127.0.0.1:3478 | TURN_BIND          | turn server udp bind port  |
 | --nats          | 127.0.0.1:4222 | TURN_NATS          | nats server connection url |
-| --nats_token    |                | TURN_NATS_TOKEN    |                            |
-| --nats_tls_cert |                | TURN_NATS_TLS_CERT |                            |
-| --nats_tls_key  |                | TURN_NATS_TLS_KEY  |                            |
+| --nats-token    |                | TURN_NATS_TOKEN    |                            |
+| --nats-tls-cert |                | TURN_NATS_TLS_CERT |                            |
+| --nats-tls-key  |                | TURN_NATS_TLS_KEY  |                            |
 | --threads       |                | TURN_THREADS       | internal thread pool size  |
 
 for sys calls, multithreading does not significantly help to improve IO throughput.
