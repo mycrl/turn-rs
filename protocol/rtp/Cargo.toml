@@ -1,9 +1,0 @@
-[package]
-name = "rtp"
-version = "0.1.0"
-authors = ["Mr.Panda <xivistudios@gmail.com>"]
-edition = "2021"
-
-[dependencies]
-bytes = "1"
-anyhow = "1.0"

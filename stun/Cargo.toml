@@ -1,0 +1,22 @@
+[package]
+name = "stun"
+version = "0.1.0"
+authors = ["Mr.Panda <xivistudios@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+bytes = "1"
+anyhow = "1.0"
+num_enum = "0.5.0"
+md5 = "0.7.0"
+hmac = "0.10.1"
+sha-1 = "0.9.2"
+crc = "1.8.1"
+
+[dev-dependencies.criterion]
+features = ["html_reports"]
+version = "0.3"
+
+[[bench]]
+name = "benchmark"
+harness = false
