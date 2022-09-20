@@ -24,6 +24,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 * [usage](#usage)
 * [external control api](https://github.com/mycrl/turn-rs/wiki/External-control-api)
 
+You need to install the Rust toolchain, if you have already installed it, you can skip it, [Install Rust](https://www.rust-lang.org/tools/install), then get the source code:
 
 ## Building
 
