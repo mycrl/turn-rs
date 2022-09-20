@@ -1,5 +1,0 @@
-apps:
-  - script: ./control.js
-    name: control
-  - script: ./page.js
-    name: page

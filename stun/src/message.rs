@@ -429,9 +429,9 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         // check fixed magic cookie
         // check if the message size is overflow
         let method = Method::try_from(util::as_u16(&buf[..2]))?;
-        let size = util::as_u16(&buf[2..4]) as usize;
+        let size = util::as_u16(&buf[2..4]) as usize + 20;
         ensure!(buf[4..8] == COOKIE[..], "missing cookie");
-        ensure!(count_size >= size + 20, "missing len");
+        ensure!(count_size >= size, "missing len");
 
         // get transaction id
         let token = &buf[8..20];
@@ -506,5 +506,26 @@ impl<'a, 'b> MessageReader<'a, 'b> {
             attributes,
             valid_offset,
         })
+    }
+    
+    /// # Unit Test
+    ///
+    /// ```
+    /// use stun::*;
+    /// 
+    /// let buffer: [u8; 20] = [
+    ///     0x00, 0x01, 0x00, 0x00, 
+    ///     0x21, 0x12, 0xa4, 0x42,
+    ///     0x72, 0x6d, 0x49, 0x42, 
+    ///     0x72, 0x52, 0x64, 0x48,
+    ///     0x57, 0x62, 0x4b, 0x2b
+    /// ];
+    /// 
+    /// let size = MessageReader::peek_size(&buffer[..]).unwrap();
+    /// assert_eq!(size, 20);
+    /// ```
+    pub fn peek_size(buf: &[u8]) -> Result<u16> {
+        ensure!(buf.len() >= 20, "message len < 20");
+        Ok(util::as_u16(&buf[2..4]) + 20)
     }
 }

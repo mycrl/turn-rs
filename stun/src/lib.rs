@@ -46,11 +46,11 @@
 //!
 
 pub mod attribute;
-pub mod util;
 pub mod message;
 pub mod channel;
+pub mod util;
 
-use attribute::AttrKind;
+use attribute::*;
 use anyhow::{
     Result,
     anyhow

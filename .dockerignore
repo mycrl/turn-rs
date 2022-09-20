@@ -1,9 +1,0 @@
-./target*
-.vs
-.vscode
-*dist*
-Cargo.lock
-*node_modules*
-*pcapng*
-*package-lock.json*
-./workflow*
