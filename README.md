@@ -22,7 +22,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 * [building](#building)
 * [usage](#usage)
-* [external control api](https://github.com/mycrl/turn-rs/wiki/External-control-api)
+* [external control api](https://github.com/mycrl/turn-rs/wiki/External-control-api) `depends on nats message queue.`
 
 ## Building
 
