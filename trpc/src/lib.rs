@@ -3,12 +3,12 @@ use std::mem::transmute;
 use async_nats::*;
 use serde::{
     Serialize,
-    Deserialize
+    Deserialize,
 };
 
 use anyhow::{
     Result,
-    Error
+    Error,
 };
 
 /// The main trait that creates RPC services.
@@ -65,19 +65,19 @@ pub trait Caller<Q, S> {
 pub struct RpcCaller<Q, S> {
     topic: String,
     conn: Connection,
-    caller: Box<dyn Caller<Q, S> + Send + Sync>
+    caller: Box<dyn Caller<Q, S> + Send + Sync>,
 }
 
 impl<Q, S> RpcCaller<Q, S> {
     pub fn new(
-        topic: &str, 
-        conn: Connection, 
-        caller: Box<dyn Caller<Q, S> + Send + Sync>
+        topic: &str,
+        conn: Connection,
+        caller: Box<dyn Caller<Q, S> + Send + Sync>,
     ) -> Self {
         Self {
             topic: topic.to_string(),
             caller,
-            conn
+            conn,
         }
     }
 
@@ -109,16 +109,10 @@ impl<Q, S> RpcCaller<Q, S> {
     /// // caller.call(());
     /// ```
     pub async fn call(&self, req: Q) -> Result<S> {
-        let req_data = self.caller
-            .serializer(req);
-        let res = self.conn
-            .request(&self.topic, req_data)
-            .await?;
-        let res_data = res
-            .data
-            .as_slice();
-        self.caller
-            .deserializer(res_data)
+        let req_data = self.caller.serializer(req);
+        let res = self.conn.request(&self.topic, req_data).await?;
+        let res_data = res.data.as_slice();
+        self.caller.deserializer(res_data)
     }
 }
 
@@ -135,9 +129,7 @@ pub struct RpcOptions<'a> {
     pub tls: Option<TlsOptions<'a>>,
 }
 
-pub struct Rpc(
-    Connection
-);
+pub struct Rpc(Connection);
 
 impl Rpc {
     /// Create Rpc service.
@@ -188,14 +180,10 @@ impl Rpc {
             .map(|t| Options::with_token(t))
             .unwrap_or_else(|| Options::new());
         if let Some(tls) = options.tls {
-            opt = opt
-                .client_cert(tls.cert, tls.key)
-                .tls_required(true);
+            opt = opt.client_cert(tls.cert, tls.key).tls_required(true);
         }
 
-        let conn = opt
-            .connect(options.server)
-            .await?;
+        let conn = opt.connect(options.server).await?;
         Ok(Self(conn))
     }
 
@@ -231,16 +219,15 @@ impl Rpc {
         let sub = self.0.subscribe(&service.topic()).await?;
         tokio::spawn(async move {
             while let Some(payload) = sub.next().await {
-                let data = unsafe {
-                    transmute(payload.data.as_slice())    
-                };
+                let data = unsafe { transmute(payload.data.as_slice()) };
 
-                if let Ok(message) = serde_json::from_slice::<'static, Q>(data) {
+                if let Ok(message) = serde_json::from_slice::<'static, Q>(data)
+                {
                     let res = service.handler(message).await;
                     payload.respond(serde_json::to_vec(&res)?).await?;
                 }
             }
-    
+
             Ok::<(), Error>(())
         });
 
@@ -275,12 +262,9 @@ impl Rpc {
     /// // caller.call(());
     /// ```
     pub fn caller<Q, S, T>(&self, caller: T) -> RpcCaller<Q, S>
-    where T: Caller<Q, S> + Send + Sync + 'static
+    where
+        T: Caller<Q, S> + Send + Sync + 'static,
     {
-        RpcCaller::new(
-            &caller.topic(), 
-            self.0.clone(), 
-            Box::new(caller)
-        )
+        RpcCaller::new(&caller.topic(), self.0.clone(), Box::new(caller))
     }
 }

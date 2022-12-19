@@ -7,13 +7,13 @@ use std::net::SocketAddr;
 use crate::util;
 use bytes::{
     BytesMut,
-    BufMut
+    BufMut,
 };
 
 pub use address::Addr;
 pub use error::{
     Kind as ErrKind,
-    Error
+    Error,
 };
 
 /// STUN Attributes Registry
@@ -28,7 +28,7 @@ pub use error::{
 /// 0x8000-0xFFFF are considered comprehension-optional.  A STUN agent
 /// handles unknown comprehension-required and comprehension-optional
 /// attributes differently.
-/// 
+///
 /// STUN attribute types in the first half of the comprehension-required
 /// range (0x0000-0x3FFF) and in the first half of the comprehension-
 /// optional range (0x8000-0xBFFF) are assigned by IETF Review [RFC8126].
@@ -40,17 +40,17 @@ pub use error::{
 /// an abnormally large number of codepoints.  Technical review of the
 /// extension itself is outside the scope of the designated expert
 /// responsibility.
-/// 
+///
 /// IANA has updated the names for attributes 0x0002, 0x0004, 0x0005,
 /// 0x0007, and 0x000B as well as updated the reference from [RFC5389] to
 /// [RFC8489] for each the following STUN methods.
-/// 
+///
 /// In addition, [RFC5389] introduced a mistake in the name of attribute
 /// 0x0003; [RFC5389] called it CHANGE-ADDRESS when it was actually
 /// previously called CHANGE-REQUEST.  Thus, IANA has updated the
 /// description for 0x0003 to read "Reserved; was CHANGE-REQUEST prior to
 /// [RFC5389]".
-/// 
+///
 /// Comprehension-required range (0x0000-0x7FFF):
 /// 0x0000: Reserved
 /// 0x0001: MAPPED-ADDRESS
@@ -67,20 +67,20 @@ pub use error::{
 /// 0x0014: REALM
 /// 0x0015: NONCE
 /// 0x0020: XOR-MAPPED-ADDRESS
-/// 
+///
 /// Comprehension-optional range (0x8000-0xFFFF)
 /// 0x8022: SOFTWARE
 ///  0x8023: ALTERNATE-SERVER
 /// 0x8028: FINGERPRINT
-/// 
+///
 /// IANA has added the following attribute to the "STUN Attributes"
 /// registry:
-/// 
+///
 /// Comprehension-required range (0x0000-0x7FFF):
 /// 0x001C: MESSAGE-INTEGRITY-SHA256
 /// 0x001D: PASSWORD-ALGORITHM
 ///  0x001E: USERHASH
-/// 
+///
 /// Comprehension-optional range (0x8000-0xFFFF)
 /// 0x8002: PASSWORD-ALGORITHMS
 /// 0x8003: ALTERNATE-DOMAIN
@@ -88,28 +88,28 @@ pub use error::{
 #[derive(TryFromPrimitive)]
 #[derive(PartialEq, Eq, Hash)]
 pub enum AttrKind {
-    UserName            = 0x0006,
-    Data                = 0x0013,
-    Realm               = 0x0014,
-    Nonce               = 0x0015,
-    XorPeerAddress      = 0x0012,
-    XorRelayedAddress   = 0x0016,
-    XorMappedAddress    = 0x0020,
-    MappedAddress       = 0x0001,
-    ResponseOrigin      = 0x802B,
-    Software            = 0x8022,
-    MessageIntegrity    = 0x0008,
-    ErrorCode           = 0x0009,
-    Lifetime            = 0x000D,
-    ReqeestedTransport  = 0x0019,
-    Fingerprint         = 0x8028,
-    ChannelNumber       = 0x000C,
-    
+    UserName = 0x0006,
+    Data = 0x0013,
+    Realm = 0x0014,
+    Nonce = 0x0015,
+    XorPeerAddress = 0x0012,
+    XorRelayedAddress = 0x0016,
+    XorMappedAddress = 0x0020,
+    MappedAddress = 0x0001,
+    ResponseOrigin = 0x802B,
+    Software = 0x8022,
+    MessageIntegrity = 0x0008,
+    ErrorCode = 0x0009,
+    Lifetime = 0x000D,
+    ReqeestedTransport = 0x0019,
+    Fingerprint = 0x8028,
+    ChannelNumber = 0x000C,
+
     // ice
-    IceControlled       = 0x8029,
-    Priority            = 0x0024,
-    UseCandidate        = 0x0025,
-    IceControlling      = 0x802A,
+    IceControlled = 0x8029,
+    Priority = 0x0024,
+    UseCandidate = 0x0025,
+    IceControlling = 0x802A,
 }
 
 /// dyn stun/turn message attribute.
@@ -122,7 +122,8 @@ pub trait Property<'a> {
     /// write the current attribute to the buffer.
     fn into(value: Self::Inner, buf: &mut BytesMut, t: &'a [u8]);
     /// convert buffer to current attribute.
-    fn try_from(buf: &'a [u8], t: &'a [u8]) -> Result<Self::Inner, Self::Error>;
+    fn try_from(buf: &'a [u8], t: &'a [u8])
+        -> Result<Self::Inner, Self::Error>;
 }
 
 /// [RFC8265]: https://datatracker.ietf.org/doc/html/rfc8265
@@ -132,7 +133,7 @@ pub trait Property<'a> {
 /// The USERNAME attribute is used for message integrity.  It identifies
 /// the username and password combination used in the message-integrity
 /// check.
-/// 
+///
 /// The value of USERNAME is a variable-length value containing the
 /// authentication username.  It MUST contain a UTF-8-encoded [RFC3629]
 /// sequence of fewer than 509 bytes and MUST have been processed using
@@ -141,8 +142,9 @@ pub trait Property<'a> {
 /// be compatible with [RFC5389].
 pub struct UserName;
 impl<'a> Property<'a> for UserName {
-    type Inner = &'a str;
     type Error = anyhow::Error;
+    type Inner = &'a str;
+
     fn kind() -> AttrKind {
         AttrKind::UserName
     }
@@ -151,7 +153,10 @@ impl<'a> Property<'a> for UserName {
         buf.put(value.as_bytes());
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(std::str::from_utf8(buf)?)
     }
 }
@@ -164,8 +169,9 @@ impl<'a> Property<'a> for UserName {
 /// 4, then padding must be added after this attribute.
 pub struct Data;
 impl<'a> Property<'a> for Data {
-    type Inner = &'a [u8];
     type Error = anyhow::Error;
+    type Inner = &'a [u8];
+
     fn kind() -> AttrKind {
         AttrKind::Data
     }
@@ -174,7 +180,10 @@ impl<'a> Property<'a> for Data {
         buf.put(value);
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(buf)
     }
 }
@@ -192,15 +201,16 @@ impl<'a> Property<'a> for Data {
 /// as 509 bytes when encoding them and as long as 763 bytes when
 /// decoding them) and MUST have been processed using the OpaqueString
 /// profile [RFC8265].
-/// 
+///
 /// Presence of the REALM attribute in a request indicates that long-term
 /// credentials are being used for authentication.  Presence in certain
 /// error responses indicates that the server wishes the client to use a
 /// long-term credential in that realm for authentication.
 pub struct Realm;
 impl<'a> Property<'a> for Realm {
-    type Inner = &'a str;
     type Error = anyhow::Error;
+    type Inner = &'a str;
+
     fn kind() -> AttrKind {
         AttrKind::Realm
     }
@@ -209,7 +219,10 @@ impl<'a> Property<'a> for Realm {
         buf.put(value.as_bytes());
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(std::str::from_utf8(buf)?)
     }
 }
@@ -227,8 +240,9 @@ impl<'a> Property<'a> for Realm {
 /// a server.
 pub struct Nonce;
 impl<'a> Property<'a> for Nonce {
-    type Inner = &'a str;
     type Error = anyhow::Error;
+    type Inner = &'a str;
+
     fn kind() -> AttrKind {
         AttrKind::Nonce
     }
@@ -237,7 +251,10 @@ impl<'a> Property<'a> for Nonce {
         buf.put(value.as_bytes());
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(std::str::from_utf8(buf)?)
     }
 }
@@ -255,8 +272,9 @@ impl<'a> Property<'a> for Nonce {
 /// them).
 pub struct Software;
 impl<'a> Property<'a> for Software {
-    type Inner = &'a str;
     type Error = anyhow::Error;
+    type Inner = &'a str;
+
     fn kind() -> AttrKind {
         AttrKind::Software
     }
@@ -265,33 +283,36 @@ impl<'a> Property<'a> for Software {
         buf.put(value.as_bytes());
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(std::str::from_utf8(buf)?)
     }
 }
 
 /// [RFC2104]: https://datatracker.ietf.org/doc/html/rfc2104
 /// [RFC5769]: https://datatracker.ietf.org/doc/html/rfc5769
-/// 
+///
 /// The MESSAGE-INTEGRITY attribute contains an HMAC-SHA1 [RFC2104] of
 /// the STUN message.  The MESSAGE-INTEGRITY attribute can be present in
 /// any STUN message type.  Since it uses the SHA-1 hash, the HMAC will
 /// be 20 bytes.
-/// 
+///
 /// The key for the HMAC depends on which credential mechanism is in use.
 /// Section 9.1.1 defines the key for the short-term credential
 /// mechanism, and Section 9.2.2 defines the key for the long-term
 /// credential mechanism.  Other credential mechanisms MUST define the
 /// key that is used for the HMAC.
-/// 
+///
 /// The text used as input to HMAC is the STUN message, up to and
 /// including the attribute preceding the MESSAGE-INTEGRITY attribute.
 /// The Length field of the STUN message header is adjusted to point to
 /// the end of the MESSAGE-INTEGRITY attribute.  The value of the
 /// MESSAGE-INTEGRITY attribute is set to a dummy value.
-/// 
+///
 /// Once the computation is performed, the value of the MESSAGE-INTEGRITY
- /// attribute is filled in, and the value of the length in the STUN
+/// attribute is filled in, and the value of the length in the STUN
 /// header is set to its correct value -- the length of the entire
 /// message.  Similarly, when validating the MESSAGE-INTEGRITY, the
 /// Length field in the STUN header must be adjusted to point to the end
@@ -300,11 +321,12 @@ impl<'a> Property<'a> for Software {
 /// MESSAGE-INTEGRITY attribute.  Such adjustment is necessary when
 /// attributes, such as FINGERPRINT and MESSAGE-INTEGRITY-SHA256, appear
 /// after MESSAGE-INTEGRITY.  See also [RFC5769] for examples of such
- /// calculations.
+/// calculations.
 pub struct MessageIntegrity;
 impl<'a> Property<'a> for MessageIntegrity {
-    type Inner = &'a [u8];
     type Error = anyhow::Error;
+    type Inner = &'a [u8];
+
     fn kind() -> AttrKind {
         AttrKind::MessageIntegrity
     }
@@ -313,7 +335,10 @@ impl<'a> Property<'a> for MessageIntegrity {
         buf.put(value);
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(buf)
     }
 }
@@ -326,8 +351,9 @@ impl<'a> Property<'a> for MessageIntegrity {
 /// same way as XOR-MAPPED-ADDRESS [RFC5389].
 pub struct XorPeerAddress;
 impl<'a> Property<'a> for XorPeerAddress {
-    type Inner = SocketAddr;
     type Error = anyhow::Error;
+    type Inner = SocketAddr;
+
     fn kind() -> AttrKind {
         AttrKind::XorPeerAddress
     }
@@ -336,7 +362,10 @@ impl<'a> Property<'a> for XorPeerAddress {
         Addr::into(&value, token, buf, true)
     }
 
-    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        token: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, true)
     }
 }
@@ -349,8 +378,9 @@ impl<'a> Property<'a> for XorPeerAddress {
 /// [RFC5389].
 pub struct XorRelayedAddress;
 impl<'a> Property<'a> for XorRelayedAddress {
-    type Inner = SocketAddr;
     type Error = anyhow::Error;
+    type Inner = SocketAddr;
+
     fn kind() -> AttrKind {
         AttrKind::XorRelayedAddress
     }
@@ -359,7 +389,10 @@ impl<'a> Property<'a> for XorRelayedAddress {
         Addr::into(&value, token, buf, true)
     }
 
-    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        token: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, true)
     }
 }
@@ -369,9 +402,9 @@ impl<'a> Property<'a> for XorRelayedAddress {
 /// The XOR-MAPPED-ADDRESS attribute is identical to the MAPPED-ADDRESS
 /// attribute, except that the reflexive transport address is obfuscated
 /// through the XOR function.
-/// 
+///
 /// The format of the XOR-MAPPED-ADDRESS is:
-/// 
+///
 /// ```bash
 ///   0                   1                   2                   3
 ///   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -381,10 +414,10 @@ impl<'a> Property<'a> for XorRelayedAddress {
 ///  |                X-Address (Variable)
 ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
-/// 
+///
 /// The Family field represents the IP address family and is encoded
 /// identically to the Family field in MAPPED-ADDRESS.
-/// 
+///
 /// X-Port is computed by XOR'ing the mapped port with the most
 /// significant 16 bits of the magic cookie.  If the IP address family is
 /// IPv4, X-Address is computed by XOR'ing the mapped IP address with the
@@ -393,12 +426,12 @@ impl<'a> Property<'a> for XorRelayedAddress {
 /// the magic cookie and the 96-bit transaction ID.  In all cases, the
 /// XOR operation works on its inputs in network byte order (that is, the
 /// order they will be encoded in the message).
-/// 
+///
 /// The rules for encoding and processing the first 8 bits of the
 /// attribute's value, the rules for handling multiple occurrences of the
 /// attribute, and the rules for processing address families are the same
 /// as for MAPPED-ADDRESS.
-/// 
+///
 /// Note: XOR-MAPPED-ADDRESS and MAPPED-ADDRESS differ only in their
 /// encoding of the transport address.  The former encodes the transport
 /// address by XOR'ing it with the magic cookie.  The latter encodes it
@@ -411,8 +444,9 @@ impl<'a> Property<'a> for XorRelayedAddress {
 /// and also causes failure of STUN's message-integrity checking.
 pub struct XorMappedAddress;
 impl<'a> Property<'a> for XorMappedAddress {
-    type Inner = SocketAddr;
     type Error = anyhow::Error;
+    type Inner = SocketAddr;
+
     fn kind() -> AttrKind {
         AttrKind::XorMappedAddress
     }
@@ -421,7 +455,10 @@ impl<'a> Property<'a> for XorMappedAddress {
         Addr::into(&value, token, buf, true)
     }
 
-    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        token: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, true)
     }
 }
@@ -434,9 +471,9 @@ impl<'a> Property<'a> for XorMappedAddress {
 /// If the address family is IPv4, the address MUST be 32 bits.  If the
 /// address family is IPv6, the address MUST be 128 bits.  All fields
 /// must be in network byte order.
-/// 
+///
 /// The format of the MAPPED-ADDRESS attribute is:
-/// 
+///
 /// ```bash
 ///   0                   1                   2                   3
 ///   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -450,20 +487,21 @@ impl<'a> Property<'a> for XorMappedAddress {
 /// ```
 ///
 /// The address family can take on the following values:
-/// 
+///
 /// 0x01:IPv4
 /// 0x02:IPv6
-/// 
+///
 /// The first 8 bits of the MAPPED-ADDRESS MUST be set to 0 and MUST be
 /// ignored by receivers.  These bits are present for aligning parameters
 /// on natural 32-bit boundaries.
-/// 
+///
 /// This attribute is used only by servers for achieving backwards
 /// compatibility with [RFC3489] clients.
 pub struct MappedAddress;
 impl<'a> Property<'a> for MappedAddress {
-    type Inner = SocketAddr;
     type Error = anyhow::Error;
+    type Inner = SocketAddr;
+
     fn kind() -> AttrKind {
         AttrKind::MappedAddress
     }
@@ -472,7 +510,10 @@ impl<'a> Property<'a> for MappedAddress {
         Addr::into(&value, token, buf, false)
     }
 
-    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        token: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, false)
     }
 }
@@ -483,8 +524,9 @@ impl<'a> Property<'a> for MappedAddress {
 /// in Binding Responses.
 pub struct ResponseOrigin;
 impl<'a> Property<'a> for ResponseOrigin {
-    type Inner = SocketAddr;
     type Error = anyhow::Error;
+    type Inner = SocketAddr;
+
     fn kind() -> AttrKind {
         AttrKind::ResponseOrigin
     }
@@ -493,7 +535,10 @@ impl<'a> Property<'a> for ResponseOrigin {
         Addr::into(&value, token, buf, false)
     }
 
-    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        token: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, false)
     }
 }
@@ -513,7 +558,7 @@ impl<'a> Property<'a> for ResponseOrigin {
 /// UTF-8-encoded [RFC3629] sequence of fewer than 128 characters (which
 /// can be as long as 509 bytes when encoding them or 763 bytes when
 /// decoding them).
-/// 
+///
 /// ```text
 ///   0                   1                   2                   3
 ///   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -525,8 +570,9 @@ impl<'a> Property<'a> for ResponseOrigin {
 /// ```
 pub struct ErrorCode;
 impl<'a> Property<'a> for ErrorCode {
-    type Inner = Error<'a>;
     type Error = anyhow::Error;
+    type Inner = Error<'a>;
+
     fn kind() -> AttrKind {
         AttrKind::ErrorCode
     }
@@ -535,7 +581,10 @@ impl<'a> Property<'a> for ErrorCode {
         value.into(buf)
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Error::try_from(buf)
     }
 }
@@ -547,8 +596,9 @@ impl<'a> Property<'a> for ErrorCode {
 /// until expiration.
 pub struct Lifetime;
 impl<'a> Property<'a> for Lifetime {
-    type Inner = u32;
     type Error = anyhow::Error;
+    type Inner = u32;
+
     fn kind() -> AttrKind {
         AttrKind::Lifetime
     }
@@ -557,7 +607,10 @@ impl<'a> Property<'a> for Lifetime {
         buf.put_u32(value)
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u32(buf))
     }
 }
@@ -573,19 +626,20 @@ impl<'a> Property<'a> for Lifetime {
 ///  |    Protocol   |                    RFFU                       |
 ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
-/// 
+///
 /// The Protocol field specifies the desired protocol.  The codepoints
 /// used in this field are taken from those allowed in the Protocol field
 /// in the IPv4 header and the NextHeader field in the IPv6 header
 /// [Protocol-Numbers].  This specification only allows the use of
 /// codepoint 17 (User Datagram Protocol).
-/// 
+///
 /// The RFFU field MUST be set to zero on transmission and MUST be
 /// ignored on reception.  It is reserved for future uses.
 pub struct ReqeestedTransport;
 impl<'a> Property<'a> for ReqeestedTransport {
-    type Inner = u8;
     type Error = anyhow::Error;
+    type Inner = u8;
+
     fn kind() -> AttrKind {
         AttrKind::ReqeestedTransport
     }
@@ -594,7 +648,10 @@ impl<'a> Property<'a> for ReqeestedTransport {
         buf.put_u8(0x11)
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(buf[0])
     }
 }
@@ -602,7 +659,7 @@ impl<'a> Property<'a> for ReqeestedTransport {
 /// [RFC1952]: https://datatracker.ietf.org/doc/html/rfc1952
 ///
 /// The FINGERPRINT attribute MAY be present in all STUN messages.
-/// 
+///
 /// The value of the attribute is computed as the CRC-32 of the STUN
 /// message up to (but excluding) the FINGERPRINT attribute itself,
 /// XOR'ed with the 32-bit value 0x5354554e.  (The XOR operation ensures
@@ -612,14 +669,14 @@ impl<'a> Property<'a> for ReqeestedTransport {
 /// has a generator polynomial of x^32 + x^26 + x^23 + x^22 + x^16 + x^12
 /// + x^11 + x^10 + x^8 + x^7 + x^5 + x^4 + x^2 + x + 1.  See the sample
 /// code for the CRC-32 in Section 8 of [RFC1952].
-/// 
+///
 /// When present, the FINGERPRINT attribute MUST be the last attribute in
 /// the message and thus will appear after MESSAGE-INTEGRITY and MESSAGE-
 /// INTEGRITY-SHA256.
-/// 
+///
 /// The FINGERPRINT attribute can aid in distinguishing STUN packets from
 /// packets of other protocols.  See Section 7.
-/// 
+///
 /// As with MESSAGE-INTEGRITY and MESSAGE-INTEGRITY-SHA256, the CRC used
 /// in the FINGERPRINT attribute covers the Length field from the STUN
 /// message header.  Therefore, prior to computation of the CRC, this
@@ -634,8 +691,9 @@ impl<'a> Property<'a> for ReqeestedTransport {
 /// attributes as well.
 pub struct Fingerprint;
 impl<'a> Property<'a> for Fingerprint {
-    type Inner = u32;
     type Error = anyhow::Error;
+    type Inner = u32;
+
     fn kind() -> AttrKind {
         AttrKind::Fingerprint
     }
@@ -644,7 +702,10 @@ impl<'a> Property<'a> for Fingerprint {
         buf.put_u32(value)
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u32(buf))
     }
 }
@@ -654,7 +715,7 @@ impl<'a> Property<'a> for Fingerprint {
 /// 16-bit unsigned integer followed by a two-octet RFFU (Reserved For
 /// Future Use) field, which MUST be set to 0 on transmission and MUST be
 /// ignored on reception.
-/// 
+///
 /// ```bash
 ///  0                   1                   2                   3
 ///  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -664,8 +725,9 @@ impl<'a> Property<'a> for Fingerprint {
 /// ```
 pub struct ChannelNumber;
 impl<'a> Property<'a> for ChannelNumber {
-    type Inner = u16;
     type Error = anyhow::Error;
+    type Inner = u16;
+
     fn kind() -> AttrKind {
         AttrKind::ChannelNumber
     }
@@ -674,7 +736,10 @@ impl<'a> Property<'a> for ChannelNumber {
         buf.put_u16(value)
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u16(buf))
     }
 }
@@ -690,8 +755,9 @@ impl<'a> Property<'a> for ChannelNumber {
 /// The agent MAY change the number when an ICE restart occurs.
 pub struct IceControlling;
 impl<'a> Property<'a> for IceControlling {
-    type Inner = u64;
     type Error = anyhow::Error;
+    type Inner = u64;
+
     fn kind() -> AttrKind {
         AttrKind::IceControlling
     }
@@ -700,7 +766,10 @@ impl<'a> Property<'a> for IceControlling {
         buf.put_u64(value)
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u64(buf))
     }
 }
@@ -711,16 +780,14 @@ impl<'a> Property<'a> for IceControlling {
 /// it serves as a flag.  It has an attribute value of 0x0025..
 pub struct UseCandidate;
 impl<'a> Property<'a> for UseCandidate {
-    type Inner = ();
     type Error = anyhow::Error;
+    type Inner = ();
+
     fn kind() -> AttrKind {
         AttrKind::UseCandidate
     }
 
-    fn into(_: Self::Inner, _: &mut BytesMut, _: &[u8]) {
-        ()    
-    }
-    
+    fn into(_: Self::Inner, _: &mut BytesMut, _: &[u8]) {}
     fn try_from(_: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(())
     }
@@ -737,8 +804,9 @@ impl<'a> Property<'a> for UseCandidate {
 /// number. The agent MAY change the number when an ICE restart occurs.
 pub struct IceControlled;
 impl<'a> Property<'a> for IceControlled {
-    type Inner = u64;
     type Error = anyhow::Error;
+    type Inner = u64;
+
     fn kind() -> AttrKind {
         AttrKind::IceControlled
     }
@@ -747,7 +815,10 @@ impl<'a> Property<'a> for IceControlled {
         buf.put_u64(value)
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u64(buf))
     }
 }
@@ -758,8 +829,9 @@ impl<'a> Property<'a> for IceControlled {
 /// value of 0x0024.
 pub struct Priority;
 impl<'a> Property<'a> for Priority {
-    type Inner = u32;
     type Error = anyhow::Error;
+    type Inner = u32;
+
     fn kind() -> AttrKind {
         AttrKind::Priority
     }
@@ -768,7 +840,10 @@ impl<'a> Property<'a> for Priority {
         buf.put_u32(value)
     }
 
-    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
+    fn try_from(
+        buf: &'a [u8],
+        _: &'a [u8],
+    ) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u32(buf))
     }
 }

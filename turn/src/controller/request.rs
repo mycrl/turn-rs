@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use anyhow::Result;
 use serde::{
     Serialize,
-    Deserialize
+    Deserialize,
 };
 
 use std::convert::{
@@ -24,7 +24,7 @@ impl Into<Vec<u8>> for Auth {
     /// ```no_run
     /// Into::<Auth>::into(Auth {
     ///     addr: "127.0.0.1:8080".parse().unwrap(),
-    ///     username: "panda".to_string()
+    ///     username: "panda".to_string(),
     /// })
     /// ```
     fn into(self) -> Vec<u8> {
@@ -34,11 +34,12 @@ impl Into<Vec<u8>> for Auth {
 
 #[derive(Deserialize)]
 pub struct Close {
-    pub username: String
+    pub username: String,
 }
 
 impl TryFrom<&[u8]> for Close {
     type Error = anyhow::Error;
+
     /// uncheck input serialization.
     ///
     /// # Example
@@ -46,7 +47,7 @@ impl TryFrom<&[u8]> for Close {
     /// ```no_run
     /// Into::<Auth>::into(Auth {
     ///     addr: "127.0.0.1:8080".parse().unwrap(),
-    ///     username: "panda".to_string()
+    ///     username: "panda".to_string(),
     /// })
     /// ```
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
@@ -57,5 +58,5 @@ impl TryFrom<&[u8]> for Close {
 /// get node request struct.
 #[derive(Deserialize)]
 pub struct Node {
-    pub username: String
+    pub username: String,
 }

@@ -1,15 +1,15 @@
 use bytes::BytesMut;
 use anyhow::Result;
 use super::{
-    Context, 
-    Response
+    Context,
+    Response,
 };
 
 use stun::{
-    Kind, 
+    Kind,
     Method,
     MessageReader,
-    MessageWriter
+    MessageWriter,
 };
 
 use stun::attribute::{
@@ -18,17 +18,17 @@ use stun::attribute::{
     Error,
     ErrorCode,
     Lifetime,
-    UserName
+    UserName,
 };
 
 /// return refresh error response
 #[inline(always)]
-fn reject<'a, 'b>(
-    ctx: Context, 
-    m: MessageReader<'a, 'b>, 
-    w: &'a mut BytesMut, 
-    e: ErrKind
-) -> Result<Response<'a>> {
+fn reject<'a, 'b, 'c>(
+    ctx: Context,
+    m: MessageReader<'a, 'b>,
+    w: &'c mut BytesMut,
+    e: ErrKind,
+) -> Result<Response<'c>> {
     let method = Method::Refresh(Kind::Error);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
@@ -38,15 +38,15 @@ fn reject<'a, 'b>(
 
 /// return refresh ok response
 #[inline(always)]
-pub fn resolve<'a, 'b>(
-    ctx: &Context, 
-    m: &MessageReader<'a, 'b>, 
+pub fn resolve<'a, 'b, 'c>(
+    ctx: &Context,
+    m: &MessageReader<'a, 'b>,
     lifetime: u32,
     p: &[u8; 16],
-    w: &'a mut BytesMut
-) -> Result<Response<'a>> {
+    w: &'c mut BytesMut,
+) -> Result<Response<'c>> {
     let method = Method::Refresh(Kind::Response);
-    let mut pack = MessageWriter::extend(method, m , w);
+    let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<Lifetime>(lifetime);
     pack.flush(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
@@ -91,8 +91,11 @@ pub fn resolve<'a, 'b>(
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-#[rustfmt::skip]
-pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a, 'b, 'c>(
+    ctx: Context,
+    m: MessageReader<'a, 'b>,
+    w: &'c mut BytesMut,
+) -> Result<Response<'c>> {
     let u = match m.get::<UserName>() {
         Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized),
@@ -111,13 +114,8 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
     if m.integrity(&key).is_err() {
         return reject(ctx, m, w, Unauthorized);
     }
-    
-    log::info!(
-        "{:?} [{:?}] refresh timeout={}", 
-        &ctx.addr,
-        u,
-        l,
-    );
+
+    log::info!("{:?} [{:?}] refresh timeout={}", &ctx.addr, u, l,);
 
     ctx.router.refresh(&ctx.addr, l).await;
     resolve(&ctx, &m, l, &key, w)

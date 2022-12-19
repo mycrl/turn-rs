@@ -1,6 +1,6 @@
 use super::{
     ports::capacity,
-    Addr
+    Addr,
 };
 
 use tokio::{
@@ -11,7 +11,8 @@ use tokio::{
 use std::{
     collections::HashMap,
     collections::HashSet,
-    sync::Arc, net::SocketAddr,
+    sync::Arc,
+    net::SocketAddr,
 };
 
 /// turn node session.
@@ -35,7 +36,7 @@ impl Node {
     /// create node session.
     ///
     /// node session from group number and long key.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -56,7 +57,7 @@ impl Node {
     /// set the lifetime of the node.
     ///
     /// delay is to die after the specified second.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -70,7 +71,7 @@ impl Node {
     }
 
     /// whether the node is dead.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -84,7 +85,7 @@ impl Node {
     }
 
     /// get node the password.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -97,7 +98,7 @@ impl Node {
     }
 
     /// posh port in node.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -107,12 +108,12 @@ impl Node {
     /// ```
     pub fn push_port(&mut self, port: u16) {
         if !self.ports.contains(&port) {
-            self.ports.push(port);    
+            self.ports.push(port);
         }
     }
 
     /// push channel in node.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -122,7 +123,7 @@ impl Node {
     /// ```
     pub fn push_channel(&mut self, channel: u16) {
         if !self.channels.contains(&channel) {
-            self.channels.push(channel);    
+            self.channels.push(channel);
         }
     }
 }
@@ -140,9 +141,9 @@ impl Nodes {
             bonds: RwLock::new(HashMap::with_capacity(capacity())),
         }
     }
-    
+
     /// get users name and address.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -154,40 +155,33 @@ impl Nodes {
             .read()
             .await
             .iter()
-            .map(|(k, v)| (
-                k.clone(), 
-                v.into_iter()
-                    .map(|v| *v.clone())
-                    .collect()
-            ))
+            .map(|(k, v)| {
+                (k.clone(), v.iter().map(|v| *v.clone()).collect())
+            })
             .collect()
     }
-    
+
     /// get node from name.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// 
+    ///
     /// node.insert(&addr, "test", key);
-    /// 
+    ///
     /// assert!(!node.get_node("test").is_some());
     /// ```
     pub async fn get_nodes(&self, u: &str) -> Vec<Node> {
-        let bounds = self.bonds
-            .read()
-            .await;
-        let map = self.map
-            .read()
-            .await;
+        let bounds = self.bonds.read().await;
+        let map = self.map.read().await;
         let addrs = match bounds.get(u) {
             None => return Vec::new(),
             Some(a) => a,
         };
-        
+
         let mut nodes = Vec::with_capacity(addrs.len());
         for addr in addrs {
             if let Some(node) = map.get(addr) {
@@ -199,47 +193,44 @@ impl Nodes {
     }
 
     /// get password from address.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// 
+    ///
     /// node.insert(&addr, "test", key);
-    /// 
+    ///
     /// assert!(!node.get_password(&addr).is_some());
     /// ```
     pub async fn get_password(&self, a: &Addr) -> Option<Arc<[u8; 16]>> {
-        self.map
-            .read()
-            .await
-            .get(a)
-            .map(|n| n.get_password())
+        self.map.read().await.get(a).map(|n| n.get_password())
     }
 
     /// insert node in node table.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// 
+    ///
     /// node.insert(&addr, "test", key);
     /// ```
-    pub async fn insert(&self, a: &Addr, u: &str, p: [u8; 16]) -> Option<Arc<[u8; 16]>> {
+    pub async fn insert(
+        &self,
+        a: &Addr,
+        u: &str,
+        p: [u8; 16],
+    ) -> Option<Arc<[u8; 16]>> {
         let node = Node::new(u.to_string(), p);
         let pwd = node.get_password();
-        let mut bonds = self.bonds
-            .write()
-            .await;
-        self.map
-            .write()
-            .await
-            .insert(a.clone(), node);
+        let mut bonds = self.bonds.write().await;
+        self.map.write().await.insert(a.clone(), node);
+
         bonds
             .entry(u.to_string())
             .or_insert_with(|| HashSet::with_capacity(5))
@@ -248,92 +239,75 @@ impl Nodes {
     }
 
     /// push port to node.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// 
+    ///
     /// node.insert(&addr, "test", key);
     ///
     /// node.push_port(&addr, 60000);
     /// ```
     pub async fn push_port(&self, a: &Addr, port: u16) -> Option<()> {
-        self.map
-            .write()
-            .await
-            .get_mut(a)?
-            .push_port(port);
+        self.map.write().await.get_mut(a)?.push_port(port);
         Some(())
     }
-    
+
     /// push channel to node.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// 
+    ///
     /// node.insert(&addr, "test", key);
     ///
     /// node.push_channel(&addr, 0x4000);
     /// ```
     pub async fn push_channel(&self, a: &Addr, channel: u16) -> Option<()> {
-        self.map
-            .write()
-            .await
-            .get_mut(a)?
-            .push_channel(channel);
+        self.map.write().await.get_mut(a)?.push_channel(channel);
         Some(())
     }
 
     /// set lifetime to node.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// 
+    ///
     /// node.insert(&addr, "test", key);
     ///
     /// node.set_lifetime(&addr, 0);
     /// ```
     pub async fn set_lifetime(&self, a: &Addr, delay: u32) -> Option<()> {
-        self.map
-            .write()
-            .await
-            .get_mut(a)?
-            .set_lifetime(delay);
+        self.map.write().await.get_mut(a)?.set_lifetime(delay);
         Some(())
     }
 
     /// remove node from address.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// 
+    ///
     /// node.insert(&addr, "test", key);
     ///
     /// assert!(node.remove(&addr).is_some());
     /// ```
     pub async fn remove(&self, a: &Addr) -> Option<Node> {
-        let mut bonds = self
-            .bonds.write()
-            .await;
-        let node = self.map
-            .write()
-            .await
-            .remove(a)?;
+        let mut bonds = self.bonds.write().await;
+        let node = self.map.write().await.remove(a)?;
         let addrs = bonds.get_mut(&node.username)?;
         if addrs.is_empty() {
             bonds.remove(&node.username)?;
@@ -345,14 +319,14 @@ impl Nodes {
     }
 
     /// get node name bond address.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
-    /// 
+    ///
     /// node.insert(&addr, "test", key);
     ///
     /// assert_eq!(node.get_bond(&addr), Some(addr));
@@ -363,13 +337,13 @@ impl Nodes {
             .await
             .get(u)
             .cloned()
-            .unwrap_or_else(HashSet::new)
+            .unwrap_or_default()
             .into_iter()
             .collect()
     }
 
     /// get death node.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run

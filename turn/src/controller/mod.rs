@@ -6,7 +6,7 @@ use response::Response;
 use anyhow::Result;
 use std::{
     net::SocketAddr,
-    sync::Arc, 
+    sync::Arc,
 };
 
 use super::{
@@ -17,7 +17,7 @@ use super::{
 use trpc::{
     Caller,
     Servicer,
-    RpcCaller
+    RpcCaller,
 };
 
 /// close action service.
@@ -30,7 +30,7 @@ impl Close {
     pub fn new(router: &Arc<Router>, args: &Arc<Args>) -> Self {
         Self {
             router: router.clone(),
-            args: args.clone()
+            args: args.clone(),
         }
     }
 }
@@ -40,7 +40,7 @@ impl Servicer<request::Close, Response<()>> for Close {
     fn topic(&self) -> String {
         format!("turn.{}.close", self.args.realm)
     }
-    
+
     /// uncheck input serialization.
     ///
     /// # Example
@@ -48,13 +48,11 @@ impl Servicer<request::Close, Response<()>> for Close {
     /// ```no_run
     /// Into::<Auth>::into(Auth {
     ///     addr: "127.0.0.1:8080".parse().unwrap(),
-    ///     username: "panda".to_string()
+    ///     username: "panda".to_string(),
     /// })
     /// ```
     async fn handler(&self, message: request::Close) -> Response<()> {
-        self.router
-            .remove_from_user(&message.username)
-            .await;
+        self.router.remove_from_user(&message.username).await;
         Response::<()>::from(None, None)
     }
 }
@@ -65,14 +63,13 @@ pub struct Auth {
 }
 
 /// auth service caller type.
-pub type AuthCaller = RpcCaller<
-    (SocketAddr, String), 
-    response::Auth
->;
+pub type AuthCaller = RpcCaller<(SocketAddr, String), response::Auth>;
 
 impl Auth {
     pub fn new(args: &Arc<Args>) -> Self {
-        Self { args: args.clone() }
+        Self {
+            args: args.clone(),
+        }
     }
 }
 
@@ -80,7 +77,7 @@ impl Caller<(SocketAddr, String), response::Auth> for Auth {
     fn topic(&self) -> String {
         "turn.auth".to_string()
     }
-    
+
     /// uncheck input serialization.
     ///
     /// # Example
@@ -88,14 +85,14 @@ impl Caller<(SocketAddr, String), response::Auth> for Auth {
     /// ```no_run
     /// Into::<Auth>::into(Auth {
     ///     addr: "127.0.0.1:8080".parse().unwrap(),
-    ///     username: "panda".to_string()
+    ///     username: "panda".to_string(),
     /// })
     /// ```
     fn serializer(&self, (addr, id): (SocketAddr, String)) -> Vec<u8> {
-        Into::<Vec<u8>>::into(request::Auth { 
+        Into::<Vec<u8>>::into(request::Auth {
             realm: self.args.realm.to_string(),
-            id, 
-            addr
+            id,
+            addr,
         })
     }
 
@@ -106,14 +103,11 @@ impl Caller<(SocketAddr, String), response::Auth> for Auth {
     /// ```no_run
     /// Into::<Auth>::into(Auth {
     ///     addr: "127.0.0.1:8080".parse().unwrap(),
-    ///     username: "panda".to_string()
+    ///     username: "panda".to_string(),
     /// })
     /// ```
     fn deserializer(&self, data: &[u8]) -> Result<response::Auth> {
-        Response
-            ::<response::Auth>
-            ::try_from(data)?
-            .into_result()
+        Response::<response::Auth>::try_from(data)?.into_result()
     }
 }
 
@@ -127,7 +121,7 @@ impl State {
     pub fn new(router: &Arc<Router>, args: &Arc<Args>) -> Self {
         Self {
             router: router.clone(),
-            args: args.clone()
+            args: args.clone(),
         }
     }
 }
@@ -137,7 +131,7 @@ impl Servicer<(), Response<response::State>> for State {
     fn topic(&self) -> String {
         format!("turn.{}.state", self.args.realm)
     }
-    
+
     /// uncheck input serialization.
     ///
     /// # Example
@@ -145,15 +139,18 @@ impl Servicer<(), Response<response::State>> for State {
     /// ```no_run
     /// Into::<Auth>::into(Auth {
     ///     addr: "127.0.0.1:8080".parse().unwrap(),
-    ///     username: "panda".to_string()
+    ///     username: "panda".to_string(),
     /// })
     /// ```
     async fn handler(&self, _: ()) -> Response<response::State> {
-        Response::<response::State>::from(None, Some(response::State {
-            capacity: self.router.capacity().await,
-            users: self.router.get_users().await,
-            len: self.router.len().await,
-        }))
+        Response::<response::State>::from(
+            None,
+            Some(response::State {
+                capacity: self.router.capacity().await,
+                users: self.router.get_users().await,
+                len: self.router.len().await,
+            }),
+        )
     }
 }
 
@@ -167,7 +164,7 @@ impl Node {
     pub fn new(router: &Arc<Router>, args: &Arc<Args>) -> Self {
         Self {
             router: router.clone(),
-            args: args.clone()
+            args: args.clone(),
         }
     }
 }
@@ -177,7 +174,7 @@ impl Servicer<request::Node, Response<Vec<response::Node>>> for Node {
     fn topic(&self) -> String {
         format!("turn.{}.node", self.args.realm)
     }
-    
+
     /// uncheck input serialization.
     ///
     /// # Example
@@ -185,17 +182,23 @@ impl Servicer<request::Node, Response<Vec<response::Node>>> for Node {
     /// ```no_run
     /// Into::<Auth>::into(Auth {
     ///     addr: "127.0.0.1:8080".parse().unwrap(),
-    ///     username: "panda".to_string()
+    ///     username: "panda".to_string(),
     /// })
     /// ```
-    async fn handler(&self, req: request::Node) -> Response<Vec<response::Node>> {
-        Response::<Vec<response::Node>>::from(None, Some(
-            self.router
-                .get_nodes(&req.username)
-                .await
-                .into_iter()
-                .map(|n| response::Node::from(n))
-                .collect()
-        ))
+    async fn handler(
+        &self,
+        req: request::Node,
+    ) -> Response<Vec<response::Node>> {
+        Response::<Vec<response::Node>>::from(
+            None,
+            Some(
+                self.router
+                    .get_nodes(&req.username)
+                    .await
+                    .into_iter()
+                    .map(|n| response::Node::from(n))
+                    .collect(),
+            ),
+        )
     }
 }

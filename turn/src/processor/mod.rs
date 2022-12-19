@@ -11,17 +11,17 @@ use bytes::BytesMut;
 use super::{
     args::Args,
     router::Router,
-    server::SocketLocal
+    server::SocketLocal,
 };
 
 use std::{
-    net::SocketAddr, 
-    sync::Arc
+    net::SocketAddr,
+    sync::Arc,
 };
 
 use stun::{
     Kind,
-    Method, 
+    Method,
     Decoder,
     Payload,
     MessageReader as Message,
@@ -44,30 +44,30 @@ pub(crate) type Response<'a> = Option<(
 pub struct Context {
     pub args: Arc<Args>,
     pub router: Arc<Router>,
-    pub addr: Arc<SocketAddr>
+    pub addr: Arc<SocketAddr>,
 }
 
-/// process udp message 
+/// process udp message
 /// and return message + address.
-pub struct Processor<'a> {
+pub struct Processor {
     pub local: SocketLocal,
-    decoder: Decoder<'a>,
+    decoder: Decoder,
 }
 
-impl<'a> Processor<'a> {
+impl Processor {
     pub fn builder(local: SocketLocal) -> Self {
-        Self { 
+        Self {
             decoder: Decoder::new(),
-            local 
+            local,
         }
     }
-    
+
     /// process udp data
     ///
-    /// receive STUN encoded Bytes, 
+    /// receive STUN encoded Bytes,
     /// and return any Bytes that can be responded to and the target address.
     /// Note: unknown message is not process.
-    /// 
+    ///
     /// In a typical configuration, a TURN client is connected to a private
     /// network [RFC1918] and, through one or more NATs, to the public
     /// Internet.  On the public Internet is a TURN server.  Elsewhere in the
@@ -75,7 +75,7 @@ impl<'a> Processor<'a> {
     /// communicate.  These peers may or may not be behind one or more NATs.
     /// The client uses the server as a relay to send packets to these peers
     /// and to receive packets from these peers.
-    /// 
+    ///
     /// ```text
     ///                                     Peer A
     ///                                     Server-Reflexive    +---------+
@@ -107,35 +107,34 @@ impl<'a> Processor<'a> {
     ///          Server-Reflexive     Relayed             Transport
     ///          Transport Address    Transport Address   Address
     ///          192.0.2.1:7000       192.0.2.15:50000    192.0.2.210:49191
-    /// 
+    ///
     ///                                Figure 1
-    /// 
     /// ```
-    /// 
+    ///
     /// Figure 1 shows a typical deployment.  In this figure, the TURN client
     /// and the TURN server are separated by a NAT, with the client on the
     /// private side and the server on the public side of the NAT.  This NAT
     /// is assumed to be a "bad" NAT; for example, it might have a mapping
     /// property of "address-and-port-dependent mapping" (see [RFC4787]).
-    /// 
+    ///
     /// The client talks to the server from a (IP address, port) combination
     /// called the client's "host transport address".  (The combination of an
     /// IP address and port is called a "transport address".)
-    /// 
+    ///
     /// The client sends TURN messages from its host transport address to a
     /// transport address on the TURN server that is known as the "TURN
     /// server transport address".  The client learns the TURN server
     /// transport address through some unspecified means (e.g.,
     /// configuration), and this address is typically used by many clients
     /// simultaneously.
-    /// 
+    ///
     /// Since the client is behind a NAT, the server sees packets from the
     /// client as coming from a transport address on the NAT itself.  This
     /// address is known as the client's "server-reflexive transport
     /// address"; packets sent by the server to the client's server-reflexive
     /// transport address will be forwarded by the NAT to the client's host
     /// transport address.
-    /// 
+    ///
     /// The client uses TURN commands to create and manipulate an ALLOCATION
     /// on the server.  An allocation is a data structure on the server.
     /// This data structure contains, amongst other things, the relayed
@@ -143,7 +142,7 @@ impl<'a> Processor<'a> {
     /// is the transport address on the server that peers can use to have the
     /// server relay data to the client.  An allocation is uniquely
     /// identified by its relayed transport address.
-    /// 
+    ///
     /// Once an allocation is created, the client can send application data
     /// to the server along with an indication of to which peer the data is
     /// to be sent, and the server will relay this data to the intended peer.
@@ -157,31 +156,35 @@ impl<'a> Processor<'a> {
     /// message always contains an indication of which peer the client is
     /// communicating with, the client can use a single allocation to
     /// communicate with multiple peers.
-    /// 
+    ///
     /// When the peer is behind a NAT, the client must identify the peer
     /// using its server-reflexive transport address rather than its host
     /// transport address.  For example, to send application data to Peer A
     /// in the example above, the client must specify 192.0.2.150:32102 (Peer
     /// A's server-reflexive transport address) rather than 203.0.113.2:49582
     /// (Peer A's host transport address).
-    /// 
+    ///
     /// Each allocation on the server belongs to a single client and has
     /// either one or two relayed transport addresses that are used only by
     /// that allocation.  Thus, when a packet arrives at a relayed transport
     /// address on the server, the server knows for which client the data is
     /// intended.
-    /// 
+    ///
     /// The client may have multiple allocations on a server at the same
     /// time.
-    #[rustfmt::skip]
-    pub async fn handler(&mut self, b: &'a [u8], w: &'a mut BytesMut, a: SocketAddr) -> Result<Response<'a>> {
+    pub async fn handler<'c, 'a: 'c>(
+        &mut self,
+        b: &'a [u8],
+        w: &'c mut BytesMut,
+        a: SocketAddr,
+    ) -> Result<Response<'c>> {
         let ctx = self.get_context(a);
         Ok(match self.decoder.decode(b)? {
             Payload::ChannelData(x) => channel_data::process(ctx, x).await,
             Payload::Message(x) => Self::message_process(ctx, x, w).await?,
         })
     }
-    
+
     /// process stun message
     ///
     /// TURN is an extension to STUN.  All TURN messages, with the exception
@@ -195,7 +198,7 @@ impl<'a> Processor<'a> {
     /// credential mechanism".  TURN servers and clients MUST implement this
     /// mechanism, and the authentication options are discussed in
     /// Section 7.2.
-    /// 
+    ///
     /// Note that the long-term credential mechanism applies only to requests
     /// and cannot be used to authenticate indications; thus, indications in
     /// TURN are never authenticated.  If the server requires requests to be
@@ -212,27 +215,27 @@ impl<'a> Processor<'a> {
     /// at least once every hour during the lifetime of the allocation.  The
     /// server uses the mechanism described in Section 9.2 of [RFC8489] to
     /// indicate that it supports [RFC8489].
-    /// 
+    ///
     /// All requests after the initial Allocate must use the same username as
     /// that used to create the allocation to prevent attackers from
     /// hijacking the client's allocation.
-    /// 
+    ///
     /// Specifically, if:
-    /// 
-    /// *  the server requires the use of the long-term credential mechanism,
-    ///    and;
-    /// 
-    /// *  a non-Allocate request passes authentication under this mechanism,
-    ///    and;
-    /// 
-    /// *  the 5-tuple identifies an existing allocation, but;
-    /// 
-    /// *  the request does not use the same username as used to create the
-    ///    allocation,
-    /// 
+    ///
+    /// * the server requires the use of the long-term credential mechanism,
+    ///   and;
+    ///
+    /// * a non-Allocate request passes authentication under this mechanism,
+    ///   and;
+    ///
+    /// * the 5-tuple identifies an existing allocation, but;
+    ///
+    /// * the request does not use the same username as used to create the
+    ///   allocation,
+    ///
     /// then the request MUST be rejected with a 441 (Wrong Credentials)
     /// error.
-    /// 
+    ///
     /// When a TURN message arrives at the server from the client, the server
     /// uses the 5-tuple in the message to identify the associated
     /// allocation.  For all TURN messages (including ChannelData) EXCEPT an
@@ -242,7 +245,7 @@ impl<'a> Processor<'a> {
     /// (if it is an indication or a ChannelData message).  A client
     /// receiving a 437 error response to a request other than Allocate MUST
     /// assume the allocation no longer exists.
-    /// 
+    ///
     /// [RFC8489] defines a number of attributes, including the SOFTWARE and
     /// FINGERPRINT attributes.  The client SHOULD include the SOFTWARE
     /// attribute in all Allocate and Refresh requests and MAY include it in
@@ -251,10 +254,10 @@ impl<'a> Processor<'a> {
     /// success or failure) and MAY include it in other responses or
     /// indications.  The client and the server MAY include the FINGERPRINT
     /// attribute in any STUN-formatted messages defined in this document.
-    /// 
+    ///
     /// TURN does not use the backwards-compatibility mechanism described in
     /// [RFC8489].
-    /// 
+    ///
     /// TURN, as defined in this specification, supports both IPv4 and IPv6.
     /// IPv6 support in TURN includes IPv4-to-IPv6, IPv6-to-IPv6, and IPv6-
     /// to-IPv4 relaying.  When only a single address type is desired, the
@@ -266,18 +269,18 @@ impl<'a> Processor<'a> {
     /// one IPv6 relay address in a single Allocate request.  This saves
     /// local ports on the client and reduces the number of messages sent
     /// between the client and the TURN server.
-    /// 
+    ///
     /// By default, TURN runs on the same ports as STUN: 3478 for TURN over
     /// UDP and TCP, and 5349 for TURN over (D)TLS.  However, TURN has its
     /// own set of Service Record (SRV) names: "turn" for UDP and TCP, and
     /// "turns" for (D)TLS.  Either the DNS resolution procedures or the
     /// ALTERNATE-SERVER procedures, both described in Section 7, can be used
     /// to run TURN on a different port.
-    /// 
+    ///
     /// To ensure interoperability, a TURN server MUST support the use of UDP
     /// transport between the client and the server, and it SHOULD support
     /// the use of TCP, TLS-over-TCP, and DTLS-over-UDP transports.
-    /// 
+    ///
     /// When UDP or DTLS-over-UDP transport is used between the client and
     /// the server, the client will retransmit a request if it does not
     /// receive a response within a certain timeout period.  Because of this,
@@ -293,7 +296,7 @@ impl<'a> Processor<'a> {
     /// specification includes some implementation notes on how this might be
     /// done.  Implementations are free to choose either approach or some
     /// other approach that gives the same results.
-    /// 
+    ///
     /// To mitigate either intentional or unintentional denial-of-service
     /// attacks against the server by clients with valid usernames and
     /// passwords, it is RECOMMENDED that the server impose limits on both
@@ -306,7 +309,11 @@ impl<'a> Processor<'a> {
     /// data traffic that exceeds the bandwidth quota.
     #[rustfmt::skip]
     #[inline(always)]
-    async fn message_process(ctx: Context, m: Message<'a, '_>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+    async fn message_process<'c>(
+        ctx: Context,
+        m: Message<'_, '_>,
+        w: &'c mut BytesMut,
+    ) -> Result<Response<'c>> {
         match m.method {
             Method::Binding(Kind::Request) => binding::process(ctx, m, w),
             Method::Allocate(Kind::Request) => allocate::process(ctx, m, w).await,
@@ -314,10 +321,10 @@ impl<'a> Processor<'a> {
             Method::ChannelBind(Kind::Request) => channel_bind::process(ctx, m, w).await,
             Method::Refresh(Kind::Request) => refresh::process(ctx, m, w).await,
             Method::SendIndication => indication::process(ctx, m, w).await,
-            _ => Ok(None)
+            _ => Ok(None),
         }
     }
-    
+
     /// builder of message context from thread local.
     fn get_context(&self, a: SocketAddr) -> Context {
         Context {

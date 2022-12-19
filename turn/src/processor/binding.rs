@@ -1,23 +1,23 @@
 use anyhow::Result;
 use bytes::BytesMut;
 use stun::{
-    Kind, 
+    Kind,
     Method,
     MessageReader,
     MessageWriter,
 };
 
 use super::{
-    Context, 
+    Context,
     Response,
-    SOFTWARE
+    SOFTWARE,
 };
 
 use stun::attribute::{
     XorMappedAddress,
     MappedAddress,
     ResponseOrigin,
-    Software
+    Software,
 };
 
 /// process binding request
@@ -42,8 +42,11 @@ use stun::attribute::{
 /// attribute within the body of the STUN response will remain untouched.
 /// In this way, the client can learn its reflexive transport address
 /// allocated by the outermost NAT with respect to the STUN server.
-#[rustfmt::skip]
-pub fn process<'a>(ctx: Context, payload: MessageReader, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub fn process<'a>(
+    ctx: Context,
+    payload: MessageReader,
+    w: &'a mut BytesMut,
+) -> Result<Response<'a>> {
     log::info!("{:?} request binding", &ctx.addr);
     let method = Method::Binding(Kind::Response);
     let mut pack = MessageWriter::extend(method, &payload, w);

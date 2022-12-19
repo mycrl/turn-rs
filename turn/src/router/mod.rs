@@ -10,30 +10,30 @@ use channels::Channels;
 use stun::util::long_key;
 use tokio::time::{
     Duration,
-    sleep
+    sleep,
 };
 
 use std::{
     net::SocketAddr,
-    sync::Arc
+    sync::Arc,
 };
 
 use super::{
     args::Args,
-    controller::AuthCaller
+    controller::AuthCaller,
 };
 
 type Addr = Arc<SocketAddr>;
 
 /// Router State Tree.
 ///
-/// this state management example maintains the status of all 
-/// nodes in the current service and adds a node grouping model. 
-/// it is necessary to specify a group for each node. 
-/// 
-/// The state between groups is isolated. However, 
-/// it should be noted that the node key only supports 
-/// long-term valid passwords，does not support short-term 
+/// this state management example maintains the status of all
+/// nodes in the current service and adds a node grouping model.
+/// it is necessary to specify a group for each node.
+///
+/// The state between groups is isolated. However,
+/// it should be noted that the node key only supports
+/// long-term valid passwords，does not support short-term
 /// valid passwords.
 pub struct Router {
     args: Arc<Args>,
@@ -55,7 +55,7 @@ impl Router {
             controller,
         })
     }
-    
+
     /// get router capacity.
     pub async fn capacity(&self) -> usize {
         self.ports.capacity().await
@@ -65,7 +65,7 @@ impl Router {
     pub async fn len(&self) -> usize {
         self.ports.len().await
     }
-    
+
     /// get node the password.
     ///
     /// for security reasons, the server MUST NOT store the password
@@ -80,7 +80,7 @@ impl Router {
     pub async fn get_users(&self) -> Vec<(String, Vec<SocketAddr>)> {
         self.nodes.get_users().await
     }
-    
+
     /// get node the password.
     ///
     /// for security reasons, the server MUST NOT store the password
@@ -95,7 +95,7 @@ impl Router {
     pub async fn get_nodes(&self, u: &str) -> Vec<nodes::Node> {
         self.nodes.get_nodes(u).await
     }
-    
+
     /// get the nonce of the node SocketAddr.
     ///
     /// ```no_run
@@ -132,30 +132,23 @@ impl Router {
     ///
     /// // state.get_key(&addr, "panda")
     /// ```
-    #[rustfmt::skip]
     pub async fn get_key(&self, a: &Addr, u: &str) -> Option<Arc<[u8; 16]>> {
         let key = self.nodes.get_password(a).await;
         if key.is_some() {
-            return key
+            return key;
         }
 
-        let auth = self.controller
+        let auth = self
+            .controller
             .call((*a.as_ref(), u.to_string()))
             .await
             .ok()?;
-        
-        let key = long_key(
-            u, 
-            &auth.secret, 
-            &self.args.realm
-        );
-        
-        self.nodes
-            .insert(a, u, key)
-            .await
+
+        let key = long_key(u, &auth.secret, &self.args.realm);
+        self.nodes.insert(a, u, key).await
     }
 
-    /// obtain the peer address bound to the current 
+    /// obtain the peer address bound to the current
     /// node according to the channel number.
     ///
     /// ```no_run
@@ -182,7 +175,6 @@ impl Router {
     ///
     /// assert_eq!(state.get_channel_bond(&addr, 0x4000).unwrap(), peer);
     /// ```
-    #[rustfmt::skip]
     pub async fn get_channel_bond(&self, a: &Addr, c: u16) -> Option<Addr> {
         self.channels.get_bond(a, c).await
     }
@@ -215,7 +207,6 @@ impl Router {
     /// assert_eq!(state.get_port_bond(&addr, peer_port), some(peer));
     /// assert_eq!(state.get_port_bond(&peer, addr_port), some(addr));
     /// ```
-    #[rustfmt::skip]
     pub async fn get_port_bond(&self, p: u16) -> Option<Addr> {
         self.ports.get(p).await
     }
@@ -247,11 +238,10 @@ impl Router {
     /// assert_eq!(state.get_bond_port(&addr, &peer), some(peer_port));
     /// assert_eq!(state.get_bond_port(&peer, &addr), some(addr_port));
     /// ```
-    #[rustfmt::skip]
     pub async fn get_bond_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
         self.ports.get_bound(a, p).await
     }
-   
+
     /// alloc a port from State.
     ///
     /// In all cases, the server SHOULD only allocate ports from the range
@@ -266,7 +256,7 @@ impl Router {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    /// 
+    ///
     ///   NOTE: The use of randomized port assignments to avoid certain
     ///   types of attacks is described in [RFC6056].  It is RECOMMENDED
     ///   that a TURN server implement a randomized port assignment
@@ -275,7 +265,7 @@ impl Router {
     ///   underlying OS and then later assign them to allocations; for
     ///   example, a server may choose this technique to implement the
     ///   EVEN-PORT attribute.
-    /// 
+    ///
     /// The server determines the initial value of the time-to-expiry field
     /// as follows.  If the request contains a LIFETIME attribute, then the
     /// server computes the minimum of the client's proposed lifetime and the
@@ -312,13 +302,12 @@ impl Router {
     /// assert!(state.alloc_port(&addr).unwrap().is_some());
     /// assert!(state.alloc_port(&peer).unwrap().is_some());
     /// ```
-    #[rustfmt::skip]
     pub async fn alloc_port(&self, a: &Addr) -> Option<u16> {
         let port = self.ports.alloc(a).await?;
         self.nodes.push_port(a, port).await;
         Some(port)
     }
-    
+
     /// bind port for State.
     ///
     /// A server need not do anything special to implement
@@ -348,7 +337,6 @@ impl Router {
     /// assert!(state.bind_port(&peer, addr_port).is_some());
     /// assert!(state.bind_port(&addr, peer_port).is_some());
     /// ```
-    #[rustfmt::skip]
     pub async fn bind_port(&self, a: &Addr, port: u16) -> Option<()> {
         self.ports.bound(a, port).await
     }
@@ -387,7 +375,6 @@ impl Router {
     /// assert!(state.bind_channel(&peer, addr_port, 0x4000).is_some());
     /// assert!(state.bind_channel(&addr, peer_port, 0x4000).is_some());
     /// ```
-    #[rustfmt::skip]
     pub async fn bind_channel(&self, a: &Addr, p: u16, c: u16) -> Option<()> {
         let source = self.ports.get(p).await?;
         self.channels.insert(a, c, &source).await?;
@@ -405,22 +392,21 @@ impl Router {
     /// allowed lifetime.  If this computed value is greater than the default
     /// lifetime, then the "desired lifetime" is the computed value.
     /// Otherwise, the "desired lifetime" is the default lifetime.
-    /// 
+    ///
     /// Subsequent processing depends on the "desired lifetime" value:
-    /// 
-    /// *  If the "desired lifetime" is zero, then the request succeeds and
-    ///    the allocation is deleted.
-    /// 
-    /// *  If the "desired lifetime" is non-zero, then the request succeeds
-    ///    and the allocation's time-to-expiry is set to the "desired
-    ///    lifetime".
-    /// 
+    ///
+    /// * If the "desired lifetime" is zero, then the request succeeds and the
+    ///   allocation is deleted.
+    ///
+    /// * If the "desired lifetime" is non-zero, then the request succeeds and
+    ///   the allocation's time-to-expiry is set to the "desired lifetime".
+    ///
     /// If the request succeeds, then the server sends a success response
     /// containing:
-    /// 
-    /// *  A LIFETIME attribute containing the current value of the time-to-
-    ///    expiry timer.
-    /// 
+    ///
+    /// * A LIFETIME attribute containing the current value of the time-to-
+    ///   expiry timer.
+    ///
     /// NOTE: A server need not do anything special to implement
     /// idempotency of Refresh requests over UDP using the "stateless
     /// stack approach".  Retransmitted Refresh requests with a non-
@@ -445,9 +431,8 @@ impl Router {
     /// state.refresh(&addr, 600);
     /// state.refresh(&addr, 0);
     /// ```
-    #[rustfmt::skip]
     pub async fn refresh(&self, a: &Addr, delay: u32) {
-        if delay > 0 { 
+        if delay > 0 {
             self.nodes.set_lifetime(a, delay).await;
         } else {
             self.remove(a).await;
@@ -470,7 +455,6 @@ impl Router {
     /// state.get_key(&addr, "panda");
     /// state.remove(&addr);
     /// ```
-    #[rustfmt::skip]
     pub async fn remove(&self, a: &Addr) -> Option<()> {
         let node = self.nodes.remove(a).await?;
         self.ports.remove(a, &node.ports).await;
@@ -482,8 +466,7 @@ impl Router {
         self.nonces.remove(a).await;
         Some(())
     }
-    
-    
+
     /// remove a node from username.
     ///
     /// ```no_run
@@ -500,13 +483,12 @@ impl Router {
     /// state.get_key(&addr, "panda");
     /// state.remove_from_user("panda");
     /// ```
-    #[rustfmt::skip]
     pub async fn remove_from_user(&self, u: &str) {
         for addr in self.nodes.get_bond(u).await {
             self.remove(&addr).await;
         }
     }
-    
+
     /// poll in state.
     ///
     /// ```no_run
@@ -515,7 +497,7 @@ impl Router {
     ///
     /// let argvure = Environment::generate().unwrap();
     /// let controller = Publish::new(&argvure);
-    /// 
+    ///
     /// tokio::spawn(async move {
     ///     let state = State::new(&argvure, &controller);
     ///     loop {
@@ -523,12 +505,11 @@ impl Router {
     ///     }
     /// });
     /// ```
-    #[rustfmt::skip]
     pub async fn poll(&self) {
         for a in self.nodes.get_deaths().await {
             self.remove(&a).await;
         }
-        
+
         for c in self.channels.get_deaths().await {
             self.channels.remove(c).await;
         }
@@ -542,21 +523,19 @@ impl Router {
     ///
     /// let argvure = Environment::generate().unwrap();
     /// let controller = Publish::new(&argvure);
-    /// 
-    /// State::new(&argvure, &controller)
-    ///     .run()
-    ///     .await
-    ///     .unwrap();
+    ///
+    /// State::new(&argvure, &controller).run().await.unwrap();
     /// ```
-    #[rustfmt::skip]
     pub async fn run(self: Arc<Self>) -> anyhow::Result<()> {
         let delay = Duration::from_secs(60);
-        tokio::spawn(async move { 
+        tokio::spawn(async move {
             loop {
                 sleep(delay).await;
                 self.poll().await;
             }
-        }).await?;
+        })
+        .await?;
+
         Ok(())
     }
 }

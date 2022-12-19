@@ -1,26 +1,26 @@
 use anyhow::Result;
 use bytes::BytesMut;
 use super::{
-    Context, 
+    Context,
     Response,
     SOFTWARE,
 };
 
 use stun::{
-    Kind, 
+    Kind,
     Method,
     MessageReader,
-    MessageWriter 
+    MessageWriter,
 };
 
 use stun::attribute::{
-    ErrKind, 
+    ErrKind,
     ErrorCode,
     Error,
     Realm,
     UserName,
     XorPeerAddress,
-    Software
+    Software,
 };
 
 use stun::attribute::ErrKind::{
@@ -31,12 +31,12 @@ use stun::attribute::ErrKind::{
 
 /// return create permission error response
 #[inline(always)]
-fn reject<'a, 'b>(
-    ctx: Context, 
-    m: MessageReader<'a, 'b>, 
-    w: &'a mut BytesMut,
+fn reject<'a, 'b, 'c>(
+    ctx: Context,
+    m: MessageReader<'a, 'b>,
+    w: &'c mut BytesMut,
     e: ErrKind,
-) -> Result<Response<'a>> {
+) -> Result<Response<'c>> {
     let method = Method::CreatePermission(Kind::Error);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
@@ -47,12 +47,12 @@ fn reject<'a, 'b>(
 
 /// return create permission ok response
 #[inline(always)]
-fn resolve<'a, 'b>(
-    ctx: &Context, 
-    m: &MessageReader<'a, 'b>, 
-    p: &[u8;16], 
-    w: &'a mut BytesMut
-) -> Result<Response<'a>> {
+fn resolve<'a, 'b, 'c>(
+    ctx: &Context,
+    m: &MessageReader<'a, 'b>,
+    p: &[u8; 16],
+    w: &'c mut BytesMut,
+) -> Result<Response<'c>> {
     let method = Method::CreatePermission(Kind::Response);
     let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<Software>(SOFTWARE);
@@ -89,7 +89,8 @@ fn resolve<'a, 'b>(
 /// request, then the server installs or refreshes a permission for the
 /// IP address contained in each XOR-PEER-ADDRESS attribute as described
 /// in [Section 9](https://tools.ietf.org/html/rfc8656#section-9).  
-/// The port portion of each attribute is ignored and may be any arbitrary value.
+/// The port portion of each attribute is ignored and may be any arbitrary
+/// value.
 ///
 /// The server then responds with a CreatePermission success response.
 /// There are no mandatory attributes in the success response.
@@ -98,8 +99,11 @@ fn resolve<'a, 'b>(
 /// idempotency of CreatePermission requests over UDP using the
 /// "stateless stack approach".  Retransmitted CreatePermission
 /// requests will simply refresh the permissions.
-#[rustfmt::skip]
-pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a, 'b, 'c>(
+    ctx: Context,
+    m: MessageReader<'a, 'b>,
+    w: &'c mut BytesMut,
+) -> Result<Response<'c>> {
     let u = match m.get::<UserName>() {
         Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized),
@@ -107,7 +111,7 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
 
     let peer = match m.get::<XorPeerAddress>() {
         Some(a) => a?,
-        _ => return reject(ctx, m, w, BadRequest)
+        _ => return reject(ctx, m, w, BadRequest),
     };
 
     let key = match ctx.router.get_key(&ctx.addr, u).await {
@@ -127,12 +131,7 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         return reject(ctx, m, w, Forbidden);
     }
 
-    log::info!(
-        "{:?} [{:?}] bind peer={}", 
-        &ctx.addr,
-        u,
-        peer,
-    );
+    log::info!("{:?} [{:?}] bind peer={}", &ctx.addr, u, peer,);
 
     resolve(&ctx, &m, &key, w)
 }

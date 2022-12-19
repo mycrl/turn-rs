@@ -1,15 +1,15 @@
 use anyhow::Result;
 use bytes::BytesMut;
 use super::{
-    Context, 
-    Response
+    Context,
+    Response,
 };
 
 use stun::{
-    Kind, 
+    Kind,
     Method,
     MessageReader,
-    MessageWriter
+    MessageWriter,
 };
 
 use stun::attribute::{
@@ -19,7 +19,7 @@ use stun::attribute::{
     Realm,
     UserName,
     ChannelNumber,
-    XorPeerAddress
+    XorPeerAddress,
 };
 
 use stun::attribute::ErrKind::{
@@ -30,12 +30,12 @@ use stun::attribute::ErrKind::{
 
 /// return channel binding error response
 #[inline(always)]
-fn reject<'a, 'b>(
-    ctx: Context, 
-    m: MessageReader<'a, 'b>, 
-    w: &'a mut BytesMut,
-    e: ErrKind, 
-) -> Result<Response<'a>> {
+fn reject<'a, 'b, 'c>(
+    ctx: Context,
+    m: MessageReader<'a, 'b>,
+    w: &'c mut BytesMut,
+    e: ErrKind,
+) -> Result<Response<'c>> {
     let method = Method::ChannelBind(Kind::Error);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
@@ -46,12 +46,12 @@ fn reject<'a, 'b>(
 
 /// return channel binding ok response
 #[inline(always)]
-fn resolve<'a>(
-    ctx: &Context, 
-    m: &MessageReader, 
-    p: &[u8; 16], 
-    w: &'a mut BytesMut
-) -> Result<Response<'a>> {
+fn resolve<'c>(
+    ctx: &Context,
+    m: &MessageReader,
+    p: &[u8; 16],
+    w: &'c mut BytesMut,
+) -> Result<Response<'c>> {
     let method = Method::ChannelBind(Kind::Response);
     MessageWriter::extend(method, m, w).flush(Some(p))?;
     Ok(Some((w, ctx.addr.clone())))
@@ -87,8 +87,11 @@ fn resolve<'a>(
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-#[rustfmt::skip]
-pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a, 'b, 'c>(
+    ctx: Context,
+    m: MessageReader<'a, 'b>,
+    w: &'c mut BytesMut,
+) -> Result<Response<'c>> {
     let u = match m.get::<UserName>() {
         Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized),
@@ -98,14 +101,14 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         Some(c) => c?,
         _ => return reject(ctx, m, w, BadRequest),
     };
-    
+
     let p = match m.get::<XorPeerAddress>() {
         Some(a) => a?.port(),
-        _ => return reject(ctx, m, w, BadRequest)
+        _ => return reject(ctx, m, w, BadRequest),
     };
 
     if !(0x4000..=0x7FFF).contains(&c) {
-        return reject(ctx, m, w, BadRequest)
+        return reject(ctx, m, w, BadRequest);
     }
 
     let key = match ctx.router.get_key(&ctx.addr, u).await {
@@ -116,17 +119,12 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
     if m.integrity(&key).is_err() {
         return reject(ctx, m, w, Unauthorized);
     }
-    
+
     if ctx.router.bind_channel(&ctx.addr, p, c).await.is_none() {
         return reject(ctx, m, w, InsufficientCapacity);
     }
-    
-    log::info!(
-        "{:?} [{:?}] bind channel={}", 
-        &ctx.addr,
-        u,
-        c
-    );
+
+    log::info!("{:?} [{:?}] bind channel={}", &ctx.addr, u, c);
 
     resolve(&ctx, &m, &key, w)
 }

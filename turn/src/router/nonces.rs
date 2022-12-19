@@ -1,22 +1,22 @@
 use super::{
     ports::capacity,
-    Addr
+    Addr,
 };
 
 use std::{
     collections::HashMap,
-    sync::Arc
+    sync::Arc,
 };
 
 use tokio::{
     time::Instant,
-    sync::RwLock
+    sync::RwLock,
 };
 
 use rand::{
-    distributions::Alphanumeric, 
-    thread_rng, 
-    Rng
+    distributions::Alphanumeric,
+    thread_rng,
+    Rng,
 };
 
 /// Session nonce.
@@ -28,23 +28,23 @@ use rand::{
 /// contain the actual surrounding quote characters.  The NONCE attribute
 /// MUST be fewer than 128 characters (which can be as long as 509 bytes
 /// when encoding them and a long as 763 bytes when decoding them).  See
-/// Section 5.4 of [RFC7616](https://datatracker.ietf.org/doc/html/rfc7616#section-5.4) 
+/// Section 5.4 of [RFC7616](https://datatracker.ietf.org/doc/html/rfc7616#section-5.4)
 /// for guidance on selection of nonce values in a server.
 pub struct Nonce {
     raw: Arc<String>,
-    timer: Instant
+    timer: Instant,
 }
 
 impl Nonce {
     pub fn new() -> Self {
         Self {
             raw: Arc::new(Self::create_nonce()),
-            timer: Instant::now()
+            timer: Instant::now(),
         }
     }
 
     /// whether the nonce is dead.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -56,7 +56,7 @@ impl Nonce {
     }
 
     /// unwind nonce random string.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -66,7 +66,7 @@ impl Nonce {
     pub fn unwind(&self) -> Arc<String> {
         self.raw.clone()
     }
-    
+
     /// generate nonce string.
     fn create_nonce() -> String {
         let mut rng = thread_rng();
@@ -80,33 +80,33 @@ impl Nonce {
 
 /// nonce table.
 pub struct Nonces {
-    map: RwLock<HashMap<Addr, Nonce>>
+    map: RwLock<HashMap<Addr, Nonce>>,
 }
 
 impl Nonces {
     pub fn new() -> Self {
         Self {
-            map: RwLock::new(HashMap::with_capacity(capacity()))
+            map: RwLock::new(HashMap::with_capacity(capacity())),
         }
     }
-    
+
     /// get session nonce string.
     ///
     /// each node is assigned a random string valid for 1 hour.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// 
-    /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap(); 
+    ///
+    /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();
     /// let nonce_table = Nonces::new();
     /// // nonce_table.get(&addr)
     /// ```
     pub async fn get(&self, a: &Addr) -> Arc<String> {
         if let Some(n) = self.map.read().await.get(a) {
             if !n.is_death() {
-                return n.unwind()   
+                return n.unwind();
             }
         }
 
@@ -119,13 +119,13 @@ impl Nonces {
     }
 
     /// remove session nonce string.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```no_run
     /// use std::net::SocketAddr;
-    /// 
-    /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap(); 
+    ///
+    /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();
     /// let nonce_table = Nonces::new();
     /// // nonce_table.get(&addr);
     /// nonce_table.remove(&addr);

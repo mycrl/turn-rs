@@ -13,9 +13,9 @@ use std::{
 pub struct Args {
     /// realm:
     ///
-    /// specify the domain where the server is located. 
-    /// for a single node, this configuration is fixed, 
-    /// but each node can be configured as a different domain. 
+    /// specify the domain where the server is located.
+    /// for a single node, this configuration is fixed,
+    /// but each node can be configured as a different domain.
     /// this is a good idea to divide the nodes by namespace.
     #[clap(long)]
     #[clap(env = "TURN_REALM")]
@@ -23,9 +23,9 @@ pub struct Args {
     pub realm: String,
     /// external:
     ///
-    /// specify the node external address and port. 
-    /// for the case of exposing the service to the outside, 
-    /// you need to manually specify the server external IP 
+    /// specify the node external address and port.
+    /// for the case of exposing the service to the outside,
+    /// you need to manually specify the server external IP
     /// address and service listening port.
     #[clap(long)]
     #[clap(env = "TURN_EXTERNAL")]
@@ -33,9 +33,9 @@ pub struct Args {
     pub external: SocketAddr,
     /// bind:
     ///
-    /// the address and port bound by UDP Server. 
-    /// currently, it does not support binding multiple 
-    /// addresses at the same time. the bound address 
+    /// the address and port bound by UDP Server.
+    /// currently, it does not support binding multiple
+    /// addresses at the same time. the bound address
     /// supports ipv4 and ipv6.
     #[clap(long)]
     #[clap(env = "TURN_BIND")]
@@ -43,11 +43,11 @@ pub struct Args {
     pub bind: SocketAddr,
     /// nats:
     ///
-    /// specify the remote control service. 
-    /// the control service is very important. 
-    /// if it is separated from it, 
-    /// the service will only have the basic STUN binding function. 
-    /// functions such as authorization authentication and port 
+    /// specify the remote control service.
+    /// the control service is very important.
+    /// if it is separated from it,
+    /// the service will only have the basic STUN binding function.
+    /// functions such as authorization authentication and port
     /// allocation require communication with the control center.
     #[clap(long)]
     #[clap(env = "TURN_NATS")]
@@ -64,10 +64,10 @@ pub struct Args {
     pub nats_tls_key: Option<String>,
     /// threads:
     ///
-    /// by default, the thread pool is used to process UDP packets. 
-    /// because UDP uses SysCall to ensure concurrency security, 
-    /// using multiple threads may not bring a very significant 
-    /// performance improvement, but setting the number of CPU 
+    /// by default, the thread pool is used to process UDP packets.
+    /// because UDP uses SysCall to ensure concurrency security,
+    /// using multiple threads may not bring a very significant
+    /// performance improvement, but setting the number of CPU
     /// cores can process data to the greatest extent package.
     #[clap(long)]
     #[clap(env = "TURN_THREADS")]
@@ -78,7 +78,7 @@ impl Args {
     pub fn new() -> Arc<Self> {
         Arc::new(Self::parse())
     }
-    
+
     /// # Unit Test
     ///
     /// ```
@@ -86,7 +86,7 @@ impl Args {
     ///
     /// let env = Environment::new();
     /// let config = env.get_ws_config();
-    /// 
+    ///
     /// assert_eq!(config.max_send_queue, None);
     /// assert_eq!(config.max_message_size, None);
     /// assert_eq!(config.max_frame_size, None);
@@ -95,16 +95,11 @@ impl Args {
     pub fn get_nats_config(&self) -> trpc::RpcOptions<'_> {
         trpc::RpcOptions {
             server: &self.nats,
-            token: self.nats_token
-                .as_ref()
-                .map(|t| t.as_ref())
-                .clone(),
-            tls: self.nats_tls_cert
-                .as_ref()
-                .map(|cert| trpc::TlsOptions {
-                    key: self.nats_tls_key.as_ref().unwrap(),
-                    cert: cert.as_str(),
-                })
+            token: self.nats_token.as_ref().map(|t| t.as_ref()),
+            tls: self.nats_tls_cert.as_ref().map(|cert| trpc::TlsOptions {
+                key: self.nats_tls_key.as_ref().unwrap(),
+                cert: cert.as_str(),
+            }),
         }
     }
 }

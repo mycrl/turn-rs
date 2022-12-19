@@ -1,14 +1,14 @@
 use anyhow::Result;
 use bytes::BytesMut;
-use super::{ 
-    Context, 
+use super::{
+    Context,
     Response,
     SOFTWARE,
 };
 
 use std::{
-    net::SocketAddr, 
-    sync::Arc
+    net::SocketAddr,
+    sync::Arc,
 };
 
 use stun::{
@@ -29,22 +29,22 @@ use stun::attribute::{
     XorRelayedAddress,
     Lifetime,
     UserName,
-    Software
+    Software,
 };
 
 use stun::attribute::ErrKind::{
     Unauthorized,
-    ServerError
+    ServerError,
 };
 
 /// return allocate error response
 #[inline(always)]
-async fn reject<'a, 'b>(
-    ctx: Context, 
+async fn reject<'a, 'b, 'c>(
+    ctx: Context,
     m: MessageReader<'a, 'b>,
-    w: &'a mut BytesMut,
-    e: ErrKind, 
-) -> Result<Response<'a>> {
+    w: &'c mut BytesMut,
+    e: ErrKind,
+) -> Result<Response<'c>> {
     let method = Method::Allocate(Kind::Error);
     let nonce = ctx.router.get_nonce(&ctx.addr).await;
     let mut pack = MessageWriter::extend(method, &m, w);
@@ -66,13 +66,13 @@ async fn reject<'a, 'b>(
 /// example, a server may choose this technique to implement the
 /// EVEN-PORT attribute.
 #[inline(always)]
-async fn resolve<'a, 'b>(
+async fn resolve<'a, 'b, 'c>(
     ctx: &Context,
     m: &MessageReader<'a, 'b>,
     p: &[u8; 16],
     port: u16,
-    w: &'a mut BytesMut,
-) -> Result<Response<'a>> {
+    w: &'c mut BytesMut,
+) -> Result<Response<'c>> {
     let method = Method::Allocate(Kind::Response);
     let alloc_addr = Arc::new(SocketAddr::new(ctx.args.external.ip(), port));
     let mut pack = MessageWriter::extend(method, m, w);
@@ -100,15 +100,18 @@ async fn resolve<'a, 'b>(
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
-#[rustfmt::skip]
-pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut BytesMut) -> Result<Response<'a>> {
+pub async fn process<'a, 'b, 'c>(
+    ctx: Context,
+    m: MessageReader<'a, 'b>,
+    w: &'c mut BytesMut,
+) -> Result<Response<'c>> {
     let u = match m.get::<UserName>() {
         Some(u) => u?,
         _ => return reject(ctx, m, w, Unauthorized).await,
     };
 
     if m.get::<ReqeestedTransport>().is_none() {
-        return reject(ctx, m, w, ServerError).await
+        return reject(ctx, m, w, ServerError).await;
     }
 
     let key = match ctx.router.get_key(&ctx.addr, u).await {
@@ -120,13 +123,8 @@ pub async fn process<'a, 'b>(ctx: Context, m: MessageReader<'a, 'b>, w: &'a mut 
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };
-    
-    log::info!(
-        "{:?} [{:?}] allocate port={}", 
-        &ctx.addr,
-        u,
-        port,
-    );
+
+    log::info!("{:?} [{:?}] allocate port={}", &ctx.addr, u, port,);
 
     match m.integrity(&key) {
         Err(_) => reject(ctx, m, w, Unauthorized).await,

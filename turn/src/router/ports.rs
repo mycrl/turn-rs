@@ -2,7 +2,7 @@ use super::Addr;
 use core::panic;
 use rand::{
     thread_rng,
-    Rng
+    Rng,
 };
 
 use tokio::sync::{
@@ -19,7 +19,7 @@ use std::{
 #[derive(PartialEq)]
 pub enum Bit {
     Low,
-    High
+    High,
 }
 
 /// Random Port
@@ -31,12 +31,12 @@ pub enum Bit {
 /// Protocol (TCP) [RFC0793] and similar protocols.  The consequences of
 /// these attacks range from throughput reduction to broken connections
 /// or data corruption [RFC5927] [RFC4953] [Watson].
-/// 
+///
 /// All these attacks rely on the attacker's ability to guess or know the
 /// five-tuple (Protocol, Source Address, Source port, Destination
 /// Address, Destination Port) that identifies the transport protocol
 /// instance to be attacked.
-/// 
+///
 /// Services are usually located at fixed, "well-known" ports [IANA] at
 /// the host supplying the service (the server).  Client applications
 /// connecting to any such service will contact the server by specifying
@@ -45,7 +45,7 @@ pub enum Bit {
 /// application and thus are chosen automatically by the client
 /// networking stack.  Ports chosen automatically by the networking stack
 /// are known as ephemeral ports [Stevens].
-/// 
+///
 /// While the server IP address, the well-known port, and the client IP
 /// address may be known by an attacker, the ephemeral port of the client
 /// is usually unknown and must be guessed.
@@ -58,7 +58,7 @@ pub struct PortPools {
 
 impl PortPools {
     pub fn new() -> Self {
-        Self { 
+        Self {
             buckets: vec![0; bucket_size()],
             peak: bucket_size() - 1,
             bit_len: bit_len(),
@@ -93,7 +93,7 @@ impl PortPools {
     pub fn len(&self) -> usize {
         self.allocated
     }
-    
+
     /// random assign a port.
     ///
     /// # Examples
@@ -102,42 +102,38 @@ impl PortPools {
     /// use ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
-    /// 
+    ///
     /// assert_eq!(pool.alloc(Some(0)), Some(49152));
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
-    /// 
+    ///
     /// assert!(pool.alloc(None).is_some());
     /// ```
     pub fn alloc(&mut self, si: Option<usize>) -> Option<u16> {
         let mut start = si.unwrap_or_else(|| self.random() as usize);
         let mut index = None;
 
-        let previous = if start == 0 {
-            self.peak
-        } else {
-            start - 1
-        };
+        let previous = if start == 0 { self.peak } else { start - 1 };
 
-    loop {
-        if let Some(i) = self.find_high(start) {
-            index = Some(i as usize);
-            break;
-        }
+        loop {
+            if let Some(i) = self.find_high(start) {
+                index = Some(i as usize);
+                break;
+            }
 
-        if start == self.peak {
-            start = 0;
-        } else {
-            start += 1;
-        }
+            if start == self.peak {
+                start = 0;
+            } else {
+                start += 1;
+            }
 
-        if start == previous {
-            break;
+            if start == previous {
+                break;
+            }
         }
-    }
 
         let bi = match index {
             Some(i) => i,
-            None => return None
+            None => return None,
         };
 
         self.write(start, bi, Bit::High);
@@ -147,7 +143,7 @@ impl PortPools {
         let port = port_range().start + num;
         Some(port)
     }
-    
+
     /// find the high bit in the bucket.
     ///
     /// # Examples
@@ -159,7 +155,7 @@ impl PortPools {
     ///
     /// assert_eq!(pool.alloc(Some(0)), Some(49152));
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
-    /// 
+    ///
     /// assert_eq!(pool.find_high(0), Some(2));
     /// assert_eq!(pool.find_high(0), Some(2));
     /// assert_eq!(pool.find_high(1), Some(0));
@@ -169,13 +165,13 @@ impl PortPools {
         let offset = if bucket < u64::MAX {
             bucket.leading_ones()
         } else {
-            return None
+            return None;
         };
-        
+
         if i == self.peak && offset > self.bit_len {
-            return None
+            return None;
         }
-        
+
         Some(offset)
     }
 
@@ -188,13 +184,13 @@ impl PortPools {
     /// use ports::Bit;
     ///
     /// let mut pool = PortPools::new();
-    /// 
+    ///
     /// assert_eq!(pool.alloc(Some(0)), Some(49152));
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     ///
     /// pool.write(0, 0, Bit::High);
     /// pool.write(0, 1, Bit::High);
-    /// 
+    ///
     /// assert_eq!(pool.alloc(Some(0)), Some(49152));
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     /// ```
@@ -205,7 +201,7 @@ impl PortPools {
             Bit::Low => u64::MAX ^ high_mask,
             Bit::High => high_mask,
         };
-        
+
         self.buckets[offset] = match bit {
             Bit::High => bucket | mask,
             Bit::Low => bucket & mask,
@@ -221,16 +217,16 @@ impl PortPools {
     /// use ports::Bit;
     ///
     /// let mut pool = PortPools::new();
-    /// 
+    ///
     /// assert_eq!(pool.alloc(Some(0)), Some(49152));
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     ///
     /// assert_eq!(pool.find_high(0), Some(2));
     /// assert_eq!(pool.find_high(1), Some(0));
-    /// 
+    ///
     /// pool.write(0, 0, Bit::High);
     /// pool.write(0, 1, Bit::High);
-    /// 
+    ///
     /// assert_eq!(pool.alloc(Some(0)), Some(49152));
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     ///
@@ -244,7 +240,7 @@ impl PortPools {
         match (self.buckets[o] & (1 << (63 - i))) >> (63 - i) {
             0 => Bit::Low,
             1 => Bit::High,
-            _ => panic!()
+            _ => panic!(),
         }
     }
 
@@ -256,13 +252,13 @@ impl PortPools {
     /// use ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
-    /// 
+    ///
     /// assert_eq!(pool.alloc(Some(0)), Some(49152));
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     ///
     /// pool.restore(49152);
     /// pool.restore(49153);
-    /// 
+    ///
     /// assert_eq!(pool.alloc(Some(0)), Some(49152));
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     /// ```
@@ -290,7 +286,7 @@ impl PortPools {
     /// let range = 49152..65535;
     /// let max = PortPools::bucket_size(&range) as u16;
     /// let pool = PortPools::new(range);
-    /// 
+    ///
     /// let index = pool.random();
     /// assert!((0..max - 1).contains(&index));
     /// ```
@@ -315,9 +311,9 @@ impl Ports {
             pools: Mutex::new(PortPools::new()),
         }
     }
-    
+
     /// get ports capacity.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```
@@ -351,11 +347,7 @@ impl Ports {
     /// assert!(pools.get(port).is_some());
     /// ```
     pub async fn get(&self, p: u16) -> Option<Addr> {
-        self.map
-            .read()
-            .await
-            .get(&p)
-            .cloned()
+        self.map.read().await.get(&p).cloned()
     }
 
     /// get address bound port.
@@ -371,12 +363,7 @@ impl Ports {
     /// assert!(pools.get_bound(&addr, &addr).is_none());
     /// ```
     pub async fn get_bound(&self, a: &Addr, p: &Addr) -> Option<u16> {
-        self.bonds
-            .read()
-            .await
-            .get(p)?
-            .get(a)
-            .cloned()
+        self.bonds.read().await.get(p)?.get(a).cloned()
     }
 
     /// allocate port in ports.
@@ -394,7 +381,7 @@ impl Ports {
     }
 
     /// bound address and peer port.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```
@@ -405,11 +392,7 @@ impl Ports {
     /// assert!(pools.bound(&addr, port).is_some());
     /// ```
     pub async fn bound(&self, a: &Addr, port: u16) -> Option<()> {
-        let peer = self.map
-            .read()
-            .await
-            .get(&port)?
-            .clone();
+        let peer = self.map.read().await.get(&port)?.clone();
         self.bonds
             .write()
             .await
@@ -421,7 +404,7 @@ impl Ports {
     }
 
     /// bound address and peer port.
-    /// 
+    ///
     /// # Examples
     ///
     /// ```
@@ -441,10 +424,7 @@ impl Ports {
             map.remove(p);
         }
 
-        self.bonds
-            .write()
-            .await
-            .remove(a);
+        self.bonds.write().await.remove(a);
         Some(())
     }
 }
