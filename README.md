@@ -7,7 +7,7 @@
   <strong>TURN Server implemented by ❤️ Rust</strong>
 </div>
 <div align="center">
-  <img src="https://img.shields.io/github/workflow/status/colourful-rtc/turn-rs/cargo-test"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/colourful-rtc/turn-rs/cargo-test.yml?branch=main"/>
   <img src="https://img.shields.io/github/license/colourful-rtc/turn-rs"/>
   <img src="https://img.shields.io/github/issues/colourful-rtc/turn-rs"/>
   <img src="https://img.shields.io/github/stars/colourful-rtc/turn-rs"/>
