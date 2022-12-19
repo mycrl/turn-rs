@@ -40,7 +40,7 @@ fn reject<'a, 'b, 'c>(
     let method = Method::CreatePermission(Kind::Error);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.append::<Realm>(&ctx.args.realm);
+    pack.append::<Realm>(&ctx.opt.realm);
     pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
 }
@@ -123,7 +123,7 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, Unauthorized);
     }
 
-    if ctx.args.external.ip() != peer.ip() {
+    if ctx.opt.external.ip() != peer.ip() {
         return reject(ctx, m, w, Forbidden);
     }
 
@@ -131,7 +131,6 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, Forbidden);
     }
 
-    log::info!("{:?} [{:?}] bind peer={}", &ctx.addr, u, peer,);
-
+    ctx.observer.create_permission(&ctx.addr, u, &peer);
     resolve(&ctx, &m, &key, w)
 }

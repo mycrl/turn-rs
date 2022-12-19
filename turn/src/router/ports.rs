@@ -70,7 +70,7 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use ports::PortPools;
     /// use ports::Bit;
     ///
@@ -83,7 +83,7 @@ impl PortPools {
 
     /// get pools allocated size.
     ///
-    /// ```
+    /// ```ignore
     /// use ports::PortPools;
     /// use ports::Bit;
     ///
@@ -98,7 +98,7 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
@@ -110,9 +110,8 @@ impl PortPools {
     /// ```
     pub fn alloc(&mut self, si: Option<usize>) -> Option<u16> {
         let mut start = si.unwrap_or_else(|| self.random() as usize);
-        let mut index = None;
-
         let previous = if start == 0 { self.peak } else { start - 1 };
+        let mut index = None;
 
         loop {
             if let Some(i) = self.find_high(start) {
@@ -132,8 +131,8 @@ impl PortPools {
         }
 
         let bi = match index {
-            Some(i) => i,
             None => return None,
+            Some(i) => i,
         };
 
         self.write(start, bi, Bit::High);
@@ -148,7 +147,7 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
@@ -179,7 +178,7 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use ports::PortPools;
     /// use ports::Bit;
     ///
@@ -212,7 +211,7 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use ports::PortPools;
     /// use ports::Bit;
     ///
@@ -248,7 +247,7 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
@@ -280,7 +279,7 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// use ports::PortPools;
     ///
     /// let range = 49152..65535;
@@ -316,7 +315,7 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let pools = Ports::new();
     /// assert_eq!(pools.capacity(), 65535 - 49152);
     /// ```
@@ -328,7 +327,7 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let pools = Ports::new();
     /// assert_eq!(pools.len(), 0);
     /// ```
@@ -340,7 +339,7 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let pools = Ports::new();
     /// let port = pools.alloc().unwrap();
     ///
@@ -354,7 +353,7 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let pools = Ports::new();
     /// let port = pools.alloc().unwrap();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -370,7 +369,7 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let pools = Ports::new();
     /// assert_eq!(pools.alloc().is_some(), true);
     /// ```
@@ -384,7 +383,7 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let pools = Ports::new();
     /// let port = pools.alloc().unwrap();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -407,7 +406,7 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let pools = Ports::new();
     /// let port = pools.alloc().unwrap();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -433,7 +432,7 @@ impl Ports {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// assert_eq!(bucket_size(), 256);
 /// ```
 fn bucket_size() -> usize {
@@ -444,7 +443,7 @@ fn bucket_size() -> usize {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// assert_eq!(bit_len(), 63);
 /// ```
 fn bit_len() -> u32 {
@@ -455,7 +454,7 @@ fn bit_len() -> u32 {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// assert_eq!(capacity(), 65535 - 49152);
 /// ```
 pub const fn capacity() -> usize {
@@ -466,7 +465,7 @@ pub const fn capacity() -> usize {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// assert_eq!(port_range(), 65535..49152);
 /// ```
 pub const fn port_range() -> Range<u16> {

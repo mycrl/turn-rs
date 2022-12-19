@@ -39,7 +39,7 @@ fn reject<'a, 'b, 'c>(
     let method = Method::ChannelBind(Kind::Error);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.append::<Realm>(&ctx.args.realm);
+    pack.append::<Realm>(&ctx.opt.realm);
     pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
 }
@@ -124,7 +124,6 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, InsufficientCapacity);
     }
 
-    log::info!("{:?} [{:?}] bind channel={}", &ctx.addr, u, c);
-
+    ctx.observer.channel_bind(&ctx.addr, u, c);
     resolve(&ctx, &m, &key, w)
 }

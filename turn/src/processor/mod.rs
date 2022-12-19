@@ -8,10 +8,10 @@ mod refresh;
 
 use anyhow::Result;
 use bytes::BytesMut;
-use super::{
-    args::Args,
+use crate::{
     router::Router,
-    server::SocketLocal,
+    Observer,
+    Options,
 };
 
 use std::{
@@ -42,23 +42,34 @@ pub(crate) type Response<'a> = Option<(
 
 /// message context
 pub struct Context {
-    pub args: Arc<Args>,
+    pub opt: Arc<Options>,
     pub router: Arc<Router>,
     pub addr: Arc<SocketAddr>,
+    pub observer: Arc<dyn Observer>,
 }
 
 /// process udp message
 /// and return message + address.
 pub struct Processor {
-    pub local: SocketLocal,
+    observer: Arc<dyn Observer>,
+    router: Arc<Router>,
+    opt: Arc<Options>,
     decoder: Decoder,
+    writer: BytesMut,
 }
 
 impl Processor {
-    pub fn builder(local: SocketLocal) -> Self {
+    pub(crate) fn new(
+        opt: Arc<Options>,
+        router: Arc<Router>,
+        observer: Arc<dyn Observer>,
+    ) -> Self {
         Self {
+            writer: BytesMut::with_capacity(4096),
             decoder: Decoder::new(),
-            local,
+            observer,
+            router,
+            opt,
         }
     }
 
@@ -172,16 +183,17 @@ impl Processor {
     ///
     /// The client may have multiple allocations on a server at the same
     /// time.
-    pub async fn handler<'c, 'a: 'c>(
-        &mut self,
+    pub async fn process<'c, 'a: 'c>(
+        &'a mut self,
         b: &'a [u8],
-        w: &'c mut BytesMut,
         a: SocketAddr,
     ) -> Result<Response<'c>> {
         let ctx = self.get_context(a);
         Ok(match self.decoder.decode(b)? {
             Payload::ChannelData(x) => channel_data::process(ctx, x).await,
-            Payload::Message(x) => Self::message_process(ctx, x, w).await?,
+            Payload::Message(x) => {
+                Self::message_process(ctx, x, &mut self.writer).await?
+            },
         })
     }
 
@@ -328,8 +340,9 @@ impl Processor {
     /// builder of message context from thread local.
     fn get_context(&self, a: SocketAddr) -> Context {
         Context {
-            router: self.local.router.clone(),
-            args: self.local.args.clone(),
+            opt: self.opt.clone(),
+            router: self.router.clone(),
+            observer: self.observer.clone(),
             addr: Arc::new(a),
         }
     }

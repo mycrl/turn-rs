@@ -115,8 +115,7 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, Unauthorized);
     }
 
-    log::info!("{:?} [{:?}] refresh timeout={}", &ctx.addr, u, l,);
-
+    ctx.observer.refresh(&ctx.addr, u, l);
     ctx.router.refresh(&ctx.addr, l).await;
     resolve(&ctx, &m, l, &key, w)
 }

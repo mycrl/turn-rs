@@ -49,7 +49,7 @@ async fn reject<'a, 'b, 'c>(
     let nonce = ctx.router.get_nonce(&ctx.addr).await;
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.append::<Realm>(&ctx.args.realm);
+    pack.append::<Realm>(&ctx.opt.realm);
     pack.append::<Nonce>(&nonce);
     pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
@@ -74,7 +74,7 @@ async fn resolve<'a, 'b, 'c>(
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
     let method = Method::Allocate(Kind::Response);
-    let alloc_addr = Arc::new(SocketAddr::new(ctx.args.external.ip(), port));
+    let alloc_addr = Arc::new(SocketAddr::new(ctx.opt.external.ip(), port));
     let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<XorRelayedAddress>(*alloc_addr.as_ref());
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
@@ -124,8 +124,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(p) => p,
     };
 
-    log::info!("{:?} [{:?}] allocate port={}", &ctx.addr, u, port,);
-
+    ctx.observer.allocated(&ctx.addr, u, port);
     match m.integrity(&key) {
         Err(_) => reject(ctx, m, w, Unauthorized).await,
         Ok(_) => resolve(&ctx, &m, &key, port, w).await,

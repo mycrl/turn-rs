@@ -47,7 +47,7 @@ impl Nonce {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let nonce = Nonce::new();
     /// assert!(!nonce.is_death());
     /// ```
@@ -59,7 +59,7 @@ impl Nonce {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let nonce = Nonce::new();
     /// assert_eq!(nonce.unwind().len(), 16);
     /// ```
@@ -96,7 +96,7 @@ impl Nonces {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     ///
     /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();
@@ -122,7 +122,7 @@ impl Nonces {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     ///
     /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();

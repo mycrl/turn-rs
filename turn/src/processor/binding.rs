@@ -47,12 +47,12 @@ pub fn process<'a>(
     payload: MessageReader,
     w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
-    log::info!("{:?} request binding", &ctx.addr);
+    ctx.observer.binding(&ctx.addr);
     let method = Method::Binding(Kind::Response);
     let mut pack = MessageWriter::extend(method, &payload, w);
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
     pack.append::<MappedAddress>(*ctx.addr.as_ref());
-    pack.append::<ResponseOrigin>(ctx.args.external);
+    pack.append::<ResponseOrigin>(ctx.opt.external);
     pack.append::<Software>(SOFTWARE);
     pack.flush(None)?;
     Ok(Some((w, ctx.addr)))

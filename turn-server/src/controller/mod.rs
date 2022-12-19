@@ -9,10 +9,8 @@ use std::{
     sync::Arc,
 };
 
-use super::{
-    args::Args,
-    router::Router,
-};
+use turn::Router;
+use super::args::Args;
 
 use trpc::{
     Caller,
@@ -63,7 +61,7 @@ pub struct Auth {
 }
 
 /// auth service caller type.
-pub type AuthCaller = RpcCaller<(SocketAddr, String), response::Auth>;
+pub type AuthCaller = RpcCaller<(SocketAddr, String), String>;
 
 impl Auth {
     pub fn new(args: &Arc<Args>) -> Self {
@@ -73,7 +71,7 @@ impl Auth {
     }
 }
 
-impl Caller<(SocketAddr, String), response::Auth> for Auth {
+impl Caller<(SocketAddr, String), String> for Auth {
     fn topic(&self) -> String {
         "turn.auth".to_string()
     }
@@ -106,8 +104,10 @@ impl Caller<(SocketAddr, String), response::Auth> for Auth {
     ///     username: "panda".to_string(),
     /// })
     /// ```
-    fn deserializer(&self, data: &[u8]) -> Result<response::Auth> {
-        Response::<response::Auth>::try_from(data)?.into_result()
+    fn deserializer(&self, data: &[u8]) -> Result<String> {
+        Response::<response::Auth>::try_from(data)?
+            .into_result()
+            .map(|s| s.secret)
     }
 }
 

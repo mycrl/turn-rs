@@ -1,5 +1,4 @@
 use std::net::SocketAddr;
-use crate::router::nodes;
 use serde::{
     Serialize,
     Deserialize,
@@ -44,7 +43,7 @@ pub struct Node {
     pub lifetime: u64,
 }
 
-impl From<nodes::Node> for Node {
+impl From<turn::Node> for Node {
     /// # Example
     ///
     /// ```no_run
@@ -64,7 +63,7 @@ impl From<nodes::Node> for Node {
     ///
     /// // Response<Auth>::try_from(&res_buf[..]).unwrap()
     /// ```
-    fn from(node: nodes::Node) -> Self {
+    fn from(node: turn::Node) -> Self {
         Self {
             timer: node.timer.elapsed().as_millis() as usize,
             channels: node.channels,

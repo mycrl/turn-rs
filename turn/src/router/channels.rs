@@ -80,7 +80,7 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -96,7 +96,7 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -112,7 +112,7 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -129,7 +129,7 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -145,7 +145,7 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -165,7 +165,7 @@ impl Iterator for Iter {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -196,7 +196,7 @@ impl IntoIterator for Channel {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -231,7 +231,7 @@ impl Channels {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -252,7 +252,7 @@ impl Channels {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -300,7 +300,7 @@ impl Channels {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
     ///
@@ -325,7 +325,7 @@ impl Channels {
 
     /// get death channels.
     ///
-    /// ```no_run
+    /// ```ignore
     /// let channels = Channels::new();
     /// assert_eq!(channels.get_deaths().len(), 0);
     /// ```

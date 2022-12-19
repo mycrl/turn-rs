@@ -113,6 +113,7 @@ pub enum AttrKind {
 }
 
 /// dyn stun/turn message attribute.
+#[rustfmt::skip]
 pub trait Property<'a> {
     type Error;
     /// current attribute inner type.
@@ -122,8 +123,7 @@ pub trait Property<'a> {
     /// write the current attribute to the buffer.
     fn into(value: Self::Inner, buf: &mut BytesMut, t: &'a [u8]);
     /// convert buffer to current attribute.
-    fn try_from(buf: &'a [u8], t: &'a [u8])
-        -> Result<Self::Inner, Self::Error>;
+    fn try_from(buf: &'a [u8], t: &'a [u8]) -> Result<Self::Inner, Self::Error>;
 }
 
 /// [RFC8265]: https://datatracker.ietf.org/doc/html/rfc8265
@@ -788,6 +788,7 @@ impl<'a> Property<'a> for UseCandidate {
     }
 
     fn into(_: Self::Inner, _: &mut BytesMut, _: &[u8]) {}
+
     fn try_from(_: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(())
     }

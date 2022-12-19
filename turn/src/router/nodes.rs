@@ -39,7 +39,7 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// // Node::new(0, key.clone());
     /// ```
@@ -60,7 +60,7 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let mut node = Node::new(0, key.clone());
     /// node.set_lifetime(600);
@@ -74,7 +74,7 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let mut node = Node::new(0, key.clone());
     /// node.set_lifetime(600);
@@ -88,7 +88,7 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let node = Node::new(0, key.clone());
     /// assert_eq!(!node.get_password(), Arc::new(key));
@@ -101,7 +101,7 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let node = Node::new(0, key.clone());
     /// // node.push_port(43196);
@@ -116,7 +116,7 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let node = Node::new(0, key.clone());
     /// // node.push_channel(0x4000);
@@ -146,7 +146,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// assert_eq!(!node.get_users().len(), 0);
     /// ```
@@ -155,9 +155,7 @@ impl Nodes {
             .read()
             .await
             .iter()
-            .map(|(k, v)| {
-                (k.clone(), v.iter().map(|v| *v.clone()).collect())
-            })
+            .map(|(k, v)| (k.clone(), v.iter().map(|v| *v.clone()).collect()))
             .collect()
     }
 
@@ -165,7 +163,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -196,7 +194,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -213,7 +211,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -242,7 +240,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -260,7 +258,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -278,7 +276,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -296,7 +294,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -322,7 +320,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
@@ -346,7 +344,7 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Nodes::new();
     /// assert_eq!(node.get_deaths().len(), 0);
     /// ```

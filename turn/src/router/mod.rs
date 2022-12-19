@@ -18,9 +18,9 @@ use std::{
     sync::Arc,
 };
 
-use super::{
-    args::Args,
-    controller::AuthCaller,
+use crate::{
+    Options,
+    Observer,
 };
 
 type Addr = Arc<SocketAddr>;
@@ -36,8 +36,8 @@ type Addr = Arc<SocketAddr>;
 /// long-term valid passwords，does not support short-term
 /// valid passwords.
 pub struct Router {
-    args: Arc<Args>,
-    controller: AuthCaller,
+    opt: Arc<Options>,
+    observer: Arc<dyn Observer>,
     ports: Ports,
     nonces: Nonces,
     nodes: Nodes,
@@ -45,15 +45,58 @@ pub struct Router {
 }
 
 impl Router {
-    pub fn new(args: &Arc<Args>, controller: AuthCaller) -> Arc<Self> {
+    /// create a router.
+    ///
+    /// ```ignore
+    /// struct Events;
+    ///
+    /// impl Observer for Events {
+    ///     async fn auth(&self, _addr: &SocketAddr, _name: &str) -> Option<&str> {
+    ///         Some("test")
+    ///     }
+    /// }
+    ///
+    /// let _router = Router::new(
+    ///     Arc::new(Options {
+    ///         external: "127.0.0.1:4378".parse().unwrap(),
+    ///         realm: "test".to_string(),
+    ///     }),
+    ///     Arc::new(Events {}),
+    /// );
+    /// ```
+    pub(crate) fn new(
+        opt: Arc<Options>,
+        observer: Arc<dyn Observer>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             channels: Channels::new(),
             nonces: Nonces::new(),
             ports: Ports::new(),
             nodes: Nodes::new(),
-            args: args.clone(),
-            controller,
+            observer,
+            opt,
         })
+    }
+
+    /// poll in state.
+    ///
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
+    ///
+    /// tokio::spawn(state.start_poll());
+    /// ```
+    pub async fn start_poll(&self) {
+        let delay = Duration::from_secs(60);
+        loop {
+            sleep(delay).await;
+            for a in self.nodes.get_deaths().await {
+                self.remove(&a).await;
+            }
+
+            for c in self.channels.get_deaths().await {
+                self.channels.remove(c).await;
+            }
+        }
     }
 
     /// get router capacity.
@@ -66,31 +109,23 @@ impl Router {
         self.ports.len().await
     }
 
-    /// get node the password.
+    /// get user list.
     ///
-    /// for security reasons, the server MUST NOT store the password
-    /// explicitly and MUST store the key value, which is a cryptographic
-    /// hash over the username, realm, and password.
+    /// ```ignore
+    /// let router = Router::new(/* ... */);
     ///
-    /// ```no_run
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let node = Node::new(0, key.clone());
-    /// assert_eq!(!node.get_password(), Arc::new(key));
+    /// assert!(router.get_users().len() == 0);
     /// ```
     pub async fn get_users(&self) -> Vec<(String, Vec<SocketAddr>)> {
         self.nodes.get_users().await
     }
 
-    /// get node the password.
+    /// get node list.
     ///
-    /// for security reasons, the server MUST NOT store the password
-    /// explicitly and MUST store the key value, which is a cryptographic
-    /// hash over the username, realm, and password.
+    /// ```ignore
+    /// let router = Router::new(/* ... */);
     ///
-    /// ```no_run
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let node = Node::new(0, key.clone());
-    /// assert_eq!(!node.get_password(), Arc::new(key));
+    /// assert!(router.get_nodes().len() == 0);
     /// ```
     pub async fn get_nodes(&self, u: &str) -> Vec<nodes::Node> {
         self.nodes.get_nodes(u).await
@@ -98,16 +133,8 @@ impl Router {
 
     /// get the nonce of the node SocketAddr.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
     ///
     /// assert!(state.get_nonce(&addr).len() == 16);
     /// ```
@@ -119,16 +146,8 @@ impl Router {
     ///
     /// require remote control service to distribute keys.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
     ///
     /// // state.get_key(&addr, "panda")
     /// ```
@@ -138,31 +157,19 @@ impl Router {
             return key;
         }
 
-        let auth = self
-            .controller
-            .call((*a.as_ref(), u.to_string()))
-            .await
-            .ok()?;
-
-        let key = long_key(u, &auth.secret, &self.args.realm);
+        let secret = self.observer.auth(a.as_ref(), u).await?;
+        let key = long_key(u, &secret, &self.opt.realm);
         self.nodes.insert(a, u, key).await
     }
 
     /// obtain the peer address bound to the current
     /// node according to the channel number.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-    ///
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -182,18 +189,11 @@ impl Router {
     /// obtain the peer address bound to the current
     /// node according to the port number.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-    ///
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -213,18 +213,11 @@ impl Router {
 
     /// get node the port.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-    ///
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -283,18 +276,11 @@ impl Router {
     /// to-expiry is recomputed with each successful Refresh request, and
     /// thus, the value computed here applies only until the first refresh.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-    ///
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -315,18 +301,11 @@ impl Router {
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-    ///
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -353,18 +332,11 @@ impl Router {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-    ///
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
     ///
     /// state.get_key(&addr, "panda");
     /// state.get_key(&peer, "panda");
@@ -416,16 +388,9 @@ impl Router {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
-    ///
+    /// ```ignore
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
+    /// let state = Router::new(/* ... */);
     ///
     /// state.get_key(&addr, "panda");
     /// state.refresh(&addr, 600);
@@ -441,16 +406,9 @@ impl Router {
 
     /// remove a node.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
-    ///
+    /// ```ignore
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
+    /// let state = Router::new(/* ... */);
     ///
     /// state.get_key(&addr, "panda");
     /// state.remove(&addr);
@@ -469,16 +427,9 @@ impl Router {
 
     /// remove a node from username.
     ///
-    /// ```no_run
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
-    ///
+    /// ```ignore
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    /// let state = State::new(&argvure, &controller);
+    /// let state = Router::new(/* ... */);
     ///
     /// state.get_key(&addr, "panda");
     /// state.remove_from_user("panda");
@@ -487,55 +438,5 @@ impl Router {
         for addr in self.nodes.get_bond(u).await {
             self.remove(&addr).await;
         }
-    }
-
-    /// poll in state.
-    ///
-    /// ```no_run
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
-    ///
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    ///
-    /// tokio::spawn(async move {
-    ///     let state = State::new(&argvure, &controller);
-    ///     loop {
-    ///         state.poll()
-    ///     }
-    /// });
-    /// ```
-    pub async fn poll(&self) {
-        for a in self.nodes.get_deaths().await {
-            self.remove(&a).await;
-        }
-
-        for c in self.channels.get_deaths().await {
-            self.channels.remove(c).await;
-        }
-    }
-
-    /// auto run state poll.
-    ///
-    /// ```no_run
-    /// use turn::env::Environment;
-    /// use turn::controller::Publish;
-    ///
-    /// let argvure = Environment::generate().unwrap();
-    /// let controller = Publish::new(&argvure);
-    ///
-    /// State::new(&argvure, &controller).run().await.unwrap();
-    /// ```
-    pub async fn run(self: Arc<Self>) -> anyhow::Result<()> {
-        let delay = Duration::from_secs(60);
-        tokio::spawn(async move {
-            loop {
-                sleep(delay).await;
-                self.poll().await;
-            }
-        })
-        .await?;
-
-        Ok(())
     }
 }
