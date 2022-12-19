@@ -7,10 +7,10 @@
   <strong>TURN Server implemented by ❤️ Rust</strong>
 </div>
 <div align="center">
-  <img src="https://img.shields.io/github/workflow/status/mycrl/turn-rs/cargo-test"/>
-  <img src="https://img.shields.io/github/license/mycrl/turn-rs"/>
-  <img src="https://img.shields.io/github/issues/mycrl/turn-rs"/>
-  <img src="https://img.shields.io/github/stars/mycrl/turn-rs"/>
+  <img src="https://img.shields.io/github/workflow/status/colourful-rtc/turn-rs/cargo-test"/>
+  <img src="https://img.shields.io/github/license/colourful-rtc/turn-rs"/>
+  <img src="https://img.shields.io/github/issues/colourful-rtc/turn-rs"/>
+  <img src="https://img.shields.io/github/stars/colourful-rtc/turn-rs"/>
 </div>
 <br/>
 <br/>
@@ -31,7 +31,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 You need to install the Rust toolchain, if you have already installed it, you can skip it, [Install Rust](https://www.rust-lang.org/tools/install), then get the source code:
 
 ```bash
-git clone https://github.com/mycrl/turn-rs
+git clone https://github.com/colourful-rtc/turn-rs
 ```
 
 ### Build workspace
