@@ -18,6 +18,12 @@
 A pure rust-implemented turn server, different from coturn, provides a more flexible external control API and provides the same performance and memory footprint.
 
 
+## Who uses it?
+
+* [`Psyai`](https://psyai.com)
+* [`Faszialespecialist`](https://faszialespecialist.com/)
+
+
 ## Table of contents
 
 * [crates](#crates)
