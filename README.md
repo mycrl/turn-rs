@@ -64,7 +64,7 @@ After the compilation is complete, you can find the binary file in the "target/r
 Show helps:
 
 ```bash
-turn --help
+turn-server --help
 ```
 
 ### Command-line arguments
@@ -95,7 +95,7 @@ export TURN_BIND="127.0.0.1:3478"
 Or else use command-line arguments:
 
 ```bash
-turn --bind=127.0.0.1:8080 --external=127.0.0.1:8080
+turn-server --bind=127.0.0.1:8080 --external=127.0.0.1:8080
 ```
 
 ### Logs
