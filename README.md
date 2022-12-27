@@ -39,7 +39,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 ## Building
 
-### Prerequisites
+#### Prerequisites
 
 You need to install the Rust toolchain, if you have already installed it, you can skip it, [Install Rust](https://www.rust-lang.org/tools/install), then get the source code:
 
@@ -47,7 +47,7 @@ You need to install the Rust toolchain, if you have already installed it, you ca
 git clone https://github.com/colourful-rtc/turn-rs
 ```
 
-### Build workspace
+#### Build workspace
 
 Compile the entire workspace in release mode:
 
@@ -67,7 +67,7 @@ Show helps:
 turn-server --help
 ```
 
-### Command-line arguments
+#### Command-line arguments
 command-line arguments take precedence over environment variables
 
 | values          | default        | env                | tips                       |
@@ -81,9 +81,9 @@ command-line arguments take precedence over environment variables
 | --nats-tls-key  |                | TURN_NATS_TLS_KEY  |                            |
 | --threads       |                | TURN_THREADS       | internal thread pool size  |
 
-for sys calls, multithreading does not significantly help to improve IO throughput.
+> for sys calls, multithreading does not significantly help to improve IO throughput.
 
-### Simple example
+#### Simple example
 
 Set envs:
 
@@ -98,7 +98,7 @@ Or else use command-line arguments:
 turn-server --bind=127.0.0.1:8080 --external=127.0.0.1:8080
 ```
 
-### Logs
+#### Logs
 
 The server closes log output by default, and the log output level can be set using environment variables:
 
