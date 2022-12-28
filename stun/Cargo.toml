@@ -15,7 +15,7 @@ crc = "1.8.1"
 
 [dev-dependencies.criterion]
 features = ["html_reports"]
-version = "0.3"
+version = "0.4"
 
 [[bench]]
 name = "benchmark"
