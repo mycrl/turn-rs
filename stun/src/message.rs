@@ -367,6 +367,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// assert_eq!(message.method, Method::Binding(Kind::Request));
     /// assert!(message.get::<UserName>().is_none());
     /// ```
+    #[rustfmt::skip]
     pub fn decode(
         buf: &'a [u8],
         attributes: &'b mut Vec<(AttrKind, &'a [u8])>,
@@ -389,58 +390,59 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         let token = &buf[8..20];
         let mut offset = 20;
 
-        loop {
-            // if the buf length is not long enough to continue,
-            // jump out of the loop.
-            if count_size - offset < 4 {
-                break;
-            }
-
-            // get attribute type
-            let key = u16::from_be_bytes([buf[offset], buf[offset + 1]]);
-
-            // whether the MessageIntegrity attribute has been found,
-            // if found, record the current offset position.
-            if !find_integrity {
-                valid_offset = offset as u16;
-            }
-
-            // check whether the current attribute is MessageIntegrity,
-            // if it is, mark this attribute has been found.
-            if key == AttrKind::MessageIntegrity as u16 {
-                find_integrity = true;
-            }
-
-            // get attribute size
-            let size =
-                u16::from_be_bytes([buf[offset + 2], buf[offset + 3]]) as usize;
-
-            // check if the attribute length has overflowed.
-            offset += 4;
-            if count_size - offset < size {
-                break;
-            }
-
-            // body range.
-            let range = offset..(offset + size);
-
-            // if there are padding bytes,
-            // skip padding size.
-            if size > 0 {
-                offset += size;
-                offset += util::pad_size(size);
-            }
-
-            // skip the attributes that are not supported.
-            let attrkind = match AttrKind::try_from(key) {
-                Err(_) => continue,
-                Ok(a) => a,
-            };
-
-            // get attribute body
-            // insert attribute to attributes list.
-            attributes.push((attrkind, &buf[range]));
+    // warn: loop
+    loop {
+        // if the buf length is not long enough to continue,
+        // jump out of the loop.
+        if count_size - offset < 4 {
+            break;
         }
+
+        // get attribute type
+        let key = u16::from_be_bytes([buf[offset], buf[offset + 1]]);
+
+        // whether the MessageIntegrity attribute has been found,
+        // if found, record the current offset position.
+        if !find_integrity {
+            valid_offset = offset as u16;
+        }
+
+        // check whether the current attribute is MessageIntegrity,
+        // if it is, mark this attribute has been found.
+        if key == AttrKind::MessageIntegrity as u16 {
+            find_integrity = true;
+        }
+
+        // get attribute size
+        let size =
+            u16::from_be_bytes([buf[offset + 2], buf[offset + 3]]) as usize;
+
+        // check if the attribute length has overflowed.
+        offset += 4;
+        if count_size - offset < size {
+            break;
+        }
+
+        // body range.
+        let range = offset..(offset + size);
+
+        // if there are padding bytes,
+        // skip padding size.
+        if size > 0 {
+            offset += size;
+            offset += util::pad_size(size);
+        }
+
+        // skip the attributes that are not supported.
+        let attrkind = match AttrKind::try_from(key) {
+            Err(_) => continue,
+            Ok(a) => a,
+        };
+
+        // get attribute body
+        // insert attribute to attributes list.
+        attributes.push((attrkind, &buf[range]));
+    }
 
         Ok(Self {
             token,
