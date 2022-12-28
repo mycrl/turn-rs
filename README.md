@@ -29,6 +29,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 * [crates](#crates)
 * [building](#building)
 * [usage](#usage)
+* [benchmark](#benchmark)
 
 
 ## Crates
@@ -110,6 +111,14 @@ The server closes log output by default, and the log output level can be set usi
 
 ```bash
 export RUST_LOG=<level> // error | warn | info | debug | trace
+```
+
+
+## Benchmark
+
+```
+stun_decoder/decoder_channel_bind ...[time: 20.606 ns] ...[thrpt: 4.8812 GiB/s]
+stun_decoder/decoder_binding ...[time: 20.862 ns] ...[thrpt: 4.2856 GiB/s]
 ```
 
 
