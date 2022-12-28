@@ -117,8 +117,8 @@ export RUST_LOG=<level> // error | warn | info | debug | trace
 ## Benchmark
 
 ```
-stun_decoder/decoder_channel_bind ...[time: 20.606 ns] ...[thrpt: 4.8812 GiB/s]
-stun_decoder/decoder_binding ...[time: 20.862 ns] ...[thrpt: 4.2856 GiB/s]
+stun_decoder/channel_bind ...[time: 20.606 ns] ...[thrpt: 4.8812 GiB/s]
+stun_decoder/binding_request ...[time: 20.862 ns] ...[thrpt: 4.2856 GiB/s]
 ```
 
 
