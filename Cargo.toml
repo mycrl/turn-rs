@@ -9,7 +9,6 @@ lto = true
 [workspace]
 members = [
     "turn",
-    "trpc",
     "stun",
     "turn-server"
 ]

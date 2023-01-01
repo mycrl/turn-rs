@@ -1,8 +1,5 @@
+use std::net::SocketAddr;
 use clap::Parser;
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -10,7 +7,7 @@ use std::{
     version = env!("CARGO_PKG_VERSION"),
     author = env!("CARGO_PKG_AUTHORS")
 )]
-pub struct Args {
+pub struct Config {
     /// realm:
     ///
     /// specify the domain where the server is located.
@@ -21,6 +18,7 @@ pub struct Args {
     #[clap(env = "TURN_REALM")]
     #[clap(default_value = "localhost")]
     pub realm: String,
+
     /// external:
     ///
     /// specify the node external address and port.
@@ -31,6 +29,7 @@ pub struct Args {
     #[clap(env = "TURN_EXTERNAL")]
     #[clap(default_value = "127.0.0.1:3478")]
     pub external: SocketAddr,
+
     /// bind:
     ///
     /// the address and port bound by UDP Server.
@@ -41,27 +40,47 @@ pub struct Args {
     #[clap(env = "TURN_BIND")]
     #[clap(default_value = "127.0.0.1:3478")]
     pub bind: SocketAddr,
-    /// nats:
+
+    /// controller bind:
     ///
-    /// specify the remote control service.
-    /// the control service is very important.
-    /// if it is separated from it,
-    /// the service will only have the basic STUN binding function.
-    /// functions such as authorization authentication and port
-    /// allocation require communication with the control center.
+    /// This option specifies the http server binding address used to control
+    /// the turn server.
+    ///
+    /// Warn: This http server does not contain
+    /// any means of authentication, and sensitive information and dangerous
+    /// operations can be obtained through this service, please do not expose
+    /// it directly to an unsafe environment.
     #[clap(long)]
-    #[clap(env = "TURN_NATS")]
-    #[clap(default_value = "nats://127.0.0.1:4222")]
-    pub nats: String,
+    #[clap(env = "TURN_CONTROLLER_BIND")]
+    #[clap(default_value = "127.0.0.1:3000")]
+    pub controller_bind: SocketAddr,
+
+    /// external controller bind:
+    ///
+    /// This option is used to specify the http address of the external control
+    /// service.
+    ///
+    /// Warn: This http server does not contain
+    /// any means of authentication, and sensitive information and dangerous
+    /// operations can be obtained through this service, please do not expose
+    /// it directly to an unsafe environment.
     #[clap(long)]
-    #[clap(env = "TURN_NATS_TOKEN")]
-    pub nats_token: Option<String>,
+    #[clap(env = "TURN_EXT_CONTROLLER_BIND")]
+    #[clap(default_value = "http://127.0.0.1:3000")]
+    pub ext_controller_bind: String,
+
+    /// static certificate file path:
+    ///
+    /// The internal format of the file is TOML, and the content is
+    /// `[username]="[password]"`. This option can be used to specify the
+    /// static identity authentication information used by the turn server for
+    /// verification. Note: this is a high-priority authentication method, turn
+    /// The server will try to use static authentication first, and then use
+    /// external control service authentication.
     #[clap(long)]
-    #[clap(env = "TURN_NATS_TLS_CERT")]
-    pub nats_tls_cert: Option<String>,
-    #[clap(long)]
-    #[clap(env = "TURN_NATS_TLS_KEY")]
-    pub nats_tls_key: Option<String>,
+    #[clap(env = "TURN_CERT_FILE")]
+    pub cert_file: Option<String>,
+
     /// threads:
     ///
     /// by default, the thread pool is used to process UDP packets.
@@ -72,34 +91,4 @@ pub struct Args {
     #[clap(long)]
     #[clap(env = "TURN_THREADS")]
     pub threads: Option<usize>,
-}
-
-impl Args {
-    pub fn new() -> Arc<Self> {
-        Arc::new(Self::parse())
-    }
-
-    /// # Unit Test
-    ///
-    /// ```
-    /// use signaling::*;
-    ///
-    /// let env = Environment::new();
-    /// let config = env.get_ws_config();
-    ///
-    /// assert_eq!(config.max_send_queue, None);
-    /// assert_eq!(config.max_message_size, None);
-    /// assert_eq!(config.max_frame_size, None);
-    /// assert_eq!(config.accept_unmasked_frames, false);
-    /// ```
-    pub fn get_nats_config(&self) -> trpc::RpcOptions<'_> {
-        trpc::RpcOptions {
-            server: &self.nats,
-            token: self.nats_token.as_ref().map(|t| t.as_ref()),
-            tls: self.nats_tls_cert.as_ref().map(|cert| trpc::TlsOptions {
-                key: self.nats_tls_key.as_ref().unwrap(),
-                cert: cert.as_str(),
-            }),
-        }
-    }
 }

@@ -1,38 +1,42 @@
-mod args;
 mod server;
-mod controller;
+mod config;
+mod api;
 
 use async_trait::async_trait;
-use std::net::SocketAddr;
-use trpc::Rpc;
-use args::Args;
-use controller::*;
+use config::Config;
+use clap::Parser;
 use turn::{
     Service,
     Options,
     Observer,
 };
 
+use api::{
+    ExtController,
+    Controller,
+};
+
+use std::{
+    net::SocketAddr,
+    sync::Arc,
+};
+
 struct Events {
-    auther: AuthCaller,
+    ctr: ExtController,
 }
 
 impl Events {
-    fn new(auther: AuthCaller) -> Self {
+    fn new(cfg: Arc<Config>) -> Self {
         Self {
-            auther,
+            ctr: ExtController::new(cfg),
         }
     }
 }
 
 #[async_trait]
 impl Observer for Events {
-    /// turn auth request
     async fn auth(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        self.auther
-            .call((addr.clone(), name.to_string()))
-            .await
-            .ok()
+        self.ctr.auth(addr, name).await.ok()
     }
 
     /// allocate request
@@ -208,26 +212,27 @@ impl Observer for Events {
 }
 
 #[tokio::main]
+#[rustfmt::skip]
 async fn main() -> anyhow::Result<()> {
-    env_logger::builder().format_module_path(false).init();
+    env_logger::builder()
+        .format_module_path(false)
+        .init();
 
-    let args = Args::new();
-    let rpc = Rpc::new(args.get_nats_config()).await?;
-    let events = Events::new(rpc.caller(Auth::new(&args)));
+    let config = Arc::new(Config::parse());
+    let events = Events::new(config.clone());
+    let opt = Options {
+        external: config.external.clone(),
+        realm: config.realm.clone(),
+    };
+    
+    let service = Service::new(opt, events);
+    let monitor = server::run(&service, config.clone()).await?;
 
-    let service = Service::new(
-        Options {
-            external: args.external.clone(),
-            realm: args.realm.clone(),
-        },
-        events,
-    );
+    api::start(&config, &Controller::new(
+        service.get_router(),
+        config.clone(),
+        monitor,
+    )).await?;
 
-    rpc.servicer(Close::new(&service.router, &args)).await?;
-    rpc.servicer(State::new(&service.router, &args)).await?;
-    rpc.servicer(Node::new(&service.router, &args)).await?;
-
-    server::run(&args, &service).await?;
-    service.run().await;
     Ok(())
 }
