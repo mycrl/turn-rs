@@ -314,7 +314,7 @@ impl ExtController {
         }
 
         Ok(reqwest::get(format!(
-            "{}?addr={}&name={}",
+            "{}/auth?addr={}&name={}",
             self.config.ext_controller_bind, addr, name
         ))
         .await?
