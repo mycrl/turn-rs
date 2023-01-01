@@ -2,6 +2,23 @@
 name = "turn-server"
 version = "0.2.0"
 edition = "2021"
+authors = ["Mr.Panda <xivistudios@gmail.com>"]
+description = "implementation of turn server based on turn-rs library."
+readme = "../README.md"
+homepage = "https://github.com/colourful-rtc/turn-rs"
+repository = "https://github.com/colourful-rtc/turn-rs"
+license = "GPL-2.0-or-later"
+keywords = [
+    "stun",
+    "webrtc",
+    "turn",
+    "turn-server"
+]
+
+categories = [
+    "parsing",
+    "network-programming"
+]
 
 [dependencies]
 turn-rs = { path = "../turn", version = "1.0.1" }
