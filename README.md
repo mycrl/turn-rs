@@ -77,18 +77,21 @@ turn-server --help
 #### Command-line arguments
 command-line arguments take precedence over environment variables
 
-| values          | default        | env                | tips                       |
-|-----------------|----------------|--------------------|----------------------------|
-| --realm         | localhost      | TURN_REALM         | turn working relam         |
-| --external      | 127.0.0.1:3478 | TURN_EXTERNAL      | turn server public address |
-| --bind          | 127.0.0.1:3478 | TURN_BIND          | turn server udp bind port  |
-| --nats          | 127.0.0.1:4222 | TURN_NATS          | nats server connection url |
-| --nats-token    |                | TURN_NATS_TOKEN    |                            |
-| --nats-tls-cert |                | TURN_NATS_TLS_CERT |                            |
-| --nats-tls-key  |                | TURN_NATS_TLS_KEY  |                            |
-| --threads       |                | TURN_THREADS       | internal thread pool size  |
+| values                | default                | env                      | tips                                                                                  |
+|-----------------------|------------------------|--------------------------|---------------------------------------------------------------------------------------|
+| --realm               | localhost              | TURN_REALM               | turn working relam                                                                    |
+| --external            | 127.0.0.1:3478         | TURN_EXTERNAL            | turn server public address                                                            |
+| --bind                | 127.0.0.1:3478         | TURN_BIND                | turn server udp bind port                                                             |
+| --controller-bind     | 127.0.0.1:3000         | TURN_CONTROLLER_BIND     | This option specifies the http server binding address used to control the turn server |
+| --ext-controller-bind |  http://127.0.0.1:3000 | TURN_EXT_CONTROLLER_BIND | This option is used to specify the http address of the external control service.      |
+| --cert-file           |                        | TURN_CERT_FILE           |                                                                                       |
+| --threads             |                        | TURN_THREADS             |                                                                                       |
 
 > for sys calls, multithreading does not significantly help to improve IO throughput.
+
+For detailed documentation, please view: [`Configuration`]
+
+[`Configuration`]: https://github.com/colourful-rtc/turn-rs/wiki/Configuration
 
 #### Simple example
 
