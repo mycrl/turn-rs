@@ -1,4 +1,4 @@
-use stun::Decoder;
+use faster_stun::Decoder;
 use criterion::*;
 
 const CHANNEL_BIND: [u8; 108] = [
