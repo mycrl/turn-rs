@@ -1,6 +1,6 @@
 use tokio::net::UdpSocket;
 use super::config::Config;
-use turn::{
+use turn_rs::{
     Service,
     Processor,
 };

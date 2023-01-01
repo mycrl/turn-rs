@@ -19,7 +19,7 @@ use std::{
     sync::Arc,
 };
 
-use stun::{
+use faster_stun::{
     Kind,
     Method,
     Decoder,
@@ -197,7 +197,7 @@ impl Processor {
         })
     }
 
-    /// process stun message
+    /// process faster_stun message
     ///
     /// TURN is an extension to STUN.  All TURN messages, with the exception
     /// of the ChannelData message, are STUN-formatted messages.  All the

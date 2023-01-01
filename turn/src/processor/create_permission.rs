@@ -6,14 +6,14 @@ use super::{
     SOFTWARE,
 };
 
-use stun::{
+use faster_stun::{
     Kind,
     Method,
     MessageReader,
     MessageWriter,
 };
 
-use stun::attribute::{
+use faster_stun::attribute::{
     ErrKind,
     ErrorCode,
     Error,
@@ -23,7 +23,7 @@ use stun::attribute::{
     Software,
 };
 
-use stun::attribute::ErrKind::{
+use faster_stun::attribute::ErrKind::{
     BadRequest,
     Unauthorized,
     Forbidden,

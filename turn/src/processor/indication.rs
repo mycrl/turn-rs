@@ -10,13 +10,13 @@ use super::{
     Response,
 };
 
-use stun::{
+use faster_stun::{
     Method,
     MessageReader,
     MessageWriter,
 };
 
-use stun::attribute::{
+use faster_stun::attribute::{
     XorPeerAddress,
     Data,
 };

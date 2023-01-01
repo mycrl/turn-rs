@@ -1,4 +1,4 @@
-use stun::ChannelData;
+use faster_stun::ChannelData;
 use super::{
     Context,
     Response,

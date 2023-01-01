@@ -34,8 +34,8 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 ## Crates
 
-* [`stun`], fast and zero cost stun message parser.
-* [`turn`], a library for handling turn sessions.
+* [`stun`], fast and zero-cost stun message decoder and encoder. <sup>([`crate`](https://crates.io/crates/faster-stun))</sup>.
+* [`turn`], a library for handling turn sessions. <sup>([`crate`](https://crates.io/crates/turn-rs))</sup>.
 * [`turn-server`], implementation of turn server based on turn library. <sup>([`api`])</sup>
 
 [`api`]: https://github.com/colourful-rtc/turn-rs/wiki/Controller-API-Reference

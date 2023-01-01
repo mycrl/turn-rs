@@ -1,11 +1,26 @@
 [package]
-name = "turn"
+name = "turn-rs"
 version = "1.0.1"
 edition = "2021"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
+description = "A library for handling round sessions."
+readme = "../README.md"
+homepage = "https://github.com/colourful-rtc/turn-rs"
+repository = "https://github.com/colourful-rtc/turn-rs/turn"
+license = "GPL-2.0-or-later"
+keywords = [
+    "stun",
+    "webrtc",
+    "turn"
+]
+
+categories = [
+    "parsing",
+    "network-programming"
+]
 
 [dependencies]
-stun = { path = "../stun" }
+faster-stun = { path = "../stun", version = "0.1.0" }
 tokio = { version = "1", features = ["sync"] }
 async-trait = "0.1.60"
 bytes = "1"

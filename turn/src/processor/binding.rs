@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bytes::BytesMut;
-use stun::{
+use faster_stun::{
     Kind,
     Method,
     MessageReader,
@@ -13,7 +13,7 @@ use super::{
     SOFTWARE,
 };
 
-use stun::attribute::{
+use faster_stun::attribute::{
     XorMappedAddress,
     MappedAddress,
     ResponseOrigin,

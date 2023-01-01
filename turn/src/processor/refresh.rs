@@ -5,14 +5,14 @@ use super::{
     Response,
 };
 
-use stun::{
+use faster_stun::{
     Kind,
     Method,
     MessageReader,
     MessageWriter,
 };
 
-use stun::attribute::{
+use faster_stun::attribute::{
     ErrKind::Unauthorized,
     ErrKind,
     Error,

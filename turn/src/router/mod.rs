@@ -7,7 +7,7 @@ use nodes::Nodes;
 use ports::Ports;
 use nonces::Nonces;
 use channels::Channels;
-use stun::util::long_key;
+use faster_stun::util::long_key;
 use tokio::time::{
     Duration,
     sleep,

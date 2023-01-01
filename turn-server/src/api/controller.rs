@@ -15,7 +15,7 @@ use crate::{
     config::Config,
 };
 
-use turn::{
+use turn_rs::{
     Router,
     Node,
 };

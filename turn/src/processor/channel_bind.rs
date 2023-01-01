@@ -5,14 +5,14 @@ use super::{
     Response,
 };
 
-use stun::{
+use faster_stun::{
     Kind,
     Method,
     MessageReader,
     MessageWriter,
 };
 
-use stun::attribute::{
+use faster_stun::attribute::{
     ErrKind,
     Error,
     ErrorCode,
@@ -22,7 +22,7 @@ use stun::attribute::{
     XorPeerAddress,
 };
 
-use stun::attribute::ErrKind::{
+use faster_stun::attribute::ErrKind::{
     BadRequest,
     Unauthorized,
     InsufficientCapacity,

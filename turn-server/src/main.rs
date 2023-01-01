@@ -5,7 +5,7 @@ mod api;
 use async_trait::async_trait;
 use config::Config;
 use clap::Parser;
-use turn::{
+use turn_rs::{
     Service,
     Options,
     Observer,

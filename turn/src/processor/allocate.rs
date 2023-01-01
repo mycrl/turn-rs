@@ -11,14 +11,14 @@ use std::{
     sync::Arc,
 };
 
-use stun::{
+use faster_stun::{
     MessageReader,
     MessageWriter,
     Method,
     Kind,
 };
 
-use stun::attribute::{
+use faster_stun::attribute::{
     Error,
     ErrKind,
     ErrorCode,
@@ -32,7 +32,7 @@ use stun::attribute::{
     Software,
 };
 
-use stun::attribute::ErrKind::{
+use faster_stun::attribute::ErrKind::{
     Unauthorized,
     ServerError,
 };
