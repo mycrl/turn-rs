@@ -44,29 +44,11 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 [`turn-server`]: https://github.com/colourful-rtc/turn-rs/tree/main/turn-server
 
 
-## Building
-
-#### Prerequisites
-
-You need to install the Rust toolchain, if you have already installed it, you can skip it, [Install Rust](https://www.rust-lang.org/tools/install), then get the source code:
-
-```bash
-git clone https://github.com/colourful-rtc/turn-rs
-```
-
-#### Build workspace
-
-Compile the entire workspace in release mode:
-
-```bash
-cd turn-rs
-cargo build --release
-```
-
-After the compilation is complete, you can find the binary file in the "target/release" directory.
-
-
 ## Usage
+
+```bash
+cargo install turn-server
+```
 
 Show helps:
 
@@ -115,6 +97,28 @@ The server closes log output by default, and the log output level can be set usi
 ```bash
 export RUST_LOG=<level> // error | warn | info | debug | trace
 ```
+
+
+## Building
+
+#### Prerequisites
+
+You need to install the Rust toolchain, if you have already installed it, you can skip it, [Install Rust](https://www.rust-lang.org/tools/install), then get the source code:
+
+```bash
+git clone https://github.com/colourful-rtc/turn-rs
+```
+
+#### Build workspace
+
+Compile the entire workspace in release mode:
+
+```bash
+cd turn-rs
+cargo build --release
+```
+
+After the compilation is complete, you can find the binary file in the "target/release" directory.
 
 
 ## Benchmark
