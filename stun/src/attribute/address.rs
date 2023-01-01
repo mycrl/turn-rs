@@ -110,7 +110,7 @@ impl Addr {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::attribute::*;
+    /// use faster_stun::attribute::*;
     /// use bytes::BytesMut;
     ///
     /// let xor_addr_buf: [u8; 8] =
@@ -162,7 +162,7 @@ impl Addr {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::attribute::*;
+    /// use faster_stun::attribute::*;
     ///
     /// let xor_addr_buf: [u8; 8] =
     ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
@@ -207,7 +207,7 @@ impl Addr {
 /// # Unit Test
 ///
 /// ```
-/// use stun::attribute::address::*;
+/// use faster_stun::attribute::address::*;
 /// use std::net::IpAddr;
 ///
 /// let buf: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
@@ -226,7 +226,7 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr> {
 /// # Unit Test
 ///
 /// ```
-/// use stun::attribute::address::*;
+/// use faster_stun::attribute::address::*;
 /// use std::net::IpAddr;
 ///
 /// let buf: [u8; 20] = [
@@ -248,7 +248,7 @@ pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr> {
 /// # Unit Test
 ///
 /// ```
-/// use stun::attribute::address::*;
+/// use faster_stun::attribute::address::*;
 /// use std::net::SocketAddr;
 ///
 /// let source: SocketAddr = "192.168.0.107:1".parse().unwrap();
@@ -275,7 +275,7 @@ pub fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
 /// # Unit Test
 ///
 /// ```
-/// use stun::attribute::address::*;
+/// use faster_stun::attribute::address::*;
 /// use std::net::{
 ///     Ipv4Addr,
 ///     IpAddr,
@@ -300,7 +300,7 @@ pub fn xor_v4(addr: Ipv4Addr) -> IpAddr {
 /// # Unit Test
 ///
 /// ```
-/// use stun::attribute::address::*;
+/// use faster_stun::attribute::address::*;
 /// use std::net::{
 ///     Ipv6Addr,
 ///     IpAddr,

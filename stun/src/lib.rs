@@ -118,7 +118,7 @@ impl TryFrom<u16> for Method {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
+    /// use faster_stun::*;
     /// use std::convert::TryFrom;
     ///
     /// assert_eq!(
@@ -212,7 +212,7 @@ impl Into<u16> for Method {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
+    /// use faster_stun::*;
     /// use std::convert::Into;
     ///
     /// assert_eq!(0x0001u16, Method::Binding(Kind::Request).into());
@@ -275,8 +275,8 @@ impl Decoder {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
-    /// use stun::attribute::*;
+    /// use faster_stun::*;
+    /// use faster_stun::attribute::*;
     ///
     /// let buffer = [
     ///     0x00, 0x01, 0x00, 0x4c, 0x21, 0x12, 0xa4, 0x42, 0x71, 0x66, 0x46, 0x31,

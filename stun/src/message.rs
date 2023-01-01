@@ -38,7 +38,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
+    /// use faster_stun::*;
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
     ///
@@ -76,8 +76,8 @@ impl<'a, 'b> MessageWriter<'a> {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
-    /// use stun::attribute::UserName;
+    /// use faster_stun::*;
+    /// use faster_stun::attribute::UserName;
     /// use std::convert::TryFrom;
     /// use bytes::BytesMut;
     ///
@@ -130,7 +130,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
+    /// use faster_stun::*;
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
     ///
@@ -174,13 +174,13 @@ impl<'a, 'b> MessageWriter<'a> {
 
     /// append MessageIntegrity attribute.
     ///
-    /// add the `MessageIntegrity` attribute to the stun message
+    /// add the `MessageIntegrity` attribute to the faster_stun message
     /// and serialize the message into a buffer.
     ///
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
+    /// use faster_stun::*;
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
     ///
@@ -269,8 +269,8 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
-    /// use stun::attribute::*;
+    /// use faster_stun::*;
+    /// use faster_stun::attribute::*;
     /// use std::convert::TryFrom;
     ///
     /// let buffer = [
@@ -298,7 +298,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
+    /// use faster_stun::*;
     /// use std::convert::TryFrom;
     ///
     /// let buffer = [
@@ -353,8 +353,8 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
-    /// use stun::attribute::*;
+    /// use faster_stun::*;
+    /// use faster_stun::attribute::*;
     /// use std::convert::TryFrom;
     ///
     /// let buffer: [u8; 20] = [
@@ -456,7 +456,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// # Unit Test
     ///
     /// ```
-    /// use stun::*;
+    /// use faster_stun::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
