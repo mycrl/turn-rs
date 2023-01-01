@@ -6,7 +6,7 @@ authors = ["Mr.Panda <xivistudios@gmail.com>"]
 description = "A library for handling round sessions."
 readme = "../README.md"
 homepage = "https://github.com/colourful-rtc/turn-rs"
-repository = "https://github.com/colourful-rtc/turn-rs/turn"
+repository = "https://github.com/colourful-rtc/turn-rs"
 license = "GPL-2.0-or-later"
 keywords = [
     "stun",

@@ -6,7 +6,7 @@ authors = ["Mr.Panda <xivistudios@gmail.com>"]
 description = "Fast and zero-cost stun message decoder and encoder."
 readme = "../README.md"
 homepage = "https://github.com/colourful-rtc/turn-rs"
-repository = "https://github.com/colourful-rtc/turn-rs/stun"
+repository = "https://github.com/colourful-rtc/turn-rs"
 license = "GPL-2.0-or-later"
 keywords = [
     "stun",
