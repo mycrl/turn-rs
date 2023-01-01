@@ -11,8 +11,8 @@ use tokio::{
 use std::{
     collections::HashMap,
     collections::HashSet,
-    sync::Arc,
     net::SocketAddr,
+    sync::Arc,
 };
 
 /// turn node session.
@@ -28,8 +28,9 @@ pub struct Node {
     pub ports: Vec<u16>,
     pub timer: Instant,
     pub lifetime: u64,
-    pub password: Arc<[u8; 16]>,
+    pub secret: Arc<[u8; 16]>,
     pub username: String,
+    pub password: String,
 }
 
 impl Node {
@@ -43,14 +44,15 @@ impl Node {
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// // Node::new(0, key.clone());
     /// ```
-    pub fn new(username: String, password: [u8; 16]) -> Self {
+    pub fn new(username: String, secret: [u8; 16], password: String) -> Self {
         Self {
             channels: Vec::with_capacity(5),
             ports: Vec::with_capacity(10),
-            password: Arc::new(password),
+            secret: Arc::new(secret),
             timer: Instant::now(),
             lifetime: 600,
             username,
+            password,
         }
     }
 
@@ -84,17 +86,17 @@ impl Node {
         self.timer.elapsed().as_secs() >= self.lifetime
     }
 
-    /// get node the password.
+    /// get node the secret.
     ///
     /// # Examples
     ///
     /// ```ignore
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// let node = Node::new(0, key.clone());
-    /// assert_eq!(!node.get_password(), Arc::new(key));
+    /// assert_eq!(!node.get_secret(), Arc::new(key));
     /// ```
-    pub fn get_password(&self) -> Arc<[u8; 16]> {
-        self.password.clone()
+    pub fn get_secret(&self) -> Arc<[u8; 16]> {
+        self.secret.clone()
     }
 
     /// posh port in node.
@@ -172,22 +174,8 @@ impl Nodes {
     ///
     /// assert!(!node.get_node("test").is_some());
     /// ```
-    pub async fn get_nodes(&self, u: &str) -> Vec<Node> {
-        let bounds = self.bonds.read().await;
-        let map = self.map.read().await;
-        let addrs = match bounds.get(u) {
-            None => return Vec::new(),
-            Some(a) => a,
-        };
-
-        let mut nodes = Vec::with_capacity(addrs.len());
-        for addr in addrs {
-            if let Some(node) = map.get(addr) {
-                nodes.push(node.clone());
-            }
-        }
-
-        nodes
+    pub async fn get_node(&self, a: &Addr) -> Option<Node> {
+        self.map.read().await.get(a).cloned()
     }
 
     /// get password from address.
@@ -203,8 +191,8 @@ impl Nodes {
     ///
     /// assert!(!node.get_password(&addr).is_some());
     /// ```
-    pub async fn get_password(&self, a: &Addr) -> Option<Arc<[u8; 16]>> {
-        self.map.read().await.get(a).map(|n| n.get_password())
+    pub async fn get_secret(&self, a: &Addr) -> Option<Arc<[u8; 16]>> {
+        self.map.read().await.get(a).map(|n| n.get_secret())
     }
 
     /// insert node in node table.
@@ -222,10 +210,11 @@ impl Nodes {
         &self,
         a: &Addr,
         u: &str,
-        p: [u8; 16],
+        s: [u8; 16],
+        p: String,
     ) -> Option<Arc<[u8; 16]>> {
-        let node = Node::new(u.to_string(), p);
-        let pwd = node.get_password();
+        let node = Node::new(u.to_string(), s, p);
+        let pwd = node.get_secret();
         let mut bonds = self.bonds.write().await;
         self.map.write().await.insert(a.clone(), node);
 

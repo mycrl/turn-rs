@@ -113,6 +113,7 @@ impl PortPools {
         let previous = if start == 0 { self.peak } else { start - 1 };
         let mut index = None;
 
+        // warn: loop
         loop {
             if let Some(i) = self.find_high(start) {
                 index = Some(i as usize);

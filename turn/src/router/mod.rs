@@ -120,15 +120,26 @@ impl Router {
         self.nodes.get_users().await
     }
 
-    /// get node list.
+    /// get node.
     ///
     /// ```ignore
     /// let router = Router::new(/* ... */);
     ///
-    /// assert!(router.get_nodes().len() == 0);
+    /// assert!(router.get_node().is_none());
     /// ```
-    pub async fn get_nodes(&self, u: &str) -> Vec<nodes::Node> {
-        self.nodes.get_nodes(u).await
+    pub async fn get_node(&self, a: &Addr) -> Option<nodes::Node> {
+        self.nodes.get_node(a).await
+    }
+
+    /// get node bond list.
+    ///
+    /// ```ignore
+    /// let router = Router::new(/* ... */);
+    ///
+    /// assert!(router.get_node_bonds().len() == 0);
+    /// ```
+    pub async fn get_node_bonds(&self, u: &str) -> Vec<Addr> {
+        self.nodes.get_bond(u).await
     }
 
     /// get the nonce of the node SocketAddr.
@@ -152,14 +163,14 @@ impl Router {
     /// // state.get_key(&addr, "panda")
     /// ```
     pub async fn get_key(&self, a: &Addr, u: &str) -> Option<Arc<[u8; 16]>> {
-        let key = self.nodes.get_password(a).await;
+        let key = self.nodes.get_secret(a).await;
         if key.is_some() {
             return key;
         }
 
-        let secret = self.observer.auth(a.as_ref(), u).await?;
-        let key = long_key(u, &secret, &self.opt.realm);
-        self.nodes.insert(a, u, key).await
+        let pwd = self.observer.auth(a.as_ref(), u).await?;
+        let key = long_key(u, &pwd, &self.opt.realm);
+        self.nodes.insert(a, u, key, pwd).await
     }
 
     /// obtain the peer address bound to the current

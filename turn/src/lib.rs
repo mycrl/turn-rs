@@ -203,6 +203,10 @@ pub struct Service {
 }
 
 impl Service {
+    pub fn get_router(&self) -> Arc<Router> {
+        self.router.clone()
+    }
+
     /// Create turn service.
     ///
     /// # Examples
