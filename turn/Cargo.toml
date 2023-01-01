@@ -21,7 +21,7 @@ categories = [
 
 [dependencies]
 faster-stun = { path = "../stun", version = "0.1.0" }
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1", features = ["sync", "time"] }
 async-trait = "0.1.60"
 bytes = "1"
 anyhow = "1.0"
