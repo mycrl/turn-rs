@@ -211,7 +211,7 @@ impl Processor {
         })
     }
 
-    /// process faster_stun message
+    /// process stun message
     ///
     /// TURN is an extension to STUN.  All TURN messages, with the exception
     /// of the ChannelData message, are STUN-formatted messages.  All the

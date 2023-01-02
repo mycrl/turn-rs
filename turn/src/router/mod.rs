@@ -131,15 +131,15 @@ impl Router {
         self.nodes.get_node(a).await
     }
 
-    /// get node bond list.
+    /// get node bound list.
     ///
     /// ```ignore
     /// let router = Router::new(/* ... */);
     ///
-    /// assert!(router.get_node_bonds().len() == 0);
+    /// assert!(router.get_node_bounds().len() == 0);
     /// ```
-    pub async fn get_node_bonds(&self, u: &str) -> Vec<Addr> {
-        self.nodes.get_bond(u).await
+    pub async fn get_node_addrs(&self, u: &str) -> Vec<Addr> {
+        self.nodes.get_addrs(u).await
     }
 
     /// get the nonce of the node SocketAddr.
@@ -191,10 +191,10 @@ impl Router {
     /// state.bind_channel(&addr, peer_port, 0x4000);
     /// state.bind_channel(&peer, addr_port, 0x4000);
     ///
-    /// assert_eq!(state.get_channel_bond(&addr, 0x4000).unwrap(), peer);
+    /// assert_eq!(state.get_channel_bound(&addr, 0x4000).unwrap(), peer);
     /// ```
-    pub async fn get_channel_bond(&self, a: &Addr, c: u16) -> Option<Addr> {
-        self.channels.get_bond(a, c).await
+    pub async fn get_channel_bound(&self, a: &Addr, c: u16) -> Option<Addr> {
+        self.channels.get_bound(a, c).await
     }
 
     /// obtain the peer address bound to the current
@@ -215,10 +215,10 @@ impl Router {
     /// state.bind_port(&peer, addr_port);
     /// state.bind_port(&addr, peer_port);
     ///
-    /// assert_eq!(state.get_port_bond(&addr, peer_port), some(peer));
-    /// assert_eq!(state.get_port_bond(&peer, addr_port), some(addr));
+    /// assert_eq!(state.get_port_bound(&addr, peer_port), some(peer));
+    /// assert_eq!(state.get_port_bound(&peer, addr_port), some(addr));
     /// ```
-    pub async fn get_port_bond(&self, p: u16) -> Option<Addr> {
+    pub async fn get_port_bound(&self, p: u16) -> Option<Addr> {
         self.ports.get(p).await
     }
 
@@ -239,10 +239,10 @@ impl Router {
     /// state.bind_port(&peer, addr_port);
     /// state.bind_port(&addr, peer_port);
     ///
-    /// assert_eq!(state.get_bond_port(&addr, &peer), some(peer_port));
-    /// assert_eq!(state.get_bond_port(&peer, &addr), some(addr_port));
+    /// assert_eq!(state.get_bound_port(&addr, &peer), some(peer_port));
+    /// assert_eq!(state.get_bound_port(&peer, &addr), some(addr_port));
     /// ```
-    pub async fn get_bond_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
+    pub async fn get_bound_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
         self.ports.get_bound(a, p).await
     }
 
@@ -446,7 +446,7 @@ impl Router {
     /// state.remove_from_user("panda");
     /// ```
     pub async fn remove_from_user(&self, u: &str) {
-        for addr in self.nodes.get_bond(u).await {
+        for addr in self.nodes.get_addrs(u).await {
             self.remove(&addr).await;
         }
     }

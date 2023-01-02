@@ -65,13 +65,13 @@ pub struct Iter {
 /// the channel binding is confirmed.
 pub struct Channel {
     timer: Instant,
-    bond: [Option<Addr>; 2],
+    bound: [Option<Addr>; 2],
 }
 
 impl Channel {
     pub fn new(a: &Addr) -> Self {
         Self {
-            bond: [Some(a.clone()), None],
+            bound: [Some(a.clone()), None],
             timer: Instant::now(),
         }
     }
@@ -89,7 +89,7 @@ impl Channel {
     /// // channel.includes(&addr)
     /// ```
     pub fn includes(&self, a: &Addr) -> bool {
-        self.bond.contains(&Some(a.clone()))
+        self.bound.contains(&Some(a.clone()))
     }
 
     /// wether the peer addr has been established.
@@ -105,7 +105,7 @@ impl Channel {
     /// // channel.is_half(&addr)
     /// ```
     pub fn is_half(&self) -> bool {
-        self.bond.contains(&None)
+        self.bound.contains(&None)
     }
 
     /// update half addr.
@@ -122,7 +122,7 @@ impl Channel {
     /// // channel.up(&peer)
     /// ```
     pub fn up(&mut self, a: &Addr) {
-        self.bond[1] = Some(a.clone())
+        self.bound[1] = Some(a.clone())
     }
 
     /// refresh channel lifetime.
@@ -179,7 +179,7 @@ impl Iterator for Iter {
     /// ```
     fn next(&mut self) -> Option<Self::Item> {
         let item = match self.index < 2 {
-            true => self.inner.bond[self.index].clone(),
+            true => self.inner.bound[self.index].clone(),
             false => None,
         };
 
@@ -216,18 +216,18 @@ impl IntoIterator for Channel {
 /// channels table.
 pub struct Channels {
     map: RwLock<HashMap<u16, Channel>>,
-    bonds: RwLock<HashMap<(Addr, u16), Addr>>,
+    bounds: RwLock<HashMap<(Addr, u16), Addr>>,
 }
 
 impl Channels {
     pub fn new() -> Self {
         Self {
             map: RwLock::new(HashMap::with_capacity(capacity())),
-            bonds: RwLock::new(HashMap::with_capacity(capacity())),
+            bounds: RwLock::new(HashMap::with_capacity(capacity())),
         }
     }
 
-    /// get bond address.
+    /// get bound address.
     ///
     /// # Examples
     ///
@@ -242,10 +242,10 @@ impl Channels {
     /// channels.insert(&addr, 43159, &peer).unwrap();
     /// channels.insert(&peer, 43160, &addr).unwrap();
     ///
-    /// assert_eq!(channels.get_bond(&addr, 43159).unwrap(), peer);
+    /// assert_eq!(channels.get_bound(&addr, 43159).unwrap(), peer);
     /// ```
-    pub async fn get_bond(&self, a: &Addr, c: u16) -> Option<Addr> {
-        self.bonds.read().await.get(&(a.clone(), c)).cloned()
+    pub async fn get_bound(&self, a: &Addr, c: u16) -> Option<Addr> {
+        self.bounds.read().await.get(&(a.clone(), c)).cloned()
     }
 
     /// insert address for peer address to channel table.
@@ -263,7 +263,7 @@ impl Channels {
     /// channels.insert(&addr, 43159, &peer).unwrap();
     /// channels.insert(&peer, 43160, &addr).unwrap();
     ///
-    /// assert_eq!(channels.get_bond(&addr, 43159).unwrap(), peer);
+    /// assert_eq!(channels.get_bound(&addr, 43159).unwrap(), peer);
     /// ```
     pub async fn insert(&self, a: &Addr, c: u16, p: &Addr) -> Option<()> {
         let mut map = self.map.write().await;
@@ -288,7 +288,7 @@ impl Channels {
             channel.refresh();
         }
 
-        self.bonds
+        self.bounds
             .write()
             .await
             .entry((a.clone(), c))
@@ -315,9 +315,9 @@ impl Channels {
     /// assert!(channels.remove(&peer).is_some());
     /// ```
     pub async fn remove(&self, c: u16) -> Option<()> {
-        let mut bonds = self.bonds.write().await;
+        let mut bounds = self.bounds.write().await;
         for a in self.map.write().await.remove(&c)? {
-            bonds.remove(&(a, c));
+            bounds.remove(&(a, c));
         }
 
         Some(())

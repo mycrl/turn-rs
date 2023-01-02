@@ -25,7 +25,6 @@ turn-rs = { path = "../turn", version = "1.0.1" }
 clap = { version = "3", features = ["derive", "env"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
-http = "0.2.8"
 reqwest = "0.11.13"
 async-trait = "0.1.52"
 serde_json = "1.0.61"
@@ -36,3 +35,4 @@ anyhow = "1.0"
 axum = "0.6.1"
 toml = "0.5.10"
 tower = "0.4"
+http = "0.2.8"

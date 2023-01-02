@@ -133,14 +133,14 @@ impl Node {
 /// node table.
 pub struct Nodes {
     map: RwLock<HashMap<Addr, Node>>,
-    bonds: RwLock<HashMap<String, HashSet<Addr>>>,
+    addrs: RwLock<HashMap<String, HashSet<Addr>>>,
 }
 
 impl Nodes {
     pub fn new() -> Self {
         Self {
             map: RwLock::new(HashMap::with_capacity(capacity())),
-            bonds: RwLock::new(HashMap::with_capacity(capacity())),
+            addrs: RwLock::new(HashMap::with_capacity(capacity())),
         }
     }
 
@@ -153,7 +153,7 @@ impl Nodes {
     /// assert_eq!(!node.get_users().len(), 0);
     /// ```
     pub async fn get_users(&self) -> Vec<(String, Vec<SocketAddr>)> {
-        self.bonds
+        self.addrs
             .read()
             .await
             .iter()
@@ -215,10 +215,10 @@ impl Nodes {
     ) -> Option<Arc<[u8; 16]>> {
         let node = Node::new(u.to_string(), s, p);
         let pwd = node.get_secret();
-        let mut bonds = self.bonds.write().await;
+        let mut addrs = self.addrs.write().await;
         self.map.write().await.insert(a.clone(), node);
 
-        bonds
+        addrs
             .entry(u.to_string())
             .or_insert_with(|| HashSet::with_capacity(5))
             .insert(a.clone());
@@ -293,11 +293,11 @@ impl Nodes {
     /// assert!(node.remove(&addr).is_some());
     /// ```
     pub async fn remove(&self, a: &Addr) -> Option<Node> {
-        let mut bonds = self.bonds.write().await;
+        let mut addrs_map = self.addrs.write().await;
         let node = self.map.write().await.remove(a)?;
-        let addrs = bonds.get_mut(&node.username)?;
+        let addrs = addrs_map.get_mut(&node.username)?;
         if addrs.is_empty() {
-            bonds.remove(&node.username)?;
+            addrs_map.remove(&node.username)?;
         } else {
             addrs.remove(a);
         }
@@ -305,7 +305,7 @@ impl Nodes {
         Some(node)
     }
 
-    /// get node name bond address.
+    /// get node name bound address.
     ///
     /// # Examples
     ///
@@ -316,10 +316,10 @@ impl Nodes {
     ///
     /// node.insert(&addr, "test", key);
     ///
-    /// assert_eq!(node.get_bond(&addr), Some(addr));
+    /// assert_eq!(node.get_bound(&addr), Some(addr));
     /// ```
-    pub async fn get_bond(&self, u: &str) -> Vec<Addr> {
-        self.bonds
+    pub async fn get_addrs(&self, u: &str) -> Vec<Addr> {
+        self.addrs
             .read()
             .await
             .get(u)

@@ -301,13 +301,13 @@ impl PortPools {
 pub struct Ports {
     pools: Mutex<PortPools>,
     map: RwLock<HashMap<u16, Addr>>,
-    bonds: RwLock<HashMap<Addr, HashMap<Addr, u16>>>,
+    bounds: RwLock<HashMap<Addr, HashMap<Addr, u16>>>,
 }
 
 impl Ports {
     pub fn new() -> Self {
         Self {
-            bonds: RwLock::new(HashMap::with_capacity(capacity())),
+            bounds: RwLock::new(HashMap::with_capacity(capacity())),
             map: RwLock::new(HashMap::with_capacity(capacity())),
             pools: Mutex::new(PortPools::new()),
         }
@@ -364,7 +364,7 @@ impl Ports {
     /// assert!(pools.get_bound(&addr, &addr).is_none());
     /// ```
     pub async fn get_bound(&self, a: &Addr, p: &Addr) -> Option<u16> {
-        self.bonds.read().await.get(p)?.get(a).cloned()
+        self.bounds.read().await.get(p)?.get(a).cloned()
     }
 
     /// allocate port in ports.
@@ -394,7 +394,7 @@ impl Ports {
     /// ```
     pub async fn bound(&self, a: &Addr, port: u16) -> Option<()> {
         let peer = self.map.read().await.get(&port)?.clone();
-        self.bonds
+        self.bounds
             .write()
             .await
             .entry(a.clone())
@@ -425,7 +425,7 @@ impl Ports {
             map.remove(p);
         }
 
-        self.bonds.write().await.remove(a);
+        self.bounds.write().await.remove(a);
         Some(())
     }
 }

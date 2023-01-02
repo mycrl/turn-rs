@@ -80,12 +80,12 @@ pub async fn process<'a, 'b, 'c>(
         _ => return Ok(None),
     };
 
-    let a = match ctx.router.get_port_bond(pp).await {
+    let a = match ctx.router.get_port_bound(pp).await {
         None => return Ok(None),
         Some(a) => a,
     };
 
-    let p = match ctx.router.get_bond_port(&ctx.addr, &a).await {
+    let p = match ctx.router.get_bound_port(&ctx.addr, &a).await {
         None => return Ok(None),
         Some(p) => p,
     };
