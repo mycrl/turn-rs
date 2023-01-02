@@ -47,7 +47,6 @@ pub fn process<'a>(
     payload: MessageReader,
     w: &'a mut BytesMut,
 ) -> Result<Response<'a>> {
-    ctx.observer.binding(&ctx.addr);
     let method = Method::Binding(Kind::Response);
     let mut pack = MessageWriter::extend(method, &payload, w);
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
@@ -55,5 +54,6 @@ pub fn process<'a>(
     pack.append::<ResponseOrigin>(ctx.opt.external);
     pack.append::<Software>(SOFTWARE);
     pack.flush(None)?;
+    ctx.observer.binding(&ctx.addr);
     Ok(Some((w, ctx.addr)))
 }

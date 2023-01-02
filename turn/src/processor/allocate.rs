@@ -124,9 +124,10 @@ pub async fn process<'a, 'b, 'c>(
         Some(p) => p,
     };
 
-    ctx.observer.allocated(&ctx.addr, u, port);
-    match m.integrity(&key) {
-        Err(_) => reject(ctx, m, w, Unauthorized).await,
-        Ok(_) => resolve(&ctx, &m, &key, port, w).await,
+    if m.integrity(&key).is_ok() {
+        ctx.observer.allocated(&ctx.addr, u, port);
+        resolve(&ctx, &m, &key, port, w).await
+    } else {
+        reject(ctx, m, w, Unauthorized).await
     }
 }

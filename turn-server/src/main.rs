@@ -56,7 +56,7 @@ impl Observer for Events {
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
-        log::info!("{:?} [{:?}] allocate port={}", addr, name, port);
+        log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
     }
 
     /// binding request
@@ -82,7 +82,7 @@ impl Observer for Events {
     /// In this way, the client can learn its reflexive transport address
     /// allocated by the outermost NAT with respect to the STUN server.
     fn binding(&self, addr: &SocketAddr) {
-        log::info!("{:?} request binding", addr);
+        log::info!("binding: addr={:?}", addr);
     }
 
     /// channel binding request
@@ -116,7 +116,12 @@ impl Observer for Events {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     fn channel_bind(&self, addr: &SocketAddr, name: &str, num: u16) {
-        log::info!("{:?} [{:?}] bind channel={}", addr, name, num);
+        log::info!(
+            "channel bind: addr={:?}, name={:?}, number={}",
+            addr,
+            name,
+            num
+        );
     }
 
     /// create permission request
@@ -164,7 +169,12 @@ impl Observer for Events {
         name: &str,
         relay: &SocketAddr,
     ) {
-        log::info!("{:?} [{:?}] bind peer={}", addr, name, relay);
+        log::info!(
+            "create permission: addr={:?}, name={:?}, realy={:?}",
+            addr,
+            name,
+            relay
+        );
     }
 
     /// refresh request
@@ -207,7 +217,7 @@ impl Observer for Events {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
-        log::info!("{:?} [{:?}] refresh timeout={}", addr, name, time);
+        log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
     }
 }
 
@@ -215,6 +225,10 @@ impl Observer for Events {
 #[rustfmt::skip]
 async fn main() -> anyhow::Result<()> {
     env_logger::builder()
+        .format_level(true)
+        .format_target(false)
+        .format_timestamp_secs()
+        .write_style(env_logger::fmt::WriteStyle::Auto)
         .format_module_path(false)
         .init();
 

@@ -1,12 +1,16 @@
 use tokio::time::Instant;
 use serde::Serialize;
-use anyhow::Result;
 use axum::Json;
 use std::{
     collections::HashMap,
     net::SocketAddr,
     sync::Arc,
     fs,
+};
+
+use anyhow::{
+    Result,
+    anyhow,
 };
 
 use crate::{
@@ -269,10 +273,18 @@ impl Controller {
 /// outside and notify or obtain information necessary for operation.
 pub struct ExtController {
     static_certs: HashMap<String, String>,
+    client: reqwest::Client,
     config: Arc<Config>,
 }
 
 impl ExtController {
+    fn hooks(res: reqwest::Response) -> Result<reqwest::Response> {
+        log::info!("ext controller: {:?}", res);
+        (res.status() == 200)
+            .then(|| res)
+            .ok_or_else(|| anyhow!("request failed!"))
+    }
+
     /// Create an external controller
     ///
     /// # Example
@@ -289,6 +301,7 @@ impl ExtController {
                 .map(|f| fs::read_to_string(&f).unwrap_or("".to_string()))
                 .map(|s| toml::from_str(&s).unwrap())
                 .unwrap_or_else(|| HashMap::new()),
+            client: reqwest::Client::new(),
             config,
         }
     }
@@ -313,11 +326,15 @@ impl ExtController {
             return Ok(v.clone());
         }
 
-        Ok(reqwest::get(format!(
-            "{}/auth?addr={}&name={}",
-            self.config.ext_controller_bind, addr, name
-        ))
-        .await?
+        Ok(Self::hooks(
+            self.client
+                .get(format!(
+                    "{}/auth?addr={}&name={}",
+                    self.config.ext_controller_bind, addr, name
+                ))
+                .send()
+                .await?,
+        )?
         .text()
         .await?)
     }
