@@ -467,6 +467,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// assert_eq!(size, 20);
     /// ```
     pub fn peek_size(buf: &[u8]) -> Result<u16> {
+        ensure!(buf[0] >> 6 == 0, "not a stun message");
         ensure!(buf.len() >= 20, "message len < 20");
         Ok(util::as_u16(&buf[2..4]) + 20)
     }

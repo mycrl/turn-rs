@@ -301,9 +301,12 @@ impl Decoder {
             self.attrs.clear();
         }
 
-        Ok(if buf[0] >> 4 == 4 {
-            Payload::ChannelData(ChannelData::try_from(buf)?)
-        } else {
+        let flag = buf[0] >> 6;
+        if flag > 3 {
+            return Err(anyhow!("invalid buf"));
+        }
+
+        Ok(if flag == 0 {
             // attrs will not be used again after decode is used, so the
             // reference is safe. Unsafe is used here to make the external life
             // cycle declaration cleaner.
@@ -311,6 +314,8 @@ impl Decoder {
                 unsafe { std::mem::transmute(buf) },
                 &mut self.attrs,
             )?)
+        } else {
+            Payload::ChannelData(ChannelData::try_from(buf)?)
         })
     }
 }

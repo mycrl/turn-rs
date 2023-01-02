@@ -1,6 +1,9 @@
 use std::convert::TryFrom;
-use anyhow::ensure;
 use crate::util;
+use anyhow::{
+    Result,
+    ensure,
+};
 
 /// The ChannelData Message
 ///
@@ -42,6 +45,25 @@ pub struct ChannelData<'a> {
     pub number: u16,
 }
 
+impl ChannelData<'_> {
+    /// # Unit Test
+    ///
+    /// ```
+    /// use faster_stun::*;
+    /// use std::convert::TryFrom;
+    ///
+    /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x00];
+    ///
+    /// let size = ChannelData::peek_size(&buffer[..]).unwrap();
+    /// assert_eq!(size, 0);
+    /// ```
+    pub fn peek_size(buf: &[u8]) -> Result<u16> {
+        ensure!(buf.len() >= 4, "data len < 4");
+        ensure!((1..3).contains(&(buf[0] >> 6)), "not a channel data");
+        Ok(util::as_u16(&buf[2..4]))
+    }
+}
+
 impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     type Error = anyhow::Error;
 
@@ -51,20 +73,20 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     /// use faster_stun::*;
     /// use std::convert::TryFrom;
     ///
-    /// let buffer: [u8; 4] = [0x00, 0x01, 0x00, 0x00];
+    /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x00];
     ///
     /// let data = ChannelData::try_from(&buffer[..]).unwrap();
-    /// assert_eq!(data.number, 1);
+    /// assert_eq!(data.number, 16384);
     /// ```
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
         ensure!(buf.len() >= 4, "data len < 4");
-
+        let number = util::as_u16(&buf[..2]);
+        ensure!((0x4000..0xFFFF).contains(&number), "invalid channel data");
         let size = util::as_u16(&buf[2..4]) as usize;
         ensure!(size <= buf.len() - 4, "data body len < size");
-
         Ok(Self {
-            number: util::as_u16(&buf[..2]),
             buf,
+            number,
         })
     }
 }
