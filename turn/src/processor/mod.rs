@@ -197,6 +197,20 @@ impl Processor {
         })
     }
 
+    pub async fn process_ext<'c, 'a: 'c>(
+        &'a mut self, 
+        payload: Payload<'a, 'c>, 
+        a: SocketAddr
+    ) -> Result<Response<'c>> {
+        let ctx = self.get_context(a);
+        Ok(match payload {
+            Payload::ChannelData(x) => channel_data::process(ctx, x).await,
+            Payload::Message(x) => {
+                Self::message_process(ctx, x, &mut self.writer).await?
+            },
+        })
+    }
+
     /// process faster_stun message
     ///
     /// TURN is an extension to STUN.  All TURN messages, with the exception
