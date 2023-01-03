@@ -74,7 +74,7 @@ where
     /// dispatching a request, poll_ready must be called and return
     /// Poll::Ready(Ok(())).
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        log::info!("controller server: {:?}", req);
+        log::info!("controller server request: {:?}", req);
         self.service.call(req)
     }
 }
@@ -106,8 +106,8 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
         .route("/stats", get(Controller::get_stats))
         .route("/workers", get(Controller::get_workers))
         .route("/users", get(Controller::get_users))
-        .route("/user", get(Controller::get_user))
-        .route("/user", delete(Controller::remove_user))
+        .route("/node", get(Controller::get_user))
+        .route("/node", delete(Controller::remove_user))
         .layer(LogLayer)
         .with_state(ctr);
 

@@ -325,7 +325,7 @@ pub struct ExtController {
 
 impl ExtController {
     fn hooks(res: reqwest::Response) -> Result<reqwest::Response> {
-        log::info!("ext controller: {:?}", res);
+        log::info!("ext controller response: {:?}", res);
         (res.status() == 200)
             .then(|| res)
             .ok_or_else(|| anyhow!("request failed!"))
