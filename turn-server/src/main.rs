@@ -19,6 +19,7 @@ use api::{
 use std::{
     net::SocketAddr,
     sync::Arc,
+    env,
 };
 
 struct Events {
@@ -224,6 +225,10 @@ impl Observer for Events {
 #[tokio::main]
 #[rustfmt::skip]
 async fn main() -> anyhow::Result<()> {
+    if env::var("RUST_LOG").is_err() {
+        env::set_var("RUST_LOG", "info");
+    }
+    
     env_logger::builder()
         .format_level(true)
         .format_target(false)
