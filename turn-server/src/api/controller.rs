@@ -67,11 +67,6 @@ pub struct Worker {
 }
 
 impl From<&WorkMonitor> for Worker {
-    /// start udp server.
-    ///
-    /// create a specified number of threads,
-    /// each thread processes udp data separately.
-    ///
     /// # Example
     ///
     /// ```no_run
@@ -113,11 +108,6 @@ pub struct Sess {
 }
 
 impl From<Node> for Sess {
-    /// start udp server.
-    ///
-    /// create a specified number of threads,
-    /// each thread processes udp data separately.
-    ///
     /// # Example
     ///
     /// ```no_run
