@@ -1,5 +1,5 @@
-mod processor;
-mod router;
+pub mod processor;
+pub mod router;
 
 pub use processor::Processor;
 pub use router::nodes::Node;
@@ -14,7 +14,10 @@ use std::{
 #[async_trait]
 pub trait Observer: Send + Sync {
     /// turn auth request
-    async fn auth(&self, addr: &SocketAddr, name: &str) -> Option<String>;
+    #[allow(unused)]
+    async fn auth(&self, addr: &SocketAddr, name: &str) -> Option<String> {
+        None
+    }
 
     /// allocate request
     ///
@@ -32,7 +35,8 @@ pub trait Observer: Send + Sync {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    fn allocated(&self, _addr: &SocketAddr, _name: &str, _port: u16) {}
+    #[allow(unused)]
+    fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {}
 
     /// binding request
     ///
@@ -56,7 +60,8 @@ pub trait Observer: Send + Sync {
     /// attribute within the body of the STUN response will remain untouched.
     /// In this way, the client can learn its reflexive transport address
     /// allocated by the outermost NAT with respect to the STUN server.
-    fn binding(&self, _addr: &SocketAddr) {}
+    #[allow(unused)]
+    fn binding(&self, addr: &SocketAddr) {}
 
     /// channel binding request
     ///
@@ -88,7 +93,8 @@ pub trait Observer: Send + Sync {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
-    fn channel_bind(&self, _addr: &SocketAddr, _name: &str, _num: u16) {}
+    #[allow(unused)]
+    fn channel_bind(&self, addr: &SocketAddr, name: &str, num: u16) {}
 
     /// create permission request
     ///
@@ -129,11 +135,12 @@ pub trait Observer: Send + Sync {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
+    #[allow(unused)]
     fn create_permission(
         &self,
-        _addr: &SocketAddr,
-        _name: &str,
-        _relay: &SocketAddr,
+        addr: &SocketAddr,
+        name: &str,
+        relay: &SocketAddr,
     ) {
     }
 
@@ -176,7 +183,8 @@ pub trait Observer: Send + Sync {
     /// will cause a 437 (Allocation Mismatch) response if the
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
-    fn refresh(&self, _addr: &SocketAddr, _name: &str, _time: u32) {}
+    #[allow(unused)]
+    fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {}
 }
 
 /// Service options.
@@ -195,9 +203,7 @@ pub struct Options {
 
 /// TUTN service.
 pub struct Service {
-    pub router: Arc<Router>,
-
-    // private
+    router: Arc<Router>,
     observer: Arc<dyn Observer>,
     opt: Arc<Options>,
 }
@@ -228,7 +234,10 @@ impl Service {
     ///     Events {},
     /// );
     /// ```
-    pub fn new<T: Observer + 'static>(options: Options, observer: T) -> Self {
+    pub fn new<T>(options: Options, observer: T) -> Self
+    where
+        T: Observer + 'static,
+    {
         let opt = Arc::new(options);
         let observer = Arc::new(observer);
         let router = Router::new(opt.clone(), observer.clone());

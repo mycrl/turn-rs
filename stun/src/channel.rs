@@ -90,3 +90,17 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
         })
     }
 }
+
+impl AsRef<[u8]> for ChannelData<'_> {
+    fn as_ref(&self) -> &[u8] {
+        self.buf
+    }
+}
+
+impl std::ops::Deref for ChannelData<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        self.buf
+    }
+}

@@ -1,10 +1,10 @@
-mod allocate;
-mod binding;
-mod channel_bind;
-mod channel_data;
-mod create_permission;
-mod indication;
-mod refresh;
+pub mod allocate;
+pub mod binding;
+pub mod channel_bind;
+pub mod channel_data;
+pub mod create_permission;
+pub mod indication;
+pub mod refresh;
 
 use anyhow::Result;
 use bytes::BytesMut;
@@ -198,9 +198,9 @@ impl Processor {
     }
 
     pub async fn process_ext<'c, 'a: 'c>(
-        &'a mut self, 
-        payload: Payload<'a, 'c>, 
-        a: SocketAddr
+        &'a mut self,
+        payload: Payload<'a, 'c>,
+        a: SocketAddr,
     ) -> Result<Response<'c>> {
         let ctx = self.get_context(a);
         Ok(match payload {

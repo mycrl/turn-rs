@@ -106,8 +106,8 @@ pub async fn process<'a, 'b, 'c>(
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
     let u = match m.get::<UserName>() {
-        Some(u) => u?,
-        _ => return reject(ctx, m, w, Unauthorized).await,
+        None => return reject(ctx, m, w, Unauthorized).await,
+        Some(u) => u,
     };
 
     if m.get::<ReqeestedTransport>().is_none() {

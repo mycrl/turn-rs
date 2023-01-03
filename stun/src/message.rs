@@ -279,15 +279,16 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// ];
     ///
     /// let mut attributes = Vec::new();
-    /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
+    /// let message = MessageReader::decode(&buffer[..], &mut attributes);
     /// assert!(message.get::<UserName>().is_none());
     /// ```
-    pub fn get<T: Property<'a>>(&self) -> Option<Result<T::Inner, T::Error>> {
+    pub fn get<T: Property<'a>>(&self) -> Option<T::Inner> {
         let kind = T::kind();
         self.attributes
             .iter()
             .find(|(k, _)| k == &kind)
-            .map(|(_, v)| T::try_from(v, self.token))
+            .map(|(_, v)| T::try_from(v, self.token).ok())
+            .flatten()
     }
 
     /// check MessageReaderIntegrity attribute.
@@ -328,7 +329,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         // an error occurs if not found.
         let integrity = self
             .get::<MessageIntegrity>()
-            .ok_or_else(|| anyhow!("not found MessageIntegrity"))??;
+            .ok_or_else(|| anyhow!("not found MessageIntegrity"))?;
 
         // create multiple submit.
         let size_buf = (self.valid_offset + 4).to_be_bytes();
@@ -470,5 +471,19 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         ensure!(buf[0] >> 6 == 0, "not a stun message");
         ensure!(buf.len() >= 20, "message len < 20");
         Ok(util::as_u16(&buf[2..4]) + 20)
+    }
+}
+
+impl<'a> AsRef<[u8]> for MessageReader<'a, '_> {
+    fn as_ref(&self) -> &'a [u8] {
+        self.raw
+    }
+}
+
+impl<'a> std::ops::Deref for MessageReader<'a, '_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &'a Self::Target {
+        self.raw
     }
 }

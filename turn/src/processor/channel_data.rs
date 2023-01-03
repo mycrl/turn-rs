@@ -34,6 +34,7 @@ use super::{
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
 pub async fn process(ctx: Context, data: ChannelData<'_>) -> Response<'_> {
     let n = data.number;
+
     Some((
         data.buf,
         match ctx.router.get_channel_bound(&ctx.addr, n).await {

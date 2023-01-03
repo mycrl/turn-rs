@@ -97,12 +97,12 @@ pub async fn process<'a, 'b, 'c>(
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
     let u = match m.get::<UserName>() {
-        Some(u) => u?,
+        Some(u) => u,
         _ => return reject(ctx, m, w, Unauthorized),
     };
 
     let l = match m.get::<Lifetime>() {
-        Some(l) => l?,
+        Some(l) => l,
         _ => 600,
     };
 

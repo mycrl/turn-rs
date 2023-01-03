@@ -26,6 +26,7 @@ use faster_stun::attribute::ErrKind::{
     BadRequest,
     Unauthorized,
     InsufficientCapacity,
+    Forbidden,
 };
 
 /// return channel binding error response
@@ -92,19 +93,23 @@ pub async fn process<'a, 'b, 'c>(
     m: MessageReader<'a, 'b>,
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
-    let u = match m.get::<UserName>() {
-        Some(u) => u?,
-        _ => return reject(ctx, m, w, Unauthorized),
+    let peer = match m.get::<XorPeerAddress>() {
+        None => return reject(ctx, m, w, BadRequest),
+        Some(a) => a,
     };
 
     let c = match m.get::<ChannelNumber>() {
-        Some(c) => c?,
-        _ => return reject(ctx, m, w, BadRequest),
+        None => return reject(ctx, m, w, BadRequest),
+        Some(c) => c,
     };
 
-    let p = match m.get::<XorPeerAddress>() {
-        Some(a) => a?.port(),
-        _ => return reject(ctx, m, w, BadRequest),
+    if ctx.opt.external.ip() != peer.ip() {
+        return reject(ctx, m, w, Forbidden);
+    }
+
+    let u = match m.get::<UserName>() {
+        None => return reject(ctx, m, w, Unauthorized),
+        Some(u) => u,
     };
 
     if !(0x4000..=0x7FFF).contains(&c) {
@@ -120,7 +125,12 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, Unauthorized);
     }
 
-    if ctx.router.bind_channel(&ctx.addr, p, c).await.is_none() {
+    if ctx
+        .router
+        .bind_channel(&ctx.addr, peer.port(), c)
+        .await
+        .is_none()
+    {
         return reject(ctx, m, w, InsufficientCapacity);
     }
 

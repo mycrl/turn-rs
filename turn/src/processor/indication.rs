@@ -11,9 +11,9 @@ use super::{
 };
 
 use faster_stun::{
-    Method,
     MessageReader,
     MessageWriter,
+    Method,
 };
 
 use faster_stun::attribute::{
@@ -70,17 +70,21 @@ pub async fn process<'a, 'b, 'c>(
     m: MessageReader<'a, 'b>,
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
-    let pp = match m.get::<XorPeerAddress>() {
-        Some(x) => x?.port(),
-        _ => return Ok(None),
+    let peer = match m.get::<XorPeerAddress>() {
+        None => return Ok(None),
+        Some(x) => x,
     };
+
+    if ctx.opt.external.ip() != peer.ip() {
+        return Ok(None);
+    }
 
     let d = match m.get::<Data>() {
-        Some(x) => x?,
-        _ => return Ok(None),
+        None => return Ok(None),
+        Some(x) => x,
     };
 
-    let a = match ctx.router.get_port_bound(pp).await {
+    let a = match ctx.router.get_port_bound(peer.port()).await {
         None => return Ok(None),
         Some(a) => a,
     };

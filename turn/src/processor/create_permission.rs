@@ -104,14 +104,18 @@ pub async fn process<'a, 'b, 'c>(
     m: MessageReader<'a, 'b>,
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
-    let u = match m.get::<UserName>() {
-        Some(u) => u?,
-        _ => return reject(ctx, m, w, Unauthorized),
+    let peer = match m.get::<XorPeerAddress>() {
+        None => return reject(ctx, m, w, BadRequest),
+        Some(a) => a,
     };
 
-    let peer = match m.get::<XorPeerAddress>() {
-        Some(a) => a?,
-        _ => return reject(ctx, m, w, BadRequest),
+    if ctx.opt.external.ip() != peer.ip() {
+        return reject(ctx, m, w, Forbidden);
+    }
+
+    let u = match m.get::<UserName>() {
+        None => return reject(ctx, m, w, Unauthorized),
+        Some(u) => u,
     };
 
     let key = match ctx.router.get_key(&ctx.addr, u).await {
@@ -121,10 +125,6 @@ pub async fn process<'a, 'b, 'c>(
 
     if m.integrity(&key).is_err() {
         return reject(ctx, m, w, Unauthorized);
-    }
-
-    if ctx.opt.external.ip() != peer.ip() {
-        return reject(ctx, m, w, Forbidden);
     }
 
     if ctx.router.bind_port(&ctx.addr, peer.port()).await.is_none() {

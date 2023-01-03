@@ -1,7 +1,7 @@
+pub mod channels;
 pub mod nodes;
-mod channels;
-mod nonces;
-mod ports;
+pub mod nonces;
+pub mod ports;
 
 use nodes::Nodes;
 use ports::Ports;
@@ -77,28 +77,7 @@ impl Router {
             opt,
         })
     }
-
-    /// poll in state.
-    ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
-    ///
-    /// tokio::spawn(state.start_poll());
-    /// ```
-    pub async fn start_poll(&self) {
-        let delay = Duration::from_secs(60);
-        loop {
-            sleep(delay).await;
-            for a in self.nodes.get_deaths().await {
-                self.remove(&a).await;
-            }
-
-            for c in self.channels.get_deaths().await {
-                self.channels.remove(c).await;
-            }
-        }
-    }
-
+    
     /// get router capacity.
     pub async fn capacity(&self) -> usize {
         self.ports.capacity().await
@@ -448,6 +427,27 @@ impl Router {
     pub async fn remove_from_user(&self, u: &str) {
         for addr in self.nodes.get_addrs(u).await {
             self.remove(&addr).await;
+        }
+    }
+
+    /// poll in state.
+    ///
+    /// ```ignore
+    /// let state = Router::new(/* ... */);
+    ///
+    /// tokio::spawn(state.start_poll());
+    /// ```
+    pub async fn start_poll(&self) {
+        let delay = Duration::from_secs(60);
+        loop {
+            sleep(delay).await;
+            for a in self.nodes.get_deaths().await {
+                self.remove(&a).await;
+            }
+
+            for c in self.channels.get_deaths().await {
+                self.channels.remove(c).await;
+            }
         }
     }
 }
