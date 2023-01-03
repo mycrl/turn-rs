@@ -279,7 +279,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// ];
     ///
     /// let mut attributes = Vec::new();
-    /// let message = MessageReader::decode(&buffer[..], &mut attributes);
+    /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// assert!(message.get::<UserName>().is_none());
     /// ```
     pub fn get<T: Property<'a>>(&self) -> Option<T::Inner> {
