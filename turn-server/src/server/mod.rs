@@ -111,7 +111,7 @@ pub async fn run(
         ));
     }
 
-    log::info!("udp server listening: {}", config.bind);
-    log::info!("udp server workers number: {}", threads);
+    log::info!("turn server workers number: {}", threads);
+    log::info!("turn server listening: {}", config.bind);
     Ok(monitor)
 }
