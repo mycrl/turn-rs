@@ -77,7 +77,7 @@ impl Router {
             opt,
         })
     }
-    
+
     /// get router capacity.
     pub async fn capacity(&self) -> usize {
         self.ports.capacity().await

@@ -265,6 +265,10 @@ impl Controller {
     pub async fn get_user(&self, addr: SocketAddr) -> Json<Option<Sess>> {
         Json(self.router.get_node(&Arc::new(addr)).await.map(Sess::from))
     }
+
+    pub async fn remove(&self, addr: SocketAddr) -> Json<bool> {
+        Json(self.router.remove(&Arc::new(addr)).await.is_some())
+    }
 }
 
 /// external controller

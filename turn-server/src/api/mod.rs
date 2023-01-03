@@ -10,8 +10,12 @@ use serde::Deserialize;
 use http::Request;
 use axum::{
     extract::Query,
-    routing::get,
     Router,
+};
+
+use axum::routing::{
+    delete,
+    get,
 };
 
 use std::{
@@ -82,7 +86,7 @@ where
 }
 
 #[derive(Debug, Deserialize)]
-pub struct GetUserParams {
+pub struct AddrParams {
     addr: SocketAddr,
 }
 
@@ -115,8 +119,14 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
         .route("/users", get(move || async { ctr.get_users().await }))
         .route(
             "/user",
-            get(move |Query(params): Query<GetUserParams>| async move {
+            get(move |Query(params): Query<AddrParams>| async move {
                 ctr.get_user(params.addr).await
+            }),
+        )
+        .route(
+            "/user",
+            delete(move |Query(params): Query<AddrParams>| async move {
+                ctr.remove(params.addr).await
             }),
         )
         .layer(LogLayer);
