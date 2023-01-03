@@ -10,7 +10,5 @@ lto = true
 members = [
     "turn",
     "stun",
-    "linker",
-    "turn-server",
-    "turn-linker"
+    "turn-server"
 ]
