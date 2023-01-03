@@ -37,7 +37,9 @@ impl Events {
 #[async_trait]
 impl Observer for Events {
     async fn auth(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        self.ctr.auth(addr, name).await.ok()
+        let pwd = self.ctr.auth(addr, name).await.ok();
+        log::info!("auth: addr={:?}, name={:?}, pwd={:?}", addr, name, pwd);
+        pwd
     }
 
     /// allocate request
@@ -233,25 +235,25 @@ async fn main() -> anyhow::Result<()> {
         .format_level(true)
         .format_target(false)
         .format_timestamp_secs()
-        .write_style(env_logger::fmt::WriteStyle::Auto)
         .format_module_path(false)
+        .write_style(env_logger::fmt::WriteStyle::Auto)
         .init();
 
     let config = Arc::new(Config::parse());
     let events = Events::new(config.clone());
-    let opt = Options {
+    let service = Service::new(Options {
         external: config.external.clone(),
         realm: config.realm.clone(),
-    };
-    
-    let service = Service::new(opt, events);
-    let monitor = server::run(&service, config.clone()).await?;
+    }, events);
 
-    api::start(&config, &Controller::new(
+    let monitor = server::run(&service, config.clone()).await?;
+    let controller = Controller::new(
         service.get_router(),
         config.clone(),
         monitor,
-    )).await?;
+    );
 
+    tokio::spawn(service.run());
+    api::start(&config, &controller).await?;
     Ok(())
 }

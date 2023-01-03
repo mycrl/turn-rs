@@ -296,7 +296,7 @@ impl Nodes {
         let mut addrs_map = self.addrs.write().await;
         let node = self.map.write().await.remove(a)?;
         let addrs = addrs_map.get_mut(&node.username)?;
-        if addrs.is_empty() {
+        if addrs.len() == 1 {
             addrs_map.remove(&node.username)?;
         } else {
             addrs.remove(a);

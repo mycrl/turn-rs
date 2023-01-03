@@ -272,7 +272,7 @@ impl Service {
     ///
     /// tokio::spawn(service.run()).await;
     /// ```
-    pub async fn run(&self) {
+    pub async fn run(self) {
         self.router.start_poll().await
     }
 
