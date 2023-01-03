@@ -6,20 +6,14 @@ pub use controller::{
 };
 
 use crate::config::Config;
-use serde::Deserialize;
 use http::Request;
 use axum::{
-    extract::Query,
+    routing::delete,
+    routing::get,
     Router,
 };
 
-use axum::routing::{
-    delete,
-    get,
-};
-
 use std::{
-    net::SocketAddr,
     task::Context,
     task::Poll,
 };
@@ -85,11 +79,6 @@ where
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct AddrParams {
-    addr: SocketAddr,
-}
-
 /// start http server
 ///
 /// Create an http server and start it, and you can access the controller
@@ -114,22 +103,13 @@ pub struct AddrParams {
 pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
     let ctr: &'static Controller = unsafe { std::mem::transmute(ctr) };
     let app = Router::new()
-        .route("/stats", get(move || async { ctr.get_stats().await }))
-        .route("/workers", get(move || async { ctr.get_workers().await }))
-        .route("/users", get(move || async { ctr.get_users().await }))
-        .route(
-            "/user",
-            get(move |Query(params): Query<AddrParams>| async move {
-                ctr.get_user(params.addr).await
-            }),
-        )
-        .route(
-            "/user",
-            delete(move |Query(params): Query<AddrParams>| async move {
-                ctr.remove(params.addr).await
-            }),
-        )
-        .layer(LogLayer);
+        .route("/stats", get(Controller::get_stats))
+        .route("/workers", get(Controller::get_workers))
+        .route("/users", get(Controller::get_users))
+        .route("/user", get(Controller::get_user))
+        .route("/user", delete(Controller::remove_user))
+        .layer(LogLayer)
+        .with_state(ctr);
 
     log::info!("controller server listening: {}", &cfg.controller_bind);
     axum::Server::bind(&cfg.controller_bind)

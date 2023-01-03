@@ -1,6 +1,11 @@
 use tokio::time::Instant;
-use serde::Serialize;
-use axum::Json;
+use serde::*;
+use axum::{
+    extract::Query,
+    extract::State,
+    Json,
+};
+
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -137,6 +142,11 @@ impl From<Node> for Sess {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct AddrParams {
+    addr: SocketAddr,
+}
+
 /// controller
 ///
 /// It is possible to control the turn server and obtain server internal
@@ -188,15 +198,15 @@ impl Controller {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let state_js = ctr.get_stats().await;
     /// ```
-    pub async fn get_stats(&self) -> Json<Stats> {
+    pub async fn get_stats(State(this): State<&Self>) -> Json<Stats> {
         Json(Stats {
             software: SOFTWARE.to_string(),
-            bind_address: self.config.bind,
-            external_address: self.config.external,
-            uptime: self.timer.elapsed().as_secs(),
-            realm: self.config.realm.clone(),
-            port_allocated: self.router.len().await as u16,
-            port_capacity: self.router.capacity().await as u16,
+            bind_address: this.config.bind,
+            external_address: this.config.external,
+            uptime: this.timer.elapsed().as_secs(),
+            realm: this.config.realm.clone(),
+            port_allocated: this.router.len().await as u16,
+            port_capacity: this.router.capacity().await as u16,
         })
     }
 
@@ -216,8 +226,10 @@ impl Controller {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let workers_js = ctr.get_workers().await;
     /// ```
-    pub async fn get_workers(&self) -> Json<HashMap<u8, Worker>> {
-        let workers = self
+    pub async fn get_workers(
+        State(this): State<&Self>,
+    ) -> Json<HashMap<u8, Worker>> {
+        let workers = this
             .monitor
             .get_workers()
             .await
@@ -227,7 +239,7 @@ impl Controller {
         Json(workers)
     }
 
-    /// get user list.
+    /// Get user list.
     ///
     /// This interface returns the username and a list of addresses used by this
     /// user.
@@ -242,8 +254,10 @@ impl Controller {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn get_users(&self) -> Json<Vec<(String, Vec<SocketAddr>)>> {
-        Json(self.router.get_users().await)
+    pub async fn get_users(
+        State(this): State<&Self>,
+    ) -> Json<Vec<(String, Vec<SocketAddr>)>> {
+        Json(this.router.get_users().await)
     }
 
     /// Get user information
@@ -262,12 +276,40 @@ impl Controller {
     /// let addr = "127.0.0.1:8080".parse().unwrap();
     /// // let user_js = ctr.get_user(addr).await;
     /// ```
-    pub async fn get_user(&self, addr: SocketAddr) -> Json<Option<Sess>> {
-        Json(self.router.get_node(&Arc::new(addr)).await.map(Sess::from))
+    pub async fn get_user(
+        State(this): State<&Self>,
+        Query(pars): Query<AddrParams>,
+    ) -> Json<Option<Sess>> {
+        Json(
+            this.router
+                .get_node(&Arc::new(pars.addr))
+                .await
+                .map(Sess::from),
+        )
     }
 
-    pub async fn remove(&self, addr: SocketAddr) -> Json<bool> {
-        Json(self.router.remove(&Arc::new(addr)).await.is_some())
+    /// Delete a node under the user.
+    ///
+    /// This will cause all information of the current node to be deleted,
+    /// including the binding relationship, and at the same time terminate the
+    /// session of the current node and stop forwarding data.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let config = Config::new()
+    /// let service = Service::new(/* ... */);;
+    /// let monitor = Monitor::new(/* ... */);
+    ///
+    /// let ctr = Controller::new(service.get_router(), config, monitor);
+    /// let addr = "127.0.0.1:8080".parse().unwrap();
+    /// // let remove_node_js = ctr.remove_user(addr).await;
+    /// ```
+    pub async fn remove_user(
+        State(this): State<&Self>,
+        Query(pars): Query<AddrParams>,
+    ) -> Json<bool> {
+        Json(this.router.remove(&Arc::new(pars.addr)).await.is_some())
     }
 }
 
