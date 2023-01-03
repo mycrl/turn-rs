@@ -120,6 +120,7 @@ pub struct MonitorSender {
 }
 
 impl MonitorSender {
+    /// TODO: Delivery of updates is not guaranteed.
     pub fn send(&self, payload: Payload) {
         let _ = self.sender.try_send((self.index, payload));
     }
