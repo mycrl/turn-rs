@@ -1,10 +1,7 @@
-mod controller;
+pub mod controller;
+pub mod hooks;
 
-pub use controller::{
-    ExtController,
-    Controller,
-};
-
+use controller::Controller;
 use crate::config::Config;
 use http::Request;
 use axum::{
@@ -106,13 +103,13 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
         .route("/stats", get(Controller::get_stats))
         .route("/workers", get(Controller::get_workers))
         .route("/users", get(Controller::get_users))
-        .route("/node", get(Controller::get_user))
-        .route("/node", delete(Controller::remove_user))
+        .route("/node", get(Controller::get_node))
+        .route("/node", delete(Controller::remove_node))
         .layer(LogLayer)
         .with_state(ctr);
 
-    log::info!("controller server listening: {}", &cfg.controller_bind);
-    axum::Server::bind(&cfg.controller_bind)
+    log::info!("controller server listening: {}", &cfg.controller_listen);
+    axum::Server::bind(&cfg.controller_listen)
         .serve(app.into_make_service())
         .await?;
     Ok(())

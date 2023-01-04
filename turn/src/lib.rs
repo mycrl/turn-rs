@@ -185,6 +185,14 @@ pub trait Observer: Send + Sync {
     /// this as equivalent to a success response (see below).
     #[allow(unused)]
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {}
+
+    /// node exit
+    ///
+    /// Triggered when the node leaves from the turn. Possible reasons: the node
+    /// life cycle has expired, external active deletion, or active exit of the
+    /// node.
+    #[allow(unused)]
+    fn abort(&self, addr: &SocketAddr, name: &str) {}
 }
 
 /// Service options.
@@ -234,7 +242,7 @@ impl Service {
     ///     Events {},
     /// );
     /// ```
-    pub fn new<T>(options: Options, observer: T) -> Self
+    pub fn new<T>(observer: T, options: Options) -> Self
     where
         T: Observer + 'static,
     {

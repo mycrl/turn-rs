@@ -412,6 +412,7 @@ impl Router {
         }
 
         self.nonces.remove(a).await;
+        self.observer.abort(a, &node.username);
         Some(())
     }
 

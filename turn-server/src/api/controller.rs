@@ -10,12 +10,6 @@ use std::{
     collections::HashMap,
     net::SocketAddr,
     sync::Arc,
-    fs,
-};
-
-use anyhow::{
-    Result,
-    anyhow,
 };
 
 use crate::{
@@ -54,7 +48,7 @@ pub struct Stats {
     realm: String,
 }
 
-/// Represents a turn session processing thread
+/// Represents a turn INodeion processing thread
 #[derive(Serialize)]
 pub struct Worker {
     /// The total number of data packets that the turn server has received so
@@ -90,12 +84,12 @@ impl From<&WorkMonitor> for Worker {
     }
 }
 
-/// Session information in the turn server
+/// node information in the turn server
 #[derive(Serialize)]
-pub struct Sess {
-    /// Username for the current session.
+pub struct INode {
+    /// Username for the current INodeion.
     username: String,
-    /// The user key for the current session.
+    /// The user key for the current INodeion.
     password: String,
     /// The lifetime of the current user.
     lifetime: u64,
@@ -107,7 +101,7 @@ pub struct Sess {
     allocated_ports: Vec<u16>,
 }
 
-impl From<Node> for Sess {
+impl From<Node> for INode {
     /// # Example
     ///
     /// ```no_run
@@ -115,13 +109,13 @@ impl From<Node> for Sess {
     ///     ...
     /// };
     ///
-    /// let sess = Sess::from(node.clone());
-    /// assert_eq!(sess.username, node.username);
-    /// assert_eq!(sess.password, node.password);
-    /// assert_eq!(sessr.lifetime, node.lifetime);
+    /// let INode = INode::from(node.clone());
+    /// assert_eq!(INode.username, node.username);
+    /// assert_eq!(INode.password, node.password);
+    /// assert_eq!(INoder.lifetime, node.lifetime);
     /// ```
     fn from(value: Node) -> Self {
-        Sess {
+        INode {
             timer: value.timer.elapsed().as_secs(),
             username: value.username.clone(),
             allocated_channels: value.channels,
@@ -164,9 +158,9 @@ impl Controller {
     /// Controller::new(service.get_router(), config, monitor);
     /// ```
     pub fn new(
+        monitor: Monitor,
         router: Arc<Router>,
         config: Arc<Config>,
-        monitor: Monitor,
     ) -> Arc<Self> {
         Arc::new(Self {
             timer: Instant::now(),
@@ -191,7 +185,7 @@ impl Controller {
     pub async fn get_stats(State(this): State<&Self>) -> Json<Stats> {
         Json(Stats {
             software: SOFTWARE.to_string(),
-            bind_address: this.config.bind,
+            bind_address: this.config.listen,
             external_address: this.config.external,
             uptime: this.timer.elapsed().as_secs(),
             realm: this.config.realm.clone(),
@@ -246,11 +240,11 @@ impl Controller {
     /// ```
     pub async fn get_users(
         State(this): State<&Self>,
-    ) -> Json<Vec<(String, Vec<SocketAddr>)>> {
-        Json(this.router.get_users().await)
+    ) -> Json<HashMap<String, Vec<SocketAddr>>> {
+        Json(this.router.get_users().await.into_iter().collect())
     }
 
-    /// Get user information
+    /// Get node information
     ///
     /// This interface can obtain the user's basic information and assigned
     /// information, including the survival time.
@@ -264,17 +258,17 @@ impl Controller {
     ///
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// let addr = "127.0.0.1:8080".parse().unwrap();
-    /// // let user_js = ctr.get_user(addr).await;
+    /// // let user_js = ctr.get_node(addr).await;
     /// ```
-    pub async fn get_user(
+    pub async fn get_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
-    ) -> Json<Option<Sess>> {
+    ) -> Json<Option<INode>> {
         Json(
             this.router
                 .get_node(&Arc::new(pars.addr))
                 .await
-                .map(Sess::from),
+                .map(INode::from),
         )
     }
 
@@ -282,7 +276,7 @@ impl Controller {
     ///
     /// This will cause all information of the current node to be deleted,
     /// including the binding relationship, and at the same time terminate the
-    /// session of the current node and stop forwarding data.
+    /// INodeion of the current node and stop forwarding data.
     ///
     /// # Example
     ///
@@ -295,83 +289,10 @@ impl Controller {
     /// let addr = "127.0.0.1:8080".parse().unwrap();
     /// // let remove_node_js = ctr.remove_user(addr).await;
     /// ```
-    pub async fn remove_user(
+    pub async fn remove_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<bool> {
         Json(this.router.remove(&Arc::new(pars.addr)).await.is_some())
-    }
-}
-
-/// external controller
-///
-/// The external controller is used for the turn server to send requests to the
-/// outside and notify or obtain information necessary for operation.
-pub struct ExtController {
-    static_certs: HashMap<String, String>,
-    client: reqwest::Client,
-    config: Arc<Config>,
-}
-
-impl ExtController {
-    fn hooks(res: reqwest::Response) -> Result<reqwest::Response> {
-        log::info!("ext controller response: {:?}", res);
-        (res.status() == 200)
-            .then(|| res)
-            .ok_or_else(|| anyhow!("request failed!"))
-    }
-
-    /// Create an external controller
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// let config = Config::new()
-    /// // let ext_ctr = ExtController::new(config);
-    /// ```
-    pub fn new(config: Arc<Config>) -> Self {
-        Self {
-            static_certs: config
-                .cert_file
-                .as_ref()
-                .map(|f| fs::read_to_string(&f).unwrap_or("".to_string()))
-                .map(|s| toml::from_str(&s).unwrap())
-                .unwrap_or_else(|| HashMap::new()),
-            client: reqwest::Client::new(),
-            config,
-        }
-    }
-
-    /// request external authentication.
-    ///
-    /// This interface will first try to find the internal static certificate
-    /// table, if not found, then request the external interface for
-    /// authentication.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// let config = Config::new()
-    /// let ext_ctr = ExtController::new(config);
-    ///
-    /// let addr = "127.0.0.1:8080".parse().unwrap();
-    /// // let key = ext_ctr.auth(&addr, "test").await?;
-    /// ```
-    pub async fn auth(&self, addr: &SocketAddr, name: &str) -> Result<String> {
-        if let Some(v) = self.static_certs.get(name) {
-            return Ok(v.clone());
-        }
-
-        Ok(Self::hooks(
-            self.client
-                .get(format!(
-                    "{}/auth?addr={}&name={}",
-                    self.config.ext_controller_bind, addr, name
-                ))
-                .send()
-                .await?,
-        )?
-        .text()
-        .await?)
     }
 }

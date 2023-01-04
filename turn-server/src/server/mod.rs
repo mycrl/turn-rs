@@ -99,7 +99,7 @@ pub async fn run(
     service: &Service,
     config: Arc<Config>,
 ) -> anyhow::Result<Monitor> {
-    let socket = Arc::new(UdpSocket::bind(config.bind).await?);
+    let socket = Arc::new(UdpSocket::bind(config.listen).await?);
     let threads = get_threads(config.threads);
     let monitor = Monitor::new(threads);
 
@@ -112,6 +112,6 @@ pub async fn run(
     }
 
     log::info!("turn server workers number: {}", threads);
-    log::info!("turn server listening: {}", config.bind);
+    log::info!("turn server listening: {}", config.listen);
     Ok(monitor)
 }

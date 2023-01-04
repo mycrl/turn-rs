@@ -12,8 +12,8 @@ use turn_rs::{
 };
 
 use api::{
-    ExtController,
-    Controller,
+    controller::Controller,
+    hooks,
 };
 
 use std::{
@@ -23,13 +23,13 @@ use std::{
 };
 
 struct Events {
-    ctr: ExtController,
+    hooks: hooks::Hooks,
 }
 
 impl Events {
     fn new(cfg: Arc<Config>) -> Self {
         Self {
-            ctr: ExtController::new(cfg),
+            hooks: hooks::Hooks::new(cfg),
         }
     }
 }
@@ -37,7 +37,7 @@ impl Events {
 #[async_trait]
 impl Observer for Events {
     async fn auth(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        let pwd = self.ctr.auth(addr, name).await.ok();
+        let pwd = self.hooks.auth(addr, name).await.ok();
         log::info!("auth: addr={:?}, name={:?}, pwd={:?}", addr, name, pwd);
         pwd
     }
@@ -60,6 +60,14 @@ impl Observer for Events {
     /// standard services.
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
+        self.hooks.events(
+            hooks::Events::Allocated,
+            &hooks::EventsBody::Allocated {
+                addr,
+                name,
+                port,
+            },
+        );
     }
 
     /// binding request
@@ -86,6 +94,12 @@ impl Observer for Events {
     /// allocated by the outermost NAT with respect to the STUN server.
     fn binding(&self, addr: &SocketAddr) {
         log::info!("binding: addr={:?}", addr);
+        self.hooks.events(
+            hooks::Events::Binding,
+            &hooks::EventsBody::Binding {
+                addr,
+            },
+        );
     }
 
     /// channel binding request
@@ -118,12 +132,21 @@ impl Observer for Events {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
-    fn channel_bind(&self, addr: &SocketAddr, name: &str, num: u16) {
+    fn channel_bind(&self, addr: &SocketAddr, name: &str, number: u16) {
         log::info!(
             "channel bind: addr={:?}, name={:?}, number={}",
             addr,
             name,
-            num
+            number
+        );
+
+        self.hooks.events(
+            hooks::Events::ChannelBind,
+            &hooks::EventsBody::ChannelBind {
+                addr,
+                name,
+                number,
+            },
         );
     }
 
@@ -178,6 +201,15 @@ impl Observer for Events {
             name,
             relay
         );
+
+        self.hooks.events(
+            hooks::Events::CreatePermission,
+            &hooks::EventsBody::CreatePermission {
+                addr,
+                name,
+                relay,
+            },
+        );
     }
 
     /// refresh request
@@ -221,16 +253,38 @@ impl Observer for Events {
     /// this as equivalent to a success response (see below).
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
         log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
+        self.hooks.events(
+            hooks::Events::Refresh,
+            &hooks::EventsBody::Refresh {
+                addr,
+                name,
+                time,
+            },
+        );
+    }
+
+    /// node exit
+    ///
+    /// Triggered when the node leaves from the turn. Possible reasons: the node
+    /// life cycle has expired, external active deletion, or active exit of the
+    /// node.
+    fn abort(&self, addr: &SocketAddr, name: &str) {
+        log::info!("node abort: addr={:?}, name={:?}", addr, name);
+        self.hooks.events(
+            hooks::Events::Abort,
+            &hooks::EventsBody::Abort {
+                addr,
+                name,
+            },
+        );
     }
 }
 
 #[tokio::main]
-#[rustfmt::skip]
 async fn main() -> anyhow::Result<()> {
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info");
-    }
-    
+    let config = Arc::new(Config::parse());
+
+    env::set_var("RUST_LOG", &config.log_level);
     env_logger::builder()
         .format_level(true)
         .format_target(false)
@@ -239,18 +293,18 @@ async fn main() -> anyhow::Result<()> {
         .write_style(env_logger::fmt::WriteStyle::Auto)
         .init();
 
-    let config = Arc::new(Config::parse());
-    let events = Events::new(config.clone());
-    let service = Service::new(Options {
-        external: config.external.clone(),
-        realm: config.realm.clone(),
-    }, events);
+    let service = Service::new(
+        Events::new(config.clone()),
+        Options {
+            external: config.external.clone(),
+            realm: config.realm.clone(),
+        },
+    );
 
-    let monitor = server::run(&service, config.clone()).await?;
     let controller = Controller::new(
+        server::run(&service, config.clone()).await?,
         service.get_router(),
         config.clone(),
-        monitor,
     );
 
     tokio::spawn(service.run());

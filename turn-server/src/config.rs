@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use crate::api::hooks;
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -8,15 +9,19 @@ use clap::Parser;
     author = env!("CARGO_PKG_AUTHORS")
 )]
 pub struct Config {
+    #[arg(long)]
+    #[arg(env = "RUST_LOG")]
+    #[arg(default_value = "info")]
+    pub log_level: String,
     /// realm:
     ///
     /// specify the domain where the server is located.
     /// for a single node, this configuration is fixed,
     /// but each node can be configured as a different domain.
     /// this is a good idea to divide the nodes by namespace.
-    #[clap(long)]
-    #[clap(env = "TURN_REALM")]
-    #[clap(default_value = "localhost")]
+    #[arg(long)]
+    #[arg(env = "TURN_REALM")]
+    #[arg(default_value = "localhost")]
     pub realm: String,
 
     /// external:
@@ -25,9 +30,9 @@ pub struct Config {
     /// for the case of exposing the service to the outside,
     /// you need to manually specify the server external IP
     /// address and service listening port.
-    #[clap(long)]
-    #[clap(env = "TURN_EXTERNAL")]
-    #[clap(default_value = "127.0.0.1:3478")]
+    #[arg(long)]
+    #[arg(env = "TURN_EXTERNAL")]
+    #[arg(default_value = "127.0.0.1:3478")]
     pub external: SocketAddr,
 
     /// bind:
@@ -36,10 +41,10 @@ pub struct Config {
     /// currently, it does not support binding multiple
     /// addresses at the same time. the bound address
     /// supports ipv4 and ipv6.
-    #[clap(long)]
-    #[clap(env = "TURN_BIND")]
-    #[clap(default_value = "127.0.0.1:3478")]
-    pub bind: SocketAddr,
+    #[arg(long)]
+    #[arg(env = "TURN_LISTEN")]
+    #[arg(default_value = "127.0.0.1:3478")]
+    pub listen: SocketAddr,
 
     /// controller bind:
     ///
@@ -50,25 +55,30 @@ pub struct Config {
     /// any means of authentication, and sensitive information and dangerous
     /// operations can be obtained through this service, please do not expose
     /// it directly to an unsafe environment.
-    #[clap(long)]
-    #[clap(env = "TURN_CONTROLLER_BIND")]
-    #[clap(default_value = "127.0.0.1:3000")]
-    pub controller_bind: SocketAddr,
+    #[arg(long)]
+    #[arg(env = "TURN_CONTROLLER_BIND")]
+    #[arg(default_value = "127.0.0.1:3000")]
+    pub controller_listen: SocketAddr,
 
-    /// external controller bind:
+    /// hooks uri:
     ///
-    /// This option is used to specify the http address of the external control
-    /// service.
+    /// This option is used to specify the http address of the hooks service.
     ///
     /// Warn: This http server does not contain
     /// any means of authentication, and sensitive information and dangerous
     /// operations can be obtained through this service, please do not expose
     /// it directly to an unsafe environment.
     #[clap(long)]
-    #[clap(env = "TURN_EXT_CONTROLLER_BIND")]
-    #[clap(default_value = "http://127.0.0.1:3000")]
-    pub ext_controller_bind: String,
+    #[clap(env = "TURN_HOOKS_URI")]
+    #[clap(default_value = "http://127.0.0.1:8080")]
+    pub hooks_uri: String,
 
+    #[clap(long)]
+    #[clap(env = "TURN_HOOKS_EVENTS")]
+    pub hooks_events: Vec<hooks::Events>,
+
+    // #[clap(long)]
+    // pub hooks_kinds: Option<Vec<IEventKind>>,
     /// static certificate file path:
     ///
     /// The internal format of the file is TOML, and the content is
