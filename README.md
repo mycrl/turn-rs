@@ -38,6 +38,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 - You can use the HTTP protocol to control the turn-server or obtain the running status from the outside.
 - Webhooks allow subscription to certain events on the server. When one of these events is fired, we will send an HTTP PUT payload to the URL configured by the webhook.
 - The key pair used when defining the authentication in the configuration file.
+- Authenticating requests through webhooks.
 
 
 ## Crates
