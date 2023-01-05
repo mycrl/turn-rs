@@ -185,10 +185,10 @@ impl Controller {
     pub async fn get_stats(State(this): State<&Self>) -> Json<Stats> {
         Json(Stats {
             software: SOFTWARE.to_string(),
-            bind_address: this.config.listen,
-            external_address: this.config.external,
+            bind_address: this.config.turn.listen,
+            external_address: this.config.turn.external,
             uptime: this.timer.elapsed().as_secs(),
-            realm: this.config.realm.clone(),
+            realm: this.config.turn.realm.clone(),
             port_allocated: this.router.len().await as u16,
             port_capacity: this.router.capacity().await as u16,
         })

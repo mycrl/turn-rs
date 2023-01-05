@@ -4,7 +4,6 @@ mod api;
 
 use async_trait::async_trait;
 use config::Config;
-use clap::Parser;
 use turn_rs::{
     Service,
     Options,
@@ -19,7 +18,6 @@ use api::{
 use std::{
     net::SocketAddr,
     sync::Arc,
-    env,
 };
 
 struct Events {
@@ -60,14 +58,11 @@ impl Observer for Events {
     /// standard services.
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
-        self.hooks.events(
-            hooks::Events::Allocated,
-            &hooks::EventsBody::Allocated {
-                addr,
-                name,
-                port,
-            },
-        );
+        self.hooks.events(&hooks::Events::Allocated {
+            addr,
+            name,
+            port,
+        });
     }
 
     /// binding request
@@ -94,12 +89,9 @@ impl Observer for Events {
     /// allocated by the outermost NAT with respect to the STUN server.
     fn binding(&self, addr: &SocketAddr) {
         log::info!("binding: addr={:?}", addr);
-        self.hooks.events(
-            hooks::Events::Binding,
-            &hooks::EventsBody::Binding {
-                addr,
-            },
-        );
+        self.hooks.events(&hooks::Events::Binding {
+            addr,
+        });
     }
 
     /// channel binding request
@@ -140,14 +132,11 @@ impl Observer for Events {
             number
         );
 
-        self.hooks.events(
-            hooks::Events::ChannelBind,
-            &hooks::EventsBody::ChannelBind {
-                addr,
-                name,
-                number,
-            },
-        );
+        self.hooks.events(&hooks::Events::ChannelBind {
+            addr,
+            name,
+            number,
+        });
     }
 
     /// create permission request
@@ -202,14 +191,11 @@ impl Observer for Events {
             relay
         );
 
-        self.hooks.events(
-            hooks::Events::CreatePermission,
-            &hooks::EventsBody::CreatePermission {
-                addr,
-                name,
-                relay,
-            },
-        );
+        self.hooks.events(&hooks::Events::CreatePermission {
+            addr,
+            name,
+            relay,
+        });
     }
 
     /// refresh request
@@ -253,14 +239,11 @@ impl Observer for Events {
     /// this as equivalent to a success response (see below).
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
         log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
-        self.hooks.events(
-            hooks::Events::Refresh,
-            &hooks::EventsBody::Refresh {
-                addr,
-                name,
-                time,
-            },
-        );
+        self.hooks.events(&hooks::Events::Refresh {
+            addr,
+            name,
+            time,
+        });
     }
 
     /// node exit
@@ -270,34 +253,23 @@ impl Observer for Events {
     /// node.
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
-        self.hooks.events(
-            hooks::Events::Abort,
-            &hooks::EventsBody::Abort {
-                addr,
-                name,
-            },
-        );
+        self.hooks.events(&hooks::Events::Abort {
+            addr,
+            name,
+        });
     }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let config = Arc::new(Config::parse());
-
-    env::set_var("RUST_LOG", &config.log_level);
-    env_logger::builder()
-        .format_level(true)
-        .format_target(false)
-        .format_timestamp_secs()
-        .format_module_path(false)
-        .write_style(env_logger::fmt::WriteStyle::Auto)
-        .init();
+    let config = Arc::new(Config::load());
+    simple_logger::init_with_level(config.log.level.as_level())?;
 
     let service = Service::new(
         Events::new(config.clone()),
         Options {
-            external: config.external.clone(),
-            realm: config.realm.clone(),
+            external: config.turn.external.clone(),
+            realm: config.turn.realm.clone(),
         },
     );
 

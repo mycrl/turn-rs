@@ -26,10 +26,18 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 ## Table of contents
 
+* [features](#features)
 * [crates](#crates)
 * [building](#building)
 * [usage](#usage)
 * [benchmark](#benchmark)
+
+
+## Features
+
+- You can use the HTTP protocol to control the turn-server or obtain the running status from the outside.
+- Webhooks allow you to build or set up integrations, which subscribe to certain events on turn-server. When one of those events is triggered, we'll send a HTTP POST payload to the webhook's configured URL.
+- The key pair used when defining the authentication in the configuration file.
 
 
 ## Crates
@@ -50,53 +58,13 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 cargo install turn-server
 ```
 
-Show helps:
+Start with configuration file:
 
 ```bash
-turn-server --help
+turn-server --config=/etc/turn_server/config.toml
 ```
 
-#### Command-line arguments
-command-line arguments take precedence over environment variables
-
-| values                | default                | env                      |
-|-----------------------|------------------------|--------------------------|
-| --realm               | localhost              | TURN_REALM               |
-| --external            | 127.0.0.1:3478         | TURN_EXTERNAL            |
-| --bind                | 127.0.0.1:3478         | TURN_BIND                |
-| --controller-bind     | 127.0.0.1:3000         | TURN_CONTROLLER_BIND     |
-| --ext-controller-bind |  http://127.0.0.1:3000 | TURN_EXT_CONTROLLER_BIND |
-| --cert-file           |                        | TURN_CERT_FILE           |
-| --threads             |                        | TURN_THREADS             |
-
-> for sys calls, multithreading does not significantly help to improve IO throughput.
-
-For detailed documentation, please view: [`Configuration`]
-
-[`Configuration`]: https://github.com/colourful-rtc/turn-rs/wiki/Configuration
-
-#### Simple example
-
-Set envs:
-
-```bash
-export TURN_EXTERNAL="127.0.0.1:3478"
-export TURN_BIND="127.0.0.1:3478"
-```
-
-Or else use command-line arguments:
-
-```bash
-turn-server --bind=127.0.0.1:8080 --external=127.0.0.1:8080
-```
-
-#### Logs
-
-The server closes log output by default, and the log output level can be set using environment variables:
-
-```bash
-export RUST_LOG=<level> // error | warn | info | debug | trace
-```
+Please check the example configuration file for details: [turn_server.toml](./turn_server.toml)
 
 
 ## Building

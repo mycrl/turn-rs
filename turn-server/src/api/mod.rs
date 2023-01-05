@@ -108,8 +108,8 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
         .layer(LogLayer)
         .with_state(ctr);
 
-    log::info!("controller server listening: {}", &cfg.controller_listen);
-    axum::Server::bind(&cfg.controller_listen)
+    log::info!("controller server listening: {}", &cfg.controller.listen);
+    axum::Server::bind(&cfg.controller.listen)
         .serve(app.into_make_service())
         .await?;
     Ok(())

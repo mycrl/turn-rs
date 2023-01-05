@@ -71,17 +71,6 @@ async fn fork_socket(
     }
 }
 
-/// get thread num.
-///
-/// by default, the thread pool is used to process UDP packets.
-/// because UDP uses SysCall to ensure concurrency security,
-/// using multiple threads may not bring a very significant
-/// performance improvement, but setting the number of CPU
-/// cores can process data to the greatest extent package.
-fn get_threads(threads: Option<usize>) -> usize {
-    threads.unwrap_or_else(num_cpus::get)
-}
-
 /// start udp server.
 ///
 /// create a specified number of threads,
@@ -99,11 +88,10 @@ pub async fn run(
     service: &Service,
     config: Arc<Config>,
 ) -> anyhow::Result<Monitor> {
-    let socket = Arc::new(UdpSocket::bind(config.listen).await?);
-    let threads = get_threads(config.threads);
-    let monitor = Monitor::new(threads);
+    let socket = Arc::new(UdpSocket::bind(config.turn.listen).await?);
+    let monitor = Monitor::new(config.turn.threads);
 
-    for index in 0..threads {
+    for index in 0..config.turn.threads {
         tokio::spawn(fork_socket(
             monitor.get_sender(index),
             service.get_processor(),
@@ -111,7 +99,7 @@ pub async fn run(
         ));
     }
 
-    log::info!("turn server workers number: {}", threads);
-    log::info!("turn server listening: {}", config.listen);
+    log::info!("turn server workers number: {}", config.turn.threads);
+    log::info!("turn server listening: {}", config.turn.listen);
     Ok(monitor)
 }
