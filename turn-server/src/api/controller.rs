@@ -131,6 +131,12 @@ pub struct AddrParams {
     addr: SocketAddr,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Qiter {
+    skip: Option<usize>,
+    limit: Option<usize>,
+}
+
 /// controller
 ///
 /// It is possible to control the turn server and obtain server internal
@@ -240,8 +246,17 @@ impl Controller {
     /// ```
     pub async fn get_users(
         State(this): State<&Self>,
+        Query(pars): Query<Qiter>,
     ) -> Json<HashMap<String, Vec<SocketAddr>>> {
-        Json(this.router.get_users().await.into_iter().collect())
+        let skip = pars.skip.unwrap_or(0);
+        let limit = pars.limit.unwrap_or(20);
+        Json(
+            this.router
+                .get_users(skip, limit)
+                .await
+                .into_iter()
+                .collect(),
+        )
     }
 
     /// Get node information
@@ -289,10 +304,16 @@ impl Controller {
     /// let addr = "127.0.0.1:8080".parse().unwrap();
     /// // let remove_node_js = ctr.remove_user(addr).await;
     /// ```
+    #[rustfmt::skip]
     pub async fn remove_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<bool> {
-        Json(this.router.remove(&Arc::new(pars.addr)).await.is_some())
+        Json(
+            this.router
+                .remove(&Arc::new(pars.addr))
+                .await
+                .is_some()
+        )
     }
 }

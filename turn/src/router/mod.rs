@@ -93,10 +93,14 @@ impl Router {
     /// ```ignore
     /// let router = Router::new(/* ... */);
     ///
-    /// assert!(router.get_users().len() == 0);
+    /// assert!(router.get_users(0, 10).len() == 0);
     /// ```
-    pub async fn get_users(&self) -> Vec<(String, Vec<SocketAddr>)> {
-        self.nodes.get_users().await
+    pub async fn get_users(
+        &self,
+        skip: usize,
+        limit: usize,
+    ) -> Vec<(String, Vec<SocketAddr>)> {
+        self.nodes.get_users(skip, limit).await
     }
 
     /// get node.

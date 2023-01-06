@@ -84,11 +84,22 @@ pub struct Controller {
     /// environment.
     #[serde(default = "Controller::listen")]
     pub listen: SocketAddr,
+
+    /// Set the value of the Access-Control-Allow-Origin header.
+    ///
+    /// Access-Control-Allow-Origin is a header request that states whether the
+    /// response is shared with requesting code.
+    #[serde(default = "Controller::allow_origin")]
+    pub allow_origin: String,
 }
 
 impl Controller {
     fn listen() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
+    }
+
+    fn allow_origin() -> String {
+        "*".to_string()
     }
 }
 
@@ -96,6 +107,7 @@ impl Default for Controller {
     fn default() -> Self {
         Self {
             listen: Self::listen(),
+            allow_origin: Self::allow_origin(),
         }
     }
 }
@@ -194,6 +206,7 @@ pub struct Config {
     /// verification. Note: this is a high-priority authentication method, turn
     /// The server will try to use static authentication first, and then use
     /// external control service authentication.
+    #[serde(default)]
     pub auth: HashMap<String, String>,
 }
 

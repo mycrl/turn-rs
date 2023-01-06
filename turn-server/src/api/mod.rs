@@ -1,9 +1,14 @@
 pub mod controller;
 pub mod hooks;
 
+use tower_http::cors::CorsLayer;
 use controller::Controller;
 use crate::config::Config;
-use http::Request;
+use http::{
+    HeaderValue,
+    Request,
+};
+
 use axum::{
     routing::delete,
     routing::get,
@@ -105,6 +110,15 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
         .route("/users", get(Controller::get_users))
         .route("/node", get(Controller::get_node))
         .route("/node", delete(Controller::remove_node))
+        .layer(
+            CorsLayer::new().allow_origin(
+                cfg.controller
+                    .allow_origin
+                    .as_str()
+                    .parse::<HeaderValue>()
+                    .unwrap(),
+            ),
+        )
         .layer(LogLayer)
         .with_state(ctr);
 

@@ -150,13 +150,19 @@ impl Nodes {
     ///
     /// ```ignore
     /// let node = Nodes::new();
-    /// assert_eq!(!node.get_users().len(), 0);
+    /// assert_eq!(!node.get_users(0, 10).len(), 0);
     /// ```
-    pub async fn get_users(&self) -> Vec<(String, Vec<SocketAddr>)> {
+    pub async fn get_users(
+        &self,
+        skip: usize,
+        limit: usize,
+    ) -> Vec<(String, Vec<SocketAddr>)> {
         self.addrs
             .read()
             .await
             .iter()
+            .skip(skip)
+            .take(limit)
             .map(|(k, v)| (k.clone(), v.iter().map(|v| *v.clone()).collect()))
             .collect()
     }
