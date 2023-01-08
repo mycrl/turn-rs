@@ -75,7 +75,7 @@ sub_events = [
 # log level
 #
 # An enum representing the available verbosity levels of the logger.
-level = "Info"
+level = "info"
 
 # static user password
 #
