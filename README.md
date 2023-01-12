@@ -15,7 +15,7 @@
 <br/>
 <br/>
 
-A pure rust-implemented turn server, different from coturn, provides a more flexible external control API and provides the same performance and memory footprint.
+A pure rust-implemented turn server, different from coturn, provides a more flexible external control API and provides the same performance and memory footprint, this project is most compatible with the scenario of using stun/turn server in webrtc.
 
 
 ## Who uses it?
