@@ -24,12 +24,6 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 * [`Faszialespecialist`](https://faszialespecialist.com/)
 
 
-## Next?
-
-- [ ] tcp turn support.
-- [ ] turn cluster. <sup>(`multiple turn-servers and one turn-routing`)</sup>
-
-
 ## Table of contents
 
 * [features](#features)

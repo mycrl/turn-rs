@@ -27,11 +27,8 @@ async fn fork_socket(
         // down, which is not processed yet, but a warning will be
         // issued.
         let (size, addr) = match socket.recv_from(&mut buf).await {
+            Err(e) => continue,
             Ok(s) => s,
-            Err(e) => {
-                log::warn!("udp socket receive error: {:?}", e);
-                continue;
-            },
         };
 
         sender.send(Payload::Receive);
