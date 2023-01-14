@@ -4,7 +4,11 @@ pub use monitor::*;
 
 use tokio::net::UdpSocket;
 use super::config::Config;
-use std::sync::Arc;
+use std::{
+    io::ErrorKind::*,
+    sync::Arc,
+};
+
 use turn_rs::{
     Service,
     Processor,
@@ -27,8 +31,14 @@ async fn fork_socket(
         // down, which is not processed yet, but a warning will be
         // issued.
         let (size, addr) = match socket.recv_from(&mut buf).await {
-            Err(e) => continue,
             Ok(s) => s,
+            Err(e) => {
+                if e.kind() != ConnectionReset {
+                    return Err(e.into());
+                } else {
+                    continue;
+                }
+            },
         };
 
         sender.send(Payload::Receive);
@@ -40,12 +50,10 @@ async fn fork_socket(
             if let Ok(Some((res, addr))) =
                 processor.process(&buf[..size], addr).await
             {
-                // TODO: An error will also be reported when the remote host is
-                // shut down, which is not processed yet, but a
-                // warning will be issued.
                 if let Err(e) = socket.send_to(res, addr.as_ref()).await {
-                    log::warn!("udp socket send error: {:?}", e);
-                    sender.send(Payload::Failed);
+                    if e.kind() != ConnectionReset {
+                        return Err(e.into());
+                    }
                 } else {
                     sender.send(Payload::Send);
                     log::trace!(
