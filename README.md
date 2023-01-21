@@ -28,6 +28,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 * [features](#features)
 * [crates](#crates)
+* [usage](#usage)
 * [building](#building)
 * [usage](#usage)
 * [benchmark](#benchmark)
