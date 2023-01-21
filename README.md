@@ -29,6 +29,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 * [features](#features)
 * [crates](#crates)
 * [usage](#usage)
+  * [docker](#docker)
 * [building](#building)
 * [usage](#usage)
 * [benchmark](#benchmark)
@@ -69,6 +70,14 @@ turn-server --config=/etc/turn_server/config.toml
 ```
 
 Please check the example configuration file for details: [turn_server.toml](./turn_server.toml)
+
+
+### docker
+
+```bash
+docker pull quasipaa/turn-server
+```
+The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
 
 
 ## Building
