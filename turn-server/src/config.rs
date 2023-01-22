@@ -122,8 +122,7 @@ pub struct Hooks {
     /// and sensitive information and dangerous operations can be obtained
     /// through this service, please do not expose it directly to an unsafe
     /// environment.
-    #[serde(default = "Hooks::bind")]
-    pub bind: String,
+    pub bind: Option<String>,
 
     /// list of events followed by hooks
     ///
@@ -134,10 +133,6 @@ pub struct Hooks {
 }
 
 impl Hooks {
-    fn bind() -> String {
-        "http://localhost:8080".to_string()
-    }
-
     fn sub_events() -> Vec<String> {
         vec![]
     }
@@ -146,7 +141,7 @@ impl Hooks {
 impl Default for Hooks {
     fn default() -> Self {
         Self {
-            bind: Self::bind(),
+            bind: None,
             sub_events: Self::sub_events(),
         }
     }
