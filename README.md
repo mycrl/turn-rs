@@ -32,7 +32,6 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
   * [docker](#docker)  
   * [linux service](#linux-service)
 * [building](#building)
-* [usage](#usage)
 * [benchmark](#benchmark)
 
 
