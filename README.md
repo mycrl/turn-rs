@@ -35,10 +35,12 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 ## Features
 
-- You can use the HTTP protocol to control the turn-server or obtain the running status from the outside.
-- Webhooks allow subscription to certain events on the server. When one of these events is fired, we will send an HTTP PUT payload to the URL configured by the webhook.
-- The key pair used when defining the authentication in the configuration file.
-- Authenticating requests through webhooks.
+- external controller api. <sup>(`http`)</sup>
+- webhooks api. <sup>(`http`)</sup>
+- only long-term authentication is supported.
+- static identity in configuration file.
+- only use udp protocol.
+- virtual port support. <sup>(`allocate request does not allocate real udp ports`)</sup>
 
 
 ## Crates
