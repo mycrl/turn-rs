@@ -15,5 +15,5 @@ path = "../lib/rtmp"
 path = "../lib/transport"
 
 [dependencies.tokio]
-version = "0.2"
+version = "1.13"
 features = ["full"]
