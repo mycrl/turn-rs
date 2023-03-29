@@ -37,21 +37,22 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 ## Features
 
-- external controller api. <sup>(`http`)</sup>
-- webhooks api. <sup>(`http`)</sup>
-- only long-term authentication is supported.
-- static identity in configuration file.
 - only use udp protocol.
+- webhooks api. <sup>([`hooks-api`])</sup>
+- external controller api. <sup>([`controller-api`])</sup>
+- static identity in configuration file.
+- only long-term authentication is supported.
 - virtual port support. <sup>(`allocate request does not allocate real udp ports`)</sup>
 
+[`controller-api`]: https://github.com/mycrl/turn-rs/wiki/Controller-API-Reference
+[`hooks-api`]: https://github.com/mycrl/turn-rs/wiki/Hooks-API-Reference
 
 ## Crates
 
 * [`stun`], fast and zero-cost stun message decoder and encoder. <sup>([`crate`](https://crates.io/crates/faster-stun))</sup>.
 * [`turn`], a library for handling turn sessions. <sup>([`crate`](https://crates.io/crates/turn-rs))</sup>.
-* [`turn-server`], implementation of turn server based on turn library. <sup>([`api`])</sup>
+* [`turn-server`], implementation of turn server based on turn library.
 
-[`api`]: https://github.com/mycrl/turn-rs/wiki/Controller-API-Reference
 [`stun`]: https://github.com/mycrl/turn-rs/tree/main/stun
 [`turn`]: https://github.com/mycrl/turn-rs/tree/main/turn
 [`turn-server`]: https://github.com/mycrl/turn-rs/tree/main/turn-server
