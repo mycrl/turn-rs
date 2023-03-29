@@ -7,15 +7,15 @@
   <strong>TURN Server implemented by ❤️ Rust</strong>
 </div>
 <div align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/colourful-rtc/turn-rs/cargo-test.yml?branch=main"/>
-  <img src="https://img.shields.io/github/license/colourful-rtc/turn-rs"/>
-  <img src="https://img.shields.io/github/issues/colourful-rtc/turn-rs"/>
-  <img src="https://img.shields.io/github/stars/colourful-rtc/turn-rs"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/cargo-test.yml?branch=main"/>
+  <img src="https://img.shields.io/github/license/mycrl/turn-rs"/>
+  <img src="https://img.shields.io/github/issues/mycrl/turn-rs"/>
+  <img src="https://img.shields.io/github/stars/mycrl/turn-rs"/>
 </div>
 <br/>
 <br/>
 
-A pure rust-implemented turn server, different from coturn, provides a more flexible external control API and provides the same performance and memory footprint.
+A pure rust-implemented turn server, different from coturn, provides a more flexible external control API and provides the same performance and memory footprint, this project is most compatible with the scenario of using stun/turn server in webrtc.
 
 
 ## Who uses it?
@@ -28,8 +28,10 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 * [features](#features)
 * [crates](#crates)
-* [building](#building)
 * [usage](#usage)
+  * [docker](#docker)  
+  * [linux service](#linux-service)
+* [building](#building)
 * [benchmark](#benchmark)
 
 
@@ -49,10 +51,10 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 * [`turn`], a library for handling turn sessions. <sup>([`crate`](https://crates.io/crates/turn-rs))</sup>.
 * [`turn-server`], implementation of turn server based on turn library. <sup>([`api`])</sup>
 
-[`api`]: https://github.com/colourful-rtc/turn-rs/wiki/Controller-API-Reference
-[`stun`]: https://github.com/colourful-rtc/turn-rs/tree/main/stun
-[`turn`]: https://github.com/colourful-rtc/turn-rs/tree/main/turn
-[`turn-server`]: https://github.com/colourful-rtc/turn-rs/tree/main/turn-server
+[`api`]: https://github.com/mycrl/turn-rs/wiki/Controller-API-Reference
+[`stun`]: https://github.com/mycrl/turn-rs/tree/main/stun
+[`turn`]: https://github.com/mycrl/turn-rs/tree/main/turn
+[`turn-server`]: https://github.com/mycrl/turn-rs/tree/main/turn-server
 
 
 ## Usage
@@ -70,6 +72,24 @@ turn-server --config=/etc/turn_server/config.toml
 Please check the example configuration file for details: [turn_server.toml](./turn_server.toml)
 
 
+#### Docker
+
+```bash
+docker pull quasipaa/turn-server
+```
+The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
+
+After the compilation is complete, you can find the binary file in the "target/release" directory.
+
+#### Linux service
+
+```
+./install-service.sh
+```
+
+This will compile the project and install and start the service.
+
+
 ## Building
 
 #### Prerequisites
@@ -77,7 +97,7 @@ Please check the example configuration file for details: [turn_server.toml](./tu
 You need to install the Rust toolchain, if you have already installed it, you can skip it, [Install Rust](https://www.rust-lang.org/tools/install), then get the source code:
 
 ```bash
-git clone https://github.com/colourful-rtc/turn-rs
+git clone https://github.com/mycrl/turn-rs
 ```
 
 #### Build workspace

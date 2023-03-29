@@ -114,17 +114,14 @@ impl Hooks {
             return Ok(v.clone());
         }
 
-        Ok(Self::hooks(
-            self.client
-                .get(format!(
-                    "{}/auth?addr={}&name={}",
-                    self.config.hooks.bind, addr, name
-                ))
-                .send()
-                .await?,
-        )?
-        .text()
-        .await?)
+        let uri = match &self.config.hooks.bind {
+            Some(h) => format!("{}/auth?addr={}&name={}", h, addr, name),
+            None => return Err(anyhow!("auth failed!")),
+        };
+
+        Ok(Self::hooks(self.client.get(uri).send().await?)?
+            .text()
+            .await?)
     }
 
     /// push event
@@ -134,6 +131,11 @@ impl Hooks {
     /// TODO: This method will not wait for the send to succeed, and will
     /// complete regardless of success or failure.
     pub fn events(&self, event: &Events<'_>) {
+        let uri = match &self.config.hooks.bind {
+            Some(h) => format!("{}/events?kind={}", h, event.to_str()),
+            None => return,
+        };
+
         if self
             .config
             .hooks
@@ -141,15 +143,7 @@ impl Hooks {
             .iter()
             .any(|k| k == event.to_str())
         {
-            let _ = self
-                .client
-                .put(format!(
-                    "{}/events?kind={}",
-                    self.config.hooks.bind,
-                    event.to_str()
-                ))
-                .json(event)
-                .send();
+            drop(self.client.put(uri).json(event).send());
         }
     }
 }

@@ -1,0 +1,11 @@
+[Unit]
+Description=A pure rust-implemented turn server.
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/usr/local/bin/turn-server --config=/etc/turn-server/config.toml
+
+[Install]
+WantedBy=multi-user.target

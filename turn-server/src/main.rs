@@ -279,7 +279,7 @@ async fn main() -> anyhow::Result<()> {
         config.clone(),
     );
 
-    tokio::spawn(service.run());
+    tokio::spawn(async move { service.run().await });
     api::start(&config, &controller).await?;
     Ok(())
 }
