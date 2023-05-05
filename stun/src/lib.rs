@@ -94,14 +94,14 @@ pub use message::*;
 /// 0x007: Data
 /// 0x008: CreatePermission
 /// 0x009: ChannelBind
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Kind {
     Request,
     Response,
     Error,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum Method {
     Binding(Kind),
     Allocate(Kind),
