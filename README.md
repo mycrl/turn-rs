@@ -80,13 +80,6 @@ docker pull quasipaa/turn-server
 ```
 The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
 
-```bash
-docker pull quasipaa/turn-server
-```
-The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
-
-After the compilation is complete, you can find the binary file in the "target/release" directory.
-
 #### Linux service
 
 ```
