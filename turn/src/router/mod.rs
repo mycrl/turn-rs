@@ -8,6 +8,7 @@ use ports::Ports;
 use nonces::Nonces;
 use channels::Channels;
 use faster_stun::util::long_key;
+use crate::Observer;
 use tokio::time::{
     Duration,
     sleep,
@@ -16,11 +17,6 @@ use tokio::time::{
 use std::{
     net::SocketAddr,
     sync::Arc,
-};
-
-use crate::{
-    Options,
-    Observer,
 };
 
 type Addr = Arc<SocketAddr>;
@@ -36,7 +32,7 @@ type Addr = Arc<SocketAddr>;
 /// long-term valid passwords，does not support short-term
 /// valid passwords.
 pub struct Router {
-    opt: Arc<Options>,
+    realm: String,
     observer: Arc<dyn Observer>,
     ports: Ports,
     nonces: Nonces,
@@ -64,17 +60,14 @@ impl Router {
     ///     Arc::new(Events {}),
     /// );
     /// ```
-    pub(crate) fn new(
-        opt: Arc<Options>,
-        observer: Arc<dyn Observer>,
-    ) -> Arc<Self> {
+    pub(crate) fn new(realm: String, observer: Arc<dyn Observer>) -> Arc<Self> {
         Arc::new(Self {
             channels: Channels::new(),
             nonces: Nonces::new(),
             ports: Ports::new(),
             nodes: Nodes::new(),
             observer,
-            opt,
+            realm,
         })
     }
 
@@ -152,7 +145,7 @@ impl Router {
         }
 
         let pwd = self.observer.auth(a.as_ref(), u).await?;
-        let key = long_key(u, &pwd, &self.opt.realm);
+        let key = long_key(u, &pwd, &self.realm);
         self.nodes.insert(a, u, key, pwd).await
     }
 

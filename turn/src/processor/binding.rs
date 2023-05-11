@@ -51,7 +51,7 @@ pub fn process<'a>(
     let mut pack = MessageWriter::extend(method, &payload, w);
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
     pack.append::<MappedAddress>(*ctx.addr.as_ref());
-    pack.append::<ResponseOrigin>(ctx.opt.external);
+    pack.append::<ResponseOrigin>(*ctx.external.as_ref());
     pack.append::<Software>(SOFTWARE);
     pack.flush(None)?;
     ctx.observer.binding(&ctx.addr);

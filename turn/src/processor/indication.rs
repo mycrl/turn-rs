@@ -75,7 +75,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(x) => x,
     };
 
-    if ctx.opt.external.ip() != peer.ip() {
+    if ctx.external.ip() != peer.ip() {
         return Ok(None);
     }
 
@@ -95,7 +95,7 @@ pub async fn process<'a, 'b, 'c>(
     };
 
     let method = Method::DataIndication;
-    let s = Arc::new(SocketAddr::new(ctx.opt.external.ip(), p));
+    let s = Arc::new(SocketAddr::new(ctx.external.ip(), p));
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<XorPeerAddress>(*s.as_ref());
     pack.append::<Data>(d);

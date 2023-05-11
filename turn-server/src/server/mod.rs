@@ -20,8 +20,8 @@ use turn_rs::{
 /// it to the proto for processing, and send the processed
 /// data packet to the specified address.
 async fn fork_socket(
-    sender: MonitorSender,
     mut processor: Processor,
+    sender: MonitorSender,
     socket: Arc<UdpSocket>,
 ) -> anyhow::Result<()> {
     let mut buf = vec![0u8; 4096];
@@ -93,18 +93,24 @@ pub async fn run(
     service: &Service,
     config: Arc<Config>,
 ) -> anyhow::Result<Monitor> {
-    let socket = Arc::new(UdpSocket::bind(config.turn.listen).await?);
     let monitor = Monitor::new(config.turn.threads);
+    for ite in &config.turn.interfaces {
+        let socket = Arc::new(UdpSocket::bind(ite.bind).await?);
+        for index in 0..config.turn.threads {
+            tokio::spawn(fork_socket(
+                service.get_processor(ite.external),
+                monitor.get_sender(index),
+                socket.clone(),
+            ));
+        }
 
-    for index in 0..config.turn.threads {
-        tokio::spawn(fork_socket(
-            monitor.get_sender(index),
-            service.get_processor(),
-            socket.clone(),
-        ));
+        log::info!(
+            "turn server listening: {}, external: {}",
+            ite.bind,
+            ite.external
+        );
     }
 
     log::info!("turn server workers number: {}", config.turn.threads);
-    log::info!("turn server listening: {}", config.turn.listen);
     Ok(monitor)
 }

@@ -1,10 +1,23 @@
 use clap::Parser;
 use serde::*;
 use std::{
-    fs::read_to_string,
     net::SocketAddr,
+    fs::read_to_string,
     collections::HashMap,
 };
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Interface {
+    /// turn server listen address
+    pub bind: SocketAddr,
+    /// external address
+    ///
+    /// specify the node external address and port.
+    /// for the case of exposing the service to the outside,
+    /// you need to manually specify the server external IP
+    /// address and service listening port.
+    pub external: SocketAddr,
+}
 
 #[derive(Deserialize, Debug)]
 pub struct Turn {
@@ -17,23 +30,13 @@ pub struct Turn {
     #[serde(default = "Turn::realm")]
     pub realm: String,
 
-    /// external address
+    /// turn server listen interfaces
     ///
-    /// specify the node external address and port.
-    /// for the case of exposing the service to the outside,
-    /// you need to manually specify the server external IP
-    /// address and service listening port.
-    #[serde(default = "Turn::external")]
-    pub external: SocketAddr,
-
-    /// turn server listen address
-    ///
-    /// the address and port bound by UDP Server.
-    /// currently, it does not support binding multiple
-    /// addresses at the same time. the bound address
-    /// supports ipv4 and ipv6.
-    #[serde(default = "Turn::listen")]
-    pub listen: SocketAddr,
+    /// The address and port to which the UDP Server is bound. Multiple
+    /// addresses can be bound at the same time. The binding address supports
+    /// ipv4 and ipv6.
+    #[serde(default = "Turn::interfaces")]
+    pub interfaces: Vec<Interface>,
 
     /// thread number
     ///
@@ -51,12 +54,8 @@ impl Turn {
         "localhost".to_string()
     }
 
-    fn external() -> SocketAddr {
-        "127.0.0.1:3478".parse().unwrap()
-    }
-
-    fn listen() -> SocketAddr {
-        "127.0.0.1:3478".parse().unwrap()
+    fn interfaces() -> Vec<Interface> {
+        vec![]
     }
 }
 
@@ -64,8 +63,7 @@ impl Default for Turn {
     fn default() -> Self {
         Self {
             realm: Self::realm(),
-            external: Self::external(),
-            listen: Self::listen(),
+            interfaces: Self::interfaces(),
             threads: num_cpus::get(),
         }
     }
@@ -222,12 +220,13 @@ impl Config {
     /// Load command line parameters, if the configuration file path is
     /// specified, the configuration is read from the configuration file,
     /// otherwise the default configuration is used.
-    pub fn load() -> Self {
-        let cfg_str = Cli::parse()
-            .config
-            .map(|path| read_to_string(path).ok())
-            .flatten()
-            .unwrap_or("".to_string());
-        toml::from_str(&cfg_str).expect("read config file failed!")
+    pub fn load() -> anyhow::Result<Self> {
+        Ok(toml::from_str(
+            &Cli::parse()
+                .config
+                .map(|path| read_to_string(path).ok())
+                .flatten()
+                .unwrap_or("".to_string()),
+        )?)
     }
 }

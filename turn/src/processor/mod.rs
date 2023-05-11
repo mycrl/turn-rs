@@ -11,7 +11,6 @@ use bytes::BytesMut;
 use crate::{
     router::Router,
     Observer,
-    Options,
 };
 
 use std::{
@@ -42,9 +41,10 @@ pub(crate) type Response<'a> = Option<(
 
 /// message context
 pub struct Context {
-    pub opt: Arc<Options>,
+    pub realm: Arc<String>,
     pub router: Arc<Router>,
     pub addr: Arc<SocketAddr>,
+    pub external: Arc<SocketAddr>,
     pub observer: Arc<dyn Observer>,
 }
 
@@ -52,24 +52,27 @@ pub struct Context {
 /// and return message + address.
 pub struct Processor {
     observer: Arc<dyn Observer>,
+    external: Arc<SocketAddr>,
     router: Arc<Router>,
-    opt: Arc<Options>,
+    realm: Arc<String>,
     decoder: Decoder,
     writer: BytesMut,
 }
 
 impl Processor {
     pub(crate) fn new(
-        opt: Arc<Options>,
+        external: SocketAddr,
+        realm: String,
         router: Arc<Router>,
         observer: Arc<dyn Observer>,
     ) -> Self {
         Self {
-            writer: BytesMut::with_capacity(4096),
             decoder: Decoder::new(),
+            writer: BytesMut::with_capacity(4096),
+            external: Arc::new(external),
+            realm: Arc::new(realm),
             observer,
             router,
-            opt,
         }
     }
 
@@ -354,9 +357,10 @@ impl Processor {
     /// builder of message context from thread local.
     fn get_context(&self, a: SocketAddr) -> Context {
         Context {
-            opt: self.opt.clone(),
+            realm: self.realm.clone(),
             router: self.router.clone(),
             observer: self.observer.clone(),
+            external: self.external.clone(),
             addr: Arc::new(a),
         }
     }

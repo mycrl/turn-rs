@@ -12,7 +12,6 @@ use async_trait::async_trait;
 use config::Config;
 use turn_rs::{
     Service,
-    Options,
     Observer,
 };
 
@@ -268,16 +267,11 @@ impl Observer for Events {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let config = Arc::new(Config::load());
+    let config = Arc::new(Config::load()?);
     simple_logger::init_with_level(config.log.level.as_level())?;
 
-    let service = Service::new(
-        Events::new(config.clone()),
-        Options {
-            external: config.turn.external.clone(),
-            realm: config.turn.realm.clone(),
-        },
-    );
+    let service =
+        Service::new(Events::new(config.clone()), config.turn.realm.clone());
 
     let controller = Controller::new(
         server::run(&service, config.clone()).await?,

@@ -40,7 +40,7 @@ fn reject<'a, 'b, 'c>(
     let method = Method::ChannelBind(Kind::Error);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.append::<Realm>(&ctx.opt.realm);
+    pack.append::<Realm>(&ctx.realm);
     pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
 }
@@ -103,7 +103,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(c) => c,
     };
 
-    if ctx.opt.external.ip() != peer.ip() {
+    if ctx.external.ip() != peer.ip() {
         return reject(ctx, m, w, Forbidden);
     }
 

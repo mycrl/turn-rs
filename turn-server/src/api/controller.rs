@@ -15,7 +15,7 @@ use std::{
 use crate::{
     server::WorkMonitor,
     server::Monitor,
-    config::Config,
+    config::*,
 };
 
 use turn_rs::{
@@ -34,10 +34,8 @@ static SOFTWARE: &str = concat!(
 pub struct Stats {
     /// Software information, usually a name and version string.
     software: String,
-    /// The listening address of the turn server.
-    bind_address: SocketAddr,
-    /// The external address of the turn server.
-    external_address: SocketAddr,
+    /// The listening interfaces of the turn server.
+    interfaces: Vec<Interface>,
     /// The running time of the server, in seconds.
     uptime: u64,
     /// Turn server port pool capacity.
@@ -191,12 +189,11 @@ impl Controller {
     pub async fn get_stats(State(this): State<&Self>) -> Json<Stats> {
         Json(Stats {
             software: SOFTWARE.to_string(),
-            bind_address: this.config.turn.listen,
-            external_address: this.config.turn.external,
             uptime: this.timer.elapsed().as_secs(),
             realm: this.config.turn.realm.clone(),
             port_allocated: this.router.len().await as u16,
             port_capacity: this.router.capacity().await as u16,
+            interfaces: this.config.turn.interfaces.clone(),
         })
     }
 

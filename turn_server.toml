@@ -7,22 +7,6 @@
 # this is a good idea to divide the nodes by namespace.
 realm = "localhost"
 
-# external address
-#
-# specify the node external address and port.
-# for the case of exposing the service to the outside,
-# you need to manually specify the server external IP
-# address and service listening port.
-external = "127.0.0.1:3478"
-
-# turn server listen address
-#
-# the address and port bound by UDP Server.
-# currently, it does not support binding multiple
-# addresses at the same time. the bound address
-# supports ipv4 and ipv6.
-listen = "127.0.0.1:3478"
-
 # thread number
 #
 # by default, the thread pool is used to process UDP packets.
@@ -31,6 +15,21 @@ listen = "127.0.0.1:3478"
 # performance improvement, but setting the number of CPU
 # cores can process data to the greatest extent package.
 threads = 12
+
+# turn server listen interfaces
+#
+# The address and port to which the UDP Server is bound. Multiple
+# addresses can be bound at the same time. The binding address supports
+# ipv4 and ipv6.
+[[turn.interfaces]]
+bind = "127.0.0.1:3478"
+# external address
+#
+# specify the node external address and port.
+# for the case of exposing the service to the outside,
+# you need to manually specify the server external IP
+# address and service listening port.
+external = "127.0.0.1:3478"
 
 [controller]
 # controller bind

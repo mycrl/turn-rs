@@ -195,25 +195,11 @@ pub trait Observer: Send + Sync {
     fn abort(&self, addr: &SocketAddr, name: &str) {}
 }
 
-/// Service options.
-pub struct Options {
-    /// specify the node external address and port.
-    /// for the case of exposing the service to the outside,
-    /// you need to manually specify the server external IP
-    /// address and service listening port.
-    pub external: SocketAddr,
-    /// specify the domain where the server is located.
-    /// for a single node, this configuration is fixed,
-    /// but each node can be configured as a different domain.
-    /// this is a good idea to divide the nodes by namespace.
-    pub realm: String,
-}
-
 /// TUTN service.
 pub struct Service {
     router: Arc<Router>,
     observer: Arc<dyn Observer>,
-    opt: Arc<Options>,
+    realm: String,
 }
 
 impl Service {
@@ -242,18 +228,17 @@ impl Service {
     ///     Events {},
     /// );
     /// ```
-    pub fn new<T>(observer: T, options: Options) -> Self
+    pub fn new<T>(observer: T, realm: String) -> Self
     where
         T: Observer + 'static,
     {
-        let opt = Arc::new(options);
         let observer = Arc::new(observer);
-        let router = Router::new(opt.clone(), observer.clone());
+        let router = Router::new(realm.clone(), observer.clone());
 
         Self {
             observer,
             router,
-            opt,
+            realm,
         }
     }
 
@@ -318,9 +303,10 @@ impl Service {
     ///     socket.send_to(buf, target.as_ref()).unwrap();
     /// }
     /// ```
-    pub fn get_processor(&self) -> Processor {
+    pub fn get_processor(&self, external: SocketAddr) -> Processor {
         Processor::new(
-            self.opt.clone(),
+            external,
+            self.realm.clone(),
             self.router.clone(),
             self.observer.clone(),
         )
