@@ -87,7 +87,7 @@ async fn fork_socket(
 /// let config = Config::new()
 /// let service = Service::new(/* ... */);;
 ///
-/// // run(&service, config ).await?
+/// // run(&service, config).await?
 /// ```
 pub async fn run(
     service: &Service,

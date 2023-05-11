@@ -221,11 +221,8 @@ impl Service {
     /// }
     ///
     /// let _service = Service::new(
-    ///     Options {
-    ///         external: "127.0.0.1:4378".parse().unwrap(),
-    ///         realm: "test".to_string(),
-    ///     },
     ///     Events {},
+    ///     "test".to_string(),
     /// );
     /// ```
     pub fn new<T>(observer: T, realm: String) -> Self
@@ -256,11 +253,8 @@ impl Service {
     /// }
     ///
     /// let service = Service::new(
-    ///     Options {
-    ///         external: "127.0.0.1:4378".parse().unwrap(),
-    ///         realm: "test".to_string(),
-    ///     },
     ///     Events {},
+    ///     "test".to_string(),
     /// );
     ///
     /// tokio::spawn(service.run()).await;
@@ -283,17 +277,14 @@ impl Service {
     /// }
     ///
     /// let service = Service::new(
-    ///     Options {
-    ///         external: "127.0.0.1:4378".parse().unwrap(),
-    ///         realm: "test".to_string(),
-    ///     },
     ///     Events {},
+    ///     "test".to_string(),
     /// );
     ///
     /// tokio::spawn(service.run());
     ///
     /// let socket = UdpSocket::bind("127.0.0.1:34254")?;
-    /// let mut processor = service.get_processor();
+    /// let mut processor = service.get_processor("127.0.0.1:34254".into()?);
     ///
     /// let mut buf = [0; 4096];
     /// let (amt, src) = socket.recv_from(&mut buf).unwrap();

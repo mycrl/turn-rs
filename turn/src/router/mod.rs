@@ -53,10 +53,7 @@ impl Router {
     /// }
     ///
     /// let _router = Router::new(
-    ///     Arc::new(Options {
-    ///         external: "127.0.0.1:4378".parse().unwrap(),
-    ///         realm: "test".to_string(),
-    ///     }),
+    ///     "test".to_string(),
     ///     Arc::new(Events {}),
     /// );
     /// ```
