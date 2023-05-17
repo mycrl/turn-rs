@@ -32,7 +32,6 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
   * [docker](#docker)  
   * [linux service](#linux-service)
 * [building](#building)
-* [benchmark](#benchmark)
 
 
 ## Features
@@ -109,14 +108,6 @@ cargo build --release
 ```
 
 After the compilation is complete, you can find the binary file in the "target/release" directory.
-
-
-## Benchmark
-
-```
-stun_decoder/channel_bind ...[time: 20.606 ns] ...[thrpt: 4.8812 GiB/s]
-stun_decoder/binding_request ...[time: 20.862 ns] ...[thrpt: 4.2856 GiB/s]
-```
 
 
 ## License
