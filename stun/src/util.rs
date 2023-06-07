@@ -1,7 +1,10 @@
-use hmac::crypto_mac::Output;
-use crc::crc32;
+use crc::{
+    CRC_32_ISO_HDLC,
+    Crc,
+};
+
 use hmac::{
-    NewMac,
+    digest::CtOutput,
     Hmac,
     Mac,
 };
@@ -83,8 +86,8 @@ pub fn long_key(username: &str, key: &str, realm: &str) -> [u8; 16] {
 pub fn hmac_sha1(
     key: &[u8],
     source: Vec<&[u8]>,
-) -> Result<Output<Hmac<sha1::Sha1>>> {
-    match Hmac::<sha1::Sha1>::new_varkey(key) {
+) -> Result<CtOutput<Hmac<sha1::Sha1>>> {
+    match Hmac::<sha1::Sha1>::new_from_slice(key) {
         Err(_) => Err(anyhow!("new key failde")),
         Ok(mut mac) => {
             for buf in source {
@@ -104,7 +107,7 @@ pub fn hmac_sha1(
 /// assert_eq!(faster_stun::util::fingerprint(b"1"), 3498621689);
 /// ```
 pub fn fingerprint(buffer: &[u8]) -> u32 {
-    crc32::checksum_ieee(buffer) ^ 0x5354_554e
+    Crc::<u32>::new(&CRC_32_ISO_HDLC).checksum(buffer) ^ 0x5354_554e
 }
 
 /// slice as u16.
