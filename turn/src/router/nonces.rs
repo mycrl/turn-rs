@@ -71,7 +71,7 @@ impl Nonce {
     fn create_nonce() -> String {
         let mut rng = thread_rng();
         std::iter::repeat(())
-            .map(|_| rng.sample(Alphanumeric))
+            .map(|_| rng.sample(Alphanumeric) as char)
             .take(16)
             .collect::<String>()
             .to_lowercase()

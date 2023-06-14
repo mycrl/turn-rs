@@ -293,7 +293,7 @@ impl PortPools {
     /// ```
     pub fn random(&self) -> u16 {
         let mut rng = thread_rng();
-        rng.gen_range(0, self.peak as u16)
+        rng.gen_range(0..self.peak as u16)
     }
 }
 

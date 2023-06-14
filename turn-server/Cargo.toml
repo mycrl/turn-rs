@@ -21,20 +21,20 @@ categories = [
 ]
 
 [dependencies]
-turn-rs = { path = "../turn", version = "1.1" }
+turn-rs = { path = "../turn", version = "1" }
 clap = { version = "4", features = ["derive", "env"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
-reqwest = { version = "0.11.13", features = ["json"] }
-tower-http = { version = "0.3.5", features = ["cors"] }
-async-trait = "0.1.52"
-serde_json = "1.0.61"
+reqwest = { version = "0.11", features = ["json"] }
+tower-http = { version = "0.4", features = ["cors"] }
+async-trait = "0.1"
+serde_json = "1.0"
 simple_logger = "4"
-num_cpus = "1.13.0"
-log = "0.4.11"
+num_cpus = "1.15"
+log = "0.4"
 anyhow = "1.0"
-axum = "0.6.1"
-toml = "0.5.10"
+axum = "0.6"
+toml = "0.7"
 tower = "0.4"
-http = "0.2.8"
-mimalloc = "0.1.34"
+http = "0.2"
+mimalloc = "0.1"
