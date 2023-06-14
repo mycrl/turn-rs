@@ -37,7 +37,7 @@ pub async fn process(ctx: Context, data: ChannelData<'_>) -> Response<'_> {
 
     Some((
         data.buf,
-        match ctx.router.get_channel_bound(&ctx.addr, n).await {
+        match ctx.env.router.get_channel_bound(&ctx.addr, n).await {
             None => return None,
             Some(x) => x,
         },

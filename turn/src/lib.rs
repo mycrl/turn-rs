@@ -5,11 +5,19 @@ pub use processor::Processor;
 pub use router::nodes::Node;
 pub use router::Router;
 
+use faster_stun::attribute::Transport;
 use async_trait::async_trait;
 use std::{
     net::SocketAddr,
     sync::Arc,
 };
+
+#[rustfmt::skip]
+static SOFTWARE: &str = concat!(
+    env!("CARGO_PKG_NAME"), 
+    "-",
+    env!("CARGO_PKG_VERSION")
+);
 
 #[async_trait]
 pub trait Observer: Send + Sync {
@@ -295,9 +303,14 @@ impl Service {
     ///     socket.send_to(buf, target.as_ref()).unwrap();
     /// }
     /// ```
-    pub fn get_processor(&self, external: SocketAddr) -> Processor {
+    pub fn get_processor(
+        &self,
+        external: SocketAddr,
+        transport: Transport,
+    ) -> Processor {
         Processor::new(
             external,
+            transport,
             self.realm.clone(),
             self.router.clone(),
             self.observer.clone(),

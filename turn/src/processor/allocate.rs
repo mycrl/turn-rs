@@ -1,9 +1,9 @@
 use anyhow::Result;
 use bytes::BytesMut;
+use crate::SOFTWARE;
 use super::{
     Context,
     Response,
-    SOFTWARE,
 };
 
 use std::{
@@ -46,10 +46,10 @@ async fn reject<'a, 'b, 'c>(
     e: ErrKind,
 ) -> Result<Response<'c>> {
     let method = Method::Allocate(Kind::Error);
-    let nonce = ctx.router.get_nonce(&ctx.addr).await;
+    let nonce = ctx.env.router.get_nonce(&ctx.addr).await;
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.append::<Realm>(&ctx.realm);
+    pack.append::<Realm>(&ctx.env.realm);
     pack.append::<Nonce>(&nonce);
     pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
@@ -74,7 +74,7 @@ async fn resolve<'a, 'b, 'c>(
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
     let method = Method::Allocate(Kind::Response);
-    let alloc_addr = Arc::new(SocketAddr::new(ctx.external.ip(), port));
+    let alloc_addr = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
     let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<XorRelayedAddress>(*alloc_addr.as_ref());
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
@@ -105,27 +105,27 @@ pub async fn process<'a, 'b, 'c>(
     m: MessageReader<'a, 'b>,
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
+    if m.get::<ReqeestedTransport>().is_none() {
+        return reject(ctx, m, w, ServerError).await;
+    }
+
     let u = match m.get::<UserName>() {
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(u) => u,
     };
 
-    if m.get::<ReqeestedTransport>().is_none() {
-        return reject(ctx, m, w, ServerError).await;
-    }
-
-    let key = match ctx.router.get_key(&ctx.addr, u).await {
+    let key = match ctx.env.router.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };
 
-    let port = match ctx.router.alloc_port(&ctx.addr).await {
+    let port = match ctx.env.router.alloc_port(&ctx.addr).await {
         None => return reject(ctx, m, w, Unauthorized).await,
         Some(p) => p,
     };
 
     if m.integrity(&key).is_ok() {
-        ctx.observer.allocated(&ctx.addr, u, port);
+        ctx.env.observer.allocated(&ctx.addr, u, port);
         resolve(&ctx, &m, &key, port, w).await
     } else {
         reject(ctx, m, w, Unauthorized).await

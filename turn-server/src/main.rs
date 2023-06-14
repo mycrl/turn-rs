@@ -6,9 +6,11 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 mod server;
 mod config;
+mod monitor;
 mod api;
 
 use async_trait::async_trait;
+use monitor::Monitor;
 use config::Config;
 use turn_rs::{
     Service,
@@ -272,13 +274,11 @@ async fn main() -> anyhow::Result<()> {
 
     let service =
         Service::new(Events::new(config.clone()), config.turn.realm.clone());
+    let monitor = Monitor::new(config.turn.threads);
+    server::run(&monitor, &service, config.clone()).await?;
 
-    let controller = Controller::new(
-        server::run(&service, config.clone()).await?,
-        service.get_router(),
-        config.clone(),
-    );
-
+    let controller =
+        Controller::new(monitor, service.get_router(), config.clone());
     tokio::spawn(async move { service.run().await });
     api::start(&config, &controller).await?;
     Ok(())

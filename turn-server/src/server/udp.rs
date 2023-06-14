@@ -1,11 +1,14 @@
-use super::MonitorSender;
-use crate::server::Payload;
+use tokio::net::UdpSocket;
+use turn_rs::Processor;
 use std::{
     io::ErrorKind::*,
     sync::Arc,
 };
-use tokio::net::UdpSocket;
-use turn_rs::Processor;
+
+use crate::monitor::{
+    MonitorSender,
+    Payload,
+};
 
 /// udp socket process thread.
 ///
@@ -17,6 +20,9 @@ pub async fn processer(
     sender: MonitorSender,
     socket: Arc<UdpSocket>,
 ) -> anyhow::Result<()> {
+    let local_addr = socket
+        .local_addr()
+        .expect("get udp socket local addr failed!");
     let mut buf = vec![0u8; 4096];
 
     loop {
@@ -35,7 +41,12 @@ pub async fn processer(
         };
 
         sender.send(Payload::Receive);
-        log::trace!("udp socket receive: size={}, addr={:?}", size, addr);
+        log::trace!(
+            "udp socket receive: size={}, addr={:?}, interface={:?}",
+            size,
+            addr,
+            local_addr
+        );
 
         // The stun message requires at least 4 bytes. (currently the smallest
         // stun message is channel data, excluding content)

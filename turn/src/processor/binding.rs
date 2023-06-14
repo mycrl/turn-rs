@@ -1,5 +1,6 @@
 use anyhow::Result;
 use bytes::BytesMut;
+use crate::SOFTWARE;
 use faster_stun::{
     Kind,
     Method,
@@ -10,7 +11,6 @@ use faster_stun::{
 use super::{
     Context,
     Response,
-    SOFTWARE,
 };
 
 use faster_stun::attribute::{
@@ -51,9 +51,9 @@ pub fn process<'a>(
     let mut pack = MessageWriter::extend(method, &payload, w);
     pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
     pack.append::<MappedAddress>(*ctx.addr.as_ref());
-    pack.append::<ResponseOrigin>(*ctx.external.as_ref());
+    pack.append::<ResponseOrigin>(*ctx.env.external.as_ref());
     pack.append::<Software>(SOFTWARE);
     pack.flush(None)?;
-    ctx.observer.binding(&ctx.addr);
+    ctx.env.observer.binding(&ctx.addr);
     Ok(Some((w, ctx.addr)))
 }

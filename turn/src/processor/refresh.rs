@@ -106,7 +106,7 @@ pub async fn process<'a, 'b, 'c>(
         _ => 600,
     };
 
-    let key = match ctx.router.get_key(&ctx.addr, u).await {
+    let key = match ctx.env.router.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -115,7 +115,7 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, Unauthorized);
     }
 
-    ctx.observer.refresh(&ctx.addr, u, l);
-    ctx.router.refresh(&ctx.addr, l).await;
+    ctx.env.observer.refresh(&ctx.addr, u, l);
+    ctx.env.router.refresh(&ctx.addr, l).await;
     resolve(&ctx, &m, l, &key, w)
 }

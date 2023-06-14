@@ -11,6 +11,7 @@ use bytes::BytesMut;
 use crate::{
     router::Router,
     Observer,
+    Transport,
 };
 
 use std::{
@@ -27,34 +28,29 @@ use faster_stun::{
 };
 
 #[rustfmt::skip]
-static SOFTWARE: &str = concat!(
-    env!("CARGO_PKG_NAME"), 
-    "-",
-    env!("CARGO_PKG_VERSION")
-);
-
-#[rustfmt::skip]
 pub(crate) type Response<'a> = Option<(
     &'a [u8],
     Arc<SocketAddr>
 )>;
 
-/// message context
-pub struct Context {
+pub struct Env {
     pub realm: Arc<String>,
     pub router: Arc<Router>,
-    pub addr: Arc<SocketAddr>,
     pub external: Arc<SocketAddr>,
     pub observer: Arc<dyn Observer>,
+    pub transport: Transport,
+}
+
+/// message context
+pub struct Context {
+    pub env: Arc<Env>,
+    pub addr: Arc<SocketAddr>,
 }
 
 /// process udp message
 /// and return message + address.
 pub struct Processor {
-    observer: Arc<dyn Observer>,
-    external: Arc<SocketAddr>,
-    router: Arc<Router>,
-    realm: Arc<String>,
+    env: Arc<Env>,
     decoder: Decoder,
     writer: BytesMut,
 }
@@ -62,6 +58,7 @@ pub struct Processor {
 impl Processor {
     pub(crate) fn new(
         external: SocketAddr,
+        transport: Transport,
         realm: String,
         router: Arc<Router>,
         observer: Arc<dyn Observer>,
@@ -69,10 +66,13 @@ impl Processor {
         Self {
             decoder: Decoder::new(),
             writer: BytesMut::with_capacity(4096),
-            external: Arc::new(external),
-            realm: Arc::new(realm),
-            observer,
-            router,
+            env: Arc::new(Env {
+                external: Arc::new(external),
+                realm: Arc::new(realm),
+                transport,
+                observer,
+                router,
+            }),
         }
     }
 
@@ -191,7 +191,11 @@ impl Processor {
         b: &'a [u8],
         a: SocketAddr,
     ) -> Result<Response<'c>> {
-        let ctx = self.get_context(a);
+        let ctx = Context {
+            env: self.env.clone(),
+            addr: Arc::new(a),
+        };
+
         Ok(match self.decoder.decode(b)? {
             Payload::ChannelData(x) => channel_data::process(ctx, x).await,
             Payload::Message(x) => {
@@ -205,7 +209,11 @@ impl Processor {
         payload: Payload<'a, 'c>,
         a: SocketAddr,
     ) -> Result<Response<'c>> {
-        let ctx = self.get_context(a);
+        let ctx = Context {
+            env: self.env.clone(),
+            addr: Arc::new(a),
+        };
+
         Ok(match payload {
             Payload::ChannelData(x) => channel_data::process(ctx, x).await,
             Payload::Message(x) => {
@@ -351,17 +359,6 @@ impl Processor {
             Method::Refresh(Kind::Request) => refresh::process(ctx, m, w).await,
             Method::SendIndication => indication::process(ctx, m, w).await,
             _ => Ok(None),
-        }
-    }
-
-    /// builder of message context from thread local.
-    fn get_context(&self, a: SocketAddr) -> Context {
-        Context {
-            realm: self.realm.clone(),
-            router: self.router.clone(),
-            observer: self.observer.clone(),
-            external: self.external.clone(),
-            addr: Arc::new(a),
         }
     }
 }

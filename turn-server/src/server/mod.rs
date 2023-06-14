@@ -1,15 +1,17 @@
-mod monitor;
 mod tcp;
 mod udp;
 
-pub use monitor::*;
+use std::sync::Arc;
+use faster_stun::attribute::Transport;
+
+use self::tcp::Router;
+use crate::monitor::Monitor;
 use super::config::{
     Config,
-    Protocol,
+    self,
 };
 
 use turn_rs::Service;
-use std::sync::Arc;
 use tokio::net::{
     TcpListener,
     UdpSocket,
@@ -29,28 +31,28 @@ use tokio::net::{
 /// // run(&service, config).await?
 /// ```
 pub async fn run(
+    monitor: &Monitor,
     service: &Service,
     config: Arc<Config>,
-) -> anyhow::Result<Monitor> {
-    let monitor = Monitor::new(config.turn.threads);
-    let router = tcp::Router::new();
+) -> anyhow::Result<()> {
+    let router = Router::new().await?;
 
     for ite in config.turn.interfaces.clone() {
         let service = service.clone();
-        match ite.protocol {
-            Protocol::UDP => {
+        match ite.transport {
+            config::Transport::UDP => {
                 let socket = Arc::new(UdpSocket::bind(ite.bind).await?);
                 for i in 0..config.turn.threads {
                     tokio::spawn(udp::processer(
-                        service.get_processor(ite.external),
+                        service.get_processor(ite.external, Transport::UDP),
                         monitor.get_sender(i),
                         socket.clone(),
                     ));
                 }
             },
-            Protocol::TCP => {
+            config::Transport::TCP => {
                 tokio::spawn(tcp::processer(
-                    move || service.get_processor(ite.external),
+                    move || service.get_processor(ite.external, Transport::TCP),
                     TcpListener::bind(ite.bind).await?,
                     router.clone(),
                 ));
@@ -58,13 +60,13 @@ pub async fn run(
         }
 
         log::info!(
-            "turn server listening: {}, external: {}, protocol: {:?}",
+            "turn server listening: addr={}, external={}, transport={:?}",
             ite.bind,
             ite.external,
-            ite.protocol,
+            ite.transport,
         );
     }
 
-    log::info!("turn server workers number: {}", config.turn.threads);
-    Ok(monitor)
+    log::info!("turn server workers: number={}", config.turn.threads);
+    Ok(())
 }

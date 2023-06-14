@@ -13,8 +13,8 @@ use std::{
 };
 
 use crate::{
-    server::WorkMonitor,
-    server::Monitor,
+    monitor::WorkMonitor,
+    monitor::Monitor,
     config::*,
 };
 

@@ -40,7 +40,7 @@ fn reject<'a, 'b, 'c>(
     let method = Method::ChannelBind(Kind::Error);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.append::<Realm>(&ctx.realm);
+    pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
 }
@@ -103,7 +103,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(c) => c,
     };
 
-    if ctx.external.ip() != peer.ip() {
+    if ctx.env.external.ip() != peer.ip() {
         return reject(ctx, m, w, Forbidden);
     }
 
@@ -116,7 +116,7 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, BadRequest);
     }
 
-    let key = match ctx.router.get_key(&ctx.addr, u).await {
+    let key = match ctx.env.router.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -126,6 +126,7 @@ pub async fn process<'a, 'b, 'c>(
     }
 
     if ctx
+        .env
         .router
         .bind_channel(&ctx.addr, peer.port(), c)
         .await
@@ -134,6 +135,6 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, InsufficientCapacity);
     }
 
-    ctx.observer.channel_bind(&ctx.addr, u, c);
+    ctx.env.observer.channel_bind(&ctx.addr, u, c);
     resolve(&ctx, &m, &key, w)
 }

@@ -7,14 +7,15 @@ use std::{
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub enum Protocol {
+#[serde(rename_all = "lowercase")]
+pub enum Transport {
     TCP,
     UDP,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Interface {
-    pub protocol: Protocol,
+    pub transport: Transport,
     /// turn server listen address
     pub bind: SocketAddr,
     /// external address

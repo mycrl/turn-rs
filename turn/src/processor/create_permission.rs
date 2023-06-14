@@ -1,9 +1,9 @@
 use anyhow::Result;
 use bytes::BytesMut;
+use crate::SOFTWARE;
 use super::{
     Context,
     Response,
-    SOFTWARE,
 };
 
 use faster_stun::{
@@ -40,7 +40,7 @@ fn reject<'a, 'b, 'c>(
     let method = Method::CreatePermission(Kind::Error);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.append::<Realm>(&ctx.realm);
+    pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
     Ok(Some((w, ctx.addr)))
 }
@@ -109,7 +109,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(a) => a,
     };
 
-    if ctx.external.ip() != peer.ip() {
+    if ctx.env.external.ip() != peer.ip() {
         return reject(ctx, m, w, Forbidden);
     }
 
@@ -118,7 +118,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(u) => u,
     };
 
-    let key = match ctx.router.get_key(&ctx.addr, u).await {
+    let key = match ctx.env.router.get_key(&ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -127,10 +127,16 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, Unauthorized);
     }
 
-    if ctx.router.bind_port(&ctx.addr, peer.port()).await.is_none() {
+    if ctx
+        .env
+        .router
+        .bind_port(&ctx.addr, peer.port())
+        .await
+        .is_none()
+    {
         return reject(ctx, m, w, Forbidden);
     }
 
-    ctx.observer.create_permission(&ctx.addr, u, &peer);
+    ctx.env.observer.create_permission(&ctx.addr, u, &peer);
     resolve(&ctx, &m, &key, w)
 }

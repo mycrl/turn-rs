@@ -115,14 +115,16 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
                 cfg.controller
                     .allow_origin
                     .as_str()
-                    .parse::<HeaderValue>()
-                    .unwrap(),
+                    .parse::<HeaderValue>()?,
             ),
         )
         .layer(LogLayer)
         .with_state(ctr);
 
-    log::info!("controller server listening: {}", &cfg.controller.listen);
+    log::info!(
+        "controller server listening: addr={:?}",
+        &cfg.controller.listen
+    );
     axum::Server::bind(&cfg.controller.listen)
         .serve(app.into_make_service())
         .await?;
