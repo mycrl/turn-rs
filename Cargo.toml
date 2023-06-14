@@ -11,5 +11,6 @@ resolver = "2"
 members = [
     "turn",
     "stun",
-    "turn-server"
+    "turn-server",
+    "turn-proxy"
 ]
