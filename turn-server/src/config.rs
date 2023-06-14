@@ -1,13 +1,20 @@
 use clap::Parser;
 use serde::*;
 use std::{
-    net::SocketAddr,
-    fs::read_to_string,
     collections::HashMap,
+    fs::read_to_string,
+    net::SocketAddr,
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum Protocol {
+    TCP,
+    UDP,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Interface {
+    pub protocol: Protocol,
     /// turn server listen address
     pub bind: SocketAddr,
     /// external address

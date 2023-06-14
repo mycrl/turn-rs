@@ -21,6 +21,7 @@ categories = [
 ]
 
 [dependencies]
+bytes = "1.4.0"
 turn-rs = { path = "../turn", version = "1" }
 clap = { version = "4", features = ["derive", "env"] }
 tokio = { version = "1", features = ["full"] }

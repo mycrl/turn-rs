@@ -196,6 +196,7 @@ pub trait Observer: Send + Sync {
 }
 
 /// TUTN service.
+#[derive(Clone)]
 pub struct Service {
     router: Arc<Router>,
     observer: Arc<dyn Observer>,
