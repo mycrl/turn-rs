@@ -9,14 +9,16 @@ use nonces::Nonces;
 use channels::Channels;
 use faster_stun::util::long_key;
 use crate::Observer;
-use tokio::time::{
-    Duration,
-    sleep,
+use std::sync::atomic::{
+    AtomicBool,
+    Ordering,
 };
 
 use std::{
+    time::Duration,
     net::SocketAddr,
     sync::Arc,
+    thread,
 };
 
 type Addr = Arc<SocketAddr>;
@@ -38,6 +40,7 @@ pub struct Router {
     nonces: Nonces,
     nodes: Nodes,
     channels: Channels,
+    is_close: AtomicBool,
 }
 
 impl Router {
@@ -47,7 +50,7 @@ impl Router {
     /// struct Events;
     ///
     /// impl Observer for Events {
-    ///     async fn auth(&self, _addr: &SocketAddr, _name: &str) -> Option<&str> {
+    ///     fn auth(&self, _addr: &SocketAddr, _name: &str) -> Option<&str> {
     ///         Some("test")
     ///     }
     /// }
@@ -58,24 +61,43 @@ impl Router {
     /// );
     /// ```
     pub(crate) fn new(realm: String, observer: Arc<dyn Observer>) -> Arc<Self> {
-        Arc::new(Self {
+        let this = Arc::new(Self {
+            is_close: AtomicBool::new(false),
             channels: Channels::new(),
             nonces: Nonces::new(),
             ports: Ports::new(),
             nodes: Nodes::new(),
             observer,
             realm,
-        })
+        });
+
+        let this_ = this.clone();
+        thread::spawn(move || loop {
+            thread::sleep(Duration::from_secs(60));
+            if this_.is_close.load(Ordering::Relaxed) {
+                break;
+            }
+
+            for a in this_.nodes.get_deaths() {
+                this_.remove(&a);
+            }
+
+            for c in this_.channels.get_deaths() {
+                this_.channels.remove(c);
+            }
+        });
+
+        this
     }
 
     /// get router capacity.
-    pub async fn capacity(&self) -> usize {
-        self.ports.capacity().await
+    pub fn capacity(&self) -> usize {
+        self.ports.capacity()
     }
 
     /// get router allocate size.
-    pub async fn len(&self) -> usize {
-        self.ports.len().await
+    pub fn len(&self) -> usize {
+        self.ports.len()
     }
 
     /// get user list.
@@ -85,12 +107,12 @@ impl Router {
     ///
     /// assert!(router.get_users(0, 10).len() == 0);
     /// ```
-    pub async fn get_users(
+    pub fn get_users(
         &self,
         skip: usize,
         limit: usize,
     ) -> Vec<(String, Vec<SocketAddr>)> {
-        self.nodes.get_users(skip, limit).await
+        self.nodes.get_users(skip, limit)
     }
 
     /// get node.
@@ -100,8 +122,8 @@ impl Router {
     ///
     /// assert!(router.get_node().is_none());
     /// ```
-    pub async fn get_node(&self, a: &Addr) -> Option<nodes::Node> {
-        self.nodes.get_node(a).await
+    pub fn get_node(&self, a: &Addr) -> Option<nodes::Node> {
+        self.nodes.get_node(a)
     }
 
     /// get node bound list.
@@ -111,8 +133,8 @@ impl Router {
     ///
     /// assert!(router.get_node_bounds().len() == 0);
     /// ```
-    pub async fn get_node_addrs(&self, u: &str) -> Vec<Addr> {
-        self.nodes.get_addrs(u).await
+    pub fn get_node_addrs(&self, u: &str) -> Vec<Addr> {
+        self.nodes.get_addrs(u)
     }
 
     /// get the nonce of the node SocketAddr.
@@ -122,8 +144,8 @@ impl Router {
     ///
     /// assert!(state.get_nonce(&addr).len() == 16);
     /// ```
-    pub async fn get_nonce(&self, a: &Addr) -> Arc<String> {
-        self.nonces.get(a).await
+    pub fn get_nonce(&self, a: &Addr) -> Arc<String> {
+        self.nonces.get(a)
     }
 
     /// get the password of the node SocketAddr.
@@ -136,14 +158,14 @@ impl Router {
     /// // state.get_key(&addr, "panda")
     /// ```
     pub async fn get_key(&self, a: &Addr, u: &str) -> Option<Arc<[u8; 16]>> {
-        let key = self.nodes.get_secret(a).await;
+        let key = self.nodes.get_secret(a);
         if key.is_some() {
             return key;
         }
 
         let pwd = self.observer.auth(a.as_ref(), u).await?;
         let key = long_key(u, &pwd, &self.realm);
-        self.nodes.insert(a, u, key, pwd).await
+        self.nodes.insert(a, u, key, pwd)
     }
 
     /// obtain the peer address bound to the current
@@ -166,8 +188,8 @@ impl Router {
     ///
     /// assert_eq!(state.get_channel_bound(&addr, 0x4000).unwrap(), peer);
     /// ```
-    pub async fn get_channel_bound(&self, a: &Addr, c: u16) -> Option<Addr> {
-        self.channels.get_bound(a, c).await
+    pub fn get_channel_bound(&self, a: &Addr, c: u16) -> Option<Addr> {
+        self.channels.get_bound(a, c)
     }
 
     /// obtain the peer address bound to the current
@@ -191,8 +213,8 @@ impl Router {
     /// assert_eq!(state.get_port_bound(&addr, peer_port), some(peer));
     /// assert_eq!(state.get_port_bound(&peer, addr_port), some(addr));
     /// ```
-    pub async fn get_port_bound(&self, p: u16) -> Option<Addr> {
-        self.ports.get(p).await
+    pub fn get_port_bound(&self, p: u16) -> Option<Addr> {
+        self.ports.get(p)
     }
 
     /// get node the port.
@@ -215,8 +237,8 @@ impl Router {
     /// assert_eq!(state.get_bound_port(&addr, &peer), some(peer_port));
     /// assert_eq!(state.get_bound_port(&peer, &addr), some(addr_port));
     /// ```
-    pub async fn get_bound_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
-        self.ports.get_bound(a, p).await
+    pub fn get_bound_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
+        self.ports.get_bound(a, p)
     }
 
     /// alloc a port from State.
@@ -272,9 +294,9 @@ impl Router {
     /// assert!(state.alloc_port(&addr).unwrap().is_some());
     /// assert!(state.alloc_port(&peer).unwrap().is_some());
     /// ```
-    pub async fn alloc_port(&self, a: &Addr) -> Option<u16> {
-        let port = self.ports.alloc(a).await?;
-        self.nodes.push_port(a, port).await;
+    pub fn alloc_port(&self, a: &Addr) -> Option<u16> {
+        let port = self.ports.alloc(a)?;
+        self.nodes.push_port(a, port);
         Some(port)
     }
 
@@ -300,8 +322,8 @@ impl Router {
     /// assert!(state.bind_port(&peer, addr_port).is_some());
     /// assert!(state.bind_port(&addr, peer_port).is_some());
     /// ```
-    pub async fn bind_port(&self, a: &Addr, port: u16) -> Option<()> {
-        self.ports.bound(a, port).await
+    pub fn bind_port(&self, a: &Addr, port: u16) -> Option<()> {
+        self.ports.bound(a, port)
     }
 
     /// bind channel number for State.
@@ -331,10 +353,10 @@ impl Router {
     /// assert!(state.bind_channel(&peer, addr_port, 0x4000).is_some());
     /// assert!(state.bind_channel(&addr, peer_port, 0x4000).is_some());
     /// ```
-    pub async fn bind_channel(&self, a: &Addr, p: u16, c: u16) -> Option<()> {
-        let source = self.ports.get(p).await?;
-        self.channels.insert(a, c, &source).await?;
-        self.nodes.push_channel(a, c).await?;
+    pub fn bind_channel(&self, a: &Addr, p: u16, c: u16) -> Option<()> {
+        let source = self.ports.get(p)?;
+        self.channels.insert(a, c, &source)?;
+        self.nodes.push_channel(a, c)?;
         Some(())
     }
 
@@ -380,11 +402,11 @@ impl Router {
     /// state.refresh(&addr, 600);
     /// state.refresh(&addr, 0);
     /// ```
-    pub async fn refresh(&self, a: &Addr, delay: u32) {
+    pub fn refresh(&self, a: &Addr, delay: u32) {
         if delay > 0 {
-            self.nodes.set_lifetime(a, delay).await;
+            self.nodes.set_lifetime(a, delay);
         } else {
-            self.remove(a).await;
+            self.remove(a);
         }
     }
 
@@ -397,15 +419,15 @@ impl Router {
     /// state.get_key(&addr, "panda");
     /// state.remove(&addr);
     /// ```
-    pub async fn remove(&self, a: &Addr) -> Option<()> {
-        let node = self.nodes.remove(a).await?;
-        self.ports.remove(a, &node.ports).await;
+    pub fn remove(&self, a: &Addr) -> Option<()> {
+        let node = self.nodes.remove(a)?;
+        self.ports.remove(a, &node.ports);
 
         for c in node.channels {
-            self.channels.remove(c).await?;
+            self.channels.remove(c)?;
         }
 
-        self.nonces.remove(a).await;
+        self.nonces.remove(a);
         self.observer.abort(a, &node.username);
         Some(())
     }
@@ -419,30 +441,15 @@ impl Router {
     /// state.get_key(&addr, "panda");
     /// state.remove_from_user("panda");
     /// ```
-    pub async fn remove_from_user(&self, u: &str) {
-        for addr in self.nodes.get_addrs(u).await {
-            self.remove(&addr).await;
+    pub fn remove_from_user(&self, u: &str) {
+        for addr in self.nodes.get_addrs(u) {
+            self.remove(&addr);
         }
     }
+}
 
-    /// poll in state.
-    ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
-    ///
-    /// tokio::spawn(state.start_poll());
-    /// ```
-    pub async fn start_poll(&self) {
-        let delay = Duration::from_secs(60);
-        loop {
-            sleep(delay).await;
-            for a in self.nodes.get_deaths().await {
-                self.remove(&a).await;
-            }
-
-            for c in self.channels.get_deaths().await {
-                self.channels.remove(c).await;
-            }
-        }
+impl Drop for Router {
+    fn drop(&mut self) {
+        self.is_close.store(true, Ordering::Relaxed);
     }
 }

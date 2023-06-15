@@ -191,8 +191,8 @@ impl Controller {
             software: SOFTWARE.to_string(),
             uptime: this.timer.elapsed().as_secs(),
             realm: this.config.turn.realm.clone(),
-            port_allocated: this.router.len().await as u16,
-            port_capacity: this.router.capacity().await as u16,
+            port_allocated: this.router.len() as u16,
+            port_capacity: this.router.capacity() as u16,
             interfaces: this.config.turn.interfaces.clone(),
         })
     }
@@ -247,13 +247,7 @@ impl Controller {
     ) -> Json<HashMap<String, Vec<SocketAddr>>> {
         let skip = pars.skip.unwrap_or(0);
         let limit = pars.limit.unwrap_or(20);
-        Json(
-            this.router
-                .get_users(skip, limit)
-                .await
-                .into_iter()
-                .collect(),
-        )
+        Json(this.router.get_users(skip, limit).into_iter().collect())
     }
 
     /// Get node information
@@ -276,12 +270,7 @@ impl Controller {
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<Option<INode>> {
-        Json(
-            this.router
-                .get_node(&Arc::new(pars.addr))
-                .await
-                .map(INode::from),
-        )
+        Json(this.router.get_node(&Arc::new(pars.addr)).map(INode::from))
     }
 
     /// Delete a node under the user.
@@ -309,7 +298,6 @@ impl Controller {
         Json(
             this.router
                 .remove(&Arc::new(pars.addr))
-                .await
                 .is_some()
         )
     }

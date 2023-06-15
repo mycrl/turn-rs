@@ -193,7 +193,7 @@ impl Processor {
         };
 
         Ok(match self.decoder.decode(b)? {
-            Payload::ChannelData(x) => channel_data::process(ctx, x).await,
+            Payload::ChannelData(x) => channel_data::process(ctx, x),
             Payload::Message(x) => {
                 Self::message_process(ctx, x, &mut self.writer).await?
             },
@@ -211,7 +211,7 @@ impl Processor {
         };
 
         Ok(match payload {
-            Payload::ChannelData(x) => channel_data::process(ctx, x).await,
+            Payload::ChannelData(x) => channel_data::process(ctx, x),
             Payload::Message(x) => {
                 Self::message_process(ctx, x, &mut self.writer).await?
             },
@@ -353,7 +353,7 @@ impl Processor {
             Method::CreatePermission(Kind::Request) => create_permission::process(ctx, m, w).await,
             Method::ChannelBind(Kind::Request) => channel_bind::process(ctx, m, w).await,
             Method::Refresh(Kind::Request) => refresh::process(ctx, m, w).await,
-            Method::SendIndication => indication::process(ctx, m, w).await,
+            Method::SendIndication => indication::process(ctx, m, w),
             _ => Ok(None),
         }
     }

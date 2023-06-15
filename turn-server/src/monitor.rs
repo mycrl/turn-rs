@@ -65,12 +65,11 @@ impl Monitor {
     /// sender.send(Payload::Receive);
     /// ```
     pub async fn get_sender(&self) -> Arc<MonitorSender> {
-        let index = self.index.load(Ordering::Relaxed);
+        let index = self.index.fetch_add(1, Ordering::SeqCst);
         self.workers
             .lock()
             .await
             .insert(index, MonitorWorker::default());
-        self.index.store(index + 1, Ordering::Relaxed);
         Arc::new(MonitorSender {
             sender: self.sender.clone(),
             index,

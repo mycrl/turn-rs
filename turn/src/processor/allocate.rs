@@ -39,14 +39,14 @@ use faster_stun::attribute::ErrKind::{
 
 /// return allocate error response
 #[inline(always)]
-async fn reject<'a, 'b, 'c>(
+fn reject<'a, 'b, 'c>(
     ctx: Context,
     m: MessageReader<'a, 'b>,
     w: &'c mut BytesMut,
     e: ErrKind,
 ) -> Result<Response<'c>> {
     let method = Method::Allocate(Kind::Error);
-    let nonce = ctx.env.router.get_nonce(&ctx.addr).await;
+    let nonce = ctx.env.router.get_nonce(&ctx.addr);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.env.realm);
@@ -66,7 +66,7 @@ async fn reject<'a, 'b, 'c>(
 /// example, a server may choose this technique to implement the
 /// EVEN-PORT attribute.
 #[inline(always)]
-async fn resolve<'a, 'b, 'c>(
+fn resolve<'a, 'b, 'c>(
     ctx: &Context,
     m: &MessageReader<'a, 'b>,
     p: &[u8; 16],
@@ -106,28 +106,28 @@ pub async fn process<'a, 'b, 'c>(
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
     if m.get::<ReqeestedTransport>().is_none() {
-        return reject(ctx, m, w, ServerError).await;
+        return reject(ctx, m, w, ServerError);
     }
 
     let u = match m.get::<UserName>() {
-        None => return reject(ctx, m, w, Unauthorized).await,
+        None => return reject(ctx, m, w, Unauthorized),
         Some(u) => u,
     };
 
     let key = match ctx.env.router.get_key(&ctx.addr, u).await {
-        None => return reject(ctx, m, w, Unauthorized).await,
+        None => return reject(ctx, m, w, Unauthorized),
         Some(p) => p,
     };
 
-    let port = match ctx.env.router.alloc_port(&ctx.addr).await {
-        None => return reject(ctx, m, w, Unauthorized).await,
+    let port = match ctx.env.router.alloc_port(&ctx.addr) {
+        None => return reject(ctx, m, w, Unauthorized),
         Some(p) => p,
     };
 
     if m.integrity(&key).is_ok() {
         ctx.env.observer.allocated(&ctx.addr, u, port);
-        resolve(&ctx, &m, &key, port, w).await
+        resolve(&ctx, &m, &key, port, w)
     } else {
-        reject(ctx, m, w, Unauthorized).await
+        reject(ctx, m, w, Unauthorized)
     }
 }

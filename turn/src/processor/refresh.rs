@@ -116,6 +116,6 @@ pub async fn process<'a, 'b, 'c>(
     }
 
     ctx.env.observer.refresh(&ctx.addr, u, l);
-    ctx.env.router.refresh(&ctx.addr, l).await;
+    ctx.env.router.refresh(&ctx.addr, l);
     resolve(&ctx, &m, l, &key, w)
 }

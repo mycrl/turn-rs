@@ -1,4 +1,9 @@
-use std::collections::HashMap;
+use parking_lot::RwLock;
+use std::{
+    collections::HashMap,
+    time::Instant,
+};
+
 use super::{
     ports::capacity,
     Addr,
@@ -7,11 +12,6 @@ use super::{
 use std::iter::{
     IntoIterator,
     Iterator,
-};
-
-use tokio::{
-    sync::RwLock,
-    time::Instant,
 };
 
 /// channels iterator.
@@ -244,8 +244,8 @@ impl Channels {
     ///
     /// assert_eq!(channels.get_bound(&addr, 43159).unwrap(), peer);
     /// ```
-    pub async fn get_bound(&self, a: &Addr, c: u16) -> Option<Addr> {
-        self.bounds.read().await.get(&(a.clone(), c)).cloned()
+    pub fn get_bound(&self, a: &Addr, c: u16) -> Option<Addr> {
+        self.bounds.read().get(&(a.clone(), c)).cloned()
     }
 
     /// insert address for peer address to channel table.
@@ -265,8 +265,8 @@ impl Channels {
     ///
     /// assert_eq!(channels.get_bound(&addr, 43159).unwrap(), peer);
     /// ```
-    pub async fn insert(&self, a: &Addr, c: u16, p: &Addr) -> Option<()> {
-        let mut map = self.map.write().await;
+    pub fn insert(&self, a: &Addr, c: u16, p: &Addr) -> Option<()> {
+        let mut map = self.map.write();
         let mut is_empty = false;
 
         let channel = map.entry(c).or_insert_with(|| {
@@ -290,7 +290,6 @@ impl Channels {
 
         self.bounds
             .write()
-            .await
             .entry((a.clone(), c))
             .or_insert_with(|| p.clone());
         Some(())
@@ -314,9 +313,9 @@ impl Channels {
     /// assert!(channels.remove(&addr).is_some());
     /// assert!(channels.remove(&peer).is_some());
     /// ```
-    pub async fn remove(&self, c: u16) -> Option<()> {
-        let mut bounds = self.bounds.write().await;
-        for a in self.map.write().await.remove(&c)? {
+    pub fn remove(&self, c: u16) -> Option<()> {
+        let mut bounds = self.bounds.write();
+        for a in self.map.write().remove(&c)? {
             bounds.remove(&(a, c));
         }
 
@@ -329,10 +328,9 @@ impl Channels {
     /// let channels = Channels::new();
     /// assert_eq!(channels.get_deaths().len(), 0);
     /// ```
-    pub async fn get_deaths(&self) -> Vec<u16> {
+    pub fn get_deaths(&self) -> Vec<u16> {
         self.map
             .read()
-            .await
             .iter()
             .filter(|(_, v)| v.is_death())
             .map(|(k, _)| *k)

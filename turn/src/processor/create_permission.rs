@@ -127,13 +127,7 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, Unauthorized);
     }
 
-    if ctx
-        .env
-        .router
-        .bind_port(&ctx.addr, peer.port())
-        .await
-        .is_none()
-    {
+    if ctx.env.router.bind_port(&ctx.addr, peer.port()).is_none() {
         return reject(ctx, m, w, Forbidden);
     }
 

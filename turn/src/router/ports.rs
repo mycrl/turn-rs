@@ -5,7 +5,7 @@ use rand::{
     Rng,
 };
 
-use tokio::sync::{
+use parking_lot::{
     RwLock,
     Mutex,
 };
@@ -321,8 +321,8 @@ impl Ports {
     /// let pools = Ports::new();
     /// assert_eq!(pools.capacity(), 65535 - 49152);
     /// ```
-    pub async fn capacity(&self) -> usize {
-        self.pools.lock().await.capacity()
+    pub fn capacity(&self) -> usize {
+        self.pools.lock().capacity()
     }
 
     /// get ports allocated size.
@@ -333,8 +333,8 @@ impl Ports {
     /// let pools = Ports::new();
     /// assert_eq!(pools.len(), 0);
     /// ```
-    pub async fn len(&self) -> usize {
-        self.pools.lock().await.len()
+    pub fn len(&self) -> usize {
+        self.pools.lock().len()
     }
 
     /// get address from port.
@@ -347,8 +347,8 @@ impl Ports {
     ///
     /// assert!(pools.get(port).is_some());
     /// ```
-    pub async fn get(&self, p: u16) -> Option<Addr> {
-        self.map.read().await.get(&p).cloned()
+    pub fn get(&self, p: u16) -> Option<Addr> {
+        self.map.read().get(&p).cloned()
     }
 
     /// get address bound port.
@@ -363,8 +363,8 @@ impl Ports {
     /// assert!(pools.bound(&addr, port).is_some());
     /// assert!(pools.get_bound(&addr, &addr).is_none());
     /// ```
-    pub async fn get_bound(&self, a: &Addr, p: &Addr) -> Option<u16> {
-        self.bounds.read().await.get(p)?.get(a).cloned()
+    pub fn get_bound(&self, a: &Addr, p: &Addr) -> Option<u16> {
+        self.bounds.read().get(p)?.get(a).cloned()
     }
 
     /// allocate port in ports.
@@ -375,9 +375,9 @@ impl Ports {
     /// let pools = Ports::new();
     /// assert_eq!(pools.alloc().is_some(), true);
     /// ```
-    pub async fn alloc(&self, a: &Addr) -> Option<u16> {
-        let port = self.pools.lock().await.alloc(None)?;
-        self.map.write().await.insert(port, a.clone());
+    pub fn alloc(&self, a: &Addr) -> Option<u16> {
+        let port = self.pools.lock().alloc(None)?;
+        self.map.write().insert(port, a.clone());
         Some(port)
     }
 
@@ -392,11 +392,10 @@ impl Ports {
     ///
     /// assert!(pools.bound(&addr, port).is_some());
     /// ```
-    pub async fn bound(&self, a: &Addr, port: u16) -> Option<()> {
-        let peer = self.map.read().await.get(&port)?.clone();
+    pub fn bound(&self, a: &Addr, port: u16) -> Option<()> {
+        let peer = self.map.read().get(&port)?.clone();
         self.bounds
             .write()
-            .await
             .entry(a.clone())
             .or_insert_with(|| HashMap::with_capacity(10))
             .entry(peer)
@@ -416,16 +415,16 @@ impl Ports {
     /// assert!(pools.bound(&addr, port).is_some());
     /// assert!(pools.remove(&addr, &vec![port]).is_some());
     /// ```
-    pub async fn remove(&self, a: &Addr, ports: &[u16]) -> Option<()> {
-        let mut pools = self.pools.lock().await;
-        let mut map = self.map.write().await;
+    pub fn remove(&self, a: &Addr, ports: &[u16]) -> Option<()> {
+        let mut pools = self.pools.lock();
+        let mut map = self.map.write();
 
         for p in ports {
             pools.restore(*p);
             map.remove(p);
         }
 
-        self.bounds.write().await.remove(a);
+        self.bounds.write().remove(a);
         Some(())
     }
 }

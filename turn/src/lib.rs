@@ -247,30 +247,6 @@ impl Service {
         }
     }
 
-    /// Start run service.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// struct Events;
-    ///
-    /// impl Observer for Events {
-    ///     async fn auth(&self, _addr: &SocketAddr, _name: &str) -> Option<&str> {
-    ///         Some("test")
-    ///     }
-    /// }
-    ///
-    /// let service = Service::new(
-    ///     Events {},
-    ///     "test".to_string(),
-    /// );
-    ///
-    /// tokio::spawn(service.run()).await;
-    /// ```
-    pub async fn run(self) {
-        self.router.start_poll().await
-    }
-
     /// Get processor.
     ///
     /// # Examples

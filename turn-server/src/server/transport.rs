@@ -150,17 +150,21 @@ pub async fn udp_processor(
             if let Ok(Some((res, addr))) =
                 processor.process(&buf[..size], addr).await
             {
-                if let Err(e) = socket.send_to(res, addr.as_ref()).await {
-                    if e.kind() != ConnectionReset {
-                        return Err(e.into());
-                    }
+                if router.find(addr.as_ref()).await {
+                    router.send(addr.as_ref(), res, false).await;
                 } else {
-                    sender.send(Payload::Send);
-                    log::trace!(
-                        "udp socket relay: size={}, addr={:?}",
-                        res.len(),
-                        addr.as_ref()
-                    );
+                    if let Err(e) = socket.send_to(res, addr.as_ref()).await {
+                        if e.kind() != ConnectionReset {
+                            return Err(e.into());
+                        }
+                    } else {
+                        sender.send(Payload::Send);
+                        log::trace!(
+                            "udp socket relay: size={}, addr={:?}",
+                            res.len(),
+                            addr.as_ref()
+                        );
+                    }
                 }
 
                 continue;

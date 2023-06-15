@@ -279,7 +279,6 @@ async fn main() -> anyhow::Result<()> {
 
     let controller =
         Controller::new(monitor, service.get_router(), config.clone());
-    tokio::spawn(async move { service.run().await });
     api::start(&config, &controller).await?;
     Ok(())
 }

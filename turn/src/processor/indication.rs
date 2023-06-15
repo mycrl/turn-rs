@@ -65,7 +65,7 @@ use faster_stun::attribute::{
 /// and [15](https://tools.ietf.org/html/rfc8656#section-15).
 ///
 /// The resulting UDP datagram is then sent to the peer.
-pub async fn process<'a, 'b, 'c>(
+pub fn process<'a, 'b, 'c>(
     ctx: Context,
     m: MessageReader<'a, 'b>,
     w: &'c mut BytesMut,
@@ -84,12 +84,12 @@ pub async fn process<'a, 'b, 'c>(
         Some(x) => x,
     };
 
-    let a = match ctx.env.router.get_port_bound(peer.port()).await {
+    let a = match ctx.env.router.get_port_bound(peer.port()) {
         None => return Ok(None),
         Some(a) => a,
     };
 
-    let p = match ctx.env.router.get_bound_port(&ctx.addr, &a).await {
+    let p = match ctx.env.router.get_bound_port(&ctx.addr, &a) {
         None => return Ok(None),
         Some(p) => p,
     };

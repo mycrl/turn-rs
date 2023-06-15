@@ -32,12 +32,12 @@ use super::{
 /// the Length field in the ChannelData message is 0, then there will be
 /// no data in the UDP datagram, but the UDP datagram is still formed and
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
-pub async fn process(ctx: Context, data: ChannelData<'_>) -> Response<'_> {
+pub fn process(ctx: Context, data: ChannelData<'_>) -> Response<'_> {
     let n = data.number;
 
     Some((
         data.buf,
-        match ctx.env.router.get_channel_bound(&ctx.addr, n).await {
+        match ctx.env.router.get_channel_bound(&ctx.addr, n) {
             None => return None,
             Some(x) => x,
         },

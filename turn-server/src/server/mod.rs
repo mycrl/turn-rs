@@ -2,7 +2,6 @@ mod transport;
 mod router;
 
 use std::sync::Arc;
-
 use self::router::Router;
 use crate::monitor::Monitor;
 use super::config::{
@@ -16,7 +15,7 @@ use tokio::net::{
     UdpSocket,
 };
 
-/// start udp server.
+/// start turn server.
 ///
 /// create a specified number of threads,
 /// each thread processes udp data separately.

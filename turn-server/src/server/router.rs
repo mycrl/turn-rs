@@ -15,7 +15,7 @@ use tokio::sync::mpsc::{
 
 use tokio::{
     net::UdpSocket,
-    sync::Mutex,
+    sync::RwLock,
 };
 
 struct UdpProxy {
@@ -41,7 +41,7 @@ impl UdpProxy {
 }
 
 pub struct Router {
-    senders: Mutex<HashMap<SocketAddr, Sender<Bytes>>>,
+    senders: RwLock<HashMap<SocketAddr, Sender<Bytes>>>,
     udp: UdpProxy,
 }
 
@@ -54,7 +54,7 @@ impl Router {
     }
 
     pub async fn find(&self, addr: &SocketAddr) -> bool {
-        false
+        self.senders.read().await.get(addr).is_some()
     }
 
     pub async fn get_receiver(
@@ -64,7 +64,7 @@ impl Router {
         let (sender, mut receiver) = channel(10);
 
         {
-            self.senders.lock().await.insert(addr, sender);
+            self.senders.write().await.insert(addr, sender);
         }
 
         let this = self.clone();
@@ -85,12 +85,8 @@ impl Router {
         let mut is_err = false;
 
         {
-            if let Some(sender) = self.senders.lock().await.get(addr) {
-                if sender
-                    .send(Bytes::copy_from_slice(data))
-                    .await
-                    .is_err()
-                {
+            if let Some(sender) = self.senders.read().await.get(addr) {
+                if sender.send(Bytes::copy_from_slice(data)).await.is_err() {
                     is_err = true;
                 }
             } else {
@@ -106,7 +102,7 @@ impl Router {
     }
 
     async fn remove(&self, addr: &SocketAddr) {
-        if let Some(sender) = self.senders.lock().await.remove(addr) {
+        if let Some(sender) = self.senders.write().await.remove(addr) {
             drop(sender)
         }
     }

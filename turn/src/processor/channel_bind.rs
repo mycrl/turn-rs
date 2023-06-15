@@ -129,7 +129,6 @@ pub async fn process<'a, 'b, 'c>(
         .env
         .router
         .bind_channel(&ctx.addr, peer.port(), c)
-        .await
         .is_none()
     {
         return reject(ctx, m, w, InsufficientCapacity);
