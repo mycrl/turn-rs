@@ -48,10 +48,18 @@
         peerMediaStream.addTrack(track)
     })
     
+    peerRtc.addEventListener("icecandidate", async ({candidate}) => {
+        await localRtc.addIceCandidate(candidate)
+    })
+    
+    localRtc.addEventListener("icecandidate", async ({candidate}) => {
+        await peerRtc.addIceCandidate(candidate)
+    })
+    
     document.body.addEventListener('click', async () => {
         const mediaStream = await navigator.mediaDevices.getDisplayMedia({
             video: true, 
-            audio: false
+            audio: false,
         })
         
         for (const track of mediaStream.getTracks()) {
@@ -63,6 +71,7 @@
         await localRtc.setLocalDescription(offer)
         await peerRtc.setRemoteDescription(offer)
         const answer = await peerRtc.createAnswer()
+        await peerRtc.setLocalDescription(answer)
         await localRtc.setRemoteDescription(answer)
     })
 </script>
