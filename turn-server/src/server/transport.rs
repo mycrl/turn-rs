@@ -52,7 +52,7 @@ pub async fn tcp_processor<T>(
 
         tokio::spawn(async move {
             let (mut reader, mut writer) = socket.split();
-            let mut receiver = router.get(addr.clone()).await;
+            let mut receiver = router.get_receiver(addr.clone()).await;
             let mut buf = [0u8; 4096];
 
             loop {

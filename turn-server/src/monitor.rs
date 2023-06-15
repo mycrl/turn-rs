@@ -70,7 +70,7 @@ impl Monitor {
             .lock()
             .await
             .insert(index, MonitorWorker::default());
-
+        self.index.store(index + 1, Ordering::Relaxed);
         Arc::new(MonitorSender {
             sender: self.sender.clone(),
             index,

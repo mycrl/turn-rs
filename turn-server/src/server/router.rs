@@ -18,11 +18,6 @@ use tokio::{
     sync::Mutex,
 };
 
-/// udp socket process thread.
-///
-/// read the data packet from the UDP socket and hand
-/// it to the proto for processing, and send the processed
-/// data packet to the specified address.
 struct UdpProxy {
     v4: UdpSocket,
     v6: UdpSocket,
@@ -58,12 +53,11 @@ impl Router {
         }))
     }
 
-    /// udp socket process thread.
-    ///
-    /// read the data packet from the UDP socket and hand
-    /// it to the proto for processing, and send the processed
-    /// data packet to the specified address.
-    pub async fn get(
+    pub async fn find(&self, addr: &SocketAddr) -> bool {
+        false
+    }
+
+    pub async fn get_receiver(
         self: &Arc<Self>,
         addr: SocketAddr,
     ) -> Receiver<Bytes> {
@@ -87,20 +81,10 @@ impl Router {
         reader
     }
 
-    /// udp socket process thread.
-    ///
-    /// read the data packet from the UDP socket and hand
-    /// it to the proto for processing, and send the processed
-    /// data packet to the specified address.
     pub async fn send(&self, addr: &SocketAddr, data: &[u8], realy_udp: bool) {
         let mut is_err = false;
 
         {
-            // udp socket process thread.
-            //
-            // read the data packet from the UDP socket and hand
-            // it to the proto for processing, and send the processed
-            // data packet to the specified address.
             if let Some(sender) = self.senders.lock().await.get(addr) {
                 if sender
                     .send(Bytes::copy_from_slice(data))
