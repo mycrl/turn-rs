@@ -5,7 +5,6 @@ pub use processor::Processor;
 pub use router::nodes::Node;
 pub use router::Router;
 
-use faster_stun::attribute::Transport;
 use async_trait::async_trait;
 use std::{
     net::SocketAddr,
@@ -303,14 +302,9 @@ impl Service {
     ///     socket.send_to(buf, target.as_ref()).unwrap();
     /// }
     /// ```
-    pub fn get_processor(
-        &self,
-        external: SocketAddr,
-        transport: Transport,
-    ) -> Processor {
+    pub fn get_processor(&self, external: SocketAddr) -> Processor {
         Processor::new(
             external,
-            transport,
             self.realm.clone(),
             self.router.clone(),
             self.observer.clone(),

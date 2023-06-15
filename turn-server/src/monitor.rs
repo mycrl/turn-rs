@@ -114,7 +114,6 @@ pub struct MonitorWorker {
 
 impl MonitorWorker {
     /// update status information
-    #[rustfmt::skip]
     fn change(&mut self, payload: Payload) {
         match payload {
             Payload::Receive => self.receive_packets.add(1),

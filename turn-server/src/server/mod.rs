@@ -1,15 +1,13 @@
-mod tcp;
-mod udp;
-mod tls;
+mod transport;
+mod router;
 
 use std::sync::Arc;
-use faster_stun::attribute::Transport;
 
-use self::tcp::Router;
+use self::router::Router;
 use crate::monitor::Monitor;
 use super::config::{
+    Transport,
     Config,
-    self,
 };
 
 use turn_rs::Service;
@@ -41,22 +39,30 @@ pub async fn run(
     for ite in config.turn.interfaces.clone() {
         let service = service.clone();
         match ite.transport {
-            config::Transport::UDP => {
+            Transport::UDP => {
+                // Under the udp protocol, the processing function is forked
+                // according to the number of threads, and multiple threads read
+                // and write the same udp socket at the same time.
                 let socket = Arc::new(UdpSocket::bind(ite.bind).await?);
                 for _ in 0..config.turn.threads {
-                    tokio::spawn(udp::processer(
-                        service.get_processor(ite.external, Transport::UDP),
+                    tokio::spawn(transport::udp_processor(
+                        service.get_processor(ite.external),
                         monitor.get_sender().await,
+                        router.clone(),
                         socket.clone(),
                     ));
                 }
             },
-            config::Transport::TCP => {
-                tokio::spawn(tcp::processer(
-                    move || service.get_processor(ite.external, Transport::TCP),
+            Transport::TCP => {
+                // Unlike udp, tcp cannot be processed with a fixed number of
+                // tasks, so the listener is still directly handed over to the
+                // processing function.
+                let listener = TcpListener::bind(ite.bind).await?;
+                tokio::spawn(transport::tcp_processor(
+                    move || service.get_processor(ite.external),
                     monitor.get_sender().await,
                     router.clone(),
-                    TcpListener::bind(ite.bind).await?,
+                    listener,
                 ));
             },
         }

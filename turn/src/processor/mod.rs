@@ -11,7 +11,6 @@ use bytes::BytesMut;
 use crate::{
     router::Router,
     Observer,
-    Transport,
 };
 
 use std::{
@@ -38,7 +37,6 @@ pub struct Env {
     pub router: Arc<Router>,
     pub external: Arc<SocketAddr>,
     pub observer: Arc<dyn Observer>,
-    pub transport: Transport,
 }
 
 /// message context
@@ -58,7 +56,6 @@ pub struct Processor {
 impl Processor {
     pub(crate) fn new(
         external: SocketAddr,
-        transport: Transport,
         realm: String,
         router: Arc<Router>,
         observer: Arc<dyn Observer>,
@@ -69,7 +66,6 @@ impl Processor {
             env: Arc::new(Env {
                 external: Arc::new(external),
                 realm: Arc::new(realm),
-                transport,
                 observer,
                 router,
             }),
