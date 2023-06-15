@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    sync::atomic::*,
     sync::Arc,
 };
 
@@ -19,8 +20,9 @@ pub enum Payload {
 
 /// worker cluster monitor
 pub struct Monitor {
-    workers: Arc<Mutex<HashMap<u8, WorkMonitor>>>,
+    workers: Arc<Mutex<HashMap<u8, MonitorWorker>>>,
     sender: Sender<(u8, Payload)>,
+    index: AtomicU8,
 }
 
 impl Monitor {
@@ -29,24 +31,21 @@ impl Monitor {
     /// Creating a monitoring instance requires a number of workers, so that the
     /// monitoring instance can create a worker list and default information
     /// based on the number of workers.
-    pub fn new(size: usize) -> Self {
+    pub fn new() -> Self {
         let (sender, mut receiver) = channel(2);
-        let mut workers = HashMap::with_capacity(size);
-        for i in 0..size {
-            workers.insert(i as u8, WorkMonitor::default());
-        }
-
-        let workers = Arc::new(Mutex::new(workers));
-        let workers_c = workers.clone();
+        let workers: Arc<Mutex<HashMap<u8, MonitorWorker>>> =
+            Default::default();
+        let workers_ = workers.clone();
         tokio::spawn(async move {
             while let Some((i, payload)) = receiver.recv().await {
-                if let Some(w) = workers_c.lock().await.get_mut(&i) {
+                if let Some(w) = workers_.lock().await.get_mut(&i) {
                     w.change(payload);
                 }
             }
         });
 
         Self {
+            index: AtomicU8::new(0),
             workers,
             sender,
         }
@@ -65,11 +64,17 @@ impl Monitor {
     ///
     /// sender.send(Payload::Receive);
     /// ```
-    pub fn get_sender(&self, index: usize) -> MonitorSender {
-        MonitorSender {
+    pub async fn get_sender(&self) -> Arc<MonitorSender> {
+        let index = self.index.load(Ordering::Relaxed);
+        self.workers
+            .lock()
+            .await
+            .insert(index, MonitorWorker::default());
+
+        Arc::new(MonitorSender {
             sender: self.sender.clone(),
-            index: index as u8,
-        }
+            index,
+        })
     }
 
     /// get all workers
@@ -84,27 +89,37 @@ impl Monitor {
     ///
     /// assert_eq!(workers.get(0).unwrap().receive_packets, 0);
     /// ```
-    pub async fn get_workers(&self) -> MutexGuard<HashMap<u8, WorkMonitor>> {
+    pub async fn get_workers(&self) -> MutexGuard<HashMap<u8, MonitorWorker>> {
         self.workers.lock().await
+    }
+}
+
+trait OverflowingAdd {
+    fn add(&mut self, num: u64);
+}
+
+impl OverflowingAdd for u64 {
+    fn add(&mut self, num: u64) {
+        *self = self.overflowing_add(num).0;
     }
 }
 
 /// Worker independent monitoring statistics
 #[derive(Default)]
-pub struct WorkMonitor {
+pub struct MonitorWorker {
     pub receive_packets: u64,
     pub send_packets: u64,
     pub failed_packets: u64,
 }
 
-impl WorkMonitor {
+impl MonitorWorker {
     /// update status information
     #[rustfmt::skip]
     fn change(&mut self, payload: Payload) {
         match payload {
-            Payload::Receive => self.receive_packets = self.receive_packets.overflowing_add(1).0,
-            Payload::Failed => self.failed_packets = self.failed_packets.overflowing_add(1).0,
-            Payload::Send => self.send_packets = self.send_packets.overflowing_add(1).0,
+            Payload::Receive => self.receive_packets.add(1),
+            Payload::Failed => self.failed_packets.add(1),
+            Payload::Send => self.send_packets.add(1),
         }
     }
 }

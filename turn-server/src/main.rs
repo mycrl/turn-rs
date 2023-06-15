@@ -272,9 +272,9 @@ async fn main() -> anyhow::Result<()> {
     let config = Arc::new(Config::load()?);
     simple_logger::init_with_level(config.log.level.as_level())?;
 
+    let monitor = Monitor::new();
     let service =
         Service::new(Events::new(config.clone()), config.turn.realm.clone());
-    let monitor = Monitor::new(config.turn.threads);
     server::run(&monitor, &service, config.clone()).await?;
 
     let controller =

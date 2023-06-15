@@ -13,7 +13,7 @@ use std::{
 };
 
 use crate::{
-    monitor::WorkMonitor,
+    monitor::MonitorWorker,
     monitor::Monitor,
     config::*,
 };
@@ -58,7 +58,7 @@ pub struct Worker {
     failed_packets: u64,
 }
 
-impl From<&WorkMonitor> for Worker {
+impl From<&MonitorWorker> for Worker {
     /// # Example
     ///
     /// ```no_run
@@ -73,7 +73,7 @@ impl From<&WorkMonitor> for Worker {
     /// assert_eq!(worker.failed_packets, 0);
     /// assert_eq!(worker.send_packets, 10);
     /// ```
-    fn from(value: &WorkMonitor) -> Self {
+    fn from(value: &MonitorWorker) -> Self {
         Self {
             receive_packets: value.receive_packets,
             failed_packets: value.failed_packets,

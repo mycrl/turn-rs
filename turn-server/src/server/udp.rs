@@ -17,7 +17,7 @@ use crate::monitor::{
 /// data packet to the specified address.
 pub async fn processer(
     mut processor: Processor,
-    sender: MonitorSender,
+    sender: Arc<MonitorSender>,
     socket: Arc<UdpSocket>,
 ) -> anyhow::Result<()> {
     let local_addr = socket

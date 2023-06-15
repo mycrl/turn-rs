@@ -1,34 +1,39 @@
 use turn_rs::Processor;
-use std::{
-    sync::Arc,
-    net::IpAddr,
-};
-use tokio::{
-    io::{
-        AsyncReadExt,
-        AsyncWriteExt,
-    },
-    net::TcpListener,
-};
-
 use anyhow::Result;
 use std::{
     collections::HashMap,
     net::SocketAddr,
+    net::IpAddr,
+    sync::Arc,
+};
+
+use tokio::io::{
+    AsyncReadExt,
+    AsyncWriteExt,
+};
+
+use tokio::sync::mpsc::{
+    channel,
+    Receiver,
+    Sender,
 };
 
 use tokio::{
-    sync::{
-        mpsc::{
-            channel,
-            Receiver,
-            Sender,
-        },
-        Mutex,
-    },
+    net::TcpListener,
     net::UdpSocket,
+    sync::Mutex,
 };
 
+use crate::monitor::{
+    MonitorSender,
+    Payload,
+};
+
+/// udp socket process thread.
+///
+/// read the data packet from the UDP socket and hand
+/// it to the proto for processing, and send the processed
+/// data packet to the specified address.
 struct UdpProxy {
     v4: UdpSocket,
     v6: UdpSocket,
@@ -64,6 +69,11 @@ impl Router {
         }))
     }
 
+    /// udp socket process thread.
+    ///
+    /// read the data packet from the UDP socket and hand
+    /// it to the proto for processing, and send the processed
+    /// data packet to the specified address.
     async fn get(
         self: &Arc<Self>,
         addr: SocketAddr,
@@ -88,10 +98,20 @@ impl Router {
         reader
     }
 
+    /// udp socket process thread.
+    ///
+    /// read the data packet from the UDP socket and hand
+    /// it to the proto for processing, and send the processed
+    /// data packet to the specified address.
     async fn send(&self, addr: &SocketAddr, data: &[u8]) {
         let mut is_err = false;
 
         {
+            // udp socket process thread.
+            //
+            // read the data packet from the UDP socket and hand
+            // it to the proto for processing, and send the processed
+            // data packet to the specified address.
             if let Some(sender) = self.senders.lock().await.get(addr) {
                 if sender
                     .send(unsafe { std::mem::transmute(data) })
@@ -117,16 +137,31 @@ impl Router {
     }
 }
 
-pub async fn processer<T>(handle: T, listen: TcpListener, router: Arc<Router>)
-where
+/// udp socket process thread.
+///
+/// read the data packet from the UDP socket and hand
+/// it to the proto for processing, and send the processed
+/// data packet to the specified address.
+pub async fn processer<T>(
+    handle: T,
+    sender: Arc<MonitorSender>,
+    router: Arc<Router>,
+    listen: TcpListener,
+) where
     T: Fn() -> Processor,
 {
     let local_addr = listen
         .local_addr()
         .expect("get tcp listener local addr failed!");
 
+    // udp socket process thread.
+    //
+    // read the data packet from the UDP socket and hand
+    // it to the proto for processing, and send the processed
+    // data packet to the specified address.
     while let Ok((mut socket, addr)) = listen.accept().await {
         let router = router.clone();
+        let sender = sender.clone();
         let mut processor = handle();
 
         log::info!(
@@ -144,6 +179,7 @@ where
                 tokio::select! {
                     Ok(size) = reader.read(&mut buf) => {
                         if size > 0 {
+                            sender.send(Payload::Receive);
                             log::trace!(
                                 "tcp socket receive: size={}, addr={:?}, interface={:?}",
                                 size,
@@ -151,8 +187,16 @@ where
                                 local_addr,
                             );
 
+                            // udp socket process thread.
+                            //
+                            // read the data packet from the UDP socket and hand
+                            // it to the proto for processing, and send the processed
+                            // data packet to the specified address.
                             if let Ok(Some((data, addr))) = processor.process(&buf[..size], addr).await {
                                 router.send(addr.as_ref(), data).await;
+                                sender.send(Payload::Send);
+                            } else {
+                                sender.send(Payload::Failed);
                             }
                         } else {
                             break;

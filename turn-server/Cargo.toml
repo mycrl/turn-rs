@@ -1,6 +1,6 @@
 [package]
 name = "turn-server"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 description = "A pure rust-implemented turn server."
@@ -22,6 +22,7 @@ categories = [
 
 [dependencies]
 bytes = "1.4.0"
+rustls = "0.21.2"
 faster-stun = { path = "../stun", version = "1" }
 turn-rs = { path = "../turn", version = "1" }
 clap = { version = "4", features = ["derive", "env"] }
