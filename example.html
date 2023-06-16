@@ -20,8 +20,7 @@
         iceTransportPolicy: 'relay',
         iceServers: [
             {
-                // urls: 'turn:localhost?transport=tcp',
-                urls: 'turn:localhost',
+                urls: 'turn:127.0.0.1?transport=udp',
                 username: 'user1',
                 credential: 'test',
             }
@@ -32,7 +31,7 @@
         iceTransportPolicy: 'relay',
         iceServers: [
             {
-                urls: 'turn:localhost',
+                urls: 'turn:127.0.0.1?transport=udp',
                 username: 'user2',
                 credential: 'test',
             }

@@ -1,8 +1,9 @@
 mod transport;
 mod router;
 
+pub use self::router::Router;
+
 use std::sync::Arc;
-use self::router::Router;
 use crate::monitor::Monitor;
 use super::config::{
     Transport,
@@ -33,8 +34,7 @@ pub async fn run(
     service: &Service,
     config: Arc<Config>,
 ) -> anyhow::Result<()> {
-    let router = Router::new().await?;
-
+    let router = Arc::new(Router::default());
     for ite in config.turn.interfaces.clone() {
         let service = service.clone();
         match ite.transport {
