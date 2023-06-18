@@ -256,6 +256,7 @@ impl Into<u16> for Method {
     }
 }
 
+#[derive(Debug)]
 pub enum Payload<'a, 'b> {
     Message(MessageReader<'a, 'b>),
     ChannelData(ChannelData<'a>),
@@ -336,19 +337,19 @@ impl Decoder {
     ///     0xcf, 0xf5, 0xde, 0x82, 0x80, 0x28, 0x00, 0x04, 0x56, 0xf7, 0xa3, 0xed,
     /// ];
     ///
-    /// let size = Decoder::peek_size(&buffer).unwrap();
+    /// let size = Decoder::message_size(&buffer).unwrap();
     /// assert_eq!(size, 96);
     /// ```
-    pub fn peek_size(buf: &[u8]) -> Result<u16> {
+    pub fn message_size(buf: &[u8]) -> Result<usize> {
         let flag = buf[0] >> 6;
         if flag > 3 {
             return Err(anyhow!("invalid buf"));
         }
 
         Ok(if flag == 0 {
-            MessageReader::peek_size(buf)?
+            MessageReader::message_size(buf)?
         } else {
-            ChannelData::peek_size(buf)?
+            ChannelData::message_size(buf)?
         })
     }
 }

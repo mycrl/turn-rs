@@ -26,13 +26,10 @@ use faster_stun::{
     MessageReader as Message,
 };
 
-#[rustfmt::skip]
-pub(crate) type Response<'a> = Option<(
-    &'a [u8],
-    Arc<SocketAddr>
-)>;
+pub type Response<'a> = Option<(&'a [u8], Option<(SocketAddr, u8)>)>;
 
 pub struct Env {
+    pub index: u8,
     pub realm: Arc<String>,
     pub router: Arc<Router>,
     pub external: Arc<SocketAddr>,
@@ -42,7 +39,7 @@ pub struct Env {
 /// message context
 pub struct Context {
     pub env: Arc<Env>,
-    pub addr: Arc<SocketAddr>,
+    pub addr: SocketAddr,
 }
 
 /// process udp message
@@ -51,16 +48,19 @@ pub struct Processor {
     env: Arc<Env>,
     decoder: Decoder,
     writer: BytesMut,
+    pub index: u8,
 }
 
 impl Processor {
     pub(crate) fn new(
+        index: u8,
         external: SocketAddr,
         realm: String,
         router: Arc<Router>,
         observer: Arc<dyn Observer>,
     ) -> Self {
         Self {
+            index,
             decoder: Decoder::new(),
             writer: BytesMut::with_capacity(4096),
             env: Arc::new(Env {
@@ -68,6 +68,7 @@ impl Processor {
                 realm: Arc::new(realm),
                 observer,
                 router,
+                index,
             }),
         }
     }
@@ -185,11 +186,11 @@ impl Processor {
     pub async fn process<'c, 'a: 'c>(
         &'a mut self,
         b: &'a [u8],
-        a: SocketAddr,
+        addr: SocketAddr,
     ) -> Result<Response<'c>> {
         let ctx = Context {
             env: self.env.clone(),
-            addr: Arc::new(a),
+            addr,
         };
 
         Ok(match self.decoder.decode(b)? {
@@ -203,11 +204,11 @@ impl Processor {
     pub async fn process_ext<'c, 'a: 'c>(
         &'a mut self,
         payload: Payload<'a, 'c>,
-        a: SocketAddr,
+        addr: SocketAddr,
     ) -> Result<Response<'c>> {
         let ctx = Context {
             env: self.env.clone(),
-            addr: Arc::new(a),
+            addr,
         };
 
         Ok(match payload {

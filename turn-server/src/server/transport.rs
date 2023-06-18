@@ -1,40 +1,43 @@
 use std::io::ErrorKind::ConnectionReset;
-use faster_stun::Decoder;
-use turn_rs::Processor;
 use std::sync::Arc;
-use tokio::io::{
-    AsyncReadExt,
-    AsyncWriteExt,
+use bytes::BytesMut;
+use faster_stun::Decoder;
+use tokio::{
+    io::{
+        AsyncReadExt,
+        AsyncWriteExt,
+    },
+    sync::Mutex,
 };
 
-use bytes::BytesMut;
+use turn_rs::{
+    Processor,
+    Service,
+};
+
 use tokio::net::{
     UdpSocket,
     TcpListener,
 };
 
-use crate::server::router::Router;
-use crate::monitor::{
-    MonitorSender,
-    Payload,
-};
+use super::router::Router;
+use crate::config::Interface;
 
 pub async fn tcp_processor<T>(
-    handle: T,
-    sender: Arc<MonitorSender>,
-    router: Arc<Router>,
     listen: TcpListener,
+    handle: T,
+    router: Arc<Router>,
 ) where
-    T: Fn() -> Processor,
+    T: Fn(u8) -> Processor,
 {
     let local_addr = listen
         .local_addr()
         .expect("get tcp listener local addr failed!");
 
-    while let Ok((mut socket, addr)) = listen.accept().await {
+    while let Ok((socket, addr)) = listen.accept().await {
         let router = router.clone();
-        let sender = sender.clone();
-        let mut processor = handle();
+        let (index, mut receiver) = router.get_receiver().await;
+        let mut processor = handle(index);
 
         log::info!(
             "tcp socket accept: addr={:?}, interface={:?}",
@@ -42,59 +45,88 @@ pub async fn tcp_processor<T>(
             local_addr,
         );
 
+        if let Err(e) = socket.set_nodelay(true) {
+            log::error!(
+                "tcp socket set nodelay failed!: addr={}, err={}",
+                addr,
+                e
+            );
+        }
+
+        let (mut reader, writer) = socket.into_split();
+        let writer = Arc::new(Mutex::new(writer));
+        let writer_ = writer.clone();
+
         tokio::spawn(async move {
-            router.register(addr, addr).await;
+            while let Some((bytes, target)) = receiver.recv().await {
+                if writer_.lock().await.write_all(&bytes).await.is_err() {
+                    break;
+                } else {
+                    log::trace!(
+                        "tcp socket relay: size={}, addr={:?}",
+                        bytes.len(),
+                        target,
+                    );
+                }
+            }
+        });
 
-            let (mut reader, mut writer) = socket.split();
-            let mut receiver = router.get_receiver(addr).await;
-            let mut buf = BytesMut::with_capacity(4096);
+        tokio::spawn(async move {
+            let mut buf = BytesMut::new();
+            'a: while let Ok(size) = reader.read_buf(&mut buf).await {
+                if size == 0 {
+                    break;
+                }
 
-            loop {
-                tokio::select! {
-                    Ok(size) = reader.read_buf(&mut buf) => {
-                        if size > 0 {
-                            sender.send(Payload::Receive);
-                            log::trace!(
-                                "tcp socket receive: size={}, addr={:?}, interface={:?}",
-                                size,
-                                addr,
-                                local_addr,
-                            );
+                println!("== {}, {}", size, buf.len());
+                if buf.len() < 4 {
+                    continue;
+                }
 
-                            if let Ok(size) = Decoder::peek_size(&buf) {
-                                let chunk = buf.split_to(size as usize);
-                                if let Ok(Some((data, target))) = processor.process(&chunk, addr).await {
-                                    if target.as_ref() != &addr && router.find(target.as_ref()).await {
-                                        router.send(target.as_ref(), data).await;
-                                    } else {
-                                        if writer.write_all(&data).await.is_err() {
-                                            break;
-                                        }
-                                    }
+                // log::trace!(
+                //     "tcp socket receive: size={}, addr={:?}, interface={:?}",
+                //     size,
+                //     addr,
+                //     local_addr,
+                // );
 
-                                    sender.send(Payload::Send);
-                                } else {
-                                    sender.send(Payload::Failed);
-                                }
-                            }
-                        } else {
-                            break;
-                        }
+                loop {
+                    if buf.len() <= 4 {
+                        break;
                     }
-                    Some((bytes, addr)) = receiver.recv() => {
-                        if writer.write_all(&bytes).await.is_err() {
-                            break;
-                        }
 
-                        log::trace!(
-                            "tcp socket relay: size={}, addr={:?}",
-                            bytes.len(),
-                            addr,
-                        );
+                    let size = match Decoder::message_size(&buf) {
+                        Ok(s) if s > buf.len() => break,
+                        Err(_) => break,
+                        Ok(s) => s,
+                    };
+
+                    println!("{}, {}", size, buf.len());
+                    if size == 84 {
+                        println!("{:?}", &buf[..]);
+                    }
+
+                    let chunk = buf.split_to(size);
+                    let ret = processor.process(&chunk, addr).await;
+                    if ret.is_err() {
+                        std::process::exit(1);
+                    }
+
+                    if let Ok(Some((data, target))) =
+                        ret
+                    {
+                        if let Some((target, index)) = target {
+                            router.send(index, &target, data).await;
+                        } else {
+                            if writer.lock().await.write_all(&data).await.is_err() {
+                                break 'a;
+                            }
+                        }
                     }
                 }
             }
 
+            router.remove(index).await;
             log::info!(
                 "tcp socket disconnect: addr={:?}, interface={:?}",
                 addr,
@@ -110,36 +142,32 @@ pub async fn tcp_processor<T>(
 /// it to the proto for processing, and send the processed
 /// data packet to the specified address.
 pub async fn udp_processor(
-    mut processor: Processor,
-    sender: Arc<MonitorSender>,
+    socket: UdpSocket,
+    interface: Interface,
+    service: Service,
     router: Arc<Router>,
-    socket: Arc<UdpSocket>,
-) -> anyhow::Result<()> {
+) {
+    let socket = Arc::new(socket);
     let local_addr = socket
         .local_addr()
         .expect("get udp socket local addr failed!");
-    // let mut receiver = router.get_receiver(local_addr).await;
-    let mut buf = vec![0u8; 4096];
+    let (index, mut receiver) = router.get_receiver().await;
 
-    loop {
-        tokio::select! {
-            ret = socket.recv_from(&mut buf) => {
-                let (size, addr) = match ret {
+    for _ in 0..10 {
+        let socket = socket.clone();
+        let router = router.clone();
+        let mut processor = service.get_processor(index, interface.external);
+
+        tokio::spawn(async move {
+            let mut buf = vec![0u8; 4096];
+
+            loop {
+                let (size, addr) = match socket.recv_from(&mut buf).await {
+                    Err(e) if e.kind() != ConnectionReset => break,
                     Ok(s) => s,
-                    Err(e) => {
-                        if e.kind() != ConnectionReset {
-                            return Err(e.into());
-                        } else {
-                            continue;
-                        }
-                    },
+                    _ => continue,
                 };
 
-                // if !router.find(&addr).await {
-                //     router.register(local_addr, addr).await;
-                // }
-
-                sender.send(Payload::Receive);
                 log::trace!(
                     "udp socket receive: size={}, addr={:?}, interface={:?}",
                     size,
@@ -147,21 +175,21 @@ pub async fn udp_processor(
                     local_addr
                 );
 
-                // The stun message requires at least 4 bytes. (currently the smallest
-                // stun message is channel data, excluding content)
+                // The stun message requires at least 4 bytes. (currently the
+                // smallest stun message is channel data,
+                // excluding content)
                 if size >= 4 {
                     if let Ok(Some((bytes, target))) =
                         processor.process(&buf[..size], addr).await
                     {
-                        if &addr != target.as_ref() && router.find(target.as_ref()).await {
-                            router.send(target.as_ref(), bytes).await;
+                        if let Some((target, index)) = target {
+                            router.send(index, &target, bytes).await;
                         } else {
-                            if let Err(e) = socket.send_to(bytes, target.as_ref()).await {
+                            if let Err(e) = socket.send_to(bytes, &addr).await {
                                 if e.kind() != ConnectionReset {
-                                    return Err(e.into());
+                                    break;
                                 }
                             } else {
-                                sender.send(Payload::Send);
                                 log::trace!(
                                     "udp socket relay: size={}, addr={:?}",
                                     bytes.len(),
@@ -174,27 +202,22 @@ pub async fn udp_processor(
                     }
                 }
 
-                sender.send(Payload::Failed);
                 log::trace!(
                     "udp socket process failed: size={}, addr={:?}",
                     size,
                     addr
                 );
             }
-            // Some((bytes, addr)) = receiver.recv() => {
-            //     if let Err(e) = socket.send_to(&bytes, addr).await {
-            //         if e.kind() != ConnectionReset {
-            //             return Err(e.into());
-            //         }
-            //     } else {
-            //         sender.send(Payload::Send);
-            //         log::trace!(
-            //             "udp socket relay: size={}, addr={:?}",
-            //             bytes.len(),
-            //             addr,
-            //         );
-            //     }
-            // }
+
+            router.remove(processor.index).await;
+        });
+    }
+
+    while let Some((bytes, addr)) = receiver.recv().await {
+        if let Err(e) = socket.send_to(&bytes, addr).await {
+            if e.kind() != ConnectionReset {
+                break;
+            }
         }
     }
 }

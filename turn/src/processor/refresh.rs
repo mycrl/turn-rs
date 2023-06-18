@@ -24,7 +24,6 @@ use faster_stun::attribute::{
 /// return refresh error response
 #[inline(always)]
 fn reject<'a, 'b, 'c>(
-    ctx: Context,
     m: MessageReader<'a, 'b>,
     w: &'c mut BytesMut,
     e: ErrKind,
@@ -33,13 +32,12 @@ fn reject<'a, 'b, 'c>(
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.flush(None)?;
-    Ok(Some((w, ctx.addr)))
+    Ok(Some((w, None)))
 }
 
 /// return refresh ok response
 #[inline(always)]
 pub fn resolve<'a, 'b, 'c>(
-    ctx: &Context,
     m: &MessageReader<'a, 'b>,
     lifetime: u32,
     p: &[u8; 16],
@@ -49,7 +47,7 @@ pub fn resolve<'a, 'b, 'c>(
     let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<Lifetime>(lifetime);
     pack.flush(Some(p))?;
-    Ok(Some((w, ctx.addr.clone())))
+    Ok(Some((w, None)))
 }
 
 /// process refresh request
@@ -98,7 +96,7 @@ pub async fn process<'a, 'b, 'c>(
 ) -> Result<Response<'c>> {
     let u = match m.get::<UserName>() {
         Some(u) => u,
-        _ => return reject(ctx, m, w, Unauthorized),
+        _ => return reject(m, w, Unauthorized),
     };
 
     let l = match m.get::<Lifetime>() {
@@ -106,16 +104,16 @@ pub async fn process<'a, 'b, 'c>(
         _ => 600,
     };
 
-    let key = match ctx.env.router.get_key(&ctx.addr, u).await {
-        None => return reject(ctx, m, w, Unauthorized),
+    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
+        None => return reject(m, w, Unauthorized),
         Some(a) => a,
     };
 
     if m.integrity(&key).is_err() {
-        return reject(ctx, m, w, Unauthorized);
+        return reject(m, w, Unauthorized);
     }
 
     ctx.env.observer.refresh(&ctx.addr, u, l);
     ctx.env.router.refresh(&ctx.addr, l);
-    resolve(&ctx, &m, l, &key, w)
+    resolve(&m, l, &key, w)
 }

@@ -38,6 +38,7 @@ use anyhow::{
 ///
 /// The Application Data field carries the data the client is trying to
 /// send to the peer, or that the peer is sending to the client.
+#[derive(Debug)]
 pub struct ChannelData<'a> {
     /// channnel data bytes.
     pub buf: &'a [u8],
@@ -52,15 +53,15 @@ impl ChannelData<'_> {
     /// use faster_stun::*;
     /// use std::convert::TryFrom;
     ///
-    /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x00];
+    /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     ///
-    /// let size = ChannelData::peek_size(&buffer[..]).unwrap();
-    /// assert_eq!(size, 0);
+    /// let size = ChannelData::message_size(&buffer[..]).unwrap();
+    /// assert_eq!(size, 68);
     /// ```
-    pub fn peek_size(buf: &[u8]) -> Result<u16> {
+    pub fn message_size(buf: &[u8]) -> Result<usize> {
         ensure!(buf.len() >= 4, "data len < 4");
         ensure!((1..3).contains(&(buf[0] >> 6)), "not a channel data");
-        Ok(util::as_u16(&buf[2..4]))
+        Ok((util::as_u16(&buf[2..4]) + 4) as usize)
     }
 }
 

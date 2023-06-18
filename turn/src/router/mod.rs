@@ -21,8 +21,6 @@ use std::{
     thread,
 };
 
-type Addr = Arc<SocketAddr>;
-
 /// Router State Tree.
 ///
 /// this state management example maintains the status of all
@@ -122,7 +120,7 @@ impl Router {
     ///
     /// assert!(router.get_node().is_none());
     /// ```
-    pub fn get_node(&self, a: &Addr) -> Option<nodes::Node> {
+    pub fn get_node(&self, a: &SocketAddr) -> Option<nodes::Node> {
         self.nodes.get_node(a)
     }
 
@@ -133,7 +131,7 @@ impl Router {
     ///
     /// assert!(router.get_node_bounds().len() == 0);
     /// ```
-    pub fn get_node_addrs(&self, u: &str) -> Vec<Addr> {
+    pub fn get_node_addrs(&self, u: &str) -> Vec<SocketAddr> {
         self.nodes.get_addrs(u)
     }
 
@@ -144,7 +142,7 @@ impl Router {
     ///
     /// assert!(state.get_nonce(&addr).len() == 16);
     /// ```
-    pub fn get_nonce(&self, a: &Addr) -> Arc<String> {
+    pub fn get_nonce(&self, a: &SocketAddr) -> Arc<String> {
         self.nonces.get(a)
     }
 
@@ -157,15 +155,20 @@ impl Router {
     ///
     /// // state.get_key(&addr, "panda")
     /// ```
-    pub async fn get_key(&self, a: &Addr, u: &str) -> Option<Arc<[u8; 16]>> {
+    pub async fn get_key(
+        &self,
+        index: u8,
+        a: &SocketAddr,
+        u: &str,
+    ) -> Option<Arc<[u8; 16]>> {
         let key = self.nodes.get_secret(a);
         if key.is_some() {
             return key;
         }
 
-        let pwd = self.observer.auth(a.as_ref(), u).await?;
+        let pwd = self.observer.auth(a, u).await?;
         let key = long_key(u, &pwd, &self.realm);
-        self.nodes.insert(a, u, key, pwd)
+        self.nodes.insert(index, a, u, key, pwd)
     }
 
     /// obtain the peer address bound to the current
@@ -188,7 +191,11 @@ impl Router {
     ///
     /// assert_eq!(state.get_channel_bound(&addr, 0x4000).unwrap(), peer);
     /// ```
-    pub fn get_channel_bound(&self, a: &Addr, c: u16) -> Option<Addr> {
+    pub fn get_channel_bound(
+        &self,
+        a: &SocketAddr,
+        c: u16,
+    ) -> Option<SocketAddr> {
         self.channels.get_bound(a, c)
     }
 
@@ -213,7 +220,7 @@ impl Router {
     /// assert_eq!(state.get_port_bound(&addr, peer_port), some(peer));
     /// assert_eq!(state.get_port_bound(&peer, addr_port), some(addr));
     /// ```
-    pub fn get_port_bound(&self, p: u16) -> Option<Addr> {
+    pub fn get_port_bound(&self, p: u16) -> Option<SocketAddr> {
         self.ports.get(p)
     }
 
@@ -237,7 +244,11 @@ impl Router {
     /// assert_eq!(state.get_bound_port(&addr, &peer), some(peer_port));
     /// assert_eq!(state.get_bound_port(&peer, &addr), some(addr_port));
     /// ```
-    pub fn get_bound_port(&self, a: &Addr, p: &Addr) -> Option<u16> {
+    pub fn get_bound_port(
+        &self,
+        a: &SocketAddr,
+        p: &SocketAddr,
+    ) -> Option<u16> {
         self.ports.get_bound(a, p)
     }
 
@@ -294,7 +305,7 @@ impl Router {
     /// assert!(state.alloc_port(&addr).unwrap().is_some());
     /// assert!(state.alloc_port(&peer).unwrap().is_some());
     /// ```
-    pub fn alloc_port(&self, a: &Addr) -> Option<u16> {
+    pub fn alloc_port(&self, a: &SocketAddr) -> Option<u16> {
         let port = self.ports.alloc(a)?;
         self.nodes.push_port(a, port);
         Some(port)
@@ -322,7 +333,7 @@ impl Router {
     /// assert!(state.bind_port(&peer, addr_port).is_some());
     /// assert!(state.bind_port(&addr, peer_port).is_some());
     /// ```
-    pub fn bind_port(&self, a: &Addr, port: u16) -> Option<()> {
+    pub fn bind_port(&self, a: &SocketAddr, port: u16) -> Option<()> {
         self.ports.bound(a, port)
     }
 
@@ -353,7 +364,7 @@ impl Router {
     /// assert!(state.bind_channel(&peer, addr_port, 0x4000).is_some());
     /// assert!(state.bind_channel(&addr, peer_port, 0x4000).is_some());
     /// ```
-    pub fn bind_channel(&self, a: &Addr, p: u16, c: u16) -> Option<()> {
+    pub fn bind_channel(&self, a: &SocketAddr, p: u16, c: u16) -> Option<()> {
         let source = self.ports.get(p)?;
         self.channels.insert(a, c, &source)?;
         self.nodes.push_channel(a, c)?;
@@ -402,7 +413,7 @@ impl Router {
     /// state.refresh(&addr, 600);
     /// state.refresh(&addr, 0);
     /// ```
-    pub fn refresh(&self, a: &Addr, delay: u32) {
+    pub fn refresh(&self, a: &SocketAddr, delay: u32) {
         if delay > 0 {
             self.nodes.set_lifetime(a, delay);
         } else {
@@ -419,7 +430,7 @@ impl Router {
     /// state.get_key(&addr, "panda");
     /// state.remove(&addr);
     /// ```
-    pub fn remove(&self, a: &Addr) -> Option<()> {
+    pub fn remove(&self, a: &SocketAddr) -> Option<()> {
         let node = self.nodes.remove(a)?;
         self.ports.remove(a, &node.ports);
 

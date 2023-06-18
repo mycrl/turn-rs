@@ -1,100 +1,92 @@
-use tokio::sync::RwLock;
-use bytes::Bytes;
+use bitvec::prelude::*;
 use std::{
     collections::HashMap,
     net::SocketAddr,
     sync::Arc,
 };
 
-use tokio::sync::mpsc::{
-    channel,
-    Receiver,
-    Sender,
+use tokio::sync::{
+    RwLock,
+    Mutex,
 };
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
-pub enum Transport {
-    TCP,
-    UDP,
-}
+use tokio::sync::mpsc::{
+    unbounded_channel,
+    UnboundedReceiver,
+    UnboundedSender,
+};
 
-#[derive(Default)]
 pub struct Router {
-    senders:
-        RwLock<HashMap<(Transport, SocketAddr), Sender<(Bytes, SocketAddr)>>>,
-    map: RwLock<HashMap<SocketAddr, (Transport, SocketAddr)>>,
+    senders: RwLock<HashMap<u8, UnboundedSender<(Vec<u8>, SocketAddr)>>>,
+    bits: Mutex<&'static mut BitSlice<u8, Lsb0>>,
 }
 
 impl Router {
-    pub async fn find(&self, addr: &SocketAddr) -> bool {
-        self.map.read().await.get(addr).is_some()
-    }
-
-    pub async fn register(
-        &self,
-        transport: Transport,
-        interface: SocketAddr,
-        addr: SocketAddr,
-    ) {
-        self.map.write().await.insert(addr, (transport, interface));
+    pub fn new() -> Self {
+        Self {
+            senders: Default::default(),
+            bits: Mutex::new(unsafe { bits![static mut u8, Lsb0; 1; 255] }),
+        }
     }
 
     pub async fn get_receiver(
         self: &Arc<Self>,
-        transport: Transport,
-        addr: SocketAddr,
-    ) -> Receiver<(Bytes, SocketAddr)> {
-        let (sender, mut receiver) = channel(10);
+    ) -> (u8, UnboundedReceiver<(Vec<u8>, SocketAddr)>) {
+        let index = self
+            .alloc_index()
+            .await
+            .expect("transport router alloc index failed!");
+        let (sender, mut receiver) = unbounded_channel();
 
         {
-            self.senders.write().await.insert((transport, addr), sender);
+            self.senders.write().await.insert(index, sender);
         }
 
         let this = self.clone();
-        let (writer, reader) = channel(10);
+        let (writer, reader) = unbounded_channel();
         tokio::spawn(async move {
             while let Some(bytes) = receiver.recv().await {
-                if writer.send(bytes).await.is_err() {
-                    this.remove_sender(&(transport, addr)).await;
+                if writer.send(bytes).is_err() {
+                    this.remove(index).await;
                     break;
                 }
             }
         });
 
-        reader
+        (index, reader)
     }
 
-    pub async fn send(&self, addr: &SocketAddr, data: &[u8]) {
-        let mut destroy = None;
+    pub async fn send(&self, index: u8, addr: &SocketAddr, data: &[u8]) {
+        let mut is_destroy = false;
 
         {
-            if let Some(node) = self.map.read().await.get(addr) {
-                if let Some(sender) = self.senders.read().await.get(node) {
-                    if sender
-                        .send((Bytes::copy_from_slice(data), addr.clone()))
-                        .await
-                        .is_err()
-                    {
-                        destroy = Some(*node);
-                    }
+            if let Some(sender) = self.senders.read().await.get(&index) {
+                if sender.send((data.to_vec(), addr.clone())).is_err() {
+                    is_destroy = true;
                 }
             }
         }
 
-        if let Some(node) = destroy {
-            self.remove_sender(&node).await;
+        if is_destroy {
+            self.remove(index).await;
         }
     }
 
-    async fn remove_sender(&self, node: &(Transport, SocketAddr)) {
-        if let Some(sender) =
-            self.senders.write().await.remove(node)
-        {
+    pub async fn remove(&self, index: u8) {
+        if let Some(sender) = self.senders.write().await.remove(&index) {
+            self.free_index(index).await;
             drop(sender)
         }
     }
 
-    async fn remove(&self, addr: &SocketAddr) {
-        self.map.write().await.remove(addr);
+    async fn alloc_index(&self) -> Option<u8> {
+        let mut bits = self.bits.lock().await;
+        let index = bits.first_one().map(|i| i as u8)?;
+        bits.set(index as usize, false);
+        Some(index)
+    }
+
+    async fn free_index(&self, index: u8) {
+        self.bits.lock().await.set(index as usize, true);
     }
 }

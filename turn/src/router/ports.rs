@@ -1,5 +1,3 @@
-use super::Addr;
-use core::panic;
 use rand::{
     thread_rng,
     Rng,
@@ -12,6 +10,7 @@ use parking_lot::{
 
 use std::{
     collections::HashMap,
+    net::SocketAddr,
     ops::Range,
 };
 
@@ -300,8 +299,8 @@ impl PortPools {
 /// port table.
 pub struct Ports {
     pools: Mutex<PortPools>,
-    map: RwLock<HashMap<u16, Addr>>,
-    bounds: RwLock<HashMap<Addr, HashMap<Addr, u16>>>,
+    map: RwLock<HashMap<u16, SocketAddr>>,
+    bounds: RwLock<HashMap<SocketAddr, HashMap<SocketAddr, u16>>>,
 }
 
 impl Ports {
@@ -347,7 +346,7 @@ impl Ports {
     ///
     /// assert!(pools.get(port).is_some());
     /// ```
-    pub fn get(&self, p: u16) -> Option<Addr> {
+    pub fn get(&self, p: u16) -> Option<SocketAddr> {
         self.map.read().get(&p).cloned()
     }
 
@@ -363,7 +362,7 @@ impl Ports {
     /// assert!(pools.bound(&addr, port).is_some());
     /// assert!(pools.get_bound(&addr, &addr).is_none());
     /// ```
-    pub fn get_bound(&self, a: &Addr, p: &Addr) -> Option<u16> {
+    pub fn get_bound(&self, a: &SocketAddr, p: &SocketAddr) -> Option<u16> {
         self.bounds.read().get(p)?.get(a).cloned()
     }
 
@@ -375,7 +374,7 @@ impl Ports {
     /// let pools = Ports::new();
     /// assert_eq!(pools.alloc().is_some(), true);
     /// ```
-    pub fn alloc(&self, a: &Addr) -> Option<u16> {
+    pub fn alloc(&self, a: &SocketAddr) -> Option<u16> {
         let port = self.pools.lock().alloc(None)?;
         self.map.write().insert(port, a.clone());
         Some(port)
@@ -392,7 +391,7 @@ impl Ports {
     ///
     /// assert!(pools.bound(&addr, port).is_some());
     /// ```
-    pub fn bound(&self, a: &Addr, port: u16) -> Option<()> {
+    pub fn bound(&self, a: &SocketAddr, port: u16) -> Option<()> {
         let peer = self.map.read().get(&port)?.clone();
         self.bounds
             .write()
@@ -415,7 +414,7 @@ impl Ports {
     /// assert!(pools.bound(&addr, port).is_some());
     /// assert!(pools.remove(&addr, &vec![port]).is_some());
     /// ```
-    pub fn remove(&self, a: &Addr, ports: &[u16]) -> Option<()> {
+    pub fn remove(&self, a: &SocketAddr, ports: &[u16]) -> Option<()> {
         let mut pools = self.pools.lock();
         let mut map = self.map.write();
 

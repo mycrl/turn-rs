@@ -1,8 +1,8 @@
-use mimalloc::MiMalloc;
+// use mimalloc::MiMalloc;
 
-// use mimalloc for global.
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+// // use mimalloc for global.
+// #[global_allocator]
+// static GLOBAL: MiMalloc = MiMalloc;
 
 mod server;
 mod config;

@@ -278,8 +278,9 @@ impl Service {
     ///     socket.send_to(buf, target.as_ref()).unwrap();
     /// }
     /// ```
-    pub fn get_processor(&self, external: SocketAddr) -> Processor {
+    pub fn get_processor(&self, index: u8, external: SocketAddr) -> Processor {
         Processor::new(
+            index,
             external,
             self.realm.clone(),
             self.router.clone(),

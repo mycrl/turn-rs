@@ -1,11 +1,8 @@
+use super::ports::capacity;
 use parking_lot::RwLock;
-use super::{
-    ports::capacity,
-    Addr,
-};
-
 use std::{
     collections::HashMap,
+    net::SocketAddr,
     time::Instant,
     sync::Arc,
 };
@@ -77,7 +74,7 @@ impl Nonce {
 
 /// nonce table.
 pub struct Nonces {
-    map: RwLock<HashMap<Addr, Nonce>>,
+    map: RwLock<HashMap<SocketAddr, Nonce>>,
 }
 
 impl Nonces {
@@ -100,7 +97,7 @@ impl Nonces {
     /// let nonce_table = Nonces::new();
     /// // nonce_table.get(&addr)
     /// ```
-    pub fn get(&self, a: &Addr) -> Arc<String> {
+    pub fn get(&self, a: &SocketAddr) -> Arc<String> {
         if let Some(n) = self.map.read().get(a) {
             if !n.is_death() {
                 return n.unwind();
@@ -126,7 +123,7 @@ impl Nonces {
     /// // nonce_table.get(&addr);
     /// nonce_table.remove(&addr);
     /// ```
-    pub fn remove(&self, a: &Addr) {
+    pub fn remove(&self, a: &SocketAddr) {
         self.map.write().remove(a);
     }
 }

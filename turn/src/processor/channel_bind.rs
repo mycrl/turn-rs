@@ -42,20 +42,19 @@ fn reject<'a, 'b, 'c>(
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some((w, ctx.addr)))
+    Ok(Some((w, None)))
 }
 
 /// return channel binding ok response
 #[inline(always)]
 fn resolve<'c>(
-    ctx: &Context,
     m: &MessageReader,
     p: &[u8; 16],
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
     let method = Method::ChannelBind(Kind::Response);
     MessageWriter::extend(method, m, w).flush(Some(p))?;
-    Ok(Some((w, ctx.addr.clone())))
+    Ok(Some((w, None)))
 }
 
 /// process channel binding request
@@ -116,7 +115,7 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, BadRequest);
     }
 
-    let key = match ctx.env.router.get_key(&ctx.addr, u).await {
+    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -135,5 +134,5 @@ pub async fn process<'a, 'b, 'c>(
     }
 
     ctx.env.observer.channel_bind(&ctx.addr, u, c);
-    resolve(&ctx, &m, &key, w)
+    resolve(&m, &key, w)
 }

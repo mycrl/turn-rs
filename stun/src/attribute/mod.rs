@@ -97,7 +97,7 @@ pub enum Transport {
 /// 0x8003: ALTERNATE-DOMAIN
 #[repr(u16)]
 #[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub enum AttrKind {
     UserName = 0x0006,
     Data = 0x0013,

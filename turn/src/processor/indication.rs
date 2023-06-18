@@ -94,11 +94,16 @@ pub fn process<'a, 'b, 'c>(
         Some(p) => p,
     };
 
+    let index = match ctx.env.router.get_node(&a) {
+        None => return Ok(None),
+        Some(p) => p.index,
+    };
+
     let method = Method::DataIndication;
     let s = Arc::new(SocketAddr::new(ctx.env.external.ip(), p));
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<XorPeerAddress>(*s.as_ref());
     pack.append::<Data>(d);
     pack.flush(None)?;
-    Ok(Some((w, a)))
+    Ok(Some((w, Some((a, index)))))
 }

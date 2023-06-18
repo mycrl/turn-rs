@@ -42,13 +42,12 @@ fn reject<'a, 'b, 'c>(
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some((w, ctx.addr)))
+    Ok(Some((w, None)))
 }
 
 /// return create permission ok response
 #[inline(always)]
 fn resolve<'a, 'b, 'c>(
-    ctx: &Context,
     m: &MessageReader<'a, 'b>,
     p: &[u8; 16],
     w: &'c mut BytesMut,
@@ -57,7 +56,7 @@ fn resolve<'a, 'b, 'c>(
     let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<Software>(SOFTWARE);
     pack.flush(Some(p))?;
-    Ok(Some((w, ctx.addr.clone())))
+    Ok(Some((w, None)))
 }
 
 /// process create permission request
@@ -118,7 +117,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(u) => u,
     };
 
-    let key = match ctx.env.router.get_key(&ctx.addr, u).await {
+    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -132,5 +131,5 @@ pub async fn process<'a, 'b, 'c>(
     }
 
     ctx.env.observer.create_permission(&ctx.addr, u, &peer);
-    resolve(&ctx, &m, &key, w)
+    resolve(&m, &key, w)
 }

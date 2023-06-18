@@ -52,7 +52,7 @@ fn reject<'a, 'b, 'c>(
     pack.append::<Realm>(&ctx.env.realm);
     pack.append::<Nonce>(&nonce);
     pack.flush(None)?;
-    Ok(Some((w, ctx.addr)))
+    Ok(Some((w, None)))
 }
 
 /// return allocate ok response
@@ -77,11 +77,11 @@ fn resolve<'a, 'b, 'c>(
     let alloc_addr = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
     let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<XorRelayedAddress>(*alloc_addr.as_ref());
-    pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
+    pack.append::<XorMappedAddress>(ctx.addr);
     pack.append::<Lifetime>(600);
     pack.append::<Software>(SOFTWARE);
     pack.flush(Some(p))?;
-    Ok(Some((w, ctx.addr.clone())))
+    Ok(Some((w, None)))
 }
 
 /// process allocate request
@@ -114,7 +114,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(u) => u,
     };
 
-    let key = match ctx.env.router.get_key(&ctx.addr, u).await {
+    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(p) => p,
     };
