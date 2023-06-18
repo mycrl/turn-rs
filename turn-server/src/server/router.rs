@@ -36,24 +36,9 @@ impl Router {
             .alloc_index()
             .await
             .expect("transport router alloc index failed!");
-        let (sender, mut receiver) = unbounded_channel();
-
-        {
-            self.senders.write().await.insert(index, sender);
-        }
-
-        let this = self.clone();
-        let (writer, reader) = unbounded_channel();
-        tokio::spawn(async move {
-            while let Some(bytes) = receiver.recv().await {
-                if writer.send(bytes).is_err() {
-                    this.remove(index).await;
-                    break;
-                }
-            }
-        });
-
-        (index, reader)
+        let (sender, receiver) = unbounded_channel();
+        self.senders.write().await.insert(index, sender);
+        (index, receiver)
     }
 
     pub async fn send(&self, index: u8, addr: &SocketAddr, data: &[u8]) {

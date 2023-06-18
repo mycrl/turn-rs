@@ -1,12 +1,15 @@
-use std::io::ErrorKind::ConnectionReset;
-use std::sync::Arc;
-use bytes::BytesMut;
+use crate::config::Interface;
+use super::router::Router;
 use faster_stun::Decoder;
+use bytes::BytesMut;
+use std::{
+    io::ErrorKind::ConnectionReset,
+    sync::Arc,
+};
+
 use tokio::{
-    io::{
-        AsyncReadExt,
-        AsyncWriteExt,
-    },
+    io::AsyncReadExt,
+    io::AsyncWriteExt,
     sync::Mutex,
 };
 
@@ -20,9 +23,10 @@ use tokio::net::{
     TcpListener,
 };
 
-use super::router::Router;
-use crate::config::Interface;
-
+/// tcp socket process thread.
+///
+/// This function is used to handle all connections coming from the tcp
+/// listener, and handle the receiving, sending and forwarding of messages.
 pub async fn tcp_processor<T>(
     listen: TcpListener,
     handle: T,
@@ -34,6 +38,8 @@ pub async fn tcp_processor<T>(
         .local_addr()
         .expect("get tcp listener local addr failed!");
 
+    // Accept all connections on the current listener, but exit the entire
+    // process when an error occurs.
     while let Ok((socket, addr)) = listen.accept().await {
         let router = router.clone();
         let (index, mut receiver) = router.get_receiver().await;
@@ -45,6 +51,9 @@ pub async fn tcp_processor<T>(
             local_addr,
         );
 
+        // Disable the Nagle algorithm.
+        // because to maintain real-time, any received data should be processed
+        // as soon as possible.
         if let Err(e) = socket.set_nodelay(true) {
             log::error!(
                 "tcp socket set nodelay failed!: addr={}, err={}",
@@ -57,9 +66,16 @@ pub async fn tcp_processor<T>(
         let writer = Arc::new(Mutex::new(writer));
         let writer_ = writer.clone();
 
+        // Use a separate task to handle messages forwarded to this socket.
         tokio::spawn(async move {
             while let Some((bytes, target)) = receiver.recv().await {
-                if writer_.lock().await.write_all(&bytes).await.is_err() {
+                if writer_
+                    .lock()
+                    .await
+                    .write_all(bytes.as_slice())
+                    .await
+                    .is_err()
+                {
                     break;
                 } else {
                     log::trace!(
@@ -73,56 +89,64 @@ pub async fn tcp_processor<T>(
 
         tokio::spawn(async move {
             let mut buf = BytesMut::new();
-            'a: while let Ok(size) = reader.read_buf(&mut buf).await {
-                if size == 0 {
-                    break;
-                }
-
-                println!("== {}, {}", size, buf.len());
-                if buf.len() < 4 {
-                    continue;
-                }
-
-                // log::trace!(
-                //     "tcp socket receive: size={}, addr={:?}, interface={:?}",
-                //     size,
-                //     addr,
-                //     local_addr,
-                // );
-
-                loop {
-                    if buf.len() <= 4 {
+            'a: loop {
+                if let Ok(size) = reader.read_buf(&mut buf).await {
+                    // When the received message is 0, it means that the socket
+                    // has been closed.
+                    if size == 0 {
                         break;
                     }
 
-                    let size = match Decoder::message_size(&buf) {
-                        Ok(s) if s > buf.len() => break,
-                        Err(_) => break,
-                        Ok(s) => s,
-                    };
-
-                    println!("{}, {}", size, buf.len());
-                    if size == 84 {
-                        println!("{:?}", &buf[..]);
+                    // The minimum length of a stun message will not be less
+                    // than 4.
+                    if buf.len() < 4 {
+                        continue;
                     }
 
-                    let chunk = buf.split_to(size);
-                    let ret = processor.process(&chunk, addr).await;
-                    if ret.is_err() {
-                        std::process::exit(1);
-                    }
+                    log::trace!(
+                        "tcp socket receive: size={}, addr={:?}, \
+                         interface={:?}",
+                        size,
+                        addr,
+                        local_addr,
+                    );
 
-                    if let Ok(Some((data, target))) =
-                        ret
-                    {
-                        if let Some((target, index)) = target {
-                            router.send(index, &target, data).await;
-                        } else {
-                            if writer.lock().await.write_all(&data).await.is_err() {
-                                break 'a;
+                    loop {
+                        if buf.len() <= 4 {
+                            break;
+                        }
+
+                        // Try to get the message length, if the currently
+                        // received data is less than the message length, jump
+                        // out of the current loop and continue to receive more
+                        // data.
+                        let size = match Decoder::message_size(&buf, true) {
+                            Ok(s) if s > buf.len() => break,
+                            Err(_) => break,
+                            Ok(s) => s,
+                        };
+
+                        let chunk = buf.split_to(size);
+                        if let Ok(Some((data, target))) =
+                            processor.process(&chunk, addr).await
+                        {
+                            if let Some((target, index)) = target {
+                                router.send(index, &target, data).await;
+                            } else {
+                                if writer
+                                    .lock()
+                                    .await
+                                    .write_all(&data)
+                                    .await
+                                    .is_err()
+                                {
+                                    break 'a;
+                                }
                             }
                         }
                     }
+                } else {
+                    break;
                 }
             }
 
@@ -162,6 +186,9 @@ pub async fn udp_processor(
             let mut buf = vec![0u8; 4096];
 
             loop {
+                // TODO: An error will also be reported when the remote host is
+                // shut down, which is not processed yet, but a
+                // warning will be issued.
                 let (size, addr) = match socket.recv_from(&mut buf).await {
                     Err(e) if e.kind() != ConnectionReset => break,
                     Ok(s) => s,
@@ -210,6 +237,7 @@ pub async fn udp_processor(
             }
 
             router.remove(processor.index).await;
+            log::info!("udp server close: interface={:?}", local_addr,);
         });
     }
 

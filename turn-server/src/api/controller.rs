@@ -12,12 +12,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    monitor::MonitorWorker,
-    monitor::Monitor,
-    config::*,
-};
-
+use crate::config::*;
 use turn_rs::{
     Router,
     Node,
@@ -44,42 +39,6 @@ pub struct Stats {
     port_allocated: u16,
     /// The partition where the turn server resides.
     realm: String,
-}
-
-/// Represents a turn INodeion processing thread
-#[derive(Serialize)]
-pub struct Worker {
-    /// The total number of data packets that the turn server has received so
-    /// far.
-    receive_packets: u64,
-    /// The total number of packets sent by the turn server so far.
-    send_packets: u64,
-    /// The total number of packets that the turn server failed to process.
-    failed_packets: u64,
-}
-
-impl From<&MonitorWorker> for Worker {
-    /// # Example
-    ///
-    /// ```no_run
-    /// let mworker = WorkerMonitor {
-    ///     receive_packets: 10,
-    ///     failed_packets: 0,
-    ///     send_packets: 10,
-    /// };
-    ///
-    /// let worker = Worker::from(&mworker);
-    /// assert_eq!(worker.receive_packets, 10);
-    /// assert_eq!(worker.failed_packets, 0);
-    /// assert_eq!(worker.send_packets, 10);
-    /// ```
-    fn from(value: &MonitorWorker) -> Self {
-        Self {
-            receive_packets: value.receive_packets,
-            failed_packets: value.failed_packets,
-            send_packets: value.send_packets,
-        }
-    }
 }
 
 /// node information in the turn server
@@ -140,7 +99,6 @@ pub struct Qiter {
 /// It is possible to control the turn server and obtain server internal
 /// information and reports through the controller.
 pub struct Controller {
-    monitor: Monitor,
     config: Arc<Config>,
     router: Arc<Router>,
     timer: Instant,
@@ -161,14 +119,9 @@ impl Controller {
     ///
     /// Controller::new(service.get_router(), config, monitor);
     /// ```
-    pub fn new(
-        monitor: Monitor,
-        router: Arc<Router>,
-        config: Arc<Config>,
-    ) -> Arc<Self> {
+    pub fn new(router: Arc<Router>, config: Arc<Config>) -> Arc<Self> {
         Arc::new(Self {
             timer: Instant::now(),
-            monitor,
             config,
             router,
         })
@@ -195,35 +148,6 @@ impl Controller {
             port_capacity: this.router.capacity() as u16,
             interfaces: this.config.turn.interfaces.clone(),
         })
-    }
-
-    /// Get a list of workers
-    ///
-    /// Workers are bound to the internal threads of the server. Through this
-    /// interface, you can get how many threads currently exist in the server,
-    /// and how much data processing capacity each thread has.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let workers_js = ctr.get_workers().await;
-    /// ```
-    pub async fn get_workers(
-        State(this): State<&Self>,
-    ) -> Json<HashMap<u8, Worker>> {
-        let workers = this
-            .monitor
-            .get_workers()
-            .await
-            .iter()
-            .map(|(k, v)| (*k, Worker::from(v)))
-            .collect();
-        Json(workers)
     }
 
     /// Get user list.

@@ -3,7 +3,6 @@ mod router;
 
 pub use self::router::Router;
 
-use crate::monitor::Monitor;
 use super::config::{
     Transport,
     Config,
@@ -29,29 +28,23 @@ use tokio::net::{
 ///
 /// // run(&service, config).await?
 /// ```
-pub async fn run(
-    _monitor: &Monitor,
-    service: &Service,
-    config: Arc<Config>,
-) -> anyhow::Result<()> {
+pub async fn run(service: &Service, config: Arc<Config>) -> anyhow::Result<()> {
     let router = Arc::new(Router::new());
-    for interface in config.turn.interfaces.clone() {
+    for i in config.turn.interfaces.clone() {
         let service = service.clone();
-        match interface.transport {
+        match i.transport {
             Transport::UDP => {
                 tokio::spawn(transport::udp_processor(
-                    UdpSocket::bind(interface.bind).await?,
-                    interface.clone(),
+                    UdpSocket::bind(i.bind).await?,
+                    i.clone(),
                     service.clone(),
                     router.clone(),
                 ));
             },
             Transport::TCP => {
                 tokio::spawn(transport::tcp_processor(
-                    TcpListener::bind(interface.bind).await?,
-                    move |index| {
-                        service.get_processor(index, interface.external)
-                    },
+                    TcpListener::bind(i.bind).await?,
+                    move |index| service.get_processor(index, i.external),
                     router.clone(),
                 ));
             },
@@ -59,9 +52,9 @@ pub async fn run(
 
         log::info!(
             "turn server listening: addr={}, external={}, transport={:?}",
-            interface.bind,
-            interface.external,
-            interface.transport,
+            i.bind,
+            i.external,
+            i.transport,
         );
     }
 

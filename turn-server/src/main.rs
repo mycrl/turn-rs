@@ -1,16 +1,14 @@
-// use mimalloc::MiMalloc;
+use mimalloc::MiMalloc;
 
-// // use mimalloc for global.
-// #[global_allocator]
-// static GLOBAL: MiMalloc = MiMalloc;
+// use mimalloc for global.
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 mod server;
 mod config;
-mod monitor;
 mod api;
 
 use async_trait::async_trait;
-use monitor::Monitor;
 use config::Config;
 use turn_rs::{
     Service,
@@ -272,13 +270,11 @@ async fn main() -> anyhow::Result<()> {
     let config = Arc::new(Config::load()?);
     simple_logger::init_with_level(config.log.level.as_level())?;
 
-    let monitor = Monitor::new();
     let service =
         Service::new(Events::new(config.clone()), config.turn.realm.clone());
-    server::run(&monitor, &service, config.clone()).await?;
+    server::run(&service, config.clone()).await?;
 
-    let controller =
-        Controller::new(monitor, service.get_router(), config.clone());
+    let controller = Controller::new(service.get_router(), config.clone());
     api::start(&config, &controller).await?;
     Ok(())
 }

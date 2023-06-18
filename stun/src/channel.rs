@@ -55,13 +55,18 @@ impl ChannelData<'_> {
     ///
     /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     ///
-    /// let size = ChannelData::message_size(&buffer[..]).unwrap();
+    /// let size = ChannelData::message_size(&buffer[..], false).unwrap();
     /// assert_eq!(size, 68);
     /// ```
-    pub fn message_size(buf: &[u8]) -> Result<usize> {
+    pub fn message_size(buf: &[u8], is_tcp: bool) -> Result<usize> {
         ensure!(buf.len() >= 4, "data len < 4");
         ensure!((1..3).contains(&(buf[0] >> 6)), "not a channel data");
-        Ok((util::as_u16(&buf[2..4]) + 4) as usize)
+        let mut size = (util::as_u16(&buf[2..4]) + 4) as usize;
+        if is_tcp && (size % 4) > 0 {
+            size += 4 - (size % 4);
+        }
+
+        Ok(size)
     }
 }
 
