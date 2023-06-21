@@ -224,8 +224,6 @@ pub async fn udp_processor(
                                 );
                             }
                         }
-
-                        continue;
                     }
                 }
 
