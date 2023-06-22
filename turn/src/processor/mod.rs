@@ -11,6 +11,7 @@ use bytes::BytesMut;
 use crate::{
     router::Router,
     Observer,
+    StunClass,
 };
 
 use std::{
@@ -26,7 +27,12 @@ use faster_stun::{
     MessageReader as Message,
 };
 
-pub type Response<'a> = Option<(&'a [u8], Option<(SocketAddr, u8)>)>;
+#[rustfmt::skip]
+pub type Response<'a> = Option<(
+    &'a [u8], 
+    StunClass, 
+    Option<(SocketAddr, u8)>
+)>;
 
 pub struct Env {
     pub index: u8,

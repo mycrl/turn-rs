@@ -1,4 +1,5 @@
 use faster_stun::ChannelData;
+use crate::StunClass;
 use super::{
     Context,
     Response,
@@ -35,5 +36,5 @@ use super::{
 pub fn process(ctx: Context, data: ChannelData<'_>) -> Response<'_> {
     let addr = ctx.env.router.get_channel_bound(&ctx.addr, data.number)?;
     let index = ctx.env.router.get_node(&addr)?.index;
-    Some((data.buf, Some((addr, index))))
+    Some((data.buf, StunClass::Channel, Some((addr, index))))
 }

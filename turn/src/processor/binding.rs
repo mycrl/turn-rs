@@ -1,11 +1,15 @@
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::SOFTWARE;
 use faster_stun::{
     Kind,
     Method,
     MessageReader,
     MessageWriter,
+};
+
+use crate::{
+    SOFTWARE,
+    StunClass,
 };
 
 use super::{
@@ -55,5 +59,5 @@ pub fn process<'a>(
     pack.append::<Software>(SOFTWARE);
     pack.flush(None)?;
     ctx.env.observer.binding(&ctx.addr);
-    Ok(Some((w, None)))
+    Ok(Some((w, StunClass::Message, None)))
 }

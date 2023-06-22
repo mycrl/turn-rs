@@ -1,5 +1,6 @@
 use anyhow::Result;
 use bytes::BytesMut;
+use crate::StunClass;
 use super::{
     Context,
     Response,
@@ -42,7 +43,7 @@ fn reject<'a, 'b, 'c>(
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some((w, None)))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// return channel binding ok response
@@ -54,7 +55,7 @@ fn resolve<'c>(
 ) -> Result<Response<'c>> {
     let method = Method::ChannelBind(Kind::Response);
     MessageWriter::extend(method, m, w).flush(Some(p))?;
-    Ok(Some((w, None)))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// process channel binding request

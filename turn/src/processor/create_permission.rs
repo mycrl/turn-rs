@@ -1,6 +1,10 @@
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::SOFTWARE;
+use crate::{
+    SOFTWARE,
+    StunClass,
+};
+
 use super::{
     Context,
     Response,
@@ -42,7 +46,7 @@ fn reject<'a, 'b, 'c>(
     pack.append::<ErrorCode>(Error::from(e));
     pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some((w, None)))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// return create permission ok response
@@ -56,7 +60,7 @@ fn resolve<'a, 'b, 'c>(
     let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<Software>(SOFTWARE);
     pack.flush(Some(p))?;
-    Ok(Some((w, None)))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// process create permission request

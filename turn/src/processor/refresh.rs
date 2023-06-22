@@ -1,5 +1,6 @@
 use bytes::BytesMut;
 use anyhow::Result;
+use crate::StunClass;
 use super::{
     Context,
     Response,
@@ -32,7 +33,7 @@ fn reject<'a, 'b, 'c>(
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
     pack.flush(None)?;
-    Ok(Some((w, None)))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// return refresh ok response
@@ -47,7 +48,7 @@ pub fn resolve<'a, 'b, 'c>(
     let mut pack = MessageWriter::extend(method, m, w);
     pack.append::<Lifetime>(lifetime);
     pack.flush(Some(p))?;
-    Ok(Some((w, None)))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// process refresh request

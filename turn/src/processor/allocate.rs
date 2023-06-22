@@ -1,6 +1,10 @@
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::SOFTWARE;
+use crate::{
+    SOFTWARE,
+    StunClass,
+};
+
 use super::{
     Context,
     Response,
@@ -52,7 +56,7 @@ fn reject<'a, 'b, 'c>(
     pack.append::<Realm>(&ctx.env.realm);
     pack.append::<Nonce>(&nonce);
     pack.flush(None)?;
-    Ok(Some((w, None)))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// return allocate ok response
@@ -81,7 +85,7 @@ fn resolve<'a, 'b, 'c>(
     pack.append::<Lifetime>(600);
     pack.append::<Software>(SOFTWARE);
     pack.flush(Some(p))?;
-    Ok(Some((w, None)))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// process allocate request

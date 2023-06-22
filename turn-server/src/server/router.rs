@@ -1,4 +1,5 @@
 use bitvec::prelude::*;
+use turn_rs::StunClass;
 use std::{
     collections::HashMap,
     net::SocketAddr,
@@ -18,7 +19,8 @@ use tokio::sync::mpsc::{
 
 /// Handles packet forwarding between transport protocols.
 pub struct Router {
-    senders: RwLock<HashMap<u8, UnboundedSender<(Vec<u8>, SocketAddr)>>>,
+    senders:
+        RwLock<HashMap<u8, UnboundedSender<(Vec<u8>, StunClass, SocketAddr)>>>,
     bits: Mutex<&'static mut BitSlice<u8, Lsb0>>,
 }
 
@@ -30,6 +32,13 @@ impl Router {
         }
     }
     
+    async fn alloc_index(&self) -> Option<u8> {
+        let mut bits = self.bits.lock().await;
+        let index = bits.first_one().map(|i| i as u8)?;
+        bits.set(index as usize, false);
+        Some(index)
+    }
+
     async fn alloc_index(&self) -> Option<u8> {
         let mut bits = self.bits.lock().await;
         let index = bits.first_one().map(|i| i as u8)?;
@@ -58,7 +67,7 @@ impl Router {
     /// ```
     pub async fn get_receiver(
         self: &Arc<Self>,
-    ) -> (u8, UnboundedReceiver<(Vec<u8>, SocketAddr)>) {
+    ) -> (u8, UnboundedReceiver<(Vec<u8>, StunClass, SocketAddr)>) {
         let index = self
             .alloc_index()
             .await
@@ -80,19 +89,25 @@ impl Router {
     /// ```no_run
     /// let router = Router::new()
     /// let (index, receiver) = router.get_receiver().await;
-    /// 
+    ///
     /// router.send(index, "127.0.0.1:8080".parse().unwrap(), b"hello").await;
     ///
     /// while let Some((data, target)) = receiver.recv().await {
     ///     println!("{}, {:?}", data.len(), target);
     /// }
     /// ```
-    pub async fn send(&self, index: u8, addr: &SocketAddr, data: &[u8]) {
+    pub async fn send(
+        &self,
+        index: u8,
+        class: StunClass,
+        addr: &SocketAddr,
+        data: &[u8],
+    ) {
         let mut is_destroy = false;
 
         {
             if let Some(sender) = self.senders.read().await.get(&index) {
-                if sender.send((data.to_vec(), addr.clone())).is_err() {
+                if sender.send((data.to_vec(), class, addr.clone())).is_err() {
                     is_destroy = true;
                 }
             }
@@ -110,7 +125,7 @@ impl Router {
     /// ```no_run
     /// let router = Router::new()
     /// let (index, receiver) = router.get_receiver().await;
-    /// 
+    ///
     /// router.remove(index).await;
     /// router.send(index, "127.0.0.1:8080".parse().unwrap(), b"hello").await;
     ///

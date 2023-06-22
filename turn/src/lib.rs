@@ -11,6 +11,12 @@ use std::{
     sync::Arc,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StunClass {
+    Message,
+    Channel,
+}
+
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
     env!("CARGO_PKG_NAME"), 

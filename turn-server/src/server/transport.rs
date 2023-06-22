@@ -16,12 +16,15 @@ use tokio::{
 use turn_rs::{
     Processor,
     Service,
+    StunClass,
 };
 
 use tokio::net::{
     UdpSocket,
     TcpListener,
 };
+
+static ZERO_BUF: [u8; 4] = [0u8; 4];
 
 /// tcp socket process thread.
 ///
@@ -68,85 +71,81 @@ pub async fn tcp_processor<T>(
 
         // Use a separate task to handle messages forwarded to this socket.
         tokio::spawn(async move {
-            while let Some((bytes, target)) = receiver.recv().await {
-                if writer_
-                    .lock()
-                    .await
-                    .write_all(bytes.as_slice())
-                    .await
-                    .is_err()
-                {
+            while let Some((bytes, kind, _)) = receiver.recv().await {
+                let mut writer = writer_.lock().await;
+                if writer.write_all(bytes.as_slice()).await.is_err() {
                     break;
-                } else {
-                    log::trace!(
-                        "tcp socket relay: size={}, addr={:?}",
-                        bytes.len(),
-                        target,
-                    );
+                }
+
+                // The channel data needs to be aligned in multiples of 4 in
+                // tcp. If the channel data is forwarded to tcp, the alignment
+                // bit needs to be filled, because if the channel data comes
+                // from udp, it is not guaranteed to be aligned and needs to be
+                // checked.
+                if kind == StunClass::Channel {
+                    let pad = bytes.len() % 4;
+                    if pad > 0 {
+                        if writer
+                            .write_all(&ZERO_BUF[..(4 - pad)])
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
                 }
             }
         });
 
         tokio::spawn(async move {
             let mut buf = BytesMut::new();
-            'a: loop {
-                if let Ok(size) = reader.read_buf(&mut buf).await {
-                    // When the received message is 0, it means that the socket
-                    // has been closed.
-                    if size == 0 {
+
+            'a: while let Ok(size) = reader.read_buf(&mut buf).await {
+                // When the received message is 0, it means that the socket
+                // has been closed.
+                if size == 0 {
+                    break;
+                }
+
+                // The minimum length of a stun message will not be less
+                // than 4.
+                if buf.len() < 4 {
+                    continue;
+                }
+
+                loop {
+                    if buf.len() <= 4 {
                         break;
                     }
 
-                    // The minimum length of a stun message will not be less
-                    // than 4.
-                    if buf.len() < 4 {
-                        continue;
-                    }
+                    // Try to get the message length, if the currently
+                    // received data is less than the message length, jump
+                    // out of the current loop and continue to receive more
+                    // data.
+                    let size = match Decoder::message_size(&buf, true) {
+                        Ok(s) if s > buf.len() => break,
+                        Err(_) => break,
+                        Ok(s) => s,
+                    };
 
-                    log::trace!(
-                        "tcp socket receive: size={}, addr={:?}, \
-                         interface={:?}",
-                        size,
-                        addr,
-                        local_addr,
-                    );
-
-                    loop {
-                        if buf.len() <= 4 {
-                            break;
-                        }
-
-                        // Try to get the message length, if the currently
-                        // received data is less than the message length, jump
-                        // out of the current loop and continue to receive more
-                        // data.
-                        let size = match Decoder::message_size(&buf, true) {
-                            Ok(s) if s > buf.len() => break,
-                            Err(_) => break,
-                            Ok(s) => s,
-                        };
-
-                        let chunk = buf.split_to(size);
-                        if let Ok(Some((data, target))) =
-                            processor.process(&chunk, addr).await
-                        {
-                            if let Some((target, index)) = target {
-                                router.send(index, &target, data).await;
-                            } else {
-                                if writer
-                                    .lock()
-                                    .await
-                                    .write_all(&data)
-                                    .await
-                                    .is_err()
-                                {
-                                    break 'a;
-                                }
+                    let chunk = buf.split_to(size);
+                    if let Ok(Some((data, class, target))) =
+                        processor.process(&chunk, addr).await
+                    {
+                        if let Some((target, index)) = target {
+                            router.send(index, class, &target, data).await;
+                        } else {
+                            if writer
+                                .lock()
+                                .await
+                                .write_all(&data)
+                                .await
+                                .is_err()
+                            {
+                                break 'a;
                             }
                         }
                     }
-                } else {
-                    break;
                 }
             }
 
@@ -195,33 +194,20 @@ pub async fn udp_processor(
                     _ => continue,
                 };
 
-                log::trace!(
-                    "udp socket receive: size={}, addr={:?}, interface={:?}",
-                    size,
-                    addr,
-                    local_addr
-                );
-
                 // The stun message requires at least 4 bytes. (currently the
                 // smallest stun message is channel data,
                 // excluding content)
                 if size >= 4 {
-                    if let Ok(Some((bytes, target))) =
+                    if let Ok(Some((bytes, class, target))) =
                         processor.process(&buf[..size], addr).await
                     {
                         if let Some((target, index)) = target {
-                            router.send(index, &target, bytes).await;
+                            router.send(index, class, &target, bytes).await;
                         } else {
                             if let Err(e) = socket.send_to(bytes, &addr).await {
                                 if e.kind() != ConnectionReset {
                                     break;
                                 }
-                            } else {
-                                log::trace!(
-                                    "udp socket relay: size={}, addr={:?}",
-                                    bytes.len(),
-                                    target.as_ref()
-                                );
                             }
                         }
                     }
@@ -239,7 +225,7 @@ pub async fn udp_processor(
         });
     }
 
-    while let Some((bytes, addr)) = receiver.recv().await {
+    while let Some((bytes, _, addr)) = receiver.recv().await {
         if let Err(e) = socket.send_to(&bytes, addr).await {
             if e.kind() != ConnectionReset {
                 break;

@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::StunClass;
 use super::{
     Context,
     Response,
@@ -105,5 +106,5 @@ pub fn process<'a, 'b, 'c>(
     pack.append::<XorPeerAddress>(*s.as_ref());
     pack.append::<Data>(d);
     pack.flush(None)?;
-    Ok(Some((w, Some((a, index)))))
+    Ok(Some((w, StunClass::Message, Some((a, index)))))
 }
