@@ -11,6 +11,19 @@ use std::{
     sync::Arc,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StunClass {
+    Message,
+    Channel,
+}
+
+#[rustfmt::skip]
+static SOFTWARE: &str = concat!(
+    env!("CARGO_PKG_NAME"), 
+    "-",
+    env!("CARGO_PKG_VERSION")
+);
+
 #[async_trait]
 pub trait Observer: Send + Sync {
     /// turn auth request
@@ -196,6 +209,7 @@ pub trait Observer: Send + Sync {
 }
 
 /// TUTN service.
+#[derive(Clone)]
 pub struct Service {
     router: Arc<Router>,
     observer: Arc<dyn Observer>,
@@ -239,30 +253,6 @@ impl Service {
         }
     }
 
-    /// Start run service.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// struct Events;
-    ///
-    /// impl Observer for Events {
-    ///     async fn auth(&self, _addr: &SocketAddr, _name: &str) -> Option<&str> {
-    ///         Some("test")
-    ///     }
-    /// }
-    ///
-    /// let service = Service::new(
-    ///     Events {},
-    ///     "test".to_string(),
-    /// );
-    ///
-    /// tokio::spawn(service.run()).await;
-    /// ```
-    pub async fn run(self) {
-        self.router.start_poll().await
-    }
-
     /// Get processor.
     ///
     /// # Examples
@@ -294,8 +284,9 @@ impl Service {
     ///     socket.send_to(buf, target.as_ref()).unwrap();
     /// }
     /// ```
-    pub fn get_processor(&self, external: SocketAddr) -> Processor {
+    pub fn get_processor(&self, index: u8, external: SocketAddr) -> Processor {
         Processor::new(
+            index,
             external,
             self.realm.clone(),
             self.router.clone(),

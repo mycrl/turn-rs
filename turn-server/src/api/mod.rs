@@ -106,7 +106,6 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
     let ctr: &'static Controller = unsafe { std::mem::transmute(ctr) };
     let app = Router::new()
         .route("/stats", get(Controller::get_stats))
-        .route("/workers", get(Controller::get_workers))
         .route("/users", get(Controller::get_users))
         .route("/node", get(Controller::get_node))
         .route("/node", delete(Controller::remove_node))
@@ -115,14 +114,16 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
                 cfg.controller
                     .allow_origin
                     .as_str()
-                    .parse::<HeaderValue>()
-                    .unwrap(),
+                    .parse::<HeaderValue>()?,
             ),
         )
         .layer(LogLayer)
         .with_state(ctr);
 
-    log::info!("controller server listening: {}", &cfg.controller.listen);
+    log::info!(
+        "controller server listening: addr={:?}",
+        &cfg.controller.listen
+    );
     axum::Server::bind(&cfg.controller.listen)
         .serve(app.into_make_service())
         .await?;

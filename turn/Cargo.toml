@@ -1,6 +1,6 @@
 [package]
 name = "turn-rs"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2021"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 description = "A library for handling round sessions."
@@ -21,7 +21,7 @@ categories = [
 
 [dependencies]
 faster-stun = { path = "../stun", version = "1" }
-tokio = { version = "1", features = ["sync", "time"] }
+parking_lot = "0.12"
 async-trait = "0.1"
 bytes = "1"
 anyhow = "1.0"

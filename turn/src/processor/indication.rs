@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::StunClass;
 use super::{
     Context,
     Response,
@@ -65,7 +66,7 @@ use faster_stun::attribute::{
 /// and [15](https://tools.ietf.org/html/rfc8656#section-15).
 ///
 /// The resulting UDP datagram is then sent to the peer.
-pub async fn process<'a, 'b, 'c>(
+pub fn process<'a, 'b, 'c>(
     ctx: Context,
     m: MessageReader<'a, 'b>,
     w: &'c mut BytesMut,
@@ -75,7 +76,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(x) => x,
     };
 
-    if ctx.external.ip() != peer.ip() {
+    if ctx.env.external.ip() != peer.ip() {
         return Ok(None);
     }
 
@@ -84,21 +85,26 @@ pub async fn process<'a, 'b, 'c>(
         Some(x) => x,
     };
 
-    let a = match ctx.router.get_port_bound(peer.port()).await {
+    let a = match ctx.env.router.get_port_bound(peer.port()) {
         None => return Ok(None),
         Some(a) => a,
     };
 
-    let p = match ctx.router.get_bound_port(&ctx.addr, &a).await {
+    let p = match ctx.env.router.get_bound_port(&ctx.addr, &a) {
         None => return Ok(None),
         Some(p) => p,
     };
 
+    let index = match ctx.env.router.get_node(&a) {
+        None => return Ok(None),
+        Some(p) => p.index,
+    };
+
     let method = Method::DataIndication;
-    let s = Arc::new(SocketAddr::new(ctx.external.ip(), p));
+    let s = Arc::new(SocketAddr::new(ctx.env.external.ip(), p));
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<XorPeerAddress>(*s.as_ref());
     pack.append::<Data>(d);
     pack.flush(None)?;
-    Ok(Some((w, a)))
+    Ok(Some((w, StunClass::Message, Some((a, index)))))
 }

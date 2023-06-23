@@ -1,13 +1,25 @@
 use clap::Parser;
-use serde::*;
+use serde::{
+    Deserialize,
+    Serialize,
+};
+
 use std::{
-    net::SocketAddr,
-    fs::read_to_string,
     collections::HashMap,
+    fs::read_to_string,
+    net::SocketAddr,
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum Transport {
+    TCP,
+    UDP,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Interface {
+    pub transport: Transport,
     /// turn server listen address
     pub bind: SocketAddr,
     /// external address

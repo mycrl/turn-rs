@@ -1,5 +1,6 @@
 use anyhow::Result;
 use bytes::BytesMut;
+use crate::StunClass;
 use super::{
     Context,
     Response,
@@ -40,22 +41,21 @@ fn reject<'a, 'b, 'c>(
     let method = Method::ChannelBind(Kind::Error);
     let mut pack = MessageWriter::extend(method, &m, w);
     pack.append::<ErrorCode>(Error::from(e));
-    pack.append::<Realm>(&ctx.realm);
+    pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some((w, ctx.addr)))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// return channel binding ok response
 #[inline(always)]
 fn resolve<'c>(
-    ctx: &Context,
     m: &MessageReader,
     p: &[u8; 16],
     w: &'c mut BytesMut,
 ) -> Result<Response<'c>> {
     let method = Method::ChannelBind(Kind::Response);
     MessageWriter::extend(method, m, w).flush(Some(p))?;
-    Ok(Some((w, ctx.addr.clone())))
+    Ok(Some((w, StunClass::Message, None)))
 }
 
 /// process channel binding request
@@ -103,7 +103,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(c) => c,
     };
 
-    if ctx.external.ip() != peer.ip() {
+    if ctx.env.external.ip() != peer.ip() {
         return reject(ctx, m, w, Forbidden);
     }
 
@@ -116,7 +116,7 @@ pub async fn process<'a, 'b, 'c>(
         return reject(ctx, m, w, BadRequest);
     }
 
-    let key = match ctx.router.get_key(&ctx.addr, u).await {
+    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
         None => return reject(ctx, m, w, Unauthorized),
         Some(a) => a,
     };
@@ -126,14 +126,14 @@ pub async fn process<'a, 'b, 'c>(
     }
 
     if ctx
+        .env
         .router
         .bind_channel(&ctx.addr, peer.port(), c)
-        .await
         .is_none()
     {
         return reject(ctx, m, w, InsufficientCapacity);
     }
 
-    ctx.observer.channel_bind(&ctx.addr, u, c);
-    resolve(&ctx, &m, &key, w)
+    ctx.env.observer.channel_bind(&ctx.addr, u, c);
+    resolve(&m, &key, w)
 }

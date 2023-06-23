@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>TurnRS Example</title>
+    </head>
+    <body>
+        <video id="local" autoplay controls></video>
+        <video id="peer" autoplay controls></video>
+    </body>
+</html>
+
+<script>
+    const localMediaStream = new MediaStream()
+    const peerMediaStream = new MediaStream()
+    
+    const localVideo = document.getElementById('local')
+    const peerVideo = document.getElementById('peer')
+    
+    const localRtc = new RTCPeerConnection({
+        iceTransportPolicy: 'relay',
+        iceServers: [
+            {
+                urls: 'turn:127.0.0.1?transport=udp',
+                username: 'user1',
+                credential: 'test',
+            }
+        ]
+    })
+    
+    const peerRtc = new RTCPeerConnection({
+        iceTransportPolicy: 'relay',
+        iceServers: [
+            {
+                urls: 'turn:127.0.0.1?transport=tcp',
+                username: 'user2',
+                credential: 'test',
+            }
+        ]
+    })
+    
+    window.addEventListener('load', () => {
+        localVideo.srcObject = localMediaStream
+        peerVideo.srcObject = peerMediaStream
+    })
+    
+    peerRtc.addEventListener('track', ({track}) => {
+        peerMediaStream.addTrack(track)
+    })
+    
+    peerRtc.addEventListener("icecandidate", async ({candidate}) => {
+        await localRtc.addIceCandidate(candidate)
+    })
+    
+    localRtc.addEventListener("icecandidate", async ({candidate}) => {
+        await peerRtc.addIceCandidate(candidate)
+    })
+    
+    document.body.addEventListener('click', async () => {
+        const mediaStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true, 
+            audio: false,
+        })
+        
+        for (const track of mediaStream.getTracks()) {
+            localMediaStream.addTrack(track)
+            localRtc.addTrack(track)
+        }
+        
+        const offer = await localRtc.createOffer()
+        await localRtc.setLocalDescription(offer)
+        await peerRtc.setRemoteDescription(offer)
+        const answer = await peerRtc.createAnswer()
+        await peerRtc.setLocalDescription(answer)
+        await localRtc.setRemoteDescription(answer)
+    })
+</script>
+
+<style>
+    * {
+        font-size: 12px;
+        margin: 0;
+        padding: 0;
+    }
+    
+    #local {
+        position: fixed;
+        width: 50%;
+        height: 100%;
+        top: 0;
+        left: 0;
+    }
+    
+    #peer {
+        position: fixed;
+        width: 50%;
+        height: 100%;
+        top: 0;
+        right: 0;
+    }
+</style>

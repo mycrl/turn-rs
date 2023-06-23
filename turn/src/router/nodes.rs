@@ -1,17 +1,10 @@
-use super::{
-    ports::capacity,
-    Addr,
-};
-
-use tokio::{
-    sync::RwLock,
-    time::Instant,
-};
-
+use super::ports::capacity;
+use parking_lot::RwLock;
 use std::{
     collections::HashMap,
     collections::HashSet,
     net::SocketAddr,
+    time::Instant,
     sync::Arc,
 };
 
@@ -24,6 +17,7 @@ use std::{
 /// * the time-to-expiry for each relayed transport address.
 #[derive(Clone)]
 pub struct Node {
+    pub index: u8,
     pub channels: Vec<u16>,
     pub ports: Vec<u16>,
     pub timer: Instant,
@@ -44,7 +38,12 @@ impl Node {
     /// let key = stun::util::long_key("panda", "panda", "raspberry");
     /// // Node::new(0, key.clone());
     /// ```
-    pub fn new(username: String, secret: [u8; 16], password: String) -> Self {
+    pub fn new(
+        index: u8,
+        username: String,
+        secret: [u8; 16],
+        password: String,
+    ) -> Self {
         Self {
             channels: Vec::with_capacity(5),
             ports: Vec::with_capacity(10),
@@ -53,6 +52,7 @@ impl Node {
             lifetime: 600,
             username,
             password,
+            index,
         }
     }
 
@@ -132,8 +132,8 @@ impl Node {
 
 /// node table.
 pub struct Nodes {
-    map: RwLock<HashMap<Addr, Node>>,
-    addrs: RwLock<HashMap<String, HashSet<Addr>>>,
+    map: RwLock<HashMap<SocketAddr, Node>>,
+    addrs: RwLock<HashMap<String, HashSet<SocketAddr>>>,
 }
 
 impl Nodes {
@@ -152,18 +152,17 @@ impl Nodes {
     /// let node = Nodes::new();
     /// assert_eq!(!node.get_users(0, 10).len(), 0);
     /// ```
-    pub async fn get_users(
+    pub fn get_users(
         &self,
         skip: usize,
         limit: usize,
     ) -> Vec<(String, Vec<SocketAddr>)> {
         self.addrs
             .read()
-            .await
             .iter()
             .skip(skip)
             .take(limit)
-            .map(|(k, v)| (k.clone(), v.iter().map(|v| *v.clone()).collect()))
+            .map(|(k, v)| (k.clone(), v.iter().map(|v| *v).collect()))
             .collect()
     }
 
@@ -180,8 +179,8 @@ impl Nodes {
     ///
     /// assert!(!node.get_node("test").is_some());
     /// ```
-    pub async fn get_node(&self, a: &Addr) -> Option<Node> {
-        self.map.read().await.get(a).cloned()
+    pub fn get_node(&self, a: &SocketAddr) -> Option<Node> {
+        self.map.read().get(a).cloned()
     }
 
     /// get password from address.
@@ -197,8 +196,8 @@ impl Nodes {
     ///
     /// assert!(!node.get_password(&addr).is_some());
     /// ```
-    pub async fn get_secret(&self, a: &Addr) -> Option<Arc<[u8; 16]>> {
-        self.map.read().await.get(a).map(|n| n.get_secret())
+    pub fn get_secret(&self, a: &SocketAddr) -> Option<Arc<[u8; 16]>> {
+        self.map.read().get(a).map(|n| n.get_secret())
     }
 
     /// insert node in node table.
@@ -212,17 +211,18 @@ impl Nodes {
     ///
     /// node.insert(&addr, "test", key);
     /// ```
-    pub async fn insert(
+    pub fn insert(
         &self,
-        a: &Addr,
+        index: u8,
+        a: &SocketAddr,
         u: &str,
         s: [u8; 16],
         p: String,
     ) -> Option<Arc<[u8; 16]>> {
-        let node = Node::new(u.to_string(), s, p);
+        let node = Node::new(index, u.to_string(), s, p);
         let pwd = node.get_secret();
-        let mut addrs = self.addrs.write().await;
-        self.map.write().await.insert(a.clone(), node);
+        let mut addrs = self.addrs.write();
+        self.map.write().insert(a.clone(), node);
 
         addrs
             .entry(u.to_string())
@@ -244,8 +244,8 @@ impl Nodes {
     ///
     /// node.push_port(&addr, 60000);
     /// ```
-    pub async fn push_port(&self, a: &Addr, port: u16) -> Option<()> {
-        self.map.write().await.get_mut(a)?.push_port(port);
+    pub fn push_port(&self, a: &SocketAddr, port: u16) -> Option<()> {
+        self.map.write().get_mut(a)?.push_port(port);
         Some(())
     }
 
@@ -262,8 +262,8 @@ impl Nodes {
     ///
     /// node.push_channel(&addr, 0x4000);
     /// ```
-    pub async fn push_channel(&self, a: &Addr, channel: u16) -> Option<()> {
-        self.map.write().await.get_mut(a)?.push_channel(channel);
+    pub fn push_channel(&self, a: &SocketAddr, channel: u16) -> Option<()> {
+        self.map.write().get_mut(a)?.push_channel(channel);
         Some(())
     }
 
@@ -280,8 +280,8 @@ impl Nodes {
     ///
     /// node.set_lifetime(&addr, 0);
     /// ```
-    pub async fn set_lifetime(&self, a: &Addr, delay: u32) -> Option<()> {
-        self.map.write().await.get_mut(a)?.set_lifetime(delay);
+    pub fn set_lifetime(&self, a: &SocketAddr, delay: u32) -> Option<()> {
+        self.map.write().get_mut(a)?.set_lifetime(delay);
         Some(())
     }
 
@@ -298,9 +298,9 @@ impl Nodes {
     ///
     /// assert!(node.remove(&addr).is_some());
     /// ```
-    pub async fn remove(&self, a: &Addr) -> Option<Node> {
-        let mut addrs_map = self.addrs.write().await;
-        let node = self.map.write().await.remove(a)?;
+    pub fn remove(&self, a: &SocketAddr) -> Option<Node> {
+        let mut addrs_map = self.addrs.write();
+        let node = self.map.write().remove(a)?;
         let addrs = addrs_map.get_mut(&node.username)?;
         if addrs.len() == 1 {
             addrs_map.remove(&node.username)?;
@@ -324,10 +324,9 @@ impl Nodes {
     ///
     /// assert_eq!(node.get_bound(&addr), Some(addr));
     /// ```
-    pub async fn get_addrs(&self, u: &str) -> Vec<Addr> {
+    pub fn get_addrs(&self, u: &str) -> Vec<SocketAddr> {
         self.addrs
             .read()
-            .await
             .get(u)
             .cloned()
             .unwrap_or_default()
@@ -343,13 +342,12 @@ impl Nodes {
     /// let node = Nodes::new();
     /// assert_eq!(node.get_deaths().len(), 0);
     /// ```
-    pub async fn get_deaths(&self) -> Vec<Addr> {
+    pub fn get_deaths(&self) -> Vec<SocketAddr> {
         self.map
             .read()
-            .await
             .iter()
             .filter(|(_, v)| v.is_death())
             .map(|(k, _)| k.clone())
-            .collect::<Vec<Addr>>()
+            .collect::<Vec<SocketAddr>>()
     }
 }

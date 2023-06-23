@@ -22,6 +22,7 @@ threads = 12
 # addresses can be bound at the same time. The binding address supports
 # ipv4 and ipv6.
 [[turn.interfaces]]
+transport = "udp"
 bind = "127.0.0.1:3478"
 # external address
 #

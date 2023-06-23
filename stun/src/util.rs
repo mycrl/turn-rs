@@ -1,3 +1,8 @@
+use md5::{
+    Md5,
+    Digest,
+};
+
 use crc::{
     CRC_32_ISO_HDLC,
     Crc,
@@ -50,7 +55,9 @@ pub fn pad_size(size: usize) -> usize {
 /// assert_eq!(key, buffer);
 /// ```
 pub fn long_key(username: &str, key: &str, realm: &str) -> [u8; 16] {
-    md5::compute([username, realm, key].join(":")).0
+    let mut hasher = Md5::new();
+    hasher.update([username, realm, key].join(":"));
+    hasher.finalize().into()
 }
 
 /// HMAC SHA1 digest.

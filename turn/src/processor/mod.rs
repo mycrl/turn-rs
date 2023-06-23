@@ -11,6 +11,7 @@ use bytes::BytesMut;
 use crate::{
     router::Router,
     Observer,
+    StunClass,
 };
 
 use std::{
@@ -27,52 +28,54 @@ use faster_stun::{
 };
 
 #[rustfmt::skip]
-static SOFTWARE: &str = concat!(
-    env!("CARGO_PKG_NAME"), 
-    "-",
-    env!("CARGO_PKG_VERSION")
-);
-
-#[rustfmt::skip]
-pub(crate) type Response<'a> = Option<(
-    &'a [u8],
-    Arc<SocketAddr>
+pub type Response<'a> = Option<(
+    &'a [u8], 
+    StunClass, 
+    Option<(SocketAddr, u8)>
 )>;
+
+pub struct Env {
+    pub index: u8,
+    pub realm: Arc<String>,
+    pub router: Arc<Router>,
+    pub external: Arc<SocketAddr>,
+    pub observer: Arc<dyn Observer>,
+}
 
 /// message context
 pub struct Context {
-    pub realm: Arc<String>,
-    pub router: Arc<Router>,
-    pub addr: Arc<SocketAddr>,
-    pub external: Arc<SocketAddr>,
-    pub observer: Arc<dyn Observer>,
+    pub env: Arc<Env>,
+    pub addr: SocketAddr,
 }
 
 /// process udp message
 /// and return message + address.
 pub struct Processor {
-    observer: Arc<dyn Observer>,
-    external: Arc<SocketAddr>,
-    router: Arc<Router>,
-    realm: Arc<String>,
+    env: Arc<Env>,
     decoder: Decoder,
     writer: BytesMut,
+    pub index: u8,
 }
 
 impl Processor {
     pub(crate) fn new(
+        index: u8,
         external: SocketAddr,
         realm: String,
         router: Arc<Router>,
         observer: Arc<dyn Observer>,
     ) -> Self {
         Self {
+            index,
             decoder: Decoder::new(),
             writer: BytesMut::with_capacity(4096),
-            external: Arc::new(external),
-            realm: Arc::new(realm),
-            observer,
-            router,
+            env: Arc::new(Env {
+                external: Arc::new(external),
+                realm: Arc::new(realm),
+                observer,
+                router,
+                index,
+            }),
         }
     }
 
@@ -189,11 +192,15 @@ impl Processor {
     pub async fn process<'c, 'a: 'c>(
         &'a mut self,
         b: &'a [u8],
-        a: SocketAddr,
+        addr: SocketAddr,
     ) -> Result<Response<'c>> {
-        let ctx = self.get_context(a);
+        let ctx = Context {
+            env: self.env.clone(),
+            addr,
+        };
+
         Ok(match self.decoder.decode(b)? {
-            Payload::ChannelData(x) => channel_data::process(ctx, x).await,
+            Payload::ChannelData(x) => channel_data::process(ctx, x),
             Payload::Message(x) => {
                 Self::message_process(ctx, x, &mut self.writer).await?
             },
@@ -203,11 +210,15 @@ impl Processor {
     pub async fn process_ext<'c, 'a: 'c>(
         &'a mut self,
         payload: Payload<'a, 'c>,
-        a: SocketAddr,
+        addr: SocketAddr,
     ) -> Result<Response<'c>> {
-        let ctx = self.get_context(a);
+        let ctx = Context {
+            env: self.env.clone(),
+            addr,
+        };
+
         Ok(match payload {
-            Payload::ChannelData(x) => channel_data::process(ctx, x).await,
+            Payload::ChannelData(x) => channel_data::process(ctx, x),
             Payload::Message(x) => {
                 Self::message_process(ctx, x, &mut self.writer).await?
             },
@@ -349,19 +360,8 @@ impl Processor {
             Method::CreatePermission(Kind::Request) => create_permission::process(ctx, m, w).await,
             Method::ChannelBind(Kind::Request) => channel_bind::process(ctx, m, w).await,
             Method::Refresh(Kind::Request) => refresh::process(ctx, m, w).await,
-            Method::SendIndication => indication::process(ctx, m, w).await,
+            Method::SendIndication => indication::process(ctx, m, w),
             _ => Ok(None),
-        }
-    }
-
-    /// builder of message context from thread local.
-    fn get_context(&self, a: SocketAddr) -> Context {
-        Context {
-            realm: self.realm.clone(),
-            router: self.router.clone(),
-            observer: self.observer.clone(),
-            external: self.external.clone(),
-            addr: Arc::new(a),
         }
     }
 }
