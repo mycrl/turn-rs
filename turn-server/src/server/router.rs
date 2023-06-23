@@ -31,13 +31,6 @@ impl Router {
             bits: Mutex::new(unsafe { bits![static mut u8, Lsb0; 1; 255] }),
         }
     }
-    
-    async fn alloc_index(&self) -> Option<u8> {
-        let mut bits = self.bits.lock().await;
-        let index = bits.first_one().map(|i| i as u8)?;
-        bits.set(index as usize, false);
-        Some(index)
-    }
 
     async fn alloc_index(&self) -> Option<u8> {
         let mut bits = self.bits.lock().await;
