@@ -1,6 +1,6 @@
 [package]
 name = "faster-stun"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 description = "Fast and zero-cost stun message decoder and encoder."
@@ -23,7 +23,7 @@ categories = [
 bytes = "1"
 anyhow = "1.0"
 num_enum = "0.6"
-md5 = "0.7.0"
+md-5 = "0.10.5"
 hmac = "0.12.1"
 sha-1 = "0.10.1"
 crc = "3.0.1"

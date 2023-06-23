@@ -1,16 +1,10 @@
-use super::{
-    ports::capacity,
-    Addr,
-};
-
+use super::ports::capacity;
+use parking_lot::RwLock;
 use std::{
     collections::HashMap,
-    sync::Arc,
-};
-
-use tokio::{
+    net::SocketAddr,
     time::Instant,
-    sync::RwLock,
+    sync::Arc,
 };
 
 use rand::{
@@ -80,7 +74,7 @@ impl Nonce {
 
 /// nonce table.
 pub struct Nonces {
-    map: RwLock<HashMap<Addr, Nonce>>,
+    map: RwLock<HashMap<SocketAddr, Nonce>>,
 }
 
 impl Nonces {
@@ -103,8 +97,8 @@ impl Nonces {
     /// let nonce_table = Nonces::new();
     /// // nonce_table.get(&addr)
     /// ```
-    pub async fn get(&self, a: &Addr) -> Arc<String> {
-        if let Some(n) = self.map.read().await.get(a) {
+    pub fn get(&self, a: &SocketAddr) -> Arc<String> {
+        if let Some(n) = self.map.read().get(a) {
             if !n.is_death() {
                 return n.unwind();
             }
@@ -112,7 +106,6 @@ impl Nonces {
 
         self.map
             .write()
-            .await
             .entry(a.clone())
             .or_insert_with(Nonce::new)
             .unwind()
@@ -130,7 +123,7 @@ impl Nonces {
     /// // nonce_table.get(&addr);
     /// nonce_table.remove(&addr);
     /// ```
-    pub async fn remove(&self, a: &Addr) {
-        self.map.write().await.remove(a);
+    pub fn remove(&self, a: &SocketAddr) {
+        self.map.write().remove(a);
     }
 }

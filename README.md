@@ -36,7 +36,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 ## Features
 
-- only use udp protocol.
+- udp and tcp transport.
 - webhooks api. <sup>([`hooks-api`])</sup>
 - external controller api. <sup>([`controller-api`])</sup>
 - static identity in configuration file.

@@ -7,10 +7,14 @@ use faster_stun::{
     MessageWriter,
 };
 
+use crate::{
+    SOFTWARE,
+    StunClass,
+};
+
 use super::{
     Context,
     Response,
-    SOFTWARE,
 };
 
 use faster_stun::attribute::{
@@ -49,11 +53,11 @@ pub fn process<'a>(
 ) -> Result<Response<'a>> {
     let method = Method::Binding(Kind::Response);
     let mut pack = MessageWriter::extend(method, &payload, w);
-    pack.append::<XorMappedAddress>(*ctx.addr.as_ref());
-    pack.append::<MappedAddress>(*ctx.addr.as_ref());
-    pack.append::<ResponseOrigin>(*ctx.external.as_ref());
+    pack.append::<XorMappedAddress>(ctx.addr);
+    pack.append::<MappedAddress>(ctx.addr);
+    pack.append::<ResponseOrigin>(*ctx.env.external.as_ref());
     pack.append::<Software>(SOFTWARE);
     pack.flush(None)?;
-    ctx.observer.binding(&ctx.addr);
-    Ok(Some((w, ctx.addr)))
+    ctx.env.observer.binding(&ctx.addr);
+    Ok(Some((w, StunClass::Message, None)))
 }

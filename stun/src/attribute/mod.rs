@@ -1,10 +1,13 @@
 pub mod address;
 pub mod error;
 
-use num_enum::TryFromPrimitive;
-use std::convert::TryFrom;
-use std::net::SocketAddr;
 use crate::util;
+use num_enum::TryFromPrimitive;
+use std::{
+    convert::TryFrom,
+    net::SocketAddr,
+};
+
 use bytes::{
     BytesMut,
     BufMut,
@@ -15,6 +18,14 @@ pub use error::{
     Kind as ErrKind,
     Error,
 };
+
+#[repr(u8)]
+#[derive(TryFromPrimitive)]
+#[derive(PartialEq, Eq)]
+pub enum Transport {
+    TCP = 0x06,
+    UDP = 0x11,
+}
 
 /// STUN Attributes Registry
 ///
@@ -86,7 +97,7 @@ pub use error::{
 /// 0x8003: ALTERNATE-DOMAIN
 #[repr(u16)]
 #[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub enum AttrKind {
     UserName = 0x0006,
     Data = 0x0013,
@@ -638,21 +649,21 @@ impl<'a> Property<'a> for Lifetime {
 pub struct ReqeestedTransport;
 impl<'a> Property<'a> for ReqeestedTransport {
     type Error = anyhow::Error;
-    type Inner = u8;
+    type Inner = Transport;
 
     fn kind() -> AttrKind {
         AttrKind::ReqeestedTransport
     }
 
-    fn into(_: Self::Inner, buf: &mut BytesMut, _: &[u8]) {
-        buf.put_u8(0x11)
+    fn into(value: Self::Inner, buf: &mut BytesMut, _: &[u8]) {
+        buf.put_u8(value as u8)
     }
 
     fn try_from(
         buf: &'a [u8],
         _: &'a [u8],
     ) -> Result<Self::Inner, Self::Error> {
-        Ok(buf[0])
+        Ok(Transport::try_from(buf[0])?)
     }
 }
 

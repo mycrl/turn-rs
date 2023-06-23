@@ -248,6 +248,7 @@ impl<'a, 'b> MessageWriter<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct MessageReader<'a, 'b> {
     /// message type.
     pub method: Method,
@@ -464,13 +465,13 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     ///     0x72, 0x52, 0x64, 0x48, 0x57, 0x62, 0x4b, 0x2b,
     /// ];
     ///
-    /// let size = MessageReader::peek_size(&buffer[..]).unwrap();
+    /// let size = MessageReader::message_size(&buffer[..]).unwrap();
     /// assert_eq!(size, 20);
     /// ```
-    pub fn peek_size(buf: &[u8]) -> Result<u16> {
+    pub fn message_size(buf: &[u8]) -> Result<usize> {
         ensure!(buf[0] >> 6 == 0, "not a stun message");
         ensure!(buf.len() >= 20, "message len < 20");
-        Ok(util::as_u16(&buf[2..4]) + 20)
+        Ok((util::as_u16(&buf[2..4]) + 20) as usize)
     }
 }
 
