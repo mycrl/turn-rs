@@ -176,7 +176,7 @@ pub async fn udp_processor(
         .expect("get udp socket local addr failed!");
     let (index, mut receiver) = router.get_receiver().await;
 
-    for _ in 0..10 {
+    for _ in 0..num_cpus::get() {
         let socket = socket.clone();
         let router = router.clone();
         let mut processor = service.get_processor(index, interface.external);
