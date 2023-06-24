@@ -49,16 +49,6 @@ pub struct Turn {
     /// ipv4 and ipv6.
     #[serde(default = "Turn::interfaces")]
     pub interfaces: Vec<Interface>,
-
-    /// thread number
-    ///
-    /// by default, the thread pool is used to process UDP packets.
-    /// because UDP uses SysCall to ensure concurrency security,
-    /// using multiple threads may not bring a very significant
-    /// performance improvement, but setting the number of CPU
-    /// cores can process data to the greatest extent package.
-    #[serde(default = "num_cpus::get")]
-    pub threads: usize,
 }
 
 impl Turn {
@@ -76,7 +66,6 @@ impl Default for Turn {
         Self {
             realm: Self::realm(),
             interfaces: Self::interfaces(),
-            threads: num_cpus::get(),
         }
     }
 }

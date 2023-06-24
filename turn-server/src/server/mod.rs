@@ -58,6 +58,5 @@ pub async fn run(service: &Service, config: Arc<Config>) -> anyhow::Result<()> {
         );
     }
 
-    log::info!("turn server workers: number={}", config.turn.threads);
     Ok(())
 }
