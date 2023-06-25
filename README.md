@@ -59,6 +59,8 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 ## Usage
 
+> The versions on crates.io and docker may be very outdated. It is recommended to compile directly from the github source code.
+
 ```bash
 cargo install turn-server
 ```
