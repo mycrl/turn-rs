@@ -23,6 +23,7 @@ categories = [
 [dependencies]
 bytes = "1.4.0"
 bitvec = "1.0"
+parking_lot = "0.12"
 faster-stun = { path = "../stun", version = "1" }
 turn-rs = { path = "../turn", version = "1" }
 clap = { version = "4", features = ["derive", "env"] }

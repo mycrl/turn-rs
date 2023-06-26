@@ -1,3 +1,5 @@
+#![feature(linked_list_remove)]
+
 use mimalloc::MiMalloc;
 
 // use mimalloc for global.
@@ -10,6 +12,7 @@ mod api;
 
 use async_trait::async_trait;
 use config::Config;
+use server::Monitor;
 use turn_rs::{
     Service,
     Observer,
@@ -27,12 +30,14 @@ use std::{
 
 struct Events {
     hooks: hooks::Hooks,
+    monitor: Monitor,
 }
 
 impl Events {
-    fn new(cfg: Arc<Config>) -> Self {
+    fn new(cfg: Arc<Config>, monitor: Monitor) -> Self {
         Self {
             hooks: hooks::Hooks::new(cfg),
+            monitor,
         }
     }
 }
@@ -63,6 +68,7 @@ impl Observer for Events {
     /// standard services.
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
+        self.monitor.set(addr.clone());
         self.hooks.events(&hooks::Events::Allocated {
             addr,
             name,
@@ -258,6 +264,7 @@ impl Observer for Events {
     /// node.
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
+        self.monitor.delete(addr);
         self.hooks.events(&hooks::Events::Abort {
             addr,
             name,
@@ -270,11 +277,13 @@ async fn main() -> anyhow::Result<()> {
     let config = Arc::new(Config::load()?);
     simple_logger::init_with_level(config.log.level.as_level())?;
 
-    let service =
-        Service::new(Events::new(config.clone()), config.turn.realm.clone());
-    server::run(&service, config.clone()).await?;
+    let monitor = Monitor::new();
+    let events = Events::new(config.clone(), monitor.clone());
+    let service = Service::new(events, config.turn.realm.clone());
+    server::run(monitor.clone(), &service, config.clone()).await?;
 
-    let controller = Controller::new(service.get_router(), config.clone());
+    let router = service.get_router();
+    let controller = Controller::new(config.clone(), monitor, router);
     api::start(&config, &controller).await?;
     Ok(())
 }
