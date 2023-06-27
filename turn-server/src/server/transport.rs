@@ -244,12 +244,6 @@ pub async fn udp_processor(
                         }
                     }
                 }
-
-                log::trace!(
-                    "udp socket process failed: size={}, addr={:?}",
-                    size,
-                    addr
-                );
             }
 
             router.remove(processor.index).await;

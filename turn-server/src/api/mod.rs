@@ -76,7 +76,7 @@ where
     /// dispatching a request, poll_ready must be called and return
     /// Poll::Ready(Ok(())).
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        log::info!("controller server request: {:?}", req);
+        log::trace!("controller server request: {:?}", req);
         self.service.call(req)
     }
 }

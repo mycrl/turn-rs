@@ -72,16 +72,14 @@ impl Router {
         let this_ = this.clone();
         thread::spawn(move || loop {
             thread::sleep(Duration::from_secs(60));
-            if this_.is_close.load(Ordering::Relaxed) {
-                break;
-            }
+            if !this_.is_close.load(Ordering::Relaxed) {   
+                this_.nodes.get_deaths().iter().for_each(|a| {
+                    this_.remove(a);
+                });
 
-            for a in this_.nodes.get_deaths() {
-                this_.remove(&a);
-            }
-
-            for c in this_.channels.get_deaths() {
-                this_.channels.remove(c);
+                this_.channels.get_deaths().iter().for_each(|c| {
+                    this_.channels.remove(*c);
+                });
             }
         });
 
@@ -433,9 +431,8 @@ impl Router {
     pub fn remove(&self, a: &SocketAddr) -> Option<()> {
         let node = self.nodes.remove(a)?;
         self.ports.remove(a, &node.ports);
-
         for c in node.channels {
-            self.channels.remove(c)?;
+            self.channels.remove(c);
         }
 
         self.nonces.remove(a);

@@ -1,5 +1,3 @@
-#![feature(linked_list_remove)]
-
 use mimalloc::MiMalloc;
 
 // use mimalloc for global.

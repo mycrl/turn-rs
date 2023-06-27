@@ -50,8 +50,8 @@ impl Store {
 /// worker cluster monitor
 #[derive(Clone)]
 pub struct Monitor {
-    links: Arc<Mutex<LinkedList<SocketAddr>>>,
-    nodes: Arc<Mutex<HashMap<SocketAddr, (usize, Store)>>>,
+    links: Arc<Mutex<BTreeSet<SocketAddr>>>,
+    nodes: Arc<Mutex<HashMap<SocketAddr, Store>>>,
     sender: Sender<(SocketAddr, Stats)>,
 }
 
@@ -59,13 +59,13 @@ impl Monitor {
     /// Create a monitoring instance
     pub fn new() -> Self {
         let (sender, mut receiver) = channel(2);
-        let nodes: Arc<Mutex<HashMap<SocketAddr, (usize, Store)>>> =
+        let nodes: Arc<Mutex<HashMap<SocketAddr, Store>>> =
             Default::default();
 
         let nodes_ = nodes.clone();
         tokio::spawn(async move {
             while let Some((addr, payload)) = receiver.recv().await {
-                if let Some((_, store)) = nodes_.lock().get_mut(&addr) {
+                if let Some(store) = nodes_.lock().get_mut(&addr) {
                     store.change(payload);
                 }
             }
@@ -111,8 +111,8 @@ impl Monitor {
         let mut links = self.links.lock();
         self.nodes
             .lock()
-            .insert(addr, (links.len(), Store::default()));
-        links.push_back(addr);
+            .insert(addr, Store::default());
+        links.insert(addr);
     }
 
     /// Remove an address from the watch list
@@ -126,9 +126,8 @@ impl Monitor {
     /// monitor.delete(&addr);
     /// ```
     pub fn delete(&self, addr: &SocketAddr) {
-        if let Some((index, _)) = self.nodes.lock().remove(addr) {
-            self.links.lock().remove(index);
-        }
+        self.nodes.lock().remove(addr);
+        self.links.lock().remove(addr);
     }
 
     /// Obtain a list of statistics from monitoring
@@ -150,14 +149,14 @@ impl Monitor {
         &self,
         skip: usize,
         limit: usize,
-    ) -> HashMap<SocketAddr, Store> {
+    ) -> Vec<(SocketAddr, Store)> {
         let links = self.links.lock();
         let nodes = self.nodes.lock();
 
-        let mut ret = HashMap::with_capacity(limit);
+        let mut ret = Vec::with_capacity(limit);
         for addr in links.iter().skip(skip).take(limit) {
-            if let Some((_, store)) = nodes.get(addr) {
-                ret.insert(*addr, *store);
+            if let Some(store) = nodes.get(addr) {
+                ret.push((*addr, *store));
             }
         }
 

@@ -177,7 +177,7 @@ impl Controller {
     pub async fn get_report(
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
-    ) -> Json<HashMap<SocketAddr, Store>> {
+    ) -> Json<Vec<(SocketAddr, Store)>> {
         let skip = pars.skip.unwrap_or(0);
         let limit = pars.limit.unwrap_or(20);
         Json(this.monitor.get_nodes(skip, limit))
