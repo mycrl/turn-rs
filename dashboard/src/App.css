@@ -1,0 +1,30 @@
+body {
+    background-color: #eee;
+}
+
+figure {
+    width: 1200px;
+    margin: 0 auto;
+    background-color: #fff;
+    height: 100vh;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+}
+
+figure > div {
+    padding: 20px;
+    padding-top: 50px;
+}
+
+.tabs button {
+    height: 30px;
+    padding: 0 15px;
+    border: 1px solid #ccc;
+    border-bottom: 0;
+}
+
+#tabAction {
+    background-color: #ccc;
+    border: 1px solid #000;
+    border-bottom: 0;
+}
