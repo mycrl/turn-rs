@@ -1,8 +1,7 @@
 use super::ports::capacity;
 use parking_lot::RwLock;
 use std::{
-    collections::HashMap,
-    collections::HashSet,
+    collections::*,
     net::SocketAddr,
     time::Instant,
     sync::Arc,
@@ -133,14 +132,14 @@ impl Node {
 /// node table.
 pub struct Nodes {
     map: RwLock<HashMap<SocketAddr, Node>>,
-    addrs: RwLock<HashMap<String, HashSet<SocketAddr>>>,
+    addrs: RwLock<BTreeMap<String, HashSet<SocketAddr>>>,
 }
 
 impl Nodes {
     pub fn new() -> Self {
         Self {
+            addrs: RwLock::new(BTreeMap::new()),
             map: RwLock::new(HashMap::with_capacity(capacity())),
-            addrs: RwLock::new(HashMap::with_capacity(capacity())),
         }
     }
 
@@ -299,11 +298,11 @@ impl Nodes {
     /// assert!(node.remove(&addr).is_some());
     /// ```
     pub fn remove(&self, a: &SocketAddr) -> Option<Node> {
-        let mut addrs_map = self.addrs.write();
+        let mut user_addrs = self.addrs.write();
         let node = self.map.write().remove(a)?;
-        let addrs = addrs_map.get_mut(&node.username)?;
+        let addrs = user_addrs.get_mut(&node.username)?;
         if addrs.len() == 1 {
-            addrs_map.remove(&node.username)?;
+            user_addrs.remove(&node.username)?;
         } else {
             addrs.remove(a);
         }

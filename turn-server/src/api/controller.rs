@@ -7,7 +7,6 @@ use axum::{
 };
 
 use std::{
-    collections::HashMap,
     net::SocketAddr,
     sync::Arc,
 };
@@ -201,10 +200,10 @@ impl Controller {
     pub async fn get_users(
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
-    ) -> Json<HashMap<String, Vec<SocketAddr>>> {
+    ) -> Json<Vec<(String, Vec<SocketAddr>)>> {
         let skip = pars.skip.unwrap_or(0);
         let limit = pars.limit.unwrap_or(20);
-        Json(this.router.get_users(skip, limit).into_iter().collect())
+        Json(this.router.get_users(skip, limit))
     }
 
     /// Get node information

@@ -39,7 +39,9 @@ impl Store {
     /// update status information
     fn change(&mut self, payload: Stats) {
         match payload {
-            Stats::ReceivedBytes(v) => self.received_bytes.add((v / 1024) as u64),
+            Stats::ReceivedBytes(v) => {
+                self.received_bytes.add((v / 1024) as u64)
+            },
             Stats::SendBytes(v) => self.send_bytes.add((v / 1024) as u64),
             Stats::ReceivedPkts(v) => self.received_pkts.add(v as u64),
             Stats::SendPkts(v) => self.send_pkts.add(v as u64),
@@ -59,8 +61,7 @@ impl Monitor {
     /// Create a monitoring instance
     pub fn new() -> Self {
         let (sender, mut receiver) = channel(2);
-        let nodes: Arc<Mutex<HashMap<SocketAddr, Store>>> =
-            Default::default();
+        let nodes: Arc<Mutex<HashMap<SocketAddr, Store>>> = Default::default();
 
         let nodes_ = nodes.clone();
         tokio::spawn(async move {
@@ -109,9 +110,7 @@ impl Monitor {
     /// ```
     pub fn set(&self, addr: SocketAddr) {
         let mut links = self.links.lock();
-        self.nodes
-            .lock()
-            .insert(addr, Store::default());
+        self.nodes.lock().insert(addr, Store::default());
         links.insert(addr);
     }
 

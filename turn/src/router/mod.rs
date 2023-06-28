@@ -72,7 +72,7 @@ impl Router {
         let this_ = this.clone();
         thread::spawn(move || loop {
             thread::sleep(Duration::from_secs(60));
-            if !this_.is_close.load(Ordering::Relaxed) {   
+            if !this_.is_close.load(Ordering::Relaxed) {
                 this_.nodes.get_deaths().iter().for_each(|a| {
                     this_.remove(a);
                 });
