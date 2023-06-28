@@ -1,7 +1,9 @@
 mod transport;
 mod router;
+mod monitor;
 
 pub use self::router::Router;
+pub use self::monitor::*;
 
 use super::config::{
     Transport,
@@ -28,7 +30,11 @@ use tokio::net::{
 ///
 /// // run(&service, config).await?
 /// ```
-pub async fn run(service: &Service, config: Arc<Config>) -> anyhow::Result<()> {
+pub async fn run(
+    monitor: Monitor,
+    service: &Service,
+    config: Arc<Config>,
+) -> anyhow::Result<()> {
     let router = Arc::new(Router::new());
     for i in config.turn.interfaces.clone() {
         let service = service.clone();
@@ -39,6 +45,7 @@ pub async fn run(service: &Service, config: Arc<Config>) -> anyhow::Result<()> {
                     i.clone(),
                     service.clone(),
                     router.clone(),
+                    monitor.clone(),
                 ));
             },
             Transport::TCP => {
@@ -46,6 +53,7 @@ pub async fn run(service: &Service, config: Arc<Config>) -> anyhow::Result<()> {
                     TcpListener::bind(i.bind).await?,
                     move |index| service.get_processor(index, i.external),
                     router.clone(),
+                    monitor.clone(),
                 ));
             },
         }

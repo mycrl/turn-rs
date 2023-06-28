@@ -7,6 +7,7 @@ use crate::config::Config;
 use http::{
     HeaderValue,
     Request,
+    Method,
 };
 
 use axum::{
@@ -76,7 +77,7 @@ where
     /// dispatching a request, poll_ready must be called and return
     /// Poll::Ready(Ok(())).
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        log::info!("controller server request: {:?}", req);
+        log::trace!("controller server request: {:?}", req);
         self.service.call(req)
     }
 }
@@ -106,16 +107,19 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
     let ctr: &'static Controller = unsafe { std::mem::transmute(ctr) };
     let app = Router::new()
         .route("/stats", get(Controller::get_stats))
+        .route("/report", get(Controller::get_report))
         .route("/users", get(Controller::get_users))
         .route("/node", get(Controller::get_node))
         .route("/node", delete(Controller::remove_node))
         .layer(
-            CorsLayer::new().allow_origin(
-                cfg.controller
-                    .allow_origin
-                    .as_str()
-                    .parse::<HeaderValue>()?,
-            ),
+            CorsLayer::new()
+                .allow_origin(
+                    cfg.controller
+                        .allow_origin
+                        .as_str()
+                        .parse::<HeaderValue>()?,
+                )
+                .allow_methods([Method::DELETE, Method::POST]),
         )
         .layer(LogLayer)
         .with_state(ctr);

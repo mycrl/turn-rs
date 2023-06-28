@@ -7,12 +7,17 @@ use axum::{
 };
 
 use std::{
-    collections::HashMap,
     net::SocketAddr,
     sync::Arc,
 };
 
-use crate::config::*;
+use crate::{
+    config::*,
+    server::{
+        Store,
+        Monitor,
+    },
+};
 use turn_rs::{
     Router,
     Node,
@@ -101,6 +106,7 @@ pub struct Qiter {
 pub struct Controller {
     config: Arc<Config>,
     router: Arc<Router>,
+    monitor: Monitor,
     timer: Instant,
 }
 
@@ -119,11 +125,16 @@ impl Controller {
     ///
     /// Controller::new(service.get_router(), config, monitor);
     /// ```
-    pub fn new(router: Arc<Router>, config: Arc<Config>) -> Arc<Self> {
+    pub fn new(
+        config: Arc<Config>,
+        monitor: Monitor,
+        router: Arc<Router>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             timer: Instant::now(),
-            config,
+            monitor,
             router,
+            config,
         })
     }
 
@@ -150,6 +161,27 @@ impl Controller {
         })
     }
 
+    /// Get a list of sockets
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let config = Config::new()
+    /// let service = Service::new(/* ... */);;
+    /// let monitor = Monitor::new(/* ... */);
+    ///
+    /// let ctr = Controller::new(service.get_router(), config, monitor);
+    /// // let workers_js = ctr.get_report().await;
+    /// ```
+    pub async fn get_report(
+        State(this): State<&Self>,
+        Query(pars): Query<Qiter>,
+    ) -> Json<Vec<(SocketAddr, Store)>> {
+        let skip = pars.skip.unwrap_or(0);
+        let limit = pars.limit.unwrap_or(20);
+        Json(this.monitor.get_nodes(skip, limit))
+    }
+
     /// Get user list.
     ///
     /// This interface returns the username and a list of addresses used by this
@@ -168,10 +200,10 @@ impl Controller {
     pub async fn get_users(
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
-    ) -> Json<HashMap<String, Vec<SocketAddr>>> {
+    ) -> Json<Vec<(String, Vec<SocketAddr>)>> {
         let skip = pars.skip.unwrap_or(0);
         let limit = pars.limit.unwrap_or(20);
-        Json(this.router.get_users(skip, limit).into_iter().collect())
+        Json(this.router.get_users(skip, limit))
     }
 
     /// Get node information
