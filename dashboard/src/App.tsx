@@ -1,7 +1,42 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 
-function Interface({ stats }) {
+function getHost() {
+    for (;;) {
+        localStorage.host = prompt('input service host:', 'http://localhost:3000')
+        if (localStorage.host) {
+            break
+        }
+    }
+}
+
+async function fetchRef(path: string, method = 'GET') {
+    if (localStorage.host == null) {
+        getHost()
+    }
+
+    try {
+        return await fetch(localStorage.host + path, { method })
+    } catch {
+        getHost()
+        location.reload()
+    }
+}
+
+interface Stats {
+    software: string
+    realm: string
+    uptime: number
+    port_capacity: number
+    port_allocated: number
+    interfaces: Array<{
+        transport: string
+        bind: string
+        external: string
+    }>
+}
+
+function Interface({ stats }: { stats: Stats | null }) {
     return (
         <>
             <h5>TURN Server Interfaces:</h5>
@@ -14,7 +49,7 @@ function Interface({ stats }) {
                     </tr>
                 </thead>
                 <tbody>
-                    { stats.interfaces.map((item, index) => {
+                    { stats?.interfaces.map((item, index) => {
                          return <tr key={index}>
                             <td>{ item.transport }</td>
                             <td>{ item.bind }</td>
@@ -27,29 +62,35 @@ function Interface({ stats }) {
     )
 }
 
+interface Node {
+    username: string
+    password: string
+    lifetime: number
+    timer: number
+    allocated_channels: number[]
+    allocated_ports: number[]
+}
+
 function NodePupBox({ 
     addr, 
     onClose = () => {} 
+}: {
+    addr: string
+    onClose: () => void
 }) {
-    const [node, setNode] = useState({
-        allocated_channels: [],
-        allocated_ports: [],
-    })
+    const [node, setNode] = useState<Node | null>(null)
     
     useEffect(() => {
         if (addr) {
-            fetch('http://localhost:3000/node?addr=' + addr)
+            fetchRef('/node?addr=' + addr)
                 .then(async res => {
-                    setNode(await res.json())
+                    setNode(await res?.json())
                 })
         }
     }, [])
     
     const removeNode = async () => {
-        await fetch('http://localhost:3000/node?addr=' + addr, {
-            method: 'DELETE'
-        })
-        
+        await fetchRef('/node?addr=' + addr, 'DELETE')
         onClose()
     }
     
@@ -74,12 +115,12 @@ function NodePupBox({
                     <tbody>
                         <tr>
                             <td>{ addr }</td>
-                            <td>{ node.username }</td>
-                            <td>{ node.password }</td>
-                            <td>{ node.lifetime }</td>
-                            <td>{ node.timer }</td>
-                            <td>{ node.allocated_channels.join(' | ') }</td>
-                            <td>{ node.allocated_ports.join(' | ') }</td>
+                            <td>{ node?.username }</td>
+                            <td>{ node?.password }</td>
+                            <td>{ node?.lifetime }</td>
+                            <td>{ node?.timer }</td>
+                            <td>{ node?.allocated_channels.join(' | ') }</td>
+                            <td>{ node?.allocated_ports.join(' | ') }</td>
                         </tr>
                     </tbody>
                 </table>
@@ -97,17 +138,31 @@ function NodePupBox({
     )
 }
 
+interface Report {
+    received_bytes: number
+    send_bytes: number
+    received_pkts: number
+    send_pkts: number
+}
+
+interface ReportAvg {
+    received_bytes_avg: number
+    send_bytes_avg: number
+    received_pkts_avg: number
+    send_pkts_avg: number
+}
+
 function Sockets() {
-    const [report, setReport] = useState({})
-    const [range, setRange] = useState({})
-    const [addr, setAddr] = useState(null)
+    const [report, setReport] = useState<{ [k: string]: Report }>({})
+    const [range, setRange] = useState<{ [k: string]: ReportAvg }>({})
+    const [addr, setAddr] = useState<string | null>(null)
     
     useEffect(() => {
-        let old = {}
+        let old: { [k: string]: Report } = {}
         const loop = setInterval(async () => {
-            const ret = await fetch('http://localhost:3000/report')
-                .then(res => res.json())
-            const report = ret.reduce((obj, [k, v]) => {
+            const ret: [string, Report][] = await fetchRef('/report')
+                .then(res => res?.json())
+            const report: { [k: string]: Report } = ret.reduce((obj, [k, v]) => {
                 return Object.assign(obj, { [k]: v })
             }, {})
             
@@ -122,7 +177,9 @@ function Sockets() {
                         send_pkts_avg: report[key].send_pkts - (old[key] || {}).send_pkts || 0,
                     }
                 ]
-            }).reduce((obj, [k, v]) => Object.assign(obj, { [k]: v }), {}))
+            }).reduce((obj, [k, v]: any) => {
+                return Object.assign(obj, { [k]: v })
+            }, {}))
             old = report
         }, 1000)
         
@@ -177,13 +234,13 @@ function Sockets() {
 }
 
 function Users() {
-    const [users, setUsers] = useState([])
-    const [addr, setAddr] = useState(null)
+    const [users, setUsers] = useState<[string, string[]][]>([])
+    const [addr, setAddr] = useState<string | null>(null)
     
     useEffect(() => {
-        fetch('http://localhost:3000/users')
+        fetchRef('/users')
             .then(async res => {
-                setUsers(await res.json())
+                setUsers(await res?.json())
             })
     }, [])
     
@@ -220,9 +277,9 @@ function Users() {
 
 function Tabs() {
     const [index, setIndex] = useState(0)
-    
-    const actionId = (value) => {
-        return index == value ? 'tabAction' : null
+
+    const actionId = (value: number) => {
+        return index == value ? 'tabAction' : ''
     }
     
     return (
@@ -242,7 +299,7 @@ function Tabs() {
     )
 }
 
-function ServerInfo({ stats }) {
+function ServerInfo({ stats }: { stats: Stats | null }) {
     return (
         <>
             <h5>TURN Server Info:</h5>
@@ -258,11 +315,11 @@ function ServerInfo({ stats }) {
                 </thead>
                 <tbody>
                     <tr>
-                        <td>{ stats.software }</td>
-                        <td>{ stats.realm }</td>
-                        <td>{ stats.uptime }s</td>
-                        <td>{ stats.port_capacity }</td>
-                        <td>{ stats.port_allocated }</td>
+                        <td>{ stats?.software }</td>
+                        <td>{ stats?.realm }</td>
+                        <td>{ stats?.uptime }s</td>
+                        <td>{ stats?.port_capacity }</td>
+                        <td>{ stats?.port_allocated }</td>
                     </tr>
                 </tbody>
             </table>
@@ -271,14 +328,12 @@ function ServerInfo({ stats }) {
 }
 
 export default function() {
-    const [stats, setStats] = useState({
-        interfaces: []
-    })
+    const [stats, setStats] = useState<Stats | null>(null)
     
     useEffect(() => {
-        fetch('http://localhost:3000/stats')
+        fetchRef('/stats')
             .then(async res => {
-                setStats(await res.json())
+                setStats(await res?.json())
             })
     }, [])
 
