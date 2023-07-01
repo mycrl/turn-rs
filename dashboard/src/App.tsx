@@ -277,7 +277,7 @@ function Users() {
 
 function Tabs() {
     const [index, setIndex] = useState(0)
-    
+
     const actionId = (value: number) => {
         return index == value ? 'tabAction' : ''
     }
