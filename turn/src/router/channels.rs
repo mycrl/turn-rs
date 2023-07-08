@@ -89,7 +89,6 @@ impl Channel {
     /// ```
     /// use turn_rs::router::channels::*;
     /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let channel = Channel::new(&addr);
@@ -106,7 +105,6 @@ impl Channel {
     /// ```
     /// use turn_rs::router::channels::*;
     /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let channel = Channel::new(&addr);
@@ -123,7 +121,6 @@ impl Channel {
     /// ```
     /// use turn_rs::router::channels::*;
     /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -143,11 +140,10 @@ impl Channel {
     /// ```
     /// use turn_rs::router::channels::*;
     /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let mut channel = Channel::new(&addr);
-    /// 
+    ///
     /// channel.refresh();
     /// assert!(!channel.is_death());
     /// ```
@@ -162,7 +158,6 @@ impl Channel {
     /// ```
     /// use turn_rs::router::channels::*;
     /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let mut channel = Channel::new(&addr);
@@ -183,7 +178,6 @@ impl Iterator for Iter {
     /// ```
     /// use turn_rs::router::channels::*;
     /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let mut iter = Iter::new(Channel::new(&addr));
@@ -212,7 +206,6 @@ impl IntoIterator for Channel {
     /// ```
     /// use turn_rs::router::channels::*;
     /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let channel = Channel::new(&addr);

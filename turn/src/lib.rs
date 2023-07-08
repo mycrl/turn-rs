@@ -26,6 +26,12 @@ static SOFTWARE: &str = concat!(
 
 #[async_trait]
 pub trait Observer: Send + Sync {
+    /// turn auth request with block
+    #[allow(unused)]
+    fn auth_block(&self, addr: &SocketAddr, name: &str) -> Option<String> {
+        None
+    }
+    
     /// turn auth request
     #[allow(unused)]
     async fn auth(&self, addr: &SocketAddr, name: &str) -> Option<String> {
