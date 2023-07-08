@@ -231,19 +231,14 @@ impl Service {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// struct Events;
+    /// ```
+    /// use turn_rs::*;
+    /// 
+    /// struct ObserverTest;
     ///
-    /// impl Observer for Events {
-    ///     async fn auth(&self, _addr: &SocketAddr, _name: &str) -> Option<&str> {
-    ///         Some("test")
-    ///     }
-    /// }
-    ///
-    /// let _service = Service::new(
-    ///     Events {},
-    ///     "test".to_string(),
-    /// );
+    /// impl Observer for ObserverTest {}
+    /// 
+    /// Service::new(ObserverTest, "test".to_string());
     /// ```
     pub fn new<T>(observer: T, realm: String) -> Self
     where
@@ -263,32 +258,18 @@ impl Service {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// struct Events;
+    /// ```
+    /// use turn_rs::*;
+    /// use std::net::SocketAddr;
+    /// 
+    /// struct ObserverTest;
     ///
-    /// impl Observer for Events {
-    ///     async fn auth(&self, _addr: &SocketAddr, _name: &str) -> Option<&str> {
-    ///         Some("test")
-    ///     }
-    /// }
-    ///
-    /// let service = Service::new(
-    ///     Events {},
-    ///     "test".to_string(),
-    /// );
-    ///
-    /// tokio::spawn(service.run());
-    ///
-    /// let socket = UdpSocket::bind("127.0.0.1:34254")?;
-    /// let mut processor = service.get_processor("127.0.0.1:34254".into()?);
-    ///
-    /// let mut buf = [0; 4096];
-    /// let (amt, src) = socket.recv_from(&mut buf).unwrap();
-    /// if let Ok(Some((buf, target))) =
-    ///     processor.process(&mut buf[..amt], src).await
-    /// {
-    ///     socket.send_to(buf, target.as_ref()).unwrap();
-    /// }
+    /// impl Observer for ObserverTest {}
+    /// 
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let service = Service::new(ObserverTest, "test".to_string());
+    /// let processor = service.get_processor(0, addr);
+    /// assert_eq!(processor.index, 0);
     /// ```
     pub fn get_processor(&self, index: u8, external: SocketAddr) -> Processor {
         Processor::new(
