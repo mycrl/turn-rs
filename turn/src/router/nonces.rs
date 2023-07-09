@@ -41,19 +41,23 @@ impl Nonce {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
+    /// use turn_rs::router::nonces::*;
+    ///
     /// let nonce = Nonce::new();
     /// assert!(!nonce.is_death());
     /// ```
     pub fn is_death(&self) -> bool {
-        self.timer.elapsed().as_secs() < 3600
+        self.timer.elapsed().as_secs() >= 3600
     }
 
     /// unwind nonce random string.
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
+    /// use turn_rs::router::nonces::*;
+    ///
     /// let nonce = Nonce::new();
     /// assert_eq!(nonce.unwind().len(), 16);
     /// ```
@@ -90,12 +94,14 @@ impl Nonces {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
+    /// use turn_rs::router::nonces::*;
     /// use std::net::SocketAddr;
     ///
     /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();
     /// let nonce_table = Nonces::new();
-    /// // nonce_table.get(&addr)
+    ///
+    /// assert_eq!(nonce_table.get(&addr).len(), 16);
     /// ```
     pub fn get(&self, a: &SocketAddr) -> Arc<String> {
         if let Some(n) = self.map.read().get(a) {
@@ -115,13 +121,18 @@ impl Nonces {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
+    /// use turn_rs::router::nonces::*;
     /// use std::net::SocketAddr;
     ///
     /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();
     /// let nonce_table = Nonces::new();
-    /// // nonce_table.get(&addr);
+    ///
+    /// let nonce = nonce_table.get(&addr);
     /// nonce_table.remove(&addr);
+    ///
+    /// let new_nonce = nonce_table.get(&addr);
+    /// assert!(nonce.as_str() != new_nonce.as_str());
     /// ```
     pub fn remove(&self, a: &SocketAddr) {
         self.map.write().remove(a);

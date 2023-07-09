@@ -49,7 +49,7 @@ pub enum Bit {
 /// address may be known by an attacker, the ephemeral port of the client
 /// is usually unknown and must be guessed.
 pub struct PortPools {
-    buckets: Vec<u64>,
+    pub buckets: Vec<u64>,
     allocated: usize,
     bit_len: u32,
     peak: usize,
@@ -69,12 +69,12 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use ports::PortPools;
-    /// use ports::Bit;
+    /// ```
+    /// use turn_rs::router::ports::PortPools;
+    /// use turn_rs::router::ports::Bit;
     ///
     /// let pools = PortPools::new();
-    /// assert_eq!(pool.capacity(), 65535 - 49152);
+    /// assert_eq!(pools.capacity(), 65535 - 49152);
     /// ```
     pub fn capacity(&self) -> usize {
         capacity()
@@ -82,12 +82,14 @@ impl PortPools {
 
     /// get pools allocated size.
     ///
-    /// ```ignore
-    /// use ports::PortPools;
-    /// use ports::Bit;
+    /// ```
+    /// use turn_rs::router::ports::PortPools;
     ///
-    /// let pools = PortPools::new();
-    /// assert_eq!(pool.len(), 0);
+    /// let mut pools = PortPools::new();
+    /// assert_eq!(pools.len(), 0);
+    ///
+    /// pools.alloc(None).unwrap();
+    /// assert_eq!(pools.len(), 1);
     /// ```
     pub fn len(&self) -> usize {
         self.allocated
@@ -97,8 +99,8 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use ports::PortPools;
+    /// ```
+    /// use turn_rs::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -148,8 +150,8 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use ports::PortPools;
+    /// ```
+    /// use turn_rs::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -179,9 +181,9 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use ports::PortPools;
-    /// use ports::Bit;
+    /// ```
+    /// use turn_rs::router::ports::PortPools;
+    /// use turn_rs::router::ports::Bit;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -191,8 +193,8 @@ impl PortPools {
     /// pool.write(0, 0, Bit::High);
     /// pool.write(0, 1, Bit::High);
     ///
-    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
-    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49154));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49155));
     /// ```
     pub fn write(&mut self, offset: usize, i: usize, bit: Bit) {
         let bucket = self.buckets[offset];
@@ -212,9 +214,9 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use ports::PortPools;
-    /// use ports::Bit;
+    /// ```
+    /// use turn_rs::router::ports::PortPools;
+    /// use turn_rs::router::ports::Bit;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -227,8 +229,8 @@ impl PortPools {
     /// pool.write(0, 0, Bit::High);
     /// pool.write(0, 1, Bit::High);
     ///
-    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
-    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49154));
+    /// assert_eq!(pool.alloc(Some(0)), Some(49155));
     ///
     /// pool.restore(49152);
     /// pool.restore(49153);
@@ -248,8 +250,8 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use ports::PortPools;
+    /// ```
+    /// use turn_rs::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -280,13 +282,12 @@ impl PortPools {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use ports::PortPools;
+    /// ```
+    /// use turn_rs::router::ports::*;
     ///
-    /// let range = 49152..65535;
-    /// let max = PortPools::bucket_size(&range) as u16;
-    /// let pool = PortPools::new(range);
+    /// let pool = PortPools::new();
     ///
+    /// let max = bucket_size() as u16;
     /// let index = pool.random();
     /// assert!((0..max - 1).contains(&index));
     /// ```
@@ -316,9 +317,11 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let pools = Ports::new();
-    /// assert_eq!(pools.capacity(), 65535 - 49152);
+    /// ```
+    /// use turn_rs::router::ports::*;
+    ///
+    /// let ports = Ports::new();
+    /// assert_eq!(ports.capacity(), 65535 - 49152);
     /// ```
     pub fn capacity(&self) -> usize {
         self.pools.lock().capacity()
@@ -328,9 +331,11 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let pools = Ports::new();
-    /// assert_eq!(pools.len(), 0);
+    /// ```
+    /// use turn_rs::router::ports::*;
+    ///
+    /// let ports = Ports::new();
+    /// assert_eq!(ports.len(), 0);
     /// ```
     pub fn len(&self) -> usize {
         self.pools.lock().len()
@@ -340,11 +345,15 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let pools = Ports::new();
-    /// let port = pools.alloc().unwrap();
+    /// ```
+    /// use turn_rs::router::ports::*;
+    /// use std::net::SocketAddr;
     ///
-    /// assert!(pools.get(port).is_some());
+    /// let ports = Ports::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let port = ports.alloc(&addr).unwrap();
+    ///
+    /// assert!(ports.get(port).is_some());
     /// ```
     pub fn get(&self, p: u16) -> Option<SocketAddr> {
         self.map.read().get(&p).cloned()
@@ -354,13 +363,20 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let pools = Ports::new();
-    /// let port = pools.alloc().unwrap();
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// ```
+    /// use turn_rs::router::ports::*;
+    /// use std::net::SocketAddr;
     ///
-    /// assert!(pools.bound(&addr, port).is_some());
-    /// assert!(pools.get_bound(&addr, &addr).is_none());
+    /// let local = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    ///
+    /// let pools = Ports::new();
+    ///
+    /// let port = pools.alloc(&local).unwrap();
+    /// assert!(pools.bound(&local, port).is_some());
+    /// assert!(pools.bound(&peer, port).is_some());
+    ///
+    /// assert_eq!(pools.get_bound(&local, &peer), Some(port));
     /// ```
     pub fn get_bound(&self, a: &SocketAddr, p: &SocketAddr) -> Option<u16> {
         self.bounds.read().get(p)?.get(a).cloned()
@@ -370,9 +386,14 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
+    /// use turn_rs::router::ports::*;
+    /// use std::net::SocketAddr;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///
     /// let pools = Ports::new();
-    /// assert_eq!(pools.alloc().is_some(), true);
+    /// assert_eq!(pools.alloc(&addr).is_some(), true);
     /// ```
     pub fn alloc(&self, a: &SocketAddr) -> Option<u16> {
         let port = self.pools.lock().alloc(None)?;
@@ -384,10 +405,14 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let pools = Ports::new();
-    /// let port = pools.alloc().unwrap();
+    /// ```
+    /// use turn_rs::router::ports::*;
+    /// use std::net::SocketAddr;
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///
+    /// let pools = Ports::new();
+    /// let port = pools.alloc(&addr).unwrap();
     ///
     /// assert!(pools.bound(&addr, port).is_some());
     /// ```
@@ -406,10 +431,14 @@ impl Ports {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let pools = Ports::new();
-    /// let port = pools.alloc().unwrap();
+    /// ```
+    /// use turn_rs::router::ports::*;
+    /// use std::net::SocketAddr;
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///
+    /// let pools = Ports::new();
+    /// let port = pools.alloc(&addr).unwrap();
     ///
     /// assert!(pools.bound(&addr, port).is_some());
     /// assert!(pools.remove(&addr, &vec![port]).is_some());
@@ -432,10 +461,12 @@ impl Ports {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
+/// use turn_rs::router::ports::*;
+///
 /// assert_eq!(bucket_size(), 256);
 /// ```
-fn bucket_size() -> usize {
+pub fn bucket_size() -> usize {
     (capacity() as f32 / 64.0).ceil() as usize
 }
 
@@ -443,10 +474,12 @@ fn bucket_size() -> usize {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
+/// use turn_rs::router::ports::*;
+///
 /// assert_eq!(bit_len(), 63);
 /// ```
-fn bit_len() -> u32 {
+pub fn bit_len() -> u32 {
     (capacity() as f32 % 64.0).ceil() as u32
 }
 
@@ -454,7 +487,9 @@ fn bit_len() -> u32 {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
+/// use turn_rs::router::ports::*;
+///
 /// assert_eq!(capacity(), 65535 - 49152);
 /// ```
 pub const fn capacity() -> usize {
@@ -465,8 +500,10 @@ pub const fn capacity() -> usize {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// assert_eq!(port_range(), 65535..49152);
+/// ```
+/// use turn_rs::router::ports::*;
+///
+/// assert_eq!(port_range(), 49152..65535);
 /// ```
 pub const fn port_range() -> Range<u16> {
     49152..65535

@@ -17,6 +17,15 @@ pub struct Iter {
     inner: Channel,
 }
 
+impl Iter {
+    pub fn new(channel: Channel) -> Self {
+        Self {
+            inner: channel,
+            index: 0,
+        }
+    }
+}
+
 /// Peer channels.
 ///
 /// A channel binding consists of:
@@ -77,13 +86,13 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let channel = Channel::new(&addr);
-    /// // channel.includes(&addr)
+    /// assert!(channel.includes(&addr));
     /// ```
     pub fn includes(&self, a: &SocketAddr) -> bool {
         self.bound.contains(&Some(a.clone()))
@@ -93,13 +102,13 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let channel = Channel::new(&addr);
-    /// // channel.is_half(&addr)
+    /// assert!(channel.is_half());
     /// ```
     pub fn is_half(&self) -> bool {
         self.bound.contains(&None)
@@ -109,14 +118,16 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap();
-    /// let peer = "127.0.0.1:8081".parse::<SocketSocketAddr>().unwrap();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let mut channel = Channel::new(&addr);
-    /// // channel.up(&peer)
+    ///
+    /// channel.up(&peer);
+    /// assert!(!channel.is_half());
     /// ```
     pub fn up(&mut self, a: &SocketAddr) {
         self.bound[1] = Some(a.clone())
@@ -126,13 +137,15 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let mut channel = Channel::new(&addr);
-    /// // channel.refresh()
+    ///
+    /// channel.refresh();
+    /// assert!(!channel.is_death());
     /// ```
     pub fn refresh(&mut self) {
         self.timer = Instant::now();
@@ -142,13 +155,13 @@ impl Channel {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let mut channel = Channel::new(&addr);
-    /// // channel.is_death(600)
+    /// // channel.is_death()
     /// ```
     pub fn is_death(&self) -> bool {
         self.timer.elapsed().as_secs() >= 600
@@ -162,17 +175,14 @@ impl Iterator for Iter {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap();
-    /// let iter = Iter {
-    ///     inner: Channel::new(&addr),
-    ///     index: 0,
-    /// };
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let mut iter = Iter::new(Channel::new(&addr));
     ///
-    /// // iter.next()
+    /// assert_eq!(iter.next(), Some(addr));
     /// ```
     fn next(&mut self) -> Option<Self::Item> {
         let item = match self.index < 2 {
@@ -193,11 +203,11 @@ impl IntoIterator for Channel {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let channel = Channel::new(&addr);
     /// let iter = channel.into_iter();
     /// // iter.next()
@@ -228,12 +238,12 @@ impl Channels {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap());
-    /// let peer = Arc::new("127.0.0.1:8081".parse::<SocketSocketAddr>().unwrap());
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let channels = Channels::new();
     ///
     /// channels.insert(&addr, 43159, &peer).unwrap();
@@ -249,12 +259,12 @@ impl Channels {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap());
-    /// let peer = Arc::new("127.0.0.1:8081".parse::<SocketSocketAddr>().unwrap());
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let channels = Channels::new();
     ///
     /// channels.insert(&addr, 43159, &peer).unwrap();
@@ -296,19 +306,19 @@ impl Channels {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use std::net::SocketSocketAddr;
-    /// use std::sync::Arc;
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketSocketAddr>().unwrap());
-    /// let peer = Arc::new("127.0.0.1:8081".parse::<SocketSocketAddr>().unwrap());
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let channels = Channels::new();
     ///
     /// channels.insert(&addr, 43159, &peer).unwrap();
     /// channels.insert(&peer, 43160, &addr).unwrap();
     ///
-    /// assert!(channels.remove(&addr).is_some());
-    /// assert!(channels.remove(&peer).is_some());
+    /// assert!(channels.remove(43159).is_some());
+    /// assert!(channels.remove(43160).is_some());
     /// ```
     pub fn remove(&self, c: u16) -> Option<()> {
         let mut bounds = self.bounds.write();
@@ -321,7 +331,9 @@ impl Channels {
 
     /// get death channels.
     ///
-    /// ```ignore
+    /// ```
+    /// use turn_rs::router::channels::*;
+    ///
     /// let channels = Channels::new();
     /// assert_eq!(channels.get_deaths().len(), 0);
     /// ```

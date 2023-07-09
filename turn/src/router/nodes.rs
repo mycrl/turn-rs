@@ -1,8 +1,7 @@
 use super::ports::capacity;
 use parking_lot::RwLock;
 use std::{
-    collections::HashMap,
-    collections::HashSet,
+    collections::*,
     net::SocketAddr,
     time::Instant,
     sync::Arc,
@@ -31,13 +30,6 @@ impl Node {
     /// create node session.
     ///
     /// node session from group number and long key.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// // Node::new(0, key.clone());
-    /// ```
     pub fn new(
         index: u8,
         username: String,
@@ -62,10 +54,17 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let mut node = Node::new(0, key.clone());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    ///
+    /// let mut node =
+    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    ///
+    /// node.set_lifetime(0);
+    /// assert!(node.is_death());
+    ///
     /// node.set_lifetime(600);
+    /// assert!(!node.is_death());
     /// ```
     pub fn set_lifetime(&mut self, delay: u32) {
         self.lifetime = delay as u64;
@@ -76,9 +75,15 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let mut node = Node::new(0, key.clone());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    ///
+    /// let mut node =
+    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    ///
+    /// node.set_lifetime(0);
+    /// assert!(node.is_death());
+    ///
     /// node.set_lifetime(600);
     /// assert!(!node.is_death());
     /// ```
@@ -90,10 +95,14 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let node = Node::new(0, key.clone());
-    /// assert_eq!(!node.get_secret(), Arc::new(key));
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    ///
+    /// let mut node =
+    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    ///
+    /// let secret = node.get_secret();
+    /// assert_eq!(secret.as_slice(), &[0u8; 16]);
     /// ```
     pub fn get_secret(&self) -> Arc<[u8; 16]> {
         self.secret.clone()
@@ -103,10 +112,14 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let node = Node::new(0, key.clone());
-    /// // node.push_port(43196);
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    ///
+    /// let mut node =
+    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    ///
+    /// node.push_port(43196);
+    /// assert_eq!(&node.ports, &[43196]);
     /// ```
     pub fn push_port(&mut self, port: u16) {
         if !self.ports.contains(&port) {
@@ -118,10 +131,14 @@ impl Node {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let node = Node::new(0, key.clone());
-    /// // node.push_channel(0x4000);
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    ///
+    /// let mut node =
+    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    ///
+    /// node.push_channel(0x4000);
+    /// assert_eq!(&node.channels, &[0x4000]);
     /// ```
     pub fn push_channel(&mut self, channel: u16) {
         if !self.channels.contains(&channel) {
@@ -133,14 +150,14 @@ impl Node {
 /// node table.
 pub struct Nodes {
     map: RwLock<HashMap<SocketAddr, Node>>,
-    addrs: RwLock<HashMap<String, HashSet<SocketAddr>>>,
+    addrs: RwLock<BTreeMap<String, HashSet<SocketAddr>>>,
 }
 
 impl Nodes {
     pub fn new() -> Self {
         Self {
+            addrs: RwLock::new(BTreeMap::new()),
             map: RwLock::new(HashMap::with_capacity(capacity())),
-            addrs: RwLock::new(HashMap::with_capacity(capacity())),
         }
     }
 
@@ -148,9 +165,11 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// assert_eq!(!node.get_users(0, 10).len(), 0);
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    ///
+    /// let nodes = Nodes::new();
+    /// assert_eq!(nodes.get_users(0, 10), vec![]);
     /// ```
     pub fn get_users(
         &self,
@@ -170,14 +189,22 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    /// use std::net::SocketAddr;
     ///
-    /// node.insert(&addr, "test", key);
+    /// let nodes = Nodes::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// assert!(!node.get_node("test").is_some());
+    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    ///
+    /// let node = nodes.get_node(&addr).unwrap();
+    /// assert_eq!(node.username.as_str(), "test");
+    /// assert_eq!(node.password.as_str(), "test");
+    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.channels.len(), 0);
+    /// assert_eq!(node.ports.len(), 0);
+    /// assert_eq!(node.index, 0);
     /// ```
     pub fn get_node(&self, a: &SocketAddr) -> Option<Node> {
         self.map.read().get(a).cloned()
@@ -187,14 +214,17 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    /// use std::net::SocketAddr;
     ///
-    /// node.insert(&addr, "test", key);
+    /// let nodes = Nodes::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// assert!(!node.get_password(&addr).is_some());
+    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    ///
+    /// let secret = nodes.get_secret(&addr).unwrap();
+    /// assert_eq!(secret.as_slice(), &[0u8; 16]);
     /// ```
     pub fn get_secret(&self, a: &SocketAddr) -> Option<Arc<[u8; 16]>> {
         self.map.read().get(a).map(|n| n.get_secret())
@@ -204,30 +234,46 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    /// use std::net::SocketAddr;
     ///
-    /// node.insert(&addr, "test", key);
+    /// let nodes = Nodes::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///
+    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    ///
+    /// let node = nodes.get_node(&addr).unwrap();
+    /// assert_eq!(node.username.as_str(), "test");
+    /// assert_eq!(node.password.as_str(), "test");
+    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.channels.len(), 0);
+    /// assert_eq!(node.ports.len(), 0);
+    /// assert_eq!(node.index, 0);
     /// ```
     pub fn insert(
         &self,
         index: u8,
-        a: &SocketAddr,
-        u: &str,
-        s: [u8; 16],
-        p: String,
+        addr: &SocketAddr,
+        username: &str,
+        secret: [u8; 16],
+        password: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let node = Node::new(index, u.to_string(), s, p);
+        let node = Node::new(
+            index,
+            username.to_string(),
+            secret,
+            password.to_string(),
+        );
+
         let pwd = node.get_secret();
         let mut addrs = self.addrs.write();
-        self.map.write().insert(a.clone(), node);
+        self.map.write().insert(addr.clone(), node);
 
         addrs
-            .entry(u.to_string())
+            .entry(username.to_string())
             .or_insert_with(|| HashSet::with_capacity(5))
-            .insert(a.clone());
+            .insert(addr.clone());
         Some(pwd)
     }
 
@@ -235,14 +281,24 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    /// use std::net::SocketAddr;
     ///
-    /// node.insert(&addr, "test", key);
+    /// let nodes = Nodes::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// node.push_port(&addr, 60000);
+    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    ///
+    /// assert!(nodes.push_port(&addr, 60000).is_some());
+    ///
+    /// let node = nodes.get_node(&addr).unwrap();
+    /// assert_eq!(node.username.as_str(), "test");
+    /// assert_eq!(node.password.as_str(), "test");
+    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.channels, vec![]);
+    /// assert_eq!(node.ports, vec![60000]);
+    /// assert_eq!(node.index, 0);
     /// ```
     pub fn push_port(&self, a: &SocketAddr, port: u16) -> Option<()> {
         self.map.write().get_mut(a)?.push_port(port);
@@ -253,14 +309,24 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    /// use std::net::SocketAddr;
     ///
-    /// node.insert(&addr, "test", key);
+    /// let nodes = Nodes::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// node.push_channel(&addr, 0x4000);
+    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    ///
+    /// assert!(nodes.push_channel(&addr, 0x4000).is_some());
+    ///
+    /// let node = nodes.get_node(&addr).unwrap();
+    /// assert_eq!(node.username.as_str(), "test");
+    /// assert_eq!(node.password.as_str(), "test");
+    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.channels, vec![0x4000]);
+    /// assert_eq!(node.ports, vec![]);
+    /// assert_eq!(node.index, 0);
     /// ```
     pub fn push_channel(&self, a: &SocketAddr, channel: u16) -> Option<()> {
         self.map.write().get_mut(a)?.push_channel(channel);
@@ -271,14 +337,36 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    /// use std::net::SocketAddr;
     ///
-    /// node.insert(&addr, "test", key);
+    /// let nodes = Nodes::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// node.set_lifetime(&addr, 0);
+    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    ///
+    /// assert!(nodes.set_lifetime(&addr, 600).is_some());
+    ///
+    /// let node = nodes.get_node(&addr).unwrap();
+    /// assert_eq!(node.username.as_str(), "test");
+    /// assert_eq!(node.password.as_str(), "test");
+    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.channels, vec![]);
+    /// assert_eq!(node.ports, vec![]);
+    /// assert_eq!(node.index, 0);
+    /// assert!(!node.is_death());
+    ///
+    /// assert!(nodes.set_lifetime(&addr, 0).is_some());
+    ///
+    /// let node = nodes.get_node(&addr).unwrap();
+    /// assert_eq!(node.username.as_str(), "test");
+    /// assert_eq!(node.password.as_str(), "test");
+    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.channels, vec![]);
+    /// assert_eq!(node.ports, vec![]);
+    /// assert_eq!(node.index, 0);
+    /// assert!(node.is_death());
     /// ```
     pub fn set_lifetime(&self, a: &SocketAddr, delay: u32) -> Option<()> {
         self.map.write().get_mut(a)?.set_lifetime(delay);
@@ -289,21 +377,32 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    /// use std::net::SocketAddr;
     ///
-    /// node.insert(&addr, "test", key);
+    /// let nodes = Nodes::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// assert!(node.remove(&addr).is_some());
+    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    ///
+    /// let node = nodes.get_node(&addr).unwrap();
+    /// assert_eq!(node.username.as_str(), "test");
+    /// assert_eq!(node.password.as_str(), "test");
+    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.channels, vec![]);
+    /// assert_eq!(node.ports, vec![]);
+    /// assert_eq!(node.index, 0);
+    ///
+    /// assert!(nodes.remove(&addr).is_some());
+    /// assert!(nodes.get_node(&addr).is_none());
     /// ```
     pub fn remove(&self, a: &SocketAddr) -> Option<Node> {
-        let mut addrs_map = self.addrs.write();
+        let mut user_addrs = self.addrs.write();
         let node = self.map.write().remove(a)?;
-        let addrs = addrs_map.get_mut(&node.username)?;
+        let addrs = user_addrs.get_mut(&node.username)?;
         if addrs.len() == 1 {
-            addrs_map.remove(&node.username)?;
+            user_addrs.remove(&node.username)?;
         } else {
             addrs.remove(a);
         }
@@ -315,14 +414,22 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// let key = stun::util::long_key("panda", "panda", "raspberry");
-    /// let addr = Arc::new("127.0.0.1:8080".parse::<SocketAddr>().unwrap());
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    /// use std::net::SocketAddr;
     ///
-    /// node.insert(&addr, "test", key);
+    /// let nodes = Nodes::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let addr1 = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
-    /// assert_eq!(node.get_bound(&addr), Some(addr));
+    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    /// nodes.insert(1, &addr1, "test", [0u8; 16], "test");
+    ///
+    /// let ret = nodes.get_addrs("test");
+    ///
+    /// assert_eq!(ret.len(), 2);
+    /// assert!(ret[0] == addr || ret[0] == addr1);
+    /// assert!(ret[1] == addr || ret[1] == addr1);
     /// ```
     pub fn get_addrs(&self, u: &str) -> Vec<SocketAddr> {
         self.addrs
@@ -338,9 +445,20 @@ impl Nodes {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// let node = Nodes::new();
-    /// assert_eq!(node.get_deaths().len(), 0);
+    /// ```
+    /// use turn_rs::router::nodes::*;
+    /// use std::net::SocketAddr;
+    ///
+    /// let nodes = Nodes::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///
+    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    ///
+    /// assert!(nodes.set_lifetime(&addr, 600).is_some());
+    /// assert_eq!(nodes.get_deaths(), vec![]);
+    ///
+    /// assert!(nodes.set_lifetime(&addr, 0).is_some());
+    /// assert_eq!(nodes.get_deaths(), vec![addr]);
     /// ```
     pub fn get_deaths(&self) -> Vec<SocketAddr> {
         self.map

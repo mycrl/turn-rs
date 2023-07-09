@@ -1,10 +1,18 @@
-use crate::config::Interface;
-use super::router::Router;
 use faster_stun::Decoder;
 use bytes::BytesMut;
 use std::{
     io::ErrorKind::ConnectionReset,
     sync::Arc,
+};
+
+use crate::{
+    config::Interface,
+    server::monitor::Stats,
+};
+
+use super::{
+    router::Router,
+    Monitor,
 };
 
 use tokio::{
@@ -34,6 +42,7 @@ pub async fn tcp_processor<T>(
     listen: TcpListener,
     handle: T,
     router: Arc<Router>,
+    monitor: Monitor,
 ) where
     T: Fn(u8) -> Processor,
 {
@@ -44,6 +53,7 @@ pub async fn tcp_processor<T>(
     // Accept all connections on the current listener, but exit the entire
     // process when an error occurs.
     while let Ok((socket, addr)) = listen.accept().await {
+        let actor = monitor.get_actor();
         let router = router.clone();
         let (index, mut receiver) = router.get_receiver().await;
         let mut processor = handle(index);
@@ -68,13 +78,17 @@ pub async fn tcp_processor<T>(
         let (mut reader, writer) = socket.into_split();
         let writer = Arc::new(Mutex::new(writer));
         let writer_ = writer.clone();
+        let actor_ = actor.clone();
 
         // Use a separate task to handle messages forwarded to this socket.
         tokio::spawn(async move {
-            while let Some((bytes, kind, _)) = receiver.recv().await {
+            while let Some((bytes, kind, target)) = receiver.recv().await {
                 let mut writer = writer_.lock().await;
                 if writer.write_all(bytes.as_slice()).await.is_err() {
                     break;
+                } else {
+                    actor_.send(target, Stats::SendBytes(bytes.len() as u16));
+                    actor_.send(target, Stats::SendPkts(1));
                 }
 
                 // The channel data needs to be aligned in multiples of 4 in
@@ -105,6 +119,8 @@ pub async fn tcp_processor<T>(
                 // has been closed.
                 if size == 0 {
                     break;
+                } else {
+                    actor.send(addr, Stats::ReceivedBytes(size as u16));
                 }
 
                 // The minimum length of a stun message will not be less
@@ -125,7 +141,10 @@ pub async fn tcp_processor<T>(
                     let size = match Decoder::message_size(&buf, true) {
                         Ok(s) if s > buf.len() => break,
                         Err(_) => break,
-                        Ok(s) => s,
+                        Ok(s) => {
+                            actor.send(addr, Stats::ReceivedPkts(1));
+                            s
+                        },
                     };
 
                     let chunk = buf.split_to(size);
@@ -144,6 +163,10 @@ pub async fn tcp_processor<T>(
                             {
                                 break 'a;
                             }
+
+                            #[rustfmt::skip]
+                            actor.send(addr, Stats::SendBytes(data.len() as u16));
+                            actor.send(addr, Stats::SendPkts(1));
                         }
                     }
                 }
@@ -169,6 +192,7 @@ pub async fn udp_processor(
     interface: Interface,
     service: Service,
     router: Arc<Router>,
+    monitor: Monitor,
 ) {
     let socket = Arc::new(socket);
     let local_addr = socket
@@ -177,6 +201,7 @@ pub async fn udp_processor(
     let (index, mut receiver) = router.get_receiver().await;
 
     for _ in 0..num_cpus::get() {
+        let actor = monitor.get_actor();
         let socket = socket.clone();
         let router = router.clone();
         let mut processor = service.get_processor(index, interface.external);
@@ -194,6 +219,9 @@ pub async fn udp_processor(
                     _ => continue,
                 };
 
+                actor.send(addr, Stats::ReceivedBytes(size as u16));
+                actor.send(addr, Stats::ReceivedPkts(1));
+
                 // The stun message requires at least 4 bytes. (currently the
                 // smallest stun message is channel data,
                 // excluding content)
@@ -209,15 +237,13 @@ pub async fn udp_processor(
                                     break;
                                 }
                             }
+
+                            #[rustfmt::skip]
+                            actor.send(addr,Stats::SendBytes(bytes.len() as u16));
+                            actor.send(addr, Stats::SendPkts(1));
                         }
                     }
                 }
-
-                log::trace!(
-                    "udp socket process failed: size={}, addr={:?}",
-                    size,
-                    addr
-                );
             }
 
             router.remove(processor.index).await;
@@ -225,11 +251,15 @@ pub async fn udp_processor(
         });
     }
 
+    let actor = monitor.get_actor();
     while let Some((bytes, _, addr)) = receiver.recv().await {
         if let Err(e) = socket.send_to(&bytes, addr).await {
             if e.kind() != ConnectionReset {
                 break;
             }
+        } else {
+            actor.send(addr, Stats::SendBytes(bytes.len() as u16));
+            actor.send(addr, Stats::SendPkts(1));
         }
     }
 }

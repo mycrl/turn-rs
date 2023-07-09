@@ -1,0 +1,56 @@
+* {
+    margin: 0;
+    padding: 0;
+    font-size: 12px;
+    font-family: arial, sans-serif;
+}
+
+hr {
+    margin: 20px 0;
+}
+  
+h5 {
+    margin-bottom: 5px;
+}
+
+button, .hover {
+    cursor: pointer;
+    outline: none;
+    -webkit-app-region: no-drag;
+}
+
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+    background: #ddd;
+    border-radius: 2.5px;
+}
+
+::-webkit-scrollbar-button {
+    width: 0;
+    height: 0;
+}
+
+::-webkit-scrollbar-button:hover {
+    background: #999;
+}
+
+::-webkit-scrollbar-thumb {
+    border-radius: 2.5px;
+    background: #b9b9b9;
+}
+
+table {
+    border-collapse: collnetworkse;
+    width: 100%;
+}
+
+td, th {
+    border: 1px solid #dddddd;
+    text-align: left;
+    padding: 8px;
+}
+
+tr:nth-child(even) {
+    background-color: #dddddd;
+}
