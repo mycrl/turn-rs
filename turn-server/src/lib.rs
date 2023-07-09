@@ -1,41 +1,45 @@
-pub mod processor;
-pub mod router;
-
-pub use processor::Processor;
-pub use router::nodes::Node;
-pub use router::Router;
+pub mod config;
+pub mod server;
+pub mod api;
 
 use async_trait::async_trait;
+use config::Config;
+use server::Monitor;
+use turn_rs::{
+    Service,
+    Observer,
+};
+
+use api::{
+    controller::Controller,
+    hooks,
+};
+
 use std::{
     net::SocketAddr,
     sync::Arc,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StunClass {
-    Message,
-    Channel,
+struct Events {
+    hooks: hooks::Hooks,
+    monitor: Monitor,
 }
 
-#[rustfmt::skip]
-static SOFTWARE: &str = concat!(
-    env!("CARGO_PKG_NAME"), 
-    "-",
-    env!("CARGO_PKG_VERSION")
-);
+impl Events {
+    fn new(cfg: Arc<Config>, monitor: Monitor) -> Self {
+        Self {
+            hooks: hooks::Hooks::new(cfg),
+            monitor,
+        }
+    }
+}
 
 #[async_trait]
-pub trait Observer: Send + Sync {
-    /// turn auth request with block
-    #[allow(unused)]
-    fn auth_block(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        None
-    }
-
-    /// turn auth request
-    #[allow(unused)]
+impl Observer for Events {
     async fn auth(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        None
+        let pwd = self.hooks.auth(addr, name).await.ok();
+        log::info!("auth: addr={:?}, name={:?}, pwd={:?}", addr, name, pwd);
+        pwd
     }
 
     /// allocate request
@@ -54,8 +58,15 @@ pub trait Observer: Send + Sync {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    #[allow(unused)]
-    fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {}
+    fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
+        log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
+        self.monitor.set(addr.clone());
+        self.hooks.events(&hooks::Events::Allocated {
+            addr,
+            name,
+            port,
+        });
+    }
 
     /// binding request
     ///
@@ -79,8 +90,12 @@ pub trait Observer: Send + Sync {
     /// attribute within the body of the STUN response will remain untouched.
     /// In this way, the client can learn its reflexive transport address
     /// allocated by the outermost NAT with respect to the STUN server.
-    #[allow(unused)]
-    fn binding(&self, addr: &SocketAddr) {}
+    fn binding(&self, addr: &SocketAddr) {
+        log::info!("binding: addr={:?}", addr);
+        self.hooks.events(&hooks::Events::Binding {
+            addr,
+        });
+    }
 
     /// channel binding request
     ///
@@ -112,8 +127,20 @@ pub trait Observer: Send + Sync {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
-    #[allow(unused)]
-    fn channel_bind(&self, addr: &SocketAddr, name: &str, num: u16) {}
+    fn channel_bind(&self, addr: &SocketAddr, name: &str, number: u16) {
+        log::info!(
+            "channel bind: addr={:?}, name={:?}, number={}",
+            addr,
+            name,
+            number
+        );
+
+        self.hooks.events(&hooks::Events::ChannelBind {
+            addr,
+            name,
+            number,
+        });
+    }
 
     /// create permission request
     ///
@@ -154,13 +181,24 @@ pub trait Observer: Send + Sync {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
-    #[allow(unused)]
     fn create_permission(
         &self,
         addr: &SocketAddr,
         name: &str,
         relay: &SocketAddr,
     ) {
+        log::info!(
+            "create permission: addr={:?}, name={:?}, realy={:?}",
+            addr,
+            name,
+            relay
+        );
+
+        self.hooks.events(&hooks::Events::CreatePermission {
+            addr,
+            name,
+            relay,
+        });
     }
 
     /// refresh request
@@ -202,82 +240,41 @@ pub trait Observer: Send + Sync {
     /// will cause a 437 (Allocation Mismatch) response if the
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
-    #[allow(unused)]
-    fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {}
+    fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
+        log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
+        self.hooks.events(&hooks::Events::Refresh {
+            addr,
+            name,
+            time,
+        });
+    }
 
     /// node exit
     ///
     /// Triggered when the node leaves from the turn. Possible reasons: the node
     /// life cycle has expired, external active deletion, or active exit of the
     /// node.
-    #[allow(unused)]
-    fn abort(&self, addr: &SocketAddr, name: &str) {}
+    fn abort(&self, addr: &SocketAddr, name: &str) {
+        log::info!("node abort: addr={:?}, name={:?}", addr, name);
+        self.monitor.delete(addr);
+        self.hooks.events(&hooks::Events::Abort {
+            addr,
+            name,
+        });
+    }
 }
 
-/// TUTN service.
-#[derive(Clone)]
-pub struct Service {
-    router: Arc<Router>,
-    observer: Arc<dyn Observer>,
-    realm: String,
-}
+/// In order to let the integration test directly use the turn-server crate and
+/// start the server, a function is opened to replace the main function to
+/// directly start the server.
+pub async fn server_main(config: Arc<Config>) -> anyhow::Result<()> {
+    let monitor = Monitor::new();
+    let events = Events::new(config.clone(), monitor.clone());
+    let service = Service::new(events, config.turn.realm.clone());
+    server::run(monitor.clone(), &service, config.clone()).await?;
 
-impl Service {
-    pub fn get_router(&self) -> Arc<Router> {
-        self.router.clone()
-    }
-
-    /// Create turn service.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use turn_rs::*;
-    ///
-    /// struct ObserverTest;
-    ///
-    /// impl Observer for ObserverTest {}
-    ///
-    /// Service::new(ObserverTest, "test".to_string());
-    /// ```
-    pub fn new<T>(observer: T, realm: String) -> Self
-    where
-        T: Observer + 'static,
-    {
-        let observer = Arc::new(observer);
-        let router = Router::new(realm.clone(), observer.clone());
-
-        Self {
-            observer,
-            router,
-            realm,
-        }
-    }
-
-    /// Get processor.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use turn_rs::*;
-    /// use std::net::SocketAddr;
-    ///
-    /// struct ObserverTest;
-    ///
-    /// impl Observer for ObserverTest {}
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let service = Service::new(ObserverTest, "test".to_string());
-    /// let processor = service.get_processor(0, addr);
-    /// assert_eq!(processor.index, 0);
-    /// ```
-    pub fn get_processor(&self, index: u8, external: SocketAddr) -> Processor {
-        Processor::new(
-            index,
-            external,
-            self.realm.clone(),
-            self.router.clone(),
-            self.observer.clone(),
-        )
-    }
+    let router = service.get_router();
+    let controller = Controller::new(config.clone(), monitor, router);
+    api::start(&config, &controller).await?;
+    Ok(())
 }

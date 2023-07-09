@@ -83,7 +83,7 @@ impl Hooks {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// let config = Config::new()
     /// // let ext_ctr = Hooks::new(config);
     /// ```
@@ -102,7 +102,7 @@ impl Hooks {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// let config = Config::new()
     /// let ext_ctr = Hooks::new(config);
     ///

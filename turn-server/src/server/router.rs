@@ -3,7 +3,6 @@ use turn_rs::StunClass;
 use std::{
     collections::HashMap,
     net::SocketAddr,
-    sync::Arc,
 };
 
 use tokio::sync::{
@@ -32,17 +31,6 @@ impl Router {
         }
     }
 
-    async fn alloc_index(&self) -> Option<u8> {
-        let mut bits = self.bits.lock().await;
-        let index = bits.first_one().map(|i| i as u8)?;
-        bits.set(index as usize, false);
-        Some(index)
-    }
-
-    async fn free_index(&self, index: u8) {
-        self.bits.lock().await.set(index as usize, true);
-    }
-
     /// Get the endpoint reader for the route.
     ///
     /// Each transport protocol is layered according to its own endpoint, and
@@ -50,16 +38,28 @@ impl Router {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// let router = Router::new()
-    /// let (index, receiver) = router.get_receiver().await;
+    /// ```
+    /// use turn_server::server::router::*;
+    /// use turn_rs::StunClass;
+    /// use std::net::SocketAddr;
     ///
-    /// while let Some(res) = receiver.recv().await {
-    ///     // handle res.
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///     let router = Router::new();
+    ///     let (index, mut receiver) = router.get_receiver().await;
+    ///
+    ///     router
+    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3])
+    ///         .await;
+    ///     let ret = receiver.recv().await.unwrap();
+    ///     assert_eq!(ret.0, vec![1, 2, 3]);
+    ///     assert_eq!(ret.1, StunClass::Channel);
+    ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
     pub async fn get_receiver(
-        self: &Arc<Self>,
+        &self,
     ) -> (u8, UnboundedReceiver<(Vec<u8>, StunClass, SocketAddr)>) {
         let index = self
             .alloc_index()
@@ -79,14 +79,24 @@ impl Router {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// let router = Router::new()
-    /// let (index, receiver) = router.get_receiver().await;
+    /// ```
+    /// use turn_server::server::router::*;
+    /// use turn_rs::StunClass;
+    /// use std::net::SocketAddr;
     ///
-    /// router.send(index, "127.0.0.1:8080".parse().unwrap(), b"hello").await;
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///     let router = Router::new();
+    ///     let (index, mut receiver) = router.get_receiver().await;
     ///
-    /// while let Some((data, target)) = receiver.recv().await {
-    ///     println!("{}, {:?}", data.len(), target);
+    ///     router
+    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3])
+    ///         .await;
+    ///     let ret = receiver.recv().await.unwrap();
+    ///     assert_eq!(ret.0, vec![1, 2, 3]);
+    ///     assert_eq!(ret.1, StunClass::Channel);
+    ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
     pub async fn send(
@@ -115,15 +125,27 @@ impl Router {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// let router = Router::new()
-    /// let (index, receiver) = router.get_receiver().await;
+    /// ```
+    /// use turn_server::server::router::*;
+    /// use turn_rs::StunClass;
+    /// use std::net::SocketAddr;
     ///
-    /// router.remove(index).await;
-    /// router.send(index, "127.0.0.1:8080".parse().unwrap(), b"hello").await;
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///     let router = Router::new();
+    ///     let (index, mut receiver) = router.get_receiver().await;
     ///
-    /// while let Some((data, target)) = receiver.recv().await {
-    ///     println!("{}, {:?}", data.len(), target);
+    ///     router
+    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3])
+    ///         .await;
+    ///     let ret = receiver.recv().await.unwrap();
+    ///     assert_eq!(ret.0, vec![1, 2, 3]);
+    ///     assert_eq!(ret.1, StunClass::Channel);
+    ///     assert_eq!(ret.2, addr);
+    ///
+    ///     router.remove(index).await;
+    ///     assert!(receiver.recv().await.is_none());
     /// }
     /// ```
     pub async fn remove(&self, index: u8) {
@@ -131,5 +153,18 @@ impl Router {
             self.free_index(index).await;
             drop(sender)
         }
+    }
+
+    /// alloc a index.
+    async fn alloc_index(&self) -> Option<u8> {
+        let mut bits = self.bits.lock().await;
+        let index = bits.first_one().map(|i| i as u8)?;
+        bits.set(index as usize, false);
+        Some(index)
+    }
+
+    /// free a index from alloced.
+    async fn free_index(&self, index: u8) {
+        self.bits.lock().await.set(index as usize, true);
     }
 }

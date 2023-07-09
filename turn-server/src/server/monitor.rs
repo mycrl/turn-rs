@@ -27,7 +27,8 @@ impl Add for u64 {
 }
 
 /// Worker independent monitoring statistics
-#[derive(Default, Clone, Copy, Serialize)]
+#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Default, Serialize)]
 pub struct Store {
     pub received_bytes: u64,
     pub send_bytes: u64,
@@ -86,11 +87,18 @@ impl Monitor {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// let monitor = Monitor::new();
-    /// let sender = monitor.get_actor();
+    /// ```
+    /// use turn_server::server::monitor::*;
+    /// use std::net::SocketAddr;
     ///
-    /// sender.send(Stats::ReceivedBytes(100));
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///     let monitor = Monitor::new();
+    ///     let sender = monitor.get_actor();
+    ///
+    ///     sender.send(addr, Stats::ReceivedBytes(100));
+    /// }
     /// ```
     pub fn get_actor(&self) -> MonitorActor {
         MonitorActor {
@@ -102,11 +110,21 @@ impl Monitor {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// let monitor = Monitor::new(2);
+    /// # Example
     ///
-    /// let addr = "127.0.0.1:3080".parse().unwrap();
-    /// monitor.set(addr);
+    /// ```
+    /// use turn_server::server::monitor::*;
+    /// use std::net::SocketAddr;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///     let monitor = Monitor::new();
+    ///
+    ///     monitor.set(addr.clone());
+    ///     let nodes = monitor.get_nodes(0, 10);
+    ///     assert_eq!(nodes, vec![(addr, Store::default())]);
+    /// }
     /// ```
     pub fn set(&self, addr: SocketAddr) {
         let mut links = self.links.lock();
@@ -118,11 +136,23 @@ impl Monitor {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// let monitor = Monitor::new(2);
+    /// ```
+    /// use turn_server::server::monitor::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = "127.0.0.1:3080".parse().unwrap();
-    /// monitor.delete(&addr);
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///     let monitor = Monitor::new();
+    ///
+    ///     monitor.set(addr.clone());
+    ///     let nodes = monitor.get_nodes(0, 10);
+    ///     assert_eq!(nodes, vec![(addr.clone(), Store::default())]);
+    ///
+    ///     monitor.delete(&addr);
+    ///     let nodes = monitor.get_nodes(0, 10);
+    ///     assert_eq!(nodes, vec![]);
+    /// }
     /// ```
     pub fn delete(&self, addr: &SocketAddr) {
         self.nodes.lock().remove(addr);
@@ -135,14 +165,19 @@ impl Monitor {
     ///
     /// # Example
     ///
-    /// ```no_run
-    /// let monitor = Monitor::new(2);
+    /// ```
+    /// use turn_server::server::monitor::*;
+    /// use std::net::SocketAddr;
     ///
-    /// let addr = "127.0.0.1:3080".parse().unwrap();
-    /// monitor.set(&addr);
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///     let monitor = Monitor::new();
     ///
-    /// let nodes = monitor.get_nodes(0, 20);
-    /// assert_eq!(nodes.len(), 1);
+    ///     monitor.set(addr.clone());
+    ///     let nodes = monitor.get_nodes(0, 10);
+    ///     assert_eq!(nodes, vec![(addr, Store::default())]);
+    /// }
     /// ```
     pub fn get_nodes(
         &self,

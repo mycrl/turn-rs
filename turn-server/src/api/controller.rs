@@ -66,7 +66,7 @@ pub struct INode {
 impl From<Node> for INode {
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// let node = Node {
     ///     ...
     /// };
@@ -118,7 +118,7 @@ impl Controller {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// let config = Config::new()
     /// let service = Service::new(/* ... */);;
     /// let monitor = Monitor::new(/* ... */);
@@ -142,7 +142,7 @@ impl Controller {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// let config = Config::new()
     /// let service = Service::new(/* ... */);;
     /// let monitor = Monitor::new(/* ... */);
@@ -165,7 +165,7 @@ impl Controller {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// let config = Config::new()
     /// let service = Service::new(/* ... */);;
     /// let monitor = Monitor::new(/* ... */);
@@ -189,7 +189,7 @@ impl Controller {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// let config = Config::new()
     /// let service = Service::new(/* ... */);;
     /// let monitor = Monitor::new(/* ... */);
@@ -213,7 +213,7 @@ impl Controller {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// let config = Config::new()
     /// let service = Service::new(/* ... */);;
     /// let monitor = Monitor::new(/* ... */);
@@ -237,7 +237,7 @@ impl Controller {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// let config = Config::new()
     /// let service = Service::new(/* ... */);;
     /// let monitor = Monitor::new(/* ... */);

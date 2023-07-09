@@ -51,10 +51,10 @@ impl Router {
     /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
-    /// 
+    ///
     /// Router::new("test".to_string(), Arc::new(ObserverTest));
     /// ```
     pub fn new(realm: String, observer: Arc<dyn Observer>) -> Arc<Self> {
@@ -93,10 +93,10 @@ impl Router {
     /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
-    /// 
+    ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// assert_eq!(router.capacity(), 16383);
     /// ```
@@ -112,10 +112,10 @@ impl Router {
     /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
-    /// 
+    ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// assert_eq!(router.len(), 0);
     /// ```
@@ -132,7 +132,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -140,9 +140,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -169,7 +172,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -177,9 +180,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -207,7 +213,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -215,9 +221,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -240,7 +249,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -248,9 +257,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -263,7 +275,7 @@ impl Router {
     pub fn get_nonce(&self, a: &SocketAddr) -> Arc<String> {
         self.nonces.get(a)
     }
-    
+
     /// get the password of the node SocketAddr.
     ///
     /// require remote control service to distribute keys.
@@ -275,7 +287,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -283,9 +295,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -337,7 +352,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -345,9 +360,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -376,7 +394,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -384,9 +402,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -410,7 +431,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -418,10 +439,13 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -489,7 +513,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -497,9 +521,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -527,7 +554,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -535,9 +562,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -570,7 +600,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -578,9 +608,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -638,7 +671,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -646,9 +679,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -675,7 +711,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -683,9 +719,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();
@@ -715,7 +754,7 @@ impl Router {
     /// use std::net::SocketAddr;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
-    /// 
+    ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
@@ -723,9 +762,12 @@ impl Router {
     ///         Some("test".to_string())
     ///     }
     /// }
-    /// 
+    ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239];
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(0, &addr, "test").unwrap();

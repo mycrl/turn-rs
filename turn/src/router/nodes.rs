@@ -265,7 +265,7 @@ impl Nodes {
             secret,
             password.to_string(),
         );
-        
+
         let pwd = node.get_secret();
         let mut addrs = self.addrs.write();
         self.map.write().insert(addr.clone(), node);
