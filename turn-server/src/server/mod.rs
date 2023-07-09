@@ -1,6 +1,6 @@
-mod transport;
-mod router;
-mod monitor;
+pub mod transport;
+pub mod router;
+pub mod monitor;
 
 pub use self::router::Router;
 pub use self::monitor::*;
@@ -24,7 +24,7 @@ use tokio::net::{
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```ignore
 /// let config = Config::new()
 /// let service = Service::new(/* ... */);;
 ///

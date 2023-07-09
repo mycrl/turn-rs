@@ -8,6 +8,7 @@ use ports::Ports;
 use nonces::Nonces;
 use channels::Channels;
 use faster_stun::util::long_key;
+
 use crate::Observer;
 use std::sync::atomic::{
     AtomicBool,
@@ -44,21 +45,19 @@ pub struct Router {
 impl Router {
     /// create a router.
     ///
-    /// ```ignore
-    /// struct Events;
+    /// # Examples
     ///
-    /// impl Observer for Events {
-    ///     fn auth(&self, _addr: &SocketAddr, _name: &str) -> Option<&str> {
-    ///         Some("test")
-    ///     }
-    /// }
-    ///
-    /// let _router = Router::new(
-    ///     "test".to_string(),
-    ///     Arc::new(Events {}),
-    /// );
     /// ```
-    pub(crate) fn new(realm: String, observer: Arc<dyn Observer>) -> Arc<Self> {
+    /// use std::sync::Arc;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    /// impl Observer for ObserverTest {}
+    ///
+    /// Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// ```
+    pub fn new(realm: String, observer: Arc<dyn Observer>) -> Arc<Self> {
         let this = Arc::new(Self {
             is_close: AtomicBool::new(false),
             channels: Channels::new(),
@@ -87,21 +86,74 @@ impl Router {
     }
 
     /// get router capacity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    /// impl Observer for ObserverTest {}
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// assert_eq!(router.capacity(), 16383);
+    /// ```
     pub fn capacity(&self) -> usize {
         self.ports.capacity()
     }
 
     /// get router allocate size.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    /// impl Observer for ObserverTest {}
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// assert_eq!(router.len(), 0);
+    /// ```
     pub fn len(&self) -> usize {
         self.ports.len()
     }
 
     /// get user list.
     ///
-    /// ```ignore
-    /// let router = Router::new(/* ... */);
+    /// # Examples
     ///
-    /// assert!(router.get_users(0, 10).len() == 0);
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    ///
+    /// let users = router.get_users(0, 10);
+    /// assert_eq!(users.as_slice(), &[("test".to_string(), vec![addr])]);
     /// ```
     pub fn get_users(
         &self,
@@ -113,10 +165,40 @@ impl Router {
 
     /// get node.
     ///
-    /// ```ignore
-    /// let router = Router::new(/* ... */);
+    /// # Examples
     ///
-    /// assert!(router.get_node().is_none());
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    ///
+    /// let node = router.get_node(&addr).unwrap();
+    /// assert_eq!(node.username.as_str(), "test");
+    /// assert_eq!(node.password.as_str(), "test");
+    /// assert_eq!(node.secret.as_slice(), &secret);
+    /// assert_eq!(node.channels, vec![]);
+    /// assert_eq!(node.ports, vec![]);
+    /// assert_eq!(node.index, 0);
     /// ```
     pub fn get_node(&self, a: &SocketAddr) -> Option<nodes::Node> {
         self.nodes.get_node(a)
@@ -124,10 +206,35 @@ impl Router {
 
     /// get node bound list.
     ///
-    /// ```ignore
-    /// let router = Router::new(/* ... */);
+    /// # Examples
     ///
-    /// assert!(router.get_node_bounds().len() == 0);
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    ///
+    /// let ret = router.get_node_addrs("test");
+    /// assert_eq!(ret, vec![addr]);
     /// ```
     pub fn get_node_addrs(&self, u: &str) -> Vec<SocketAddr> {
         self.nodes.get_addrs(u)
@@ -135,10 +242,35 @@ impl Router {
 
     /// get the nonce of the node SocketAddr.
     ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
+    /// # Examples
     ///
-    /// assert!(state.get_nonce(&addr).len() == 16);
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    ///
+    /// let nonce = router.get_nonce(&addr);
+    /// assert_eq!(nonce.len(), 16);
     /// ```
     pub fn get_nonce(&self, a: &SocketAddr) -> Arc<String> {
         self.nonces.get(a)
@@ -148,11 +280,52 @@ impl Router {
     ///
     /// require remote control service to distribute keys.
     ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
+    /// # Examples
     ///
-    /// // state.get_key(&addr, "panda")
     /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    /// ```
+    pub fn get_key_block(
+        &self,
+        index: u8,
+        a: &SocketAddr,
+        u: &str,
+    ) -> Option<Arc<[u8; 16]>> {
+        let key = self.nodes.get_secret(a);
+        if key.is_some() {
+            return key;
+        }
+
+        let pwd = self.observer.auth_block(a, u)?;
+        let key = long_key(u, &pwd, &self.realm);
+        self.nodes.insert(index, a, u, key, &pwd)
+    }
+
+    /// get the password of the node SocketAddr.
+    ///
+    /// require remote control service to distribute keys.
     pub async fn get_key(
         &self,
         index: u8,
@@ -166,28 +339,42 @@ impl Router {
 
         let pwd = self.observer.auth(a, u).await?;
         let key = long_key(u, &pwd, &self.realm);
-        self.nodes.insert(index, a, u, key, pwd)
+        self.nodes.insert(index, a, u, key, &pwd)
     }
 
     /// obtain the peer address bound to the current
     /// node according to the channel number.
     ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
-    /// state.get_key(&addr, "panda");
-    /// state.get_key(&peer, "panda");
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
     ///
-    /// let addr_port = state.alloc_port(&addr).unwrap();
-    /// let peer_port = state.alloc_port(&peer).unwrap();
+    /// assert_eq!(key.as_slice(), &secret);
     ///
-    /// state.bind_channel(&addr, peer_port, 0x4000);
-    /// state.bind_channel(&peer, addr_port, 0x4000);
-    ///
-    /// assert_eq!(state.get_channel_bound(&addr, 0x4000).unwrap(), peer);
+    /// let port = router.alloc_port(&addr).unwrap();
+    /// assert!(router.bind_port(&addr, port).is_some());
+    /// assert_eq!(router.get_port_bound(port), Some(addr));
     /// ```
     pub fn get_channel_bound(
         &self,
@@ -200,23 +387,36 @@ impl Router {
     /// obtain the peer address bound to the current
     /// node according to the port number.
     ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
-    /// state.get_key(&addr, "panda");
-    /// state.get_key(&peer, "panda");
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
     ///
-    /// let addr_port = state.alloc_port(&addr).unwrap();
-    /// let peer_port = state.alloc_port(&peer).unwrap();
+    /// assert_eq!(key.as_slice(), &secret);
     ///
-    /// state.bind_port(&peer, addr_port);
-    /// state.bind_port(&addr, peer_port);
-    ///
-    /// assert_eq!(state.get_port_bound(&addr, peer_port), some(peer));
-    /// assert_eq!(state.get_port_bound(&peer, addr_port), some(addr));
+    /// let port = router.alloc_port(&addr).unwrap();
+    /// assert!(router.bind_port(&addr, port).is_some());
+    /// assert_eq!(router.get_port_bound(port), Some(addr));
     /// ```
     pub fn get_port_bound(&self, p: u16) -> Option<SocketAddr> {
         self.ports.get(p)
@@ -224,23 +424,38 @@ impl Router {
 
     /// get node the port.
     ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
-    /// state.get_key(&addr, "panda");
-    /// state.get_key(&peer, "panda");
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
     ///
-    /// let addr_port = state.alloc_port(&addr).unwrap();
-    /// let peer_port = state.alloc_port(&peer).unwrap();
+    /// assert_eq!(key.as_slice(), &secret);
     ///
-    /// state.bind_port(&peer, addr_port);
-    /// state.bind_port(&addr, peer_port);
-    ///
-    /// assert_eq!(state.get_bound_port(&addr, &peer), some(peer_port));
-    /// assert_eq!(state.get_bound_port(&peer, &addr), some(addr_port));
+    /// let port = router.alloc_port(&addr).unwrap();
+    /// assert!(router.bind_port(&addr, port).is_some());
+    /// assert!(router.bind_port(&peer, port).is_some());
+    /// assert_eq!(router.get_bound_port(&addr, &peer), Some(port));
     /// ```
     pub fn get_bound_port(
         &self,
@@ -291,17 +506,33 @@ impl Router {
     /// to-expiry is recomputed with each successful Refresh request, and
     /// thus, the value computed here applies only until the first refresh.
     ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
-    /// state.get_key(&addr, "panda");
-    /// state.get_key(&peer, "panda");
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
     ///
-    /// assert!(state.alloc_port(&addr).unwrap().is_some());
-    /// assert!(state.alloc_port(&peer).unwrap().is_some());
+    /// assert_eq!(key.as_slice(), &secret);
+    /// assert!(router.alloc_port(&addr).is_some());
     /// ```
     pub fn alloc_port(&self, a: &SocketAddr) -> Option<u16> {
         let port = self.ports.alloc(a)?;
@@ -316,20 +547,35 @@ impl Router {
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
     ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
-    /// state.get_key(&addr, "panda");
-    /// state.get_key(&peer, "panda");
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
     ///
-    /// let addr_port = state.alloc_port(&addr).unwrap();
-    /// let peer_port = state.alloc_port(&peer).unwrap();
+    /// assert_eq!(key.as_slice(), &secret);
     ///
-    /// assert!(state.bind_port(&peer, addr_port).is_some());
-    /// assert!(state.bind_port(&addr, peer_port).is_some());
+    /// let port = router.alloc_port(&addr).unwrap();
+    /// assert!(router.bind_port(&addr, port).is_some());
     /// ```
     pub fn bind_port(&self, a: &SocketAddr, port: u16) -> Option<()> {
         self.ports.bound(a, port)
@@ -347,20 +593,35 @@ impl Router {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     ///
-    /// ```ignore
-    /// let state = Router::new(/* ... */);
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
     ///
-    /// state.get_key(&addr, "panda");
-    /// state.get_key(&peer, "panda");
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
     ///
-    /// let addr_port = state.alloc_port(&addr).unwrap();
-    /// let peer_port = state.alloc_port(&peer).unwrap();
+    /// assert_eq!(key.as_slice(), &secret);
     ///
-    /// assert!(state.bind_channel(&peer, addr_port, 0x4000).is_some());
-    /// assert!(state.bind_channel(&addr, peer_port, 0x4000).is_some());
+    /// let port = router.alloc_port(&addr).unwrap();
+    /// assert!(router.bind_channel(&addr, port, 0x4000).is_some());
     /// ```
     pub fn bind_channel(&self, a: &SocketAddr, p: u16, c: u16) -> Option<()> {
         let source = self.ports.get(p)?;
@@ -403,13 +664,35 @@ impl Router {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     ///
-    /// ```ignore
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let state = Router::new(/* ... */);
+    /// # Examples
     ///
-    /// state.get_key(&addr, "panda");
-    /// state.refresh(&addr, 600);
-    /// state.refresh(&addr, 0);
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    /// router.refresh(&addr, 0);
+    ///
+    /// assert!(router.get_node(&addr).is_none());
     /// ```
     pub fn refresh(&self, a: &SocketAddr, delay: u32) {
         if delay > 0 {
@@ -421,12 +704,34 @@ impl Router {
 
     /// remove a node.
     ///
-    /// ```ignore
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let state = Router::new(/* ... */);
+    /// # Examples
     ///
-    /// state.get_key(&addr, "panda");
-    /// state.remove(&addr);
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    /// assert!(router.remove(&addr).is_some());
+    /// assert!(router.get_node(&addr).is_none());
     /// ```
     pub fn remove(&self, a: &SocketAddr) -> Option<()> {
         let node = self.nodes.remove(a)?;
@@ -442,12 +747,35 @@ impl Router {
 
     /// remove a node from username.
     ///
-    /// ```ignore
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let state = Router::new(/* ... */);
+    /// # Examples
     ///
-    /// state.get_key(&addr, "panda");
-    /// state.remove_from_user("panda");
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    /// router.remove_from_user("test");
+    ///
+    /// assert!(router.get_node(&addr).is_none());
     /// ```
     pub fn remove_from_user(&self, u: &str) {
         for addr in self.nodes.get_addrs(u) {

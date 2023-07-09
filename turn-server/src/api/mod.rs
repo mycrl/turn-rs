@@ -94,7 +94,7 @@ where
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```ignore
 /// let config = Config::new()
 /// let service = Service::new(/* ... */);;
 /// let monitor = Monitor::new(/* ... */);

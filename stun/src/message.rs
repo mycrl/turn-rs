@@ -33,6 +33,22 @@ pub struct MessageWriter<'a> {
 }
 
 impl<'a, 'b> MessageWriter<'a> {
+    pub fn new(
+        method: Method,
+        token: &'a [u8; 12],
+        buf: &'a mut BytesMut,
+    ) -> Self {
+        unsafe { buf.set_len(0) }
+        buf.put_u16(method.into());
+        buf.put_u16(0);
+        buf.put(&COOKIE[..]);
+        buf.put(token.as_slice());
+        Self {
+            raw: buf,
+            token,
+        }
+    }
+
     /// rely on old message to create new message.
     ///
     /// # Unit Test
@@ -56,15 +72,15 @@ impl<'a, 'b> MessageWriter<'a> {
     pub fn extend(
         method: Method,
         reader: &MessageReader<'a, 'b>,
-        raw: &'a mut BytesMut,
+        buf: &'a mut BytesMut,
     ) -> Self {
-        unsafe { raw.set_len(0) }
-        raw.put_u16(method.into());
-        raw.put_u16(0);
-        raw.put(&COOKIE[..]);
-        raw.put(reader.token);
+        unsafe { buf.set_len(0) }
+        buf.put_u16(method.into());
+        buf.put_u16(0);
+        buf.put(&COOKIE[..]);
+        buf.put(reader.token);
         Self {
-            raw,
+            raw: buf,
             token: reader.token,
         }
     }

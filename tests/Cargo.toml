@@ -1,0 +1,17 @@
+[package]
+name = "tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dev-dependencies]
+tokio = { version = "1.28.2", features = ["full"] }
+faster-stun = { path = "../stun", version = "1" }
+turn-rs = { path = "../turn", version = "1" }
+turn-server = { path = "../turn-server" }
+bytes = "1.4.0"
+rand = "0.8.5"
+
+[[test]]
+name = "integration_testing"
+path = "integration_testing.rs"
