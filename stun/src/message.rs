@@ -324,7 +324,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// ```
     pub fn integrity(&self, auth: &Auth) -> Result<()> {
         ensure!(!self.raw.is_empty(), "buf is empty");
-        ensure!(self.valid_offset > 20, "buf is empty");
+        ensure!(self.valid_offset >= 20, "buf is empty");
 
         // unwrap MessageIntegrity attribute,
         // an error occurs if not found.
