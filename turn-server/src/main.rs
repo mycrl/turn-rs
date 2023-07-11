@@ -1,10 +1,5 @@
 use std::sync::Arc;
-use mimalloc::MiMalloc;
 use turn_server::config::Config;
-
-// use mimalloc for global.
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
