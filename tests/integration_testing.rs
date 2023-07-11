@@ -82,7 +82,6 @@ async fn integration_testing() {
             hooks: Hooks::default(),
             log: Log::default(),
             turn: Turn {
-                threads: 1,
                 realm: REALM.to_string(),
                 interfaces: vec![Interface {
                     transport: config::Transport::UDP,
