@@ -1,6 +1,9 @@
-mod rpc;
+pub mod rpc;
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
+
+use anyhow::Result;
+use rpc::{Rpc, RpcObserver, Payload};
 
 pub struct ProxyNode {
     pub bind: SocketAddr,
@@ -9,39 +12,37 @@ pub struct ProxyNode {
 
 pub struct ProxyOptions {
     pub nodes: Vec<ProxyNode>,
+    pub bind: SocketAddr,
 }
 
 pub struct Proxy {
     options: ProxyOptions,
+    rpc: Arc<Rpc>,
 }
 
 impl Proxy {
-    pub fn new(options: ProxyOptions) -> Self {
-        Self {
+    pub async fn new(options: ProxyOptions) -> Result<Arc<Self>> {
+        Ok(Arc::new(Self {
+            rpc: Rpc::new(options.bind, RpcObserverExt).await?,
             options,
-        }
+        }))
     }
 
     pub fn in_proxy_node(&self, addr: &SocketAddr) -> bool {
         self.options.nodes.iter().any(|n| &n.external == addr)
     }
 
-    pub fn create_permission(&self, peer: &SocketAddr) {}
+    pub fn create_permission(&self, peer_addr: &SocketAddr) {}
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+struct RpcObserverExt;
+impl RpcObserver for RpcObserverExt {
+    fn on(&self, payload: Payload) {
+        match payload {
+            Payload::ProxyStateNotify { nodes } => {
 
-    #[test]
-    fn is_work() {
-        let proxy = Proxy::new(ProxyOptions {
-            nodes: vec![ProxyNode {
-                bind: "127.0.0.1:3478".parse().unwrap(),
-                external: "127.0.0.1:3478".parse().unwrap(),
-            }],
-        });
-
-        proxy.create_permission(&"127.0.0.1:57210".parse().unwrap());
+            }
+            _ => ()
+        }
     }
 }
