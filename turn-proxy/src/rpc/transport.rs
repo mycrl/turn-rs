@@ -135,6 +135,10 @@ impl OrderTransport {
     /// ```
     pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
         let size = self.socket.read(&mut self.buf).await?;
+        if size == 0 {
+            return Err(anyhow!("socket read ret size == 0"));
+        }
+
         if let Some(ret) = Protocol::decode(&self.buf[..size])? {
             Ok(Some((ret.data, ret.to)))
         } else {
@@ -199,6 +203,10 @@ impl Transport {
     /// ```
     pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
         let (size, source) = self.socket.recv_from(&mut self.buf).await?;
+        if size == 0 {
+            return Err(anyhow!("socket read ret size == 0"));
+        }
+
         if source != self.remote_addr {
             return Ok(None);
         }
