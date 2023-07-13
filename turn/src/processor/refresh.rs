@@ -4,6 +4,7 @@ use crate::StunClass;
 use super::{
     Context,
     Response,
+    verify_message,
 };
 
 use faster_stun::{
@@ -19,36 +20,35 @@ use faster_stun::attribute::{
     Error,
     ErrorCode,
     Lifetime,
-    UserName,
 };
 
 /// return refresh error response
 #[inline(always)]
 fn reject<'a, 'b, 'c>(
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-    e: ErrKind,
-) -> Result<Response<'c>> {
+    reader: MessageReader<'a, 'b>,
+    bytes: &'c mut BytesMut,
+    err: ErrKind,
+) -> Result<Option<Response<'c>>> {
     let method = Method::Refresh(Kind::Error);
-    let mut pack = MessageWriter::extend(method, &m, w);
-    pack.append::<ErrorCode>(Error::from(e));
+    let mut pack = MessageWriter::extend(method, &reader, bytes);
+    pack.append::<ErrorCode>(Error::from(err));
     pack.flush(None)?;
-    Ok(Some((w, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Message, None)))
 }
 
 /// return refresh ok response
 #[inline(always)]
 pub fn resolve<'a, 'b, 'c>(
-    m: &MessageReader<'a, 'b>,
+    reader: &MessageReader<'a, 'b>,
     lifetime: u32,
-    p: &[u8; 16],
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
+    key: &[u8; 16],
+    bytes: &'c mut BytesMut,
+) -> Result<Option<Response<'c>>> {
     let method = Method::Refresh(Kind::Response);
-    let mut pack = MessageWriter::extend(method, m, w);
+    let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<Lifetime>(lifetime);
-    pack.flush(Some(p))?;
-    Ok(Some((w, StunClass::Message, None)))
+    pack.flush(Some(key))?;
+    Ok(Some(Response::new(bytes, StunClass::Message, None)))
 }
 
 /// process refresh request
@@ -92,29 +92,16 @@ pub fn resolve<'a, 'b, 'c>(
 /// this as equivalent to a success response (see below).
 pub async fn process<'a, 'b, 'c>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
-    let u = match m.get::<UserName>() {
-        Some(u) => u,
-        _ => return reject(m, w, Unauthorized),
+    reader: MessageReader<'a, 'b>,
+    bytes: &'c mut BytesMut,
+) -> Result<Option<Response<'c>>> {
+    let (username, key) = match verify_message(&ctx, &reader).await {
+        None => return reject(reader, bytes, Unauthorized),
+        Some(ret) => ret,
     };
 
-    let l = match m.get::<Lifetime>() {
-        Some(l) => l,
-        _ => 600,
-    };
-
-    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
-        None => return reject(m, w, Unauthorized),
-        Some(a) => a,
-    };
-
-    if m.integrity(&key).is_err() {
-        return reject(m, w, Unauthorized);
-    }
-
-    ctx.env.observer.refresh(&ctx.addr, u, l);
-    ctx.env.router.refresh(&ctx.addr, l);
-    resolve(&m, l, &key, w)
+    let time = reader.get::<Lifetime>().unwrap_or(600);
+    ctx.env.observer.refresh(&ctx.addr, username, time);
+    ctx.env.router.refresh(&ctx.addr, time);
+    resolve(&reader, time, &key, bytes)
 }

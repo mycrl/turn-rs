@@ -8,6 +8,7 @@ use crate::{
 use super::{
     Context,
     Response,
+    verify_message,
 };
 
 use faster_stun::{
@@ -22,7 +23,6 @@ use faster_stun::attribute::{
     ErrorCode,
     Error,
     Realm,
-    UserName,
     XorPeerAddress,
     Software,
 };
@@ -37,30 +37,30 @@ use faster_stun::attribute::ErrKind::{
 #[inline(always)]
 fn reject<'a, 'b, 'c>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-    e: ErrKind,
-) -> Result<Response<'c>> {
+    reader: MessageReader<'a, 'b>,
+    bytes: &'c mut BytesMut,
+    err: ErrKind,
+) -> Result<Option<Response<'c>>> {
     let method = Method::CreatePermission(Kind::Error);
-    let mut pack = MessageWriter::extend(method, &m, w);
-    pack.append::<ErrorCode>(Error::from(e));
+    let mut pack = MessageWriter::extend(method, &reader, bytes);
+    pack.append::<ErrorCode>(Error::from(err));
     pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some((w, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Message, None)))
 }
 
 /// return create permission ok response
 #[inline(always)]
 fn resolve<'a, 'b, 'c>(
-    m: &MessageReader<'a, 'b>,
-    p: &[u8; 16],
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
+    reader: &MessageReader<'a, 'b>,
+    key: &[u8; 16],
+    bytes: &'c mut BytesMut,
+) -> Result<Option<Response<'c>>> {
     let method = Method::CreatePermission(Kind::Response);
-    let mut pack = MessageWriter::extend(method, m, w);
+    let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<Software>(SOFTWARE);
-    pack.flush(Some(p))?;
-    Ok(Some((w, StunClass::Message, None)))
+    pack.flush(Some(key))?;
+    Ok(Some(Response::new(bytes, StunClass::Message, None)))
 }
 
 /// process create permission request
@@ -104,36 +104,29 @@ fn resolve<'a, 'b, 'c>(
 /// requests will simply refresh the permissions.
 pub async fn process<'a, 'b, 'c>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
-    let peer = match m.get::<XorPeerAddress>() {
-        None => return reject(ctx, m, w, BadRequest),
+    reader: MessageReader<'a, 'b>,
+    bytes: &'c mut BytesMut,
+) -> Result<Option<Response<'c>>> {
+    let peer = match reader.get::<XorPeerAddress>() {
+        None => return reject(ctx, reader, bytes, BadRequest),
         Some(a) => a,
     };
 
     if ctx.env.external.ip() != peer.ip() {
-        return reject(ctx, m, w, Forbidden);
+        return reject(ctx, reader, bytes, Forbidden);
     }
 
-    let u = match m.get::<UserName>() {
-        None => return reject(ctx, m, w, Unauthorized),
-        Some(u) => u,
+    let (username, key) = match verify_message(&ctx, &reader).await {
+        None => return reject(ctx, reader, bytes, Unauthorized),
+        Some(ret) => ret,
     };
-
-    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
-        None => return reject(ctx, m, w, Unauthorized),
-        Some(a) => a,
-    };
-
-    if m.integrity(&key).is_err() {
-        return reject(ctx, m, w, Unauthorized);
-    }
 
     if ctx.env.router.bind_port(&ctx.addr, peer.port()).is_none() {
-        return reject(ctx, m, w, Forbidden);
+        return reject(ctx, reader, bytes, Forbidden);
     }
 
-    ctx.env.observer.create_permission(&ctx.addr, u, &peer);
-    resolve(&m, &key, w)
+    ctx.env
+        .observer
+        .create_permission(&ctx.addr, username, &peer);
+    resolve(&reader, &key, bytes)
 }

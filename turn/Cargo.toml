@@ -26,3 +26,6 @@ async-trait = "0.1"
 bytes = "1"
 anyhow = "1.0"
 rand = "0.8"
+
+[features]
+proxy = []

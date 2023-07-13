@@ -68,10 +68,10 @@ use faster_stun::attribute::{
 /// The resulting UDP datagram is then sent to the peer.
 pub fn process<'a, 'b, 'c>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
-    let peer = match m.get::<XorPeerAddress>() {
+    reader: MessageReader<'a, 'b>,
+    bytes: &'c mut BytesMut,
+) -> Result<Option<Response<'c>>> {
+    let peer = match reader.get::<XorPeerAddress>() {
         None => return Ok(None),
         Some(x) => x,
     };
@@ -80,31 +80,33 @@ pub fn process<'a, 'b, 'c>(
         return Ok(None);
     }
 
-    let d = match m.get::<Data>() {
+    let data = match reader.get::<Data>() {
         None => return Ok(None),
         Some(x) => x,
     };
 
-    let a = match ctx.env.router.get_port_bound(peer.port()) {
+    let addr = match ctx.env.router.get_port_bound(peer.port()) {
         None => return Ok(None),
         Some(a) => a,
     };
 
-    let p = match ctx.env.router.get_bound_port(&ctx.addr, &a) {
+    let port = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
         None => return Ok(None),
         Some(p) => p,
     };
 
-    let index = match ctx.env.router.get_node(&a) {
+    let index = match ctx.env.router.get_node(&addr) {
         None => return Ok(None),
         Some(p) => p.index,
     };
 
     let method = Method::DataIndication;
-    let s = Arc::new(SocketAddr::new(ctx.env.external.ip(), p));
-    let mut pack = MessageWriter::extend(method, &m, w);
-    pack.append::<XorPeerAddress>(*s.as_ref());
-    pack.append::<Data>(d);
+    let target = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
+    let mut pack = MessageWriter::extend(method, &reader, bytes);
+    pack.append::<XorPeerAddress>(*target.as_ref());
+    pack.append::<Data>(data);
     pack.flush(None)?;
-    Ok(Some((w, StunClass::Message, Some((a, index)))))
+
+    let to = Some((addr, index));
+    Ok(Some(Response::new(bytes, StunClass::Message, to)))
 }

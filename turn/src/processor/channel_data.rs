@@ -33,8 +33,12 @@ use super::{
 /// the Length field in the ChannelData message is 0, then there will be
 /// no data in the UDP datagram, but the UDP datagram is still formed and
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
-pub fn process(ctx: Context, data: ChannelData<'_>) -> Response<'_> {
+pub fn process(ctx: Context, data: ChannelData<'_>) -> Option<Response<'_>> {
     let addr = ctx.env.router.get_channel_bound(&ctx.addr, data.number)?;
     let index = ctx.env.router.get_node(&addr)?.index;
-    Some((data.buf, StunClass::Channel, Some((addr, index))))
+    Some(Response::new(
+        data.buf,
+        StunClass::Channel,
+        Some((addr, index)),
+    ))
 }

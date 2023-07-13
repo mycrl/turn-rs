@@ -581,6 +581,17 @@ impl Router {
         self.ports.bound(a, port)
     }
 
+    #[cfg(feature = "proxy")]
+    pub fn bind_port_from_proxy(
+        &self,
+        a: &SocketAddr,
+        port: u16,
+        node_id: u8,
+    ) -> Option<()> {
+        // self.ports.bound(a, port, node_id)
+        None
+    }
+
     /// bind channel number for State.
     ///
     /// A server need not do anything special to implement

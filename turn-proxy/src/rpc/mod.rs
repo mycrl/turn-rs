@@ -19,6 +19,7 @@ use self::transport::{
 
 #[derive(Deserialize, Serialize)]
 pub struct ProxyStateNotifyNode {
+    pub external: SocketAddr,
     pub addr: SocketAddr,
     pub online: bool,
     pub index: u8,
@@ -26,8 +27,14 @@ pub struct ProxyStateNotifyNode {
 
 #[derive(Deserialize, Serialize)]
 pub enum Payload {
-    ProxyStateNotify { nodes: Vec<ProxyStateNotifyNode> },
-    CreatePermission { peer: SocketAddr, username: String },
+    ProxyStateNotify {
+        nodes: Vec<ProxyStateNotifyNode>,
+    },
+    CreatePermission {
+        id: u8,
+        from: SocketAddr,
+        peer: SocketAddr,
+    },
 }
 
 impl TryFrom<&[u8]> for Payload {

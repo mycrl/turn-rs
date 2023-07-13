@@ -4,6 +4,7 @@ use crate::StunClass;
 use super::{
     Context,
     Response,
+    verify_message,
 };
 
 use faster_stun::{
@@ -18,7 +19,6 @@ use faster_stun::attribute::{
     Error,
     ErrorCode,
     Realm,
-    UserName,
     ChannelNumber,
     XorPeerAddress,
 };
@@ -34,28 +34,28 @@ use faster_stun::attribute::ErrKind::{
 #[inline(always)]
 fn reject<'a, 'b, 'c>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-    e: ErrKind,
-) -> Result<Response<'c>> {
+    reader: MessageReader<'a, 'b>,
+    bytes: &'c mut BytesMut,
+    err: ErrKind,
+) -> Result<Option<Response<'c>>> {
     let method = Method::ChannelBind(Kind::Error);
-    let mut pack = MessageWriter::extend(method, &m, w);
-    pack.append::<ErrorCode>(Error::from(e));
+    let mut pack = MessageWriter::extend(method, &reader, bytes);
+    pack.append::<ErrorCode>(Error::from(err));
     pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some((w, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Message, None)))
 }
 
 /// return channel binding ok response
 #[inline(always)]
 fn resolve<'c>(
-    m: &MessageReader,
-    p: &[u8; 16],
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
+    reader: &MessageReader,
+    key: &[u8; 16],
+    bytes: &'c mut BytesMut,
+) -> Result<Option<Response<'c>>> {
     let method = Method::ChannelBind(Kind::Response);
-    MessageWriter::extend(method, m, w).flush(Some(p))?;
-    Ok(Some((w, StunClass::Message, None)))
+    MessageWriter::extend(method, reader, bytes).flush(Some(key))?;
+    Ok(Some(Response::new(bytes, StunClass::Message, None)))
 }
 
 /// process channel binding request
@@ -90,50 +90,41 @@ fn resolve<'c>(
 /// retransmission.
 pub async fn process<'a, 'b, 'c>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
-    let peer = match m.get::<XorPeerAddress>() {
-        None => return reject(ctx, m, w, BadRequest),
+    reader: MessageReader<'a, 'b>,
+    bytes: &'c mut BytesMut,
+) -> Result<Option<Response<'c>>> {
+    let peer = match reader.get::<XorPeerAddress>() {
+        None => return reject(ctx, reader, bytes, BadRequest),
         Some(a) => a,
     };
 
-    let c = match m.get::<ChannelNumber>() {
-        None => return reject(ctx, m, w, BadRequest),
+    let number = match reader.get::<ChannelNumber>() {
+        None => return reject(ctx, reader, bytes, BadRequest),
         Some(c) => c,
     };
 
     if ctx.env.external.ip() != peer.ip() {
-        return reject(ctx, m, w, Forbidden);
+        return reject(ctx, reader, bytes, Forbidden);
     }
 
-    let u = match m.get::<UserName>() {
-        None => return reject(ctx, m, w, Unauthorized),
-        Some(u) => u,
+    if !(0x4000..=0x7FFF).contains(&number) {
+        return reject(ctx, reader, bytes, BadRequest);
+    }
+
+    let (username, key) = match verify_message(&ctx, &reader).await {
+        None => return reject(ctx, reader, bytes, Unauthorized),
+        Some(ret) => ret,
     };
-
-    if !(0x4000..=0x7FFF).contains(&c) {
-        return reject(ctx, m, w, BadRequest);
-    }
-
-    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
-        None => return reject(ctx, m, w, Unauthorized),
-        Some(a) => a,
-    };
-
-    if m.integrity(&key).is_err() {
-        return reject(ctx, m, w, Unauthorized);
-    }
 
     if ctx
         .env
         .router
-        .bind_channel(&ctx.addr, peer.port(), c)
+        .bind_channel(&ctx.addr, peer.port(), number)
         .is_none()
     {
-        return reject(ctx, m, w, InsufficientCapacity);
+        return reject(ctx, reader, bytes, InsufficientCapacity);
     }
 
-    ctx.env.observer.channel_bind(&ctx.addr, u, c);
-    resolve(&m, &key, w)
+    ctx.env.observer.channel_bind(&ctx.addr, username, number);
+    resolve(&reader, &key, bytes)
 }

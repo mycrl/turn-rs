@@ -148,16 +148,17 @@ pub async fn tcp_processor<T>(
                     };
 
                     let chunk = buf.split_to(size);
-                    if let Ok(Some((data, class, target))) =
-                        processor.process(&chunk, addr).await
+                    if let Ok(Some(res)) = processor.process(&chunk, addr).await
                     {
-                        if let Some((target, index)) = target {
-                            router.send(index, class, &target, data).await;
+                        if let Some((target, index)) = res.to {
+                            router
+                                .send(index, res.kind, &target, res.data)
+                                .await;
                         } else {
                             if writer
                                 .lock()
                                 .await
-                                .write_all(&data)
+                                .write_all(&res.data)
                                 .await
                                 .is_err()
                             {
@@ -165,7 +166,7 @@ pub async fn tcp_processor<T>(
                             }
 
                             #[rustfmt::skip]
-                            actor.send(addr, Stats::SendBytes(data.len() as u16));
+                            actor.send(addr, Stats::SendBytes(res.data.len() as u16));
                             actor.send(addr, Stats::SendPkts(1));
                         }
                     }
@@ -226,20 +227,24 @@ pub async fn udp_processor(
                 // smallest stun message is channel data,
                 // excluding content)
                 if size >= 4 {
-                    if let Ok(Some((bytes, class, target))) =
+                    if let Ok(Some(res)) =
                         processor.process(&buf[..size], addr).await
                     {
-                        if let Some((target, index)) = target {
-                            router.send(index, class, &target, bytes).await;
+                        if let Some((target, index)) = res.to {
+                            router
+                                .send(index, res.kind, &target, res.data)
+                                .await;
                         } else {
-                            if let Err(e) = socket.send_to(bytes, &addr).await {
+                            if let Err(e) =
+                                socket.send_to(res.data, &addr).await
+                            {
                                 if e.kind() != ConnectionReset {
                                     break;
                                 }
                             }
 
                             #[rustfmt::skip]
-                            actor.send(addr,Stats::SendBytes(bytes.len() as u16));
+                            actor.send(addr,Stats::SendBytes(res.data.len() as u16));
                             actor.send(addr, Stats::SendPkts(1));
                         }
                     }
