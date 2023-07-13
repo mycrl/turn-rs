@@ -588,8 +588,7 @@ impl Router {
         port: u16,
         node_id: u8,
     ) -> Option<()> {
-        // self.ports.bound(a, port, node_id)
-        None
+        self.ports.bound_with_proxy(a, port, node_id)
     }
 
     /// bind channel number for State.
