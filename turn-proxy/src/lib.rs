@@ -10,7 +10,6 @@ use anyhow::{
     anyhow,
 };
 
-use turn_rs::Router;
 use parking_lot::RwLock;
 use rpc::{
     Rpc,
@@ -19,8 +18,14 @@ use rpc::{
     ProxyStateNotifyNode,
 };
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ProxyOptions {
-    pub proxy: SocketAddr,
+    pub bind: SocketAddr,
 }
 
 pub struct Proxy {
@@ -44,17 +49,13 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn new(
-        options: &ProxyOptions,
-        router: Arc<Router>,
-    ) -> Result<Arc<Self>> {
+    pub async fn new(options: &ProxyOptions) -> Result<Arc<Self>> {
         let nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>> = Default::default();
         Ok(Arc::new(Self {
             rpc: Rpc::new(
-                options.proxy,
+                options.bind,
                 RpcObserverExt {
                     nodes: nodes.clone(),
-                    router,
                 },
             )
             .await?,
@@ -131,7 +132,7 @@ impl Proxy {
             .iter()
             .find(|n| &n.external == peer_addr)
             .ok_or_else(|| anyhow!("not found node!"))?;
-        self.rpc.send(
+        self.rpc.send_with_order(
             Payload::CreatePermission {
                 id: node.index,
                 from: from.clone(),
@@ -145,7 +146,6 @@ impl Proxy {
 }
 
 struct RpcObserverExt {
-    router: Arc<Router>,
     nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>>,
 }
 
@@ -161,14 +161,7 @@ impl RpcObserver for RpcObserverExt {
                 id,
                 from,
                 peer,
-            } => {
-                if self
-                    .router
-                    .bind_port_from_proxy(&from, peer.port(), id)
-                    .is_none()
-                {}
-            },
-            _ => (),
+            } => {},
         }
     }
 }

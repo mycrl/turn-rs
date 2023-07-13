@@ -121,7 +121,12 @@ pub async fn process<'a, 'b, 'c>(
         Some(ret) => ret,
     };
 
-    if ctx.env.router.bind_port(&ctx.addr, peer.port()).is_none() {
+    if ctx
+        .env
+        .router
+        .bind_port(&ctx.addr, peer.port(), None)
+        .is_none()
+    {
         return reject(ctx, reader, bytes, Forbidden);
     }
 

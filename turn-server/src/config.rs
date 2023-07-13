@@ -4,6 +4,7 @@ use serde::{
     Serialize,
 };
 
+use turn_proxy::ProxyOptions;
 use std::{
     collections::HashMap,
     fs::read_to_string,
@@ -185,6 +186,7 @@ pub struct Log {
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
+    pub proxy: Option<ProxyOptions>,
     #[serde(default)]
     pub turn: Turn,
     #[serde(default)]

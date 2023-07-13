@@ -17,7 +17,7 @@ use self::transport::{
     Transport,
 };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct ProxyStateNotifyNode {
     pub external: SocketAddr,
     pub addr: SocketAddr,
@@ -25,7 +25,7 @@ pub struct ProxyStateNotifyNode {
     pub index: u8,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 pub enum Payload {
     ProxyStateNotify {
         nodes: Vec<ProxyStateNotifyNode>,

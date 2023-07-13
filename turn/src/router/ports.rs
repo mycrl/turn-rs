@@ -301,7 +301,7 @@ impl PortPools {
 pub struct Ports {
     pools: Mutex<PortPools>,
     map: RwLock<HashMap<u16, SocketAddr>>,
-    bounds: RwLock<HashMap<SocketAddr, HashMap<SocketAddr, (u16, u8)>>>,
+    bounds: RwLock<HashMap<SocketAddr, HashMap<SocketAddr, (u16, Option<u8>)>>>,
 }
 
 impl Ports {
@@ -373,21 +373,16 @@ impl Ports {
     /// let pools = Ports::new();
     ///
     /// let port = pools.alloc(&local).unwrap();
-    /// assert!(pools.bound(&local, port).is_some());
-    /// assert!(pools.bound(&peer, port).is_some());
+    /// assert!(pools.bound(&local, port, Some(0)).is_some());
+    /// assert!(pools.bound(&peer, port, Some(0)).is_some());
     ///
-    /// assert_eq!(pools.get_bound(&local, &peer), Some(port));
+    /// assert_eq!(pools.get_bound(&local, &peer), Some((port, Some(0))));
     /// ```
-    pub fn get_bound(&self, a: &SocketAddr, p: &SocketAddr) -> Option<u16> {
-        self.bounds.read().get(p)?.get(a).map(|item| item.0)
-    }
-
-    #[cfg(feature = "proxy")]
-    pub fn get_bound_with_proxy(
+    pub fn get_bound(
         &self,
         a: &SocketAddr,
         p: &SocketAddr,
-    ) -> Option<(u16, u8)> {
+    ) -> Option<(u16, Option<u8>)> {
         self.bounds.read().get(p)?.get(a).cloned()
     }
 
@@ -423,25 +418,13 @@ impl Ports {
     /// let pools = Ports::new();
     /// let port = pools.alloc(&addr).unwrap();
     ///
-    /// assert!(pools.bound(&addr, port).is_some());
+    /// assert!(pools.bound(&addr, port, Some(0)).is_some());
     /// ```
-    pub fn bound(&self, a: &SocketAddr, port: u16) -> Option<()> {
-        let peer = self.map.read().get(&port)?.clone();
-        self.bounds
-            .write()
-            .entry(a.clone())
-            .or_insert_with(|| HashMap::with_capacity(10))
-            .entry(peer)
-            .or_insert((port, 0));
-        Some(())
-    }
-
-    #[cfg(feature = "proxy")]
-    pub fn bound_with_proxy(
+    pub fn bound(
         &self,
         a: &SocketAddr,
         port: u16,
-        id: u8,
+        id: Option<u8>,
     ) -> Option<()> {
         let peer = self.map.read().get(&port)?.clone();
         self.bounds
@@ -466,7 +449,7 @@ impl Ports {
     /// let pools = Ports::new();
     /// let port = pools.alloc(&addr).unwrap();
     ///
-    /// assert!(pools.bound(&addr, port).is_some());
+    /// assert!(pools.bound(&addr, port, Some(0)).is_some());
     /// assert!(pools.remove(&addr, &vec![port]).is_some());
     /// ```
     pub fn remove(&self, a: &SocketAddr, ports: &[u16]) -> Option<()> {

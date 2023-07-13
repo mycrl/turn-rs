@@ -461,7 +461,7 @@ impl Router {
         &self,
         a: &SocketAddr,
         p: &SocketAddr,
-    ) -> Option<u16> {
+    ) -> Option<(u16, Option<u8>)> {
         self.ports.get_bound(a, p)
     }
 
@@ -575,20 +575,15 @@ impl Router {
     /// assert_eq!(key.as_slice(), &secret);
     ///
     /// let port = router.alloc_port(&addr).unwrap();
-    /// assert!(router.bind_port(&addr, port).is_some());
+    /// assert!(router.bind_port(&addr, port, Some(0)).is_some());
     /// ```
-    pub fn bind_port(&self, a: &SocketAddr, port: u16) -> Option<()> {
-        self.ports.bound(a, port)
-    }
-
-    #[cfg(feature = "proxy")]
-    pub fn bind_port_from_proxy(
+    pub fn bind_port(
         &self,
         a: &SocketAddr,
         port: u16,
-        node_id: u8,
+        node_id: Option<u8>,
     ) -> Option<()> {
-        self.ports.bound_with_proxy(a, port, node_id)
+        self.ports.bound(a, port, node_id)
     }
 
     /// bind channel number for State.

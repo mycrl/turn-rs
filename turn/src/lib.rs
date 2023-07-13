@@ -6,6 +6,10 @@ pub use router::nodes::Node;
 pub use router::Router;
 
 use async_trait::async_trait;
+use turn_proxy::{
+    Proxy,
+    ProxyOptions,
+};
 use std::{
     net::SocketAddr,
     sync::Arc,
@@ -218,6 +222,7 @@ pub trait Observer: Send + Sync {
 #[derive(Clone)]
 pub struct Service {
     router: Arc<Router>,
+    proxy: Option<Arc<Proxy>>,
     observer: Arc<dyn Observer>,
     realm: String,
 }
@@ -240,7 +245,8 @@ impl Service {
     ///
     /// Service::new(ObserverTest, "test".to_string());
     /// ```
-    pub fn new<T>(observer: T, realm: String) -> Self
+    #[cfg(not(feature = "proxy"))]
+    pub fn new<T>(observer: T, realm: String, proxy: Option<Arc<Proxy>>) -> Self
     where
         T: Observer + 'static,
     {
@@ -251,6 +257,7 @@ impl Service {
             observer,
             router,
             realm,
+            proxy,
         }
     }
 

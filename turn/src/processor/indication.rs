@@ -90,7 +90,7 @@ pub fn process<'a, 'b, 'c>(
         Some(a) => a,
     };
 
-    let port = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
+    let (port, _) = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
         None => return Ok(None),
         Some(p) => p,
     };

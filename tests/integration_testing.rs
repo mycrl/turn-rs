@@ -78,6 +78,7 @@ async fn integration_testing() {
     tokio::spawn(async move {
         server_main(Arc::new(Config {
             auth,
+            proxy: None,
             controller: Controller::default(),
             hooks: Hooks::default(),
             log: Log::default(),
