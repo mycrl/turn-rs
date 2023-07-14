@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::{
     net::SocketAddr,
     sync::Arc,
@@ -40,21 +41,46 @@ impl Protocol {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub fn decode(buf: &[u8]) -> Result<Option<ProtocolRecvRef>> {
+    pub fn decode_head(buf: &[u8]) -> Result<Option<(usize, u8)>> {
         if buf[0] != PROTOCOL_MAGIC {
             return Err(anyhow!("invalid packet!"));
         }
 
         let size = u16::from_be_bytes(buf[1..3].try_into()?);
         let size = size as usize;
-        if size > buf.len() {
+        Ok(if size <= buf.len() {
+            Some((size, buf[4]))
+        } else {
+            None
+        })
+    }
+
+    /// Get user list.
+    ///
+    /// This interface returns the username and a list of addresses used by this
+    /// user.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let config = Config::new()
+    /// let service = Service::new(/* ... */);;
+    /// let monitor = Monitor::new(/* ... */);
+    ///
+    /// let ctr = Controller::new(service.get_router(), config, monitor);
+    /// // let users_js = ctr.get_users().await;
+    /// ```
+    pub fn decode(buf: &[u8]) -> Result<Option<ProtocolRecvRef>> {
+        let (size, to) = if let Some(ret) = Self::decode_head(buf)? {
+            ret
+        } else {
             return Ok(None);
-        }
+        };
 
         Ok(Some(ProtocolRecvRef {
             data: &buf[4..size],
-            to: buf[4],
             size,
+            to,
         }))
     }
 
@@ -77,7 +103,7 @@ impl Protocol {
         let mut dst = [0u8; 4];
         dst[0] = PROTOCOL_MAGIC;
 
-        let size_buf = u16::to_be_bytes(input.len() as u16);
+        let size_buf = u16::to_be_bytes(input.len() as u16 + 4);
         dst[1] = size_buf[0];
         dst[2] = size_buf[1];
 
@@ -89,7 +115,7 @@ impl Protocol {
 #[derive(Copy, Clone)]
 pub struct TransportAddr {
     pub bind: SocketAddr,
-    pub proxy: SocketAddr,
+    pub proxy: IpAddr,
 }
 
 pub struct OrderTransport {
@@ -105,7 +131,7 @@ impl OrderTransport {
         let socket_ = socket.clone();
         tokio::spawn(async move {
             while let Ok((socket, source)) = listener.accept().await {
-                if source == addr.proxy {
+                if source.ip() == addr.proxy {
                     let _ = socket_.lock().await.insert(socket);
                 }
             }
@@ -231,7 +257,7 @@ impl Transport {
     /// ```
     pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
         let (size, source) = self.socket.recv_from(&mut self.buf).await?;
-        if source != self.addr.proxy {
+        if source.ip() != self.addr.proxy {
             return Ok(None);
         }
 

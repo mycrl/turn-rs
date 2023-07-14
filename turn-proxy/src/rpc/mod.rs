@@ -18,7 +18,7 @@ use self::transport::{
     TransportAddr,
 };
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub struct ProxyStateNotifyNode {
     pub external: SocketAddr,
     pub addr: SocketAddr,
@@ -29,6 +29,7 @@ pub struct ProxyStateNotifyNode {
 #[derive(Deserialize, Serialize, Debug)]
 pub enum Payload {
     ProxyStateNotify {
+        udp_port: u16,
         nodes: Vec<ProxyStateNotifyNode>,
     },
     CreatePermission {

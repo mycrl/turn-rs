@@ -66,7 +66,7 @@ impl Proxy {
             rpc: Rpc::new(
                 TransportAddr {
                     bind: options.bind,
-                    proxy: options.bind,
+                    proxy: "127.0.0.1".parse().unwrap(),
                 },
                 RpcObserverExt {
                     observer: Arc::new(observer),
@@ -169,6 +169,7 @@ impl RpcObserver for RpcObserverExt {
     fn on(&self, payload: Payload) {
         match payload {
             Payload::ProxyStateNotify {
+                udp_port,
                 nodes,
             } => {
                 *self.nodes.write() = nodes;

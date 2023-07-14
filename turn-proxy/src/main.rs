@@ -1,18 +1,46 @@
 mod config;
 
 use std::sync::Arc;
-
-use bytes::BytesMut;
+use std::io::ErrorKind::ConnectionReset;
+use bytes::{
+    BytesMut,
+    Bytes,
+};
 use turn_proxy::rpc::{
     transport::Protocol,
     ProxyStateNotifyNode,
+    Payload,
 };
 
-use tokio::{time::{sleep, Duration}, net::TcpStream, sync::Mutex};
+use tokio::{
+    time::{
+        sleep,
+        Duration,
+    },
+    net::{
+        TcpStream,
+        UdpSocket,
+    },
+    sync::{
+        RwLock,
+        mpsc::{
+            UnboundedSender,
+            UnboundedReceiver,
+            unbounded_channel,
+        },
+        Mutex,
+    },
+    io::*,
+};
+
+struct Channel {
+    receiver: Mutex<UnboundedReceiver<Bytes>>,
+    sender: UnboundedSender<Bytes>,
+}
 
 struct ProxyNode {
-    node: Mutex<ProxyStateNotifyNode>,
-    socket: Mutex<Option<TcpStream>>,
+    tcp: Channel,
+    state: RwLock<ProxyStateNotifyNode>,
 }
 
 #[tokio::main]
@@ -22,9 +50,13 @@ async fn main() -> anyhow::Result<()> {
 
     let mut nodes = Vec::with_capacity(config.nodes.len());
     for (index, node) in config.nodes.iter().enumerate() {
+        let (sender, receiver) = unbounded_channel();
         nodes.push(ProxyNode {
-            socket: Mutex::new(None),
-            node: Mutex::new(ProxyStateNotifyNode {
+            tcp: Channel {
+                sender,
+                receiver: Mutex::new(receiver),
+            },
+            state: RwLock::new(ProxyStateNotifyNode {
                 external: node.external,
                 index: index as u8,
                 addr: node.bind,
@@ -34,21 +66,123 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let nodes = Arc::new(nodes);
+    let nodes_ = nodes.clone();
+
+    let cfg_nodes = config.nodes.clone();
+    let socket = UdpSocket::bind("[::]:0").await?;
+    let udp_port = socket.local_addr()?.port();
+    log::info!("udp socket bind: port={}", udp_port);
+
     tokio::spawn(async move {
+        let mut buf = [0u8; 4096];
+
         loop {
-            sleep(Duration::from_millis(config.net.recon_delay)).await;
-            for node in nodes.iter() {
-                let mut socket = node.socket.lock().await;
-                if socket.is_none() {
-                    let mut node = node.node.lock().await;
-                    if let Ok(ret) = TcpStream::connect(node.addr).await {
-                        let _ = socket.insert(ret);
-                        node.online = true;
+            let size = match socket.recv_from(&mut buf).await {
+                Err(e) if e.kind() != ConnectionReset => break,
+                Ok((s, a)) if cfg_nodes.iter().any(|node| node.bind == a) => s,
+                _ => continue,
+            };
+
+            if let Ok(ret) = Protocol::decode_head(&buf[..size]) {
+                if let Some((size, to)) = ret {
+                    let state = nodes_[to as usize].state.read().await;
+                    if let Err(e) =
+                        socket.send_to(&buf[..size], state.addr).await
+                    {
+                        if e.kind() != ConnectionReset {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+
+        log::error!("udp socket is closed!");
+        std::process::exit(-1);
+    });
+
+    loop {
+        sleep(Duration::from_millis(config.net.recon_delay)).await;
+        for (i, node) in nodes.iter().enumerate() {
+            let mut state = node.state.write().await;
+            if !state.online {
+                if let Ok(ret) = TcpStream::connect(state.addr).await {
+                    log::info!("connected to proxy node: addr={}", state.addr);
+                    on_tcp_socket(udp_port, i, nodes.clone(), ret);
+                    state.online = true;
+                }
+            }
+        }
+    }
+}
+
+fn on_tcp_socket(
+    port: u16,
+    index: usize,
+    nodes: Arc<Vec<ProxyNode>>,
+    mut socket: TcpStream,
+) {
+    tokio::spawn(async move {
+        let remote_addr = socket
+            .peer_addr()
+            .expect("get socket remote socket is failed!");
+
+        if send_state(port, &nodes, &mut socket).await {
+            log::info!("send state to proxy node: addr={}", remote_addr);
+
+            let mut receiver = nodes[index].tcp.receiver.lock().await;
+            let mut buf = BytesMut::new();
+
+            loop {
+                tokio::select! {
+                    Ok(size) = socket.read_buf(&mut buf) => {
+                        if size == 0 {
+                            break;
+                        }
+
+                        if let Ok(ret) = Protocol::decode_head(&buf[..size]) {
+                            if let Some((size, to)) = ret {
+                                let data = buf.split_to(size);
+                                if let Some(node) = nodes.get(to as usize) {
+                                    if node.tcp.sender.send(data.freeze()).is_err() {
+                                        break;
+                                    }
+                                }
+                            }
+                        } else {
+                            break;
+                        }
+                    },
+                    Some(ret) = receiver.recv() => {
+                        if socket.write_all(&ret).await.is_err() {
+                            break;
+                        }
                     }
                 }
             }
         }
-    });
 
-    Ok(())
+        nodes[index].state.write().await.online = false;
+        log::info!("proxy node disconnect: addr={}", remote_addr);
+    });
+}
+
+async fn send_state(
+    port: u16,
+    nodes: &Vec<ProxyNode>,
+    socket: &mut TcpStream,
+) -> bool {
+    let mut ret = Vec::with_capacity(nodes.len());
+    for node in nodes {
+        ret.push(node.state.read().await.clone());
+    }
+
+    let payload: Vec<u8> = Payload::ProxyStateNotify {
+        udp_port: port,
+        nodes: ret,
+    }
+    .into();
+    socket.write_all(&payload).await.is_ok()
 }
