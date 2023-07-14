@@ -232,7 +232,7 @@ impl Transport {
     pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
         let (size, source) = self.socket.recv_from(&mut self.buf).await?;
         if source != self.addr.proxy {
-            return Ok(None)
+            return Ok(None);
         }
 
         if size == 0 {

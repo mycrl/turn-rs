@@ -14,7 +14,8 @@ use serde::{
 
 use self::transport::{
     OrderTransport,
-    Transport, TransportAddr,
+    Transport,
+    TransportAddr,
 };
 
 #[derive(Deserialize, Serialize, Debug)]

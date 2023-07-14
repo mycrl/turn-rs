@@ -25,6 +25,7 @@ use turn_rs::{
     Processor,
     Service,
     StunClass,
+    processor::ResponseRelay,
 };
 
 use tokio::net::{
@@ -150,15 +151,15 @@ pub async fn tcp_processor<T>(
                     let chunk = buf.split_to(size);
                     if let Ok(Some(res)) = processor.process(&chunk, addr).await
                     {
-                        if let Some(realy) = res.realy {
-                            router
-                                .send(
-                                    realy.router,
-                                    res.kind,
-                                    &realy.addr,
-                                    res.data,
-                                )
-                                .await;
+                        if let Some(relay) = res.relay {
+                            match relay {
+                                ResponseRelay::Router(addr, to) => {
+                                    router
+                                        .send(to, res.kind, &addr, res.data)
+                                        .await;
+                                },
+                                ResponseRelay::Proxy(addr, to) => {},
+                            }
                         } else {
                             if writer
                                 .lock()
@@ -235,15 +236,15 @@ pub async fn udp_processor(
                     if let Ok(Some(res)) =
                         processor.process(&buf[..size], addr).await
                     {
-                        if let Some(realy) = res.realy {
-                            router
-                                .send(
-                                    realy.router,
-                                    res.kind,
-                                    &realy.addr,
-                                    res.data,
-                                )
-                                .await;
+                        if let Some(relay) = res.relay {
+                            match relay {
+                                ResponseRelay::Router(addr, to) => {
+                                    router
+                                        .send(to, res.kind, &addr, res.data)
+                                        .await;
+                                },
+                                ResponseRelay::Proxy(addr, to) => {},
+                            }
                         } else {
                             if let Err(e) =
                                 socket.send_to(res.data, &addr).await

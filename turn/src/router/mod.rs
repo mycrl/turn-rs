@@ -3,13 +3,14 @@ pub mod nodes;
 pub mod nonces;
 pub mod ports;
 
-use nodes::Nodes;
-use ports::Ports;
-use nonces::Nonces;
-use channels::Channels;
-use faster_stun::util::long_key;
-
 use crate::Observer;
+use self::nodes::Nodes;
+use self::ports::Ports;
+use self::nonces::Nonces;
+use self::channels::Channels;
+use self::ports::Relay;
+
+use faster_stun::util::long_key;
 use std::sync::atomic::{
     AtomicBool,
     Ordering,
@@ -461,7 +462,7 @@ impl Router {
         &self,
         a: &SocketAddr,
         p: &SocketAddr,
-    ) -> Option<(u16, Option<u8>)> {
+    ) -> Option<Relay> {
         self.ports.get_bound(a, p)
     }
 

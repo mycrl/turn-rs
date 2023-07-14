@@ -9,6 +9,7 @@ use crate::StunClass;
 use super::{
     Context,
     Response,
+    ResponseRelay,
 };
 
 use faster_stun::{
@@ -90,7 +91,7 @@ pub fn process<'a, 'b, 'c>(
         Some(a) => a,
     };
 
-    let (port, proxy) = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
+    let relay = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
         None => return Ok(None),
         Some(p) => p,
     };
@@ -101,12 +102,12 @@ pub fn process<'a, 'b, 'c>(
     };
 
     let method = Method::DataIndication;
-    let target = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
+    let target = Arc::new(SocketAddr::new(ctx.env.external.ip(), relay.port));
     let mut pack = MessageWriter::extend(method, &reader, bytes);
     pack.append::<XorPeerAddress>(*target.as_ref());
     pack.append::<Data>(data);
     pack.flush(None)?;
 
-    let to = Some((addr, index, proxy));
+    let to = Some(ResponseRelay::Router(addr, index));
     Ok(Some(Response::new(bytes, StunClass::Message, to)))
 }

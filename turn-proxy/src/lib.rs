@@ -16,6 +16,7 @@ use rpc::{
     RpcObserver,
     Payload,
     ProxyStateNotifyNode,
+    transport::TransportAddr,
 };
 
 use serde::{
@@ -63,7 +64,10 @@ impl Proxy {
         let nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>> = Default::default();
         Ok(Arc::new(Self {
             rpc: Rpc::new(
-                options.bind,
+                TransportAddr {
+                    bind: options.bind,
+                    proxy: options.bind,
+                },
                 RpcObserverExt {
                     observer: Arc::new(observer),
                     nodes: nodes.clone(),
