@@ -150,9 +150,14 @@ pub async fn tcp_processor<T>(
                     let chunk = buf.split_to(size);
                     if let Ok(Some(res)) = processor.process(&chunk, addr).await
                     {
-                        if let Some((target, index)) = res.to {
+                        if let Some(realy) = res.realy {
                             router
-                                .send(index, res.kind, &target, res.data)
+                                .send(
+                                    realy.router,
+                                    res.kind,
+                                    &realy.addr,
+                                    res.data,
+                                )
                                 .await;
                         } else {
                             if writer
@@ -230,9 +235,14 @@ pub async fn udp_processor(
                     if let Ok(Some(res)) =
                         processor.process(&buf[..size], addr).await
                     {
-                        if let Some((target, index)) = res.to {
+                        if let Some(realy) = res.realy {
                             router
-                                .send(index, res.kind, &target, res.data)
+                                .send(
+                                    realy.router,
+                                    res.kind,
+                                    &realy.addr,
+                                    res.data,
+                                )
                                 .await;
                         } else {
                             if let Err(e) =

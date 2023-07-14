@@ -424,7 +424,7 @@ impl Ports {
         &self,
         a: &SocketAddr,
         port: u16,
-        id: Option<u8>,
+        proxy: Option<u8>,
     ) -> Option<()> {
         let peer = self.map.read().get(&port)?.clone();
         self.bounds
@@ -432,7 +432,7 @@ impl Ports {
             .entry(a.clone())
             .or_insert_with(|| HashMap::with_capacity(10))
             .entry(peer)
-            .or_insert((port, id));
+            .or_insert((port, proxy));
         Some(())
     }
 

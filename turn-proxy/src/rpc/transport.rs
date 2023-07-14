@@ -1,10 +1,14 @@
-use std::net::SocketAddr;
+use std::{
+    net::SocketAddr,
+    sync::Arc,
+};
 
 use anyhow::{
     Result,
     anyhow,
 };
 
+use tokio::sync::Mutex;
 use tokio::{
     net::*,
     io::*,
@@ -82,84 +86,35 @@ impl Protocol {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct TransportAddr {
+    pub bind: SocketAddr,
+    pub proxy: SocketAddr,
+}
+
 pub struct OrderTransport {
-    socket: TcpStream,
+    socket: Arc<Mutex<Option<TcpStream>>>,
     buf: [u8; 2048],
 }
 
 impl OrderTransport {
-    pub async fn new(addr: SocketAddr) -> Result<Self> {
-        Ok(Self {
-            socket: TcpSocket::new_v4()?.connect(addr).await?,
-            buf: [0u8; 2048],
-        })
-    }
+    pub async fn new(addr: TransportAddr) -> Result<Self> {
+        let socket: Arc<Mutex<Option<TcpStream>>> = Default::default();
 
-    /// Get user list.
-    ///
-    /// This interface returns the username and a list of addresses used by this
-    /// user.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let users_js = ctr.get_users().await;
-    /// ```
-    pub async fn send(&mut self, buf: &[u8], to: u8) -> Result<()> {
-        let head = Protocol::encode_header(buf, to);
-        self.socket.write_all(&head).await?;
-        self.socket.write_all(buf).await?;
-        self.socket.flush().await?;
-        Ok(())
-    }
+        let listener = TcpListener::bind(addr.bind).await?;
+        let socket_ = socket.clone();
+        tokio::spawn(async move {
+            while let Ok((socket, source)) = listener.accept().await {
+                if source == addr.proxy {
+                    let _ = socket_.lock().await.insert(socket);
+                }
+            }
 
-    /// Get user list.
-    ///
-    /// This interface returns the username and a list of addresses used by this
-    /// user.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let users_js = ctr.get_users().await;
-    /// ```
-    pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
-        let size = self.socket.read(&mut self.buf).await?;
-        if size == 0 {
-            return Err(anyhow!("socket read ret size == 0"));
-        }
+            Ok::<(), anyhow::Error>(())
+        });
 
-        if let Some(ret) = Protocol::decode(&self.buf[..size])? {
-            Ok(Some((ret.data, ret.to)))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-pub struct Transport {
-    remote_addr: SocketAddr,
-    socket: UdpSocket,
-    buf: [u8; 2048],
-}
-
-impl Transport {
-    pub async fn new(addr: SocketAddr) -> Result<Self> {
-        let socket = UdpSocket::bind("0.0.0.0:0").await?;
-        socket.connect(addr).await?;
         Ok(Self {
             buf: [0u8; 2048],
-            remote_addr: addr,
             socket,
         })
     }
@@ -179,10 +134,83 @@ impl Transport {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
+    pub async fn send(&self, buf: &[u8], to: u8) -> Result<bool> {
+        Ok(if let Some(socket) = self.socket.lock().await.as_mut() {
+            let head = Protocol::encode_header(buf, to);
+            socket.write_all(&head).await?;
+            socket.write_all(buf).await?;
+            socket.flush().await?;
+
+            true
+        } else {
+            false
+        })
+    }
+
+    /// Get user list.
+    ///
+    /// This interface returns the username and a list of addresses used by this
+    /// user.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let config = Config::new()
+    /// let service = Service::new(/* ... */);;
+    /// let monitor = Monitor::new(/* ... */);
+    ///
+    /// let ctr = Controller::new(service.get_router(), config, monitor);
+    /// // let users_js = ctr.get_users().await;
+    /// ```
+    pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
+        Ok(if let Some(socket) = self.socket.lock().await.as_mut() {
+            let size = socket.read(&mut self.buf).await?;
+            if size == 0 {
+                return Err(anyhow!("socket read ret size == 0"));
+            }
+
+            Protocol::decode(&self.buf[..size])?.map(|ret| (ret.data, ret.to))
+        } else {
+            None
+        })
+    }
+}
+
+pub struct Transport {
+    addr: TransportAddr,
+    socket: UdpSocket,
+    buf: [u8; 2048],
+}
+
+impl Transport {
+    pub async fn new(addr: TransportAddr) -> Result<Self> {
+        Ok(Self {
+            socket: UdpSocket::bind(addr.bind).await?,
+            buf: [0u8; 2048],
+            addr,
+        })
+    }
+
+    /// Get user list.
+    ///
+    /// This interface returns the username and a list of addresses used by this
+    /// user.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let config = Config::new()
+    /// let service = Service::new(/* ... */);;
+    /// let monitor = Monitor::new(/* ... */);
+    ///
+    /// let ctr = Controller::new(service.get_router(), config, monitor);
+    /// // let users_js = ctr.get_users().await;
+    /// ```
     pub async fn send(&self, buf: &[u8], to: u8) -> Result<()> {
+        let local_addr = self.socket.local_addr()?;
         let head = Protocol::encode_header(buf, to);
-        self.socket.send_to(&head, self.remote_addr).await?;
-        self.socket.send_to(buf, self.remote_addr).await?;
+        self.socket.send_to(&head, local_addr).await?;
+        self.socket.send_to(buf, local_addr).await?;
         Ok(())
     }
 
@@ -203,12 +231,12 @@ impl Transport {
     /// ```
     pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
         let (size, source) = self.socket.recv_from(&mut self.buf).await?;
-        if size == 0 {
-            return Err(anyhow!("socket read ret size == 0"));
+        if source != self.addr.proxy {
+            return Ok(None)
         }
 
-        if source != self.remote_addr {
-            return Ok(None);
+        if size == 0 {
+            return Err(anyhow!("socket read ret size == 0"));
         }
 
         if let Some(ret) = Protocol::decode(&self.buf[..size])? {

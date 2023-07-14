@@ -354,22 +354,32 @@ impl Processor {
     }
 }
 
+pub struct ResponseRealy {
+    pub addr: SocketAddr,
+    pub proxy: Option<u8>,
+    pub router: u8,
+}
+
 pub struct Response<'a> {
     pub data: &'a [u8],
     pub kind: StunClass,
-    pub to: Option<(SocketAddr, u8)>,
+    pub realy: Option<ResponseRealy>,
 }
 
 impl<'a> Response<'a> {
     pub(crate) fn new(
         data: &'a [u8],
         kind: StunClass,
-        to: Option<(SocketAddr, u8)>,
+        to: Option<(SocketAddr, u8, Option<u8>)>,
     ) -> Self {
         Self {
             data,
             kind,
-            to,
+            realy: to.map(|to| ResponseRealy {
+                addr: to.0,
+                router: to.1,
+                proxy: to.2,
+            }),
         }
     }
 }

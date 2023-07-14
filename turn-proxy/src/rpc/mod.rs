@@ -14,7 +14,7 @@ use serde::{
 
 use self::transport::{
     OrderTransport,
-    Transport,
+    Transport, TransportAddr,
 };
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -91,7 +91,7 @@ pub struct Rpc {
 
 impl Rpc {
     pub async fn new<T: RpcObserver + 'static>(
-        addr: SocketAddr,
+        addr: TransportAddr,
         observer: T,
     ) -> Result<Arc<Self>> {
         let (sender, mut receiver) =

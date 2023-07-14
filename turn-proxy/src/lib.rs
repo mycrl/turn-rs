@@ -28,6 +28,10 @@ pub struct ProxyOptions {
     pub bind: SocketAddr,
 }
 
+pub trait ProxyObserver: Send + Sync {
+    fn create_permission(&self, id: u8, from: SocketAddr, peer: SocketAddr);
+}
+
 pub struct Proxy {
     nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>>,
     rpc: Arc<Rpc>,
@@ -49,12 +53,19 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn new(options: &ProxyOptions) -> Result<Arc<Self>> {
+    pub async fn new<T>(
+        options: &ProxyOptions,
+        observer: T,
+    ) -> Result<Arc<Self>>
+    where
+        T: ProxyObserver + 'static,
+    {
         let nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>> = Default::default();
         Ok(Arc::new(Self {
             rpc: Rpc::new(
                 options.bind,
                 RpcObserverExt {
+                    observer: Arc::new(observer),
                     nodes: nodes.clone(),
                 },
             )
@@ -146,6 +157,7 @@ impl Proxy {
 }
 
 struct RpcObserverExt {
+    observer: Arc<dyn ProxyObserver>,
     nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>>,
 }
 
@@ -161,7 +173,9 @@ impl RpcObserver for RpcObserverExt {
                 id,
                 from,
                 peer,
-            } => {},
+            } => {
+                self.observer.create_permission(id, from, peer);
+            },
         }
     }
 }

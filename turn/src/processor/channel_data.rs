@@ -39,6 +39,6 @@ pub fn process(ctx: Context, data: ChannelData<'_>) -> Option<Response<'_>> {
     Some(Response::new(
         data.buf,
         StunClass::Channel,
-        Some((addr, index)),
+        Some((addr, index, None)),
     ))
 }

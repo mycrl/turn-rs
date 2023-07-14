@@ -9,7 +9,9 @@ use async_trait::async_trait;
 use turn_proxy::{
     Proxy,
     ProxyOptions,
+    ProxyObserver,
 };
+
 use std::{
     net::SocketAddr,
     sync::Arc,
@@ -221,17 +223,13 @@ pub trait Observer: Send + Sync {
 /// TUTN service.
 #[derive(Clone)]
 pub struct Service {
-    router: Arc<Router>,
-    proxy: Option<Arc<Proxy>>,
+    pub router: Arc<Router>,
+    pub proxy: Option<Arc<Proxy>>,
     observer: Arc<dyn Observer>,
     realm: String,
 }
 
 impl Service {
-    pub fn get_router(&self) -> Arc<Router> {
-        self.router.clone()
-    }
-
     /// Create turn service.
     ///
     /// # Examples
@@ -245,20 +243,36 @@ impl Service {
     ///
     /// Service::new(ObserverTest, "test".to_string());
     /// ```
-    #[cfg(not(feature = "proxy"))]
-    pub fn new<T>(observer: T, realm: String, proxy: Option<Arc<Proxy>>) -> Self
+    pub async fn new<T>(
+        observer: T,
+        realm: String,
+        proxy_opt: &Option<ProxyOptions>,
+    ) -> anyhow::Result<Self>
     where
         T: Observer + 'static,
     {
         let observer = Arc::new(observer);
         let router = Router::new(realm.clone(), observer.clone());
+        let proxy = if let Some(opt) = proxy_opt {
+            Some(
+                Proxy::new(
+                    opt,
+                    ProxyObserverExt {
+                        router: router.clone(),
+                    },
+                )
+                .await?,
+            )
+        } else {
+            None
+        };
 
-        Self {
+        Ok(Self {
             observer,
             router,
             realm,
             proxy,
-        }
+        })
     }
 
     /// Get processor.
@@ -286,5 +300,15 @@ impl Service {
             self.router.clone(),
             self.observer.clone(),
         )
+    }
+}
+
+pub(crate) struct ProxyObserverExt {
+    router: Arc<Router>,
+}
+
+impl ProxyObserver for ProxyObserverExt {
+    fn create_permission(&self, id: u8, from: SocketAddr, peer: SocketAddr) {
+        self.router.bind_port(&from, peer.port(), Some(id));
     }
 }

@@ -1,3 +1,5 @@
+mod config;
+
 use bytes::BytesMut;
 use turn_proxy::rpc::transport::Protocol;
 use tokio::{

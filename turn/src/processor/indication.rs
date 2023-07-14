@@ -90,7 +90,7 @@ pub fn process<'a, 'b, 'c>(
         Some(a) => a,
     };
 
-    let (port, _) = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
+    let (port, proxy) = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
         None => return Ok(None),
         Some(p) => p,
     };
@@ -107,6 +107,6 @@ pub fn process<'a, 'b, 'c>(
     pack.append::<Data>(data);
     pack.flush(None)?;
 
-    let to = Some((addr, index));
+    let to = Some((addr, index, proxy));
     Ok(Some(Response::new(bytes, StunClass::Message, to)))
 }
