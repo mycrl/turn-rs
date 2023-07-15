@@ -8,6 +8,7 @@ pub mod refresh;
 
 use anyhow::Result;
 use bytes::BytesMut;
+use turn_proxy::Proxy;
 use crate::{
     router::Router,
     Observer,
@@ -34,6 +35,7 @@ pub struct Env {
     pub router: Arc<Router>,
     pub external: Arc<SocketAddr>,
     pub observer: Arc<dyn Observer>,
+    pub proxy: Option<Arc<Proxy>>,
 }
 
 /// process udp message
@@ -52,6 +54,7 @@ impl Processor {
         realm: String,
         router: Arc<Router>,
         observer: Arc<dyn Observer>,
+        proxy: Option<Arc<Proxy>>,
     ) -> Self {
         Self {
             index,
@@ -63,6 +66,7 @@ impl Processor {
                 observer,
                 router,
                 index,
+                proxy,
             }),
         }
     }

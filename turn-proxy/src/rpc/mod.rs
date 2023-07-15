@@ -28,10 +28,7 @@ pub struct ProxyStateNotifyNode {
 
 #[derive(Deserialize, Serialize, Debug)]
 pub enum Payload {
-    ProxyStateNotify {
-        udp_port: u16,
-        nodes: Vec<ProxyStateNotifyNode>,
-    },
+    ProxyStateNotify(Vec<ProxyStateNotifyNode>),
     CreatePermission {
         id: u8,
         from: SocketAddr,

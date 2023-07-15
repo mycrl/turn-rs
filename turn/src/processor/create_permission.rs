@@ -107,19 +107,28 @@ pub async fn process<'a, 'b, 'c>(
     reader: MessageReader<'a, 'b>,
     bytes: &'c mut BytesMut,
 ) -> Result<Option<Response<'c>>> {
+    let (username, key) = match verify_message(&ctx, &reader).await {
+        None => return reject(ctx, reader, bytes, Unauthorized),
+        Some(ret) => ret,
+    };
+
     let peer = match reader.get::<XorPeerAddress>() {
         None => return reject(ctx, reader, bytes, BadRequest),
         Some(a) => a,
     };
 
     if ctx.env.external.ip() != peer.ip() {
-        return reject(ctx, reader, bytes, Forbidden);
+        if let Some(proxy) = &ctx.env.proxy {
+            if proxy.in_online_nodes(&peer.ip()) {
+                proxy.create_permission(&ctx.env.external, &peer).unwrap();
+                return resolve(&reader, &key, bytes);
+            } else {
+                return reject(ctx, reader, bytes, Forbidden); 
+            }
+        } else {
+            return reject(ctx, reader, bytes, Forbidden);
+        }
     }
-
-    let (username, key) = match verify_message(&ctx, &reader).await {
-        None => return reject(ctx, reader, bytes, Unauthorized),
-        Some(ret) => ret,
-    };
 
     if ctx
         .env

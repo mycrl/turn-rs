@@ -1,4 +1,3 @@
-use std::net::IpAddr;
 use std::{
     net::SocketAddr,
     sync::Arc,
@@ -115,7 +114,7 @@ impl Protocol {
 #[derive(Copy, Clone)]
 pub struct TransportAddr {
     pub bind: SocketAddr,
-    pub proxy: IpAddr,
+    pub proxy: SocketAddr,
 }
 
 pub struct OrderTransport {
@@ -125,13 +124,12 @@ pub struct OrderTransport {
 
 impl OrderTransport {
     pub async fn new(addr: TransportAddr) -> Result<Self> {
-        let socket: Arc<Mutex<Option<TcpStream>>> = Default::default();
-
         let listener = TcpListener::bind(addr.bind).await?;
+        let socket: Arc<Mutex<Option<TcpStream>>> = Default::default();
         let socket_ = socket.clone();
         tokio::spawn(async move {
             while let Ok((socket, source)) = listener.accept().await {
-                if source.ip() == addr.proxy {
+                if source == addr.proxy {
                     let _ = socket_.lock().await.insert(socket);
                 }
             }
@@ -233,10 +231,10 @@ impl Transport {
     /// // let users_js = ctr.get_users().await;
     /// ```
     pub async fn send(&self, buf: &[u8], to: u8) -> Result<()> {
-        let local_addr = self.socket.local_addr()?;
         let head = Protocol::encode_header(buf, to);
-        self.socket.send_to(&head, local_addr).await?;
-        self.socket.send_to(buf, local_addr).await?;
+        self.socket.send_to(&head, self.addr.proxy).await?;
+        self.socket.send_to(buf, self.addr.proxy).await?;
+
         Ok(())
     }
 
@@ -257,7 +255,7 @@ impl Transport {
     /// ```
     pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
         let (size, source) = self.socket.recv_from(&mut self.buf).await?;
-        if source.ip() != self.addr.proxy {
+        if source != self.addr.proxy {
             return Ok(None);
         }
 

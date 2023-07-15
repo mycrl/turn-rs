@@ -1,7 +1,7 @@
 pub mod rpc;
 
 use std::{
-    net::SocketAddr,
+    net::{SocketAddr, IpAddr},
     sync::Arc,
 };
 
@@ -27,6 +27,7 @@ use serde::{
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ProxyOptions {
     pub bind: SocketAddr,
+    pub proxy: SocketAddr,
 }
 
 pub trait ProxyObserver: Send + Sync {
@@ -66,7 +67,7 @@ impl Proxy {
             rpc: Rpc::new(
                 TransportAddr {
                     bind: options.bind,
-                    proxy: "127.0.0.1".parse().unwrap(),
+                    proxy: options.proxy,
                 },
                 RpcObserverExt {
                     observer: Arc::new(observer),
@@ -93,8 +94,14 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub fn in_nodes(&self, addr: &SocketAddr) -> bool {
-        self.nodes.read().iter().any(|n| &n.external == addr)
+    pub fn in_online_nodes(&self, addr: &IpAddr) -> bool {
+        if let Some(node) =
+            self.nodes.read().iter().find(|n| &n.external.ip() == addr)
+        {
+            node.online
+        } else {
+            false
+        }
     }
 
     /// Get user list.
@@ -112,14 +119,9 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub fn get_node_online(&self, addr: &SocketAddr) -> bool {
-        if let Some(node) =
-            self.nodes.read().iter().find(|n| &n.external == addr)
-        {
-            node.online
-        } else {
-            false
-        }
+    pub fn send(&self, payload: Payload, to: u8) -> Result<()> {
+        self.rpc.send(payload, to)?;
+        Ok(())
     }
 
     /// Get user list.
@@ -168,10 +170,7 @@ struct RpcObserverExt {
 impl RpcObserver for RpcObserverExt {
     fn on(&self, payload: Payload) {
         match payload {
-            Payload::ProxyStateNotify {
-                udp_port,
-                nodes,
-            } => {
+            Payload::ProxyStateNotify(nodes) => {
                 *self.nodes.write() = nodes;
             },
             Payload::CreatePermission {

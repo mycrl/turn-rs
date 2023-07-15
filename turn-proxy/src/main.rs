@@ -20,6 +20,7 @@ use tokio::{
     net::{
         TcpStream,
         UdpSocket,
+        TcpSocket,
     },
     sync::{
         RwLock,
@@ -69,9 +70,8 @@ async fn main() -> anyhow::Result<()> {
     let nodes_ = nodes.clone();
 
     let cfg_nodes = config.nodes.clone();
-    let socket = UdpSocket::bind("[::]:0").await?;
-    let udp_port = socket.local_addr()?.port();
-    log::info!("udp socket bind: port={}", udp_port);
+    let socket = UdpSocket::bind(&config.net.bind).await?;
+    log::info!("udp socket bind: addr={}", config.net.bind);
 
     tokio::spawn(async move {
         let mut buf = [0u8; 4096];
@@ -108,9 +108,16 @@ async fn main() -> anyhow::Result<()> {
         for (i, node) in nodes.iter().enumerate() {
             let mut state = node.state.write().await;
             if !state.online {
-                if let Ok(ret) = TcpStream::connect(state.addr).await {
+                let socket = if config.net.bind.is_ipv4() {
+                    TcpSocket::new_v4()?
+                } else {
+                    TcpSocket::new_v6()?
+                };
+
+                socket.bind(config.net.bind)?;
+                if let Ok(ret) = socket.connect(state.addr).await {
                     log::info!("connected to proxy node: addr={}", state.addr);
-                    on_tcp_socket(udp_port, i, nodes.clone(), ret);
+                    on_tcp_socket(i, nodes.clone(), ret);
                     state.online = true;
                 }
             }
@@ -119,7 +126,6 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn on_tcp_socket(
-    port: u16,
     index: usize,
     nodes: Arc<Vec<ProxyNode>>,
     mut socket: TcpStream,
@@ -129,7 +135,7 @@ fn on_tcp_socket(
             .peer_addr()
             .expect("get socket remote socket is failed!");
 
-        if send_state(port, &nodes, &mut socket).await {
+        if send_state(&nodes, &mut socket).await {
             log::info!("send state to proxy node: addr={}", remote_addr);
 
             let mut receiver = nodes[index].tcp.receiver.lock().await;
@@ -169,20 +175,12 @@ fn on_tcp_socket(
     });
 }
 
-async fn send_state(
-    port: u16,
-    nodes: &Vec<ProxyNode>,
-    socket: &mut TcpStream,
-) -> bool {
+async fn send_state(nodes: &Vec<ProxyNode>, socket: &mut TcpStream) -> bool {
     let mut ret = Vec::with_capacity(nodes.len());
     for node in nodes {
         ret.push(node.state.read().await.clone());
     }
 
-    let payload: Vec<u8> = Payload::ProxyStateNotify {
-        udp_port: port,
-        nodes: ret,
-    }
-    .into();
+    let payload: Vec<u8> = Payload::ProxyStateNotify(ret).into();
     socket.write_all(&payload).await.is_ok()
 }

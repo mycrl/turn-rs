@@ -11,6 +11,8 @@ use serde::{
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Net {
+    #[serde(default = "Net::bind")]
+    pub bind: SocketAddr,
     #[serde(default = "Net::recon_delay")]
     pub recon_delay: u64,
 }
@@ -19,12 +21,17 @@ impl Net {
     fn recon_delay() -> u64 {
         5000
     }
+
+    fn bind() -> SocketAddr {
+        "127.0.0.1:3479".parse().unwrap()
+    }
 }
 
 impl Default for Net {
     fn default() -> Self {
         Self {
             recon_delay: Self::recon_delay(),
+            bind: Self::bind(),
         }
     }
 }

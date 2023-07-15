@@ -299,6 +299,7 @@ impl Service {
             self.realm.clone(),
             self.router.clone(),
             self.observer.clone(),
+            self.proxy.clone(),
         )
     }
 }
