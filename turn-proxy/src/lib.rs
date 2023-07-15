@@ -32,6 +32,7 @@ pub struct ProxyOptions {
 
 pub trait ProxyObserver: Send + Sync {
     fn create_permission(&self, id: u8, from: SocketAddr, peer: SocketAddr);
+    fn relay(&self, buf: &[u8]);
 }
 
 pub struct Proxy {
@@ -181,5 +182,9 @@ impl RpcObserver for RpcObserverExt {
                 self.observer.create_permission(id, from, peer);
             },
         }
+    }
+
+    fn on_relay(&self, buf: &[u8]) {
+        self.observer.relay(buf);
     }
 }

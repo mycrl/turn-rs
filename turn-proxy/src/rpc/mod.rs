@@ -82,6 +82,7 @@ impl Into<Vec<u8>> for Payload {
 
 pub trait RpcObserver: Send + Sync {
     fn on(&self, payload: Payload);
+    fn on_relay(&self, buf: &[u8]);
 }
 
 pub struct Rpc {
@@ -113,11 +114,7 @@ impl Rpc {
                     }
                     Ok(ret) = transport.recv() => {
                         if let Some((buf, _)) = ret {
-                            if let Ok(payload) = Payload::try_from(buf) {
-                                observer.on(payload);
-                            } else {
-                                break;
-                            }
+                            observer.on_relay(buf);
                         }
                     }
                     Some((payload, to, is_order)) = receiver.recv() => {
