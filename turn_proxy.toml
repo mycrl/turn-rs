@@ -1,0 +1,10 @@
+[net]
+bind = "127.0.0.1:3479"
+recon_delay = 10000
+
+[log]
+level = "info"
+
+[[nodes]]
+bind = "127.0.0.1:3480"
+external = "127.0.0.1:3478"

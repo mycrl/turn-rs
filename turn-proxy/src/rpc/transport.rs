@@ -1,3 +1,4 @@
+use std::io::IoSlice;
 use std::{
     net::SocketAddr,
     sync::Arc,
@@ -8,7 +9,16 @@ use anyhow::{
     anyhow,
 };
 
+use bytes::{
+    BytesMut,
+    Bytes,
+};
 use tokio::sync::Mutex;
+use tokio::sync::mpsc::{
+    UnboundedSender,
+    UnboundedReceiver,
+    unbounded_channel,
+};
 use tokio::{
     net::*,
     io::*,
@@ -18,6 +28,7 @@ pub struct Protocol;
 
 const PROTOCOL_MAGIC: u8 = 0xAA;
 
+#[derive(Debug)]
 pub struct ProtocolRecvRef<'a> {
     pub size: usize,
     pub to: u8,
@@ -118,28 +129,68 @@ pub struct TransportAddr {
 }
 
 pub struct OrderTransport {
-    socket: Arc<Mutex<Option<TcpStream>>>,
-    buf: [u8; 2048],
+    receiver: UnboundedReceiver<(Bytes, u8)>,
+    sender: UnboundedSender<(Bytes, u8)>,
 }
 
 impl OrderTransport {
     pub async fn new(addr: TransportAddr) -> Result<Self> {
         let listener = TcpListener::bind(addr.bind).await?;
-        let socket: Arc<Mutex<Option<TcpStream>>> = Default::default();
-        let socket_ = socket.clone();
-        tokio::spawn(async move {
-            while let Ok((socket, source)) = listener.accept().await {
-                if source == addr.proxy {
-                    let _ = socket_.lock().await.insert(socket);
-                }
-            }
+        let (recv_sender, receiver) = unbounded_channel::<(Bytes, u8)>();
+        let (sender, send_receiver) = unbounded_channel::<(Bytes, u8)>();
+        let send_receiver = Arc::new(Mutex::new(send_receiver));
 
-            Ok::<(), anyhow::Error>(())
+        tokio::spawn(async move {
+            while let Ok((mut socket, source)) = listener.accept().await {
+                if source.ip() != addr.proxy.ip() {
+                    return;
+                }
+
+                let sender = recv_sender.clone();
+                let receiver = send_receiver.clone();
+
+                tokio::spawn(async move {
+                    let mut buf = BytesMut::new();
+
+                    loop {
+                        let mut receiver = receiver.lock().await;
+                        tokio::select! {
+                            Ok(size) = socket.read_buf(&mut buf) => {
+                                if size > 0 {
+                                    if let Ok(ret) = Protocol::decode_head(&buf) {
+                                        println!("===================== {:?}", ret);
+                                        if let Some((size, to)) = ret {
+                                            let data = buf.split_to(size);
+                                            if sender.send((data.freeze(), to)).is_err() {
+                                                break;
+                                            }
+                                        }
+                                    } else {
+                                        break;
+                                    }
+                                } else {
+                                    break;
+                                }
+                            },
+                            Some((buf, to)) = receiver.recv() => {
+                                let head = Protocol::encode_header(&buf, to);
+                                let vect = [IoSlice::new(&head), IoSlice::new(&buf)];
+                                if socket.write_vectored(&vect).await.is_err() {
+                                    break;
+                                }
+                            },
+                            else => {
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
         });
 
         Ok(Self {
-            buf: [0u8; 2048],
-            socket,
+            receiver,
+            sender,
         })
     }
 
@@ -158,17 +209,9 @@ impl OrderTransport {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn send(&self, buf: &[u8], to: u8) -> Result<bool> {
-        Ok(if let Some(socket) = self.socket.lock().await.as_mut() {
-            let head = Protocol::encode_header(buf, to);
-            socket.write_all(&head).await?;
-            socket.write_all(buf).await?;
-            socket.flush().await?;
-
-            true
-        } else {
-            false
-        })
+    pub async fn send(&self, buf: &[u8], to: u8) -> Result<()> {
+        self.sender.send((Bytes::copy_from_slice(buf), to))?;
+        Ok(())
     }
 
     /// Get user list.
@@ -186,17 +229,8 @@ impl OrderTransport {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
-        Ok(if let Some(socket) = self.socket.lock().await.as_mut() {
-            let size = socket.read(&mut self.buf).await?;
-            if size == 0 {
-                return Err(anyhow!("socket read ret size == 0"));
-            }
-
-            Protocol::decode(&self.buf[..size])?.map(|ret| (ret.data, ret.to))
-        } else {
-            None
-        })
+    pub async fn recv(&mut self) -> Option<(Bytes, u8)> {
+        self.receiver.recv().await
     }
 }
 

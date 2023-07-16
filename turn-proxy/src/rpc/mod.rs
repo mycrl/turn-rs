@@ -103,13 +103,11 @@ impl Rpc {
         tokio::spawn(async move {
             loop {
                 tokio::select! {
-                    Ok(ret) = order_transport.recv() => {
-                        if let Some((buf, _)) = ret {
-                            if let Ok(payload) = Payload::try_from(buf) {
-                                observer.on(payload);
-                            } else {
-                                break;
-                            }
+                    Some((buf, _)) = order_transport.recv() => {
+                        if let Ok(payload) = Payload::try_from(buf.as_ref()) {
+                            observer.on(payload);
+                        } else {
+                            println!("===================== err");
                         }
                     }
                     Ok(ret) = transport.recv() => {
@@ -132,7 +130,7 @@ impl Rpc {
                     else => {
                         break;
                     }
-                };
+                }
             }
         });
 

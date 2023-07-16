@@ -1,10 +1,10 @@
+use turn_proxy::ProxyOptions;
 use clap::Parser;
 use serde::{
     Deserialize,
     Serialize,
 };
 
-use turn_proxy::ProxyOptions;
 use std::{
     collections::HashMap,
     fs::read_to_string,

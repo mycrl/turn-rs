@@ -1,6 +1,9 @@
 mod config;
 
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    io::IoSlice,
+};
 use std::io::ErrorKind::ConnectionReset;
 use bytes::{
     BytesMut,
@@ -20,7 +23,6 @@ use tokio::{
     net::{
         TcpStream,
         UdpSocket,
-        TcpSocket,
     },
     sync::{
         RwLock,
@@ -83,19 +85,13 @@ async fn main() -> anyhow::Result<()> {
                 _ => continue,
             };
 
-            if let Ok(ret) = Protocol::decode_head(&buf[..size]) {
-                if let Some((size, to)) = ret {
-                    let state = nodes_[to as usize].state.read().await;
-                    if let Err(e) =
-                        socket.send_to(&buf[..size], state.addr).await
-                    {
-                        if e.kind() != ConnectionReset {
-                            break;
-                        }
+            if let Ok(Some(ret)) = Protocol::decode(&buf[..size]) {
+                let state = nodes_[ret.to as usize].state.read().await;
+                if let Err(e) = socket.send_to(ret.data, state.addr).await {
+                    if e.kind() != ConnectionReset {
+                        break;
                     }
                 }
-            } else {
-                break;
             }
         }
 
@@ -104,24 +100,18 @@ async fn main() -> anyhow::Result<()> {
     });
 
     loop {
-        sleep(Duration::from_millis(config.net.recon_delay)).await;
         for (i, node) in nodes.iter().enumerate() {
             let mut state = node.state.write().await;
             if !state.online {
-                let socket = if config.net.bind.is_ipv4() {
-                    TcpSocket::new_v4()?
-                } else {
-                    TcpSocket::new_v6()?
-                };
-
-                socket.bind(config.net.bind)?;
-                if let Ok(ret) = socket.connect(state.addr).await {
+                if let Ok(socket) = TcpStream::connect(state.addr).await {
                     log::info!("connected to proxy node: addr={}", state.addr);
-                    on_tcp_socket(i, nodes.clone(), ret);
+                    on_tcp_socket(i, nodes.clone(), socket);
                     state.online = true;
                 }
             }
         }
+
+        sleep(Duration::from_millis(config.net.recon_delay)).await;
     }
 }
 
@@ -135,13 +125,14 @@ fn on_tcp_socket(
             .peer_addr()
             .expect("get socket remote socket is failed!");
 
-        if send_state(&nodes, &mut socket).await {
+        if send_state(index, &nodes, &mut socket).await.is_ok() {
             log::info!("send state to proxy node: addr={}", remote_addr);
 
             let mut receiver = nodes[index].tcp.receiver.lock().await;
             let mut buf = BytesMut::new();
 
             loop {
+                println!("====================");
                 tokio::select! {
                     Ok(size) = socket.read_buf(&mut buf) => {
                         if size == 0 {
@@ -165,9 +156,16 @@ fn on_tcp_socket(
                         if socket.write_all(&ret).await.is_err() {
                             break;
                         }
+                    },
+                    else => {
+                        break;
                     }
                 }
+
+                println!("==================== 1111");
             }
+
+            println!("==================== 222");
         }
 
         nodes[index].state.write().await.online = false;
@@ -175,12 +173,21 @@ fn on_tcp_socket(
     });
 }
 
-async fn send_state(nodes: &Vec<ProxyNode>, socket: &mut TcpStream) -> bool {
+async fn send_state(
+    index: usize,
+    nodes: &Vec<ProxyNode>,
+    socket: &mut TcpStream,
+) -> Result<()> {
     let mut ret = Vec::with_capacity(nodes.len());
     for node in nodes {
         ret.push(node.state.read().await.clone());
     }
 
     let payload: Vec<u8> = Payload::ProxyStateNotify(ret).into();
-    socket.write_all(&payload).await.is_ok()
+    println!("{}, {}", payload.len(), index);
+    let head = Protocol::encode_header(&payload, index as u8);
+    let vect = [IoSlice::new(&head), IoSlice::new(&payload)];
+    socket.write_vectored(&vect).await?;
+
+    Ok(())
 }

@@ -312,4 +312,8 @@ impl ProxyObserver for ProxyObserverExt {
     fn create_permission(&self, id: u8, from: SocketAddr, peer: SocketAddr) {
         self.router.bind_port(&from, peer.port(), Some(id));
     }
+
+    fn relay(&self, buf: &[u8]) {
+        
+    }
 }
