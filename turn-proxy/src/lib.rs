@@ -175,7 +175,6 @@ impl RpcObserver for RpcObserverExt {
     fn on(&self, payload: Payload) {
         match payload {
             Payload::ProxyStateNotify(nodes) => {
-                println!("{:?}", nodes);
                 *self.nodes.write() = nodes;
             },
             Payload::CreatePermission {

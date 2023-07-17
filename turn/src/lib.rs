@@ -313,7 +313,5 @@ impl ProxyObserver for ProxyObserverExt {
         self.router.bind_port(&from, peer.port(), Some(id));
     }
 
-    fn relay(&self, buf: &[u8]) {
-        
-    }
+    fn relay(&self, buf: &[u8]) {}
 }

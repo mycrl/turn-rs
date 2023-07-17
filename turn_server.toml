@@ -25,7 +25,7 @@ external = "127.0.0.1:3478"
 
 [proxy]
 bind = "127.0.0.1:3480"
-proxy = "127.0.0.1:3479"
+proxy = "150.158.103.124:3479"
 
 [controller]
 # controller bind

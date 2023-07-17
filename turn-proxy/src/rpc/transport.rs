@@ -158,9 +158,8 @@ impl OrderTransport {
                             Ok(size) = socket.read_buf(&mut buf) => {
                                 if size > 0 {
                                     if let Ok(ret) = Protocol::decode_head(&buf) {
-                                        println!("===================== {:?}", ret);
                                         if let Some((size, to)) = ret {
-                                            let data = buf.split_to(size);
+                                            let data = buf.split_to(size).split_off(4);
                                             if sender.send((data.freeze(), to)).is_err() {
                                                 break;
                                             }

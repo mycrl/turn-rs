@@ -1,4 +1,9 @@
-use anyhow::Result;
+use std::net::SocketAddr;
+
+use anyhow::{
+    Result,
+    anyhow,
+};
 use bytes::BytesMut;
 use crate::{
     SOFTWARE,
@@ -63,6 +68,31 @@ fn resolve<'a, 'b, 'c>(
     Ok(Some(Response::new(bytes, StunClass::Message, None)))
 }
 
+enum CheckRet {
+    Failed,
+    Next,
+    Done,
+}
+
+#[inline(always)]
+fn check_addr(ctx: &Context, peer: &SocketAddr) -> CheckRet {
+    if ctx.env.external.ip() == peer.ip() {
+        return CheckRet::Next;
+    }
+
+    let proxy = match &ctx.env.proxy {
+        None => return CheckRet::Failed,
+        Some(p) => p,
+    };
+
+    if !proxy.in_online_nodes(&peer.ip()) {
+        return CheckRet::Failed;
+    }
+
+    let ret = proxy.create_permission(&ctx.env.external, &peer);
+    ret.map(|_| CheckRet::Done).unwrap_or(CheckRet::Failed)
+}
+
 /// process create permission request
 ///
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -117,17 +147,10 @@ pub async fn process<'a, 'b, 'c>(
         Some(a) => a,
     };
 
-    if ctx.env.external.ip() != peer.ip() {
-        if let Some(proxy) = &ctx.env.proxy {
-            if proxy.in_online_nodes(&peer.ip()) {
-                proxy.create_permission(&ctx.env.external, &peer).unwrap();
-                return resolve(&reader, &key, bytes);
-            } else {
-                return reject(ctx, reader, bytes, Forbidden); 
-            }
-        } else {
-            return reject(ctx, reader, bytes, Forbidden);
-        }
+    match check_addr(&ctx, &peer) {
+        CheckRet::Failed => return reject(ctx, reader, bytes, Forbidden),
+        CheckRet::Done => return resolve(&reader, &key, bytes),
+        CheckRet::Next => (),
     }
 
     if ctx

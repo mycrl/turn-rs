@@ -25,13 +25,13 @@ use tokio::{
         UdpSocket,
     },
     sync::{
+        Mutex,
         RwLock,
         mpsc::{
             UnboundedSender,
             UnboundedReceiver,
             unbounded_channel,
         },
-        Mutex,
     },
     io::*,
 };
@@ -56,8 +56,8 @@ async fn main() -> anyhow::Result<()> {
         let (sender, receiver) = unbounded_channel();
         nodes.push(ProxyNode {
             tcp: Channel {
-                sender,
                 receiver: Mutex::new(receiver),
+                sender,
             },
             state: RwLock::new(ProxyStateNotifyNode {
                 external: node.external,
@@ -132,16 +132,21 @@ fn on_tcp_socket(
             let mut buf = BytesMut::new();
 
             loop {
-                println!("====================");
                 tokio::select! {
-                    Ok(size) = socket.read_buf(&mut buf) => {
-                        if size == 0 {
+                    ret = socket.read_buf(&mut buf) => {
+                        let size = if let Ok(size) = ret {
+                            if size == 0 {
+                                break;
+                            }
+
+                            size
+                        } else {
                             break;
-                        }
+                        };
 
                         if let Ok(ret) = Protocol::decode_head(&buf[..size]) {
                             if let Some((size, to)) = ret {
-                                let data = buf.split_to(size);
+                                let data = buf.split_to(size).split_off(4);
                                 if let Some(node) = nodes.get(to as usize) {
                                     if node.tcp.sender.send(data.freeze()).is_err() {
                                         break;
@@ -161,11 +166,7 @@ fn on_tcp_socket(
                         break;
                     }
                 }
-
-                println!("==================== 1111");
             }
-
-            println!("==================== 222");
         }
 
         nodes[index].state.write().await.online = false;
@@ -184,10 +185,8 @@ async fn send_state(
     }
 
     let payload: Vec<u8> = Payload::ProxyStateNotify(ret).into();
-    println!("{}, {}", payload.len(), index);
     let head = Protocol::encode_header(&payload, index as u8);
     let vect = [IoSlice::new(&head), IoSlice::new(&payload)];
     socket.write_vectored(&vect).await?;
-
     Ok(())
 }

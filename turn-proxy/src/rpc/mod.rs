@@ -106,8 +106,6 @@ impl Rpc {
                     Some((buf, _)) = order_transport.recv() => {
                         if let Ok(payload) = Payload::try_from(buf.as_ref()) {
                             observer.on(payload);
-                        } else {
-                            println!("===================== err");
                         }
                     }
                     Ok(ret) = transport.recv() => {
