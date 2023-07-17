@@ -99,6 +99,7 @@ impl Proxy {
     /// // let users_js = ctr.get_users().await;
     /// ```
     pub fn in_online_nodes(&self, addr: &IpAddr) -> bool {
+        println!("========================= {:?}", addr);
         if let Some(node) =
             self.nodes.read().iter().find(|n| &n.external.ip() == addr)
         {
@@ -151,7 +152,7 @@ impl Proxy {
         let nodes = self.nodes.read();
         let node = nodes
             .iter()
-            .find(|n| &n.external == peer_addr)
+            .find(|n| &n.external.ip() == &peer_addr.ip())
             .ok_or_else(|| anyhow!("not found node!"))?;
         self.rpc.send_with_order(
             Payload::CreatePermission {
@@ -175,6 +176,7 @@ impl RpcObserver for RpcObserverExt {
     fn on(&self, payload: Payload) {
         match payload {
             Payload::ProxyStateNotify(nodes) => {
+                println!("========================= 111 {:?}", nodes);
                 *self.nodes.write() = nodes;
             },
             Payload::CreatePermission {
