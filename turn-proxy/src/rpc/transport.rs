@@ -235,17 +235,16 @@ impl OrderTransport {
     }
 }
 
+#[derive(Clone)]
 pub struct Transport {
     addr: TransportAddr,
-    socket: UdpSocket,
-    buf: [u8; 2048],
+    socket: Arc<UdpSocket>,
 }
 
 impl Transport {
     pub async fn new(addr: TransportAddr) -> Result<Self> {
         Ok(Self {
-            socket: UdpSocket::bind(addr.bind).await?,
-            buf: [0u8; 2048],
+            socket: Arc::new(UdpSocket::bind(addr.bind).await?),
             addr,
         })
     }
@@ -267,8 +266,8 @@ impl Transport {
     /// ```
     pub async fn send(&self, buf: &[u8], to: u8) -> Result<()> {
         let head = Protocol::encode_header(buf, to);
-        self.socket.send_to(&head, self.addr.proxy).await?;
-        self.socket.send_to(buf, self.addr.proxy).await?;
+        transport_udp_err(self.socket.send_to(&head, self.addr.proxy).await)?;
+        transport_udp_err(self.socket.send_to(buf, self.addr.proxy).await)?;
 
         Ok(())
     }
@@ -288,8 +287,18 @@ impl Transport {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn recv(&mut self) -> Result<Option<(&[u8], u8)>> {
-        let (size, source) = self.socket.recv_from(&mut self.buf).await?;
+    pub async fn recv<'a>(
+        &self,
+        buf: &'a mut [u8],
+    ) -> Result<Option<(&'a [u8], u8)>> {
+        let (size, source) = if let Some(ret) =
+            transport_udp_err(self.socket.recv_from(buf).await)?
+        {
+            ret
+        } else {
+            return Ok(None);
+        };
+
         if source != self.addr.proxy {
             return Ok(None);
         }
@@ -298,10 +307,23 @@ impl Transport {
             return Err(anyhow!("socket read ret size == 0"));
         }
 
-        if let Some(ret) = Protocol::decode(&self.buf[..size])? {
+        if let Some(ret) = Protocol::decode(&buf[..size])? {
             Ok(Some((ret.data, ret.to)))
         } else {
             Ok(None)
         }
+    }
+}
+
+fn transport_udp_err<T>(ret: Result<T, std::io::Error>) -> Result<Option<T>> {
+    match ret {
+        Ok(ret) => Ok(Some(ret)),
+        Err(e) => {
+            if e.kind() != std::io::ErrorKind::ConnectionReset {
+                Ok(None)
+            } else {
+                Err(e.into())
+            }
+        },
     }
 }

@@ -158,7 +158,15 @@ pub async fn tcp_processor(
                                         .await;
                                 },
                                 ResponseRelay::Proxy(addr, to) => {
-                                    if let Some(proxy) = &proxy {}
+                                    if let Some(proxy) = &proxy {
+                                        if proxy
+                                            .relay(res.data, to)
+                                            .await
+                                            .is_err()
+                                        {
+                                            break;
+                                        }
+                                    }
                                 },
                             }
                         } else {
@@ -248,7 +256,15 @@ pub async fn udp_processor(
                                         .await;
                                 },
                                 ResponseRelay::Proxy(addr, to) => {
-                                    if let Some(proxy) = &proxy {}
+                                    if let Some(proxy) = &proxy {
+                                        if proxy
+                                            .relay(res.data, to)
+                                            .await
+                                            .is_err()
+                                        {
+                                            break;
+                                        }
+                                    }
                                 },
                             }
                         } else {
@@ -269,7 +285,7 @@ pub async fn udp_processor(
             }
 
             router.remove(processor.index).await;
-            log::info!("udp server close: interface={:?}", local_addr,);
+            log::error!("udp server close: interface={:?}", local_addr,);
         });
     }
 

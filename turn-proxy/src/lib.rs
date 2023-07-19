@@ -125,28 +125,8 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub fn send(&self, payload: Payload, to: u8) -> Result<()> {
-        self.rpc.send(payload, to)?;
-        Ok(())
-    }
-
-    /// Get user list.
-    ///
-    /// This interface returns the username and a list of addresses used by this
-    /// user.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let users_js = ctr.get_users().await;
-    /// ```
-    pub fn relay(&self, payload: Payload, to: u8) -> Result<()> {
-        self.rpc.send_with_order(payload, to)?;
+    pub async fn relay(&self, payload: &[u8], to: u8) -> Result<()> {
+        self.rpc.send(payload, to).await?;
         Ok(())
     }
 

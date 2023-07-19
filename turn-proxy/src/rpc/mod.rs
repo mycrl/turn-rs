@@ -33,7 +33,7 @@ pub enum Payload {
         id: u8,
         from: SocketAddr,
         peer: SocketAddr,
-    }
+    },
 }
 
 impl TryFrom<&[u8]> for Payload {
@@ -86,7 +86,8 @@ pub trait RpcObserver: Send + Sync {
 }
 
 pub struct Rpc {
-    sender: mpsc::UnboundedSender<(Payload, u8, bool)>,
+    sender: mpsc::UnboundedSender<(Payload, u8)>,
+    transport: Transport,
 }
 
 impl Rpc {
@@ -94,13 +95,15 @@ impl Rpc {
         addr: TransportAddr,
         observer: T,
     ) -> Result<Arc<Self>> {
-        let (sender, mut receiver) =
-            mpsc::unbounded_channel::<(Payload, u8, bool)>();
+        let (sender, mut receiver) = mpsc::unbounded_channel::<(Payload, u8)>();
 
         let mut order_transport = OrderTransport::new(addr).await?;
-        let mut transport = Transport::new(addr).await?;
+        let transport = Transport::new(addr).await?;
         let observer = Arc::new(observer);
+        let transport_ = transport.clone();
         tokio::spawn(async move {
+            let mut buf = [0u8; 4096];
+
             loop {
                 tokio::select! {
                     Some((buf, _)) = order_transport.recv() => {
@@ -108,21 +111,15 @@ impl Rpc {
                             observer.on(payload);
                         }
                     }
-                    Ok(ret) = transport.recv() => {
+                    Ok(ret) = transport_.recv(&mut buf) => {
                         if let Some((buf, _)) = ret {
                             observer.on_relay(buf);
                         }
                     }
-                    Some((payload, to, is_order)) = receiver.recv() => {
+                    Some((payload, to)) = receiver.recv() => {
                         let buf: Vec<u8> = payload.into();
-                        if is_order {
-                            if order_transport.send(&buf, to).await.is_err() {
-                                break;
-                            }
-                        } else {
-                            if transport.send(&buf, to).await.is_err() {
-                                break;
-                            }
+                        if order_transport.send(&buf, to).await.is_err() {
+                            break;
                         }
                     }
                     else => {
@@ -133,6 +130,7 @@ impl Rpc {
         });
 
         Ok(Arc::new(Self {
+            transport,
             sender,
         }))
     }
@@ -153,7 +151,7 @@ impl Rpc {
     /// // let users_js = ctr.get_users().await;
     /// ```
     pub fn send_with_order(&self, payload: Payload, to: u8) -> Result<()> {
-        self.sender.send((payload, to, true))?;
+        self.sender.send((payload, to))?;
         Ok(())
     }
 
@@ -172,8 +170,8 @@ impl Rpc {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub fn send(&self, payload: Payload, to: u8) -> Result<()> {
-        self.sender.send((payload, to, false))?;
+    pub async fn send(&self, payload: &[u8], to: u8) -> Result<()> {
+        self.transport.send(payload, to).await?;
         Ok(())
     }
 }
