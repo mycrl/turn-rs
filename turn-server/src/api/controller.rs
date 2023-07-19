@@ -13,13 +13,11 @@ use std::{
 
 use crate::{
     config::*,
-    server::{
-        Store,
-        Monitor,
-    },
+    server::*,
 };
+
 use turn_rs::{
-    Router,
+    Service,
     Node,
 };
 
@@ -105,7 +103,7 @@ pub struct Qiter {
 /// information and reports through the controller.
 pub struct Controller {
     config: Arc<Config>,
-    router: Arc<Router>,
+    service: Service,
     monitor: Monitor,
     timer: Instant,
 }
@@ -128,12 +126,12 @@ impl Controller {
     pub fn new(
         config: Arc<Config>,
         monitor: Monitor,
-        router: Arc<Router>,
+        service: Service,
     ) -> Arc<Self> {
         Arc::new(Self {
             timer: Instant::now(),
             monitor,
-            router,
+            service,
             config,
         })
     }
@@ -155,8 +153,8 @@ impl Controller {
             software: SOFTWARE.to_string(),
             uptime: this.timer.elapsed().as_secs(),
             realm: this.config.turn.realm.clone(),
-            port_allocated: this.router.len() as u16,
-            port_capacity: this.router.capacity() as u16,
+            port_allocated: this.service.router.len() as u16,
+            port_capacity: this.service.router.capacity() as u16,
             interfaces: this.config.turn.interfaces.clone(),
         })
     }
@@ -203,7 +201,7 @@ impl Controller {
     ) -> Json<Vec<(String, Vec<SocketAddr>)>> {
         let skip = pars.skip.unwrap_or(0);
         let limit = pars.limit.unwrap_or(20);
-        Json(this.router.get_users(skip, limit))
+        Json(this.service.router.get_users(skip, limit))
     }
 
     /// Get node information
@@ -226,7 +224,12 @@ impl Controller {
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<Option<INode>> {
-        Json(this.router.get_node(&Arc::new(pars.addr)).map(INode::from))
+        Json(
+            this.service
+                .router
+                .get_node(&Arc::new(pars.addr))
+                .map(INode::from),
+        )
     }
 
     /// Delete a node under the user.
@@ -246,15 +249,10 @@ impl Controller {
     /// let addr = "127.0.0.1:8080".parse().unwrap();
     /// // let remove_node_js = ctr.remove_user(addr).await;
     /// ```
-    #[rustfmt::skip]
     pub async fn remove_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<bool> {
-        Json(
-            this.router
-                .remove(&Arc::new(pars.addr))
-                .is_some()
-        )
+        Json(this.service.router.remove(&Arc::new(pars.addr)).is_some())
     }
 }

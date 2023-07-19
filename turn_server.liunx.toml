@@ -14,12 +14,12 @@ realm = "localhost"
 # ipv4 and ipv6.
 [[turn.interfaces]]
 transport = "udp"
-bind = "0.0.0.0:3478"
-external = "172.21.152.55:3478"
+bind = "0.0.0.0:3479"
+external = "172.21.155.212:3479"
 
 [proxy]
-bind = "172.21.152.55:3480"
-proxy = "172.21.144.1:3479"
+bind = "0.0.0.0:3480"
+proxy = "172.21.144.1:5000"
 
 [controller]
 # controller bind
@@ -31,7 +31,7 @@ proxy = "172.21.144.1:3479"
 # and sensitive information and dangerous operations can be obtained
 # through this service, please do not expose it directly to an unsafe
 # environment.
-listen = "127.0.0.1:3000"
+listen = "127.0.0.1:3001"
 
 # Set the value of the Access-Control-Allow-Origin header.
 #

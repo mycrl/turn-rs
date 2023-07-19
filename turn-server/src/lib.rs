@@ -1,5 +1,6 @@
 pub mod config;
 pub mod server;
+pub mod router;
 pub mod api;
 
 use async_trait::async_trait;
@@ -272,12 +273,9 @@ pub async fn server_main(config: Arc<Config>) -> anyhow::Result<()> {
     let events = Events::new(config.clone(), monitor.clone());
     let service =
         Service::new(events, config.turn.realm.clone(), &config.proxy).await?;
-
-    let proxy = service.proxy.clone();
     server::run(monitor.clone(), &service, config.clone()).await?;
 
-    let router = service.router.clone();
-    let controller = Controller::new(config.clone(), monitor, router);
+    let controller = Controller::new(config.clone(), monitor, service);
     api::start(&config, &controller).await?;
     Ok(())
 }

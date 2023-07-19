@@ -1,10 +1,9 @@
 pub mod transport;
-pub mod router;
 pub mod monitor;
 
-pub use self::router::Router;
 pub use self::monitor::*;
 
+use super::router::Router;
 use super::config::{
     Transport,
     Config,
@@ -51,7 +50,8 @@ pub async fn run(
             Transport::TCP => {
                 tokio::spawn(transport::tcp_processor(
                     TcpListener::bind(i.bind).await?,
-                    move |index| service.get_processor(index, i.external),
+                    i.clone(),
+                    service.clone(),
                     router.clone(),
                     monitor.clone(),
                 ));

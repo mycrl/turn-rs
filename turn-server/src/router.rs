@@ -39,7 +39,7 @@ impl Router {
     /// # Example
     ///
     /// ```
-    /// use turn_server::server::router::*;
+    /// use turn_server::router::*;
     /// use turn_rs::StunClass;
     /// use std::net::SocketAddr;
     ///
@@ -80,7 +80,7 @@ impl Router {
     /// # Example
     ///
     /// ```
-    /// use turn_server::server::router::*;
+    /// use turn_server::router::*;
     /// use turn_rs::StunClass;
     /// use std::net::SocketAddr;
     ///
@@ -126,7 +126,7 @@ impl Router {
     /// # Example
     ///
     /// ```
-    /// use turn_server::server::router::*;
+    /// use turn_server::router::*;
     /// use turn_rs::StunClass;
     /// use std::net::SocketAddr;
     ///

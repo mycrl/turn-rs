@@ -5,14 +5,11 @@ use std::{
     sync::Arc,
 };
 
+use super::Monitor;
 use crate::{
-    config::Interface,
     server::monitor::Stats,
-};
-
-use super::{
+    config::Interface,
     router::Router,
-    Monitor,
 };
 
 use tokio::{
@@ -22,7 +19,6 @@ use tokio::{
 };
 
 use turn_rs::{
-    Processor,
     Service,
     StunClass,
     processor::ResponseRelay,
@@ -39,14 +35,13 @@ static ZERO_BUF: [u8; 4] = [0u8; 4];
 ///
 /// This function is used to handle all connections coming from the tcp
 /// listener, and handle the receiving, sending and forwarding of messages.
-pub async fn tcp_processor<T>(
+pub async fn tcp_processor(
     listen: TcpListener,
-    handle: T,
+    interface: Interface,
+    service: Service,
     router: Arc<Router>,
     monitor: Monitor,
-) where
-    T: Fn(u8) -> Processor,
-{
+) {
     let local_addr = listen
         .local_addr()
         .expect("get tcp listener local addr failed!");
@@ -56,8 +51,9 @@ pub async fn tcp_processor<T>(
     while let Ok((socket, addr)) = listen.accept().await {
         let actor = monitor.get_actor();
         let router = router.clone();
+        let proxy = service.clone().proxy.clone();
         let (index, mut receiver) = router.get_receiver().await;
-        let mut processor = handle(index);
+        let mut processor = service.get_processor(index, interface.external);
 
         log::info!(
             "tcp socket accept: addr={:?}, interface={:?}",
@@ -158,7 +154,9 @@ pub async fn tcp_processor<T>(
                                         .send(to, res.kind, &addr, res.data)
                                         .await;
                                 },
-                                ResponseRelay::Proxy(addr, to) => {},
+                                ResponseRelay::Proxy(addr, to) => {
+                                    if let Some(proxy) = &proxy {}
+                                },
                             }
                         } else {
                             if writer
@@ -211,6 +209,7 @@ pub async fn udp_processor(
         let actor = monitor.get_actor();
         let socket = socket.clone();
         let router = router.clone();
+        let proxy = service.clone().proxy.clone();
         let mut processor = service.get_processor(index, interface.external);
 
         tokio::spawn(async move {
@@ -243,7 +242,9 @@ pub async fn udp_processor(
                                         .send(to, res.kind, &addr, res.data)
                                         .await;
                                 },
-                                ResponseRelay::Proxy(addr, to) => {},
+                                ResponseRelay::Proxy(addr, to) => {
+                                    if let Some(proxy) = &proxy {}
+                                },
                             }
                         } else {
                             if let Err(e) =
