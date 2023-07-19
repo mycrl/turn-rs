@@ -85,7 +85,7 @@ fn check_addr(ctx: &Context, peer: &SocketAddr) -> CheckRet {
         return CheckRet::Failed;
     }
 
-    let ret = proxy.create_permission(&ctx.env.external, &peer);
+    let ret = proxy.create_permission(&ctx.addr, &peer);
     ret.map(|_| CheckRet::Done).unwrap_or(CheckRet::Failed)
 }
 

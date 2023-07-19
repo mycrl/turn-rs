@@ -168,18 +168,18 @@ impl Proxy {
     pub fn create_permission(
         &self,
         from: &SocketAddr,
-        peer_addr: &SocketAddr,
+        peer: &SocketAddr,
     ) -> Result<()> {
         let nodes = self.nodes.read();
         let node = nodes
             .iter()
-            .find(|n| &n.external.ip() == &peer_addr.ip())
+            .find(|n| &n.external.ip() == &peer.ip())
             .ok_or_else(|| anyhow!("not found node!"))?;
         self.rpc.send_with_order(
             Payload::CreatePermission {
                 id: node.index,
                 from: from.clone(),
-                peer: peer_addr.clone(),
+                peer: peer.clone(),
             },
             node.index,
         )?;

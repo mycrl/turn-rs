@@ -33,7 +33,7 @@ pub enum Payload {
         id: u8,
         from: SocketAddr,
         peer: SocketAddr,
-    },
+    }
 }
 
 impl TryFrom<&[u8]> for Payload {
