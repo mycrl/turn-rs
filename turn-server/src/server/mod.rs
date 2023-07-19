@@ -9,12 +9,34 @@ use super::config::{
     Config,
 };
 
+use std::net::SocketAddr;
 use std::sync::Arc;
+use turn_proxy::{
+    Proxy,
+    ProxyObserver,
+};
+
 use turn_rs::Service;
 use tokio::net::{
     TcpListener,
     UdpSocket,
 };
+
+#[derive(Clone)]
+struct ProxyExt {
+    service: Service,
+    router: Arc<Router>,
+}
+
+impl ProxyObserver for ProxyExt {
+    fn create_permission(&self, id: u8, from: SocketAddr, peer: SocketAddr) {
+        self.service
+            .get_router()
+            .bind_port(&from, peer.port(), Some(id));
+    }
+
+    fn relay(&self, buf: &[u8]) {}
+}
 
 /// start turn server.
 ///
@@ -30,11 +52,26 @@ use tokio::net::{
 /// // run(&service, config).await?
 /// ```
 pub async fn run(
+    config: Arc<Config>,
     monitor: Monitor,
     service: &Service,
-    config: Arc<Config>,
 ) -> anyhow::Result<()> {
     let router = Arc::new(Router::new());
+    let proxy = if let Some(cfg) = &config.proxy {
+        Some(
+            Proxy::new(
+                &cfg,
+                ProxyExt {
+                    service: service.clone(),
+                    router: router.clone(),
+                },
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
+
     for i in config.turn.interfaces.clone() {
         let service = service.clone();
         match i.transport {
@@ -45,6 +82,7 @@ pub async fn run(
                     service.clone(),
                     router.clone(),
                     monitor.clone(),
+                    proxy.clone(),
                 ));
             },
             Transport::TCP => {
@@ -54,6 +92,7 @@ pub async fn run(
                     service.clone(),
                     router.clone(),
                     monitor.clone(),
+                    proxy.clone(),
                 ));
             },
         }

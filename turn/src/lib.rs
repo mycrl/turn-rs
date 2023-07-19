@@ -6,12 +6,7 @@ pub use router::nodes::Node;
 pub use router::Router;
 
 use async_trait::async_trait;
-use turn_proxy::{
-    Proxy,
-    ProxyOptions,
-    ProxyObserver,
-};
-
+use turn_proxy::Proxy;
 use std::{
     net::SocketAddr,
     sync::Arc,
@@ -223,13 +218,16 @@ pub trait Observer: Send + Sync {
 /// TUTN service.
 #[derive(Clone)]
 pub struct Service {
-    pub router: Arc<Router>,
-    pub proxy: Option<Arc<Proxy>>,
+    router: Arc<Router>,
     observer: Arc<dyn Observer>,
     realm: String,
 }
 
 impl Service {
+    pub fn get_router(&self) -> &Arc<Router> {
+        &self.router
+    }
+
     /// Create turn service.
     ///
     /// # Examples
@@ -243,35 +241,16 @@ impl Service {
     ///
     /// Service::new(ObserverTest, "test".to_string());
     /// ```
-    pub async fn new<T>(
-        observer: T,
-        realm: String,
-        proxy_opt: &Option<ProxyOptions>,
-    ) -> anyhow::Result<Self>
+    pub async fn new<T>(observer: T, realm: String) -> anyhow::Result<Self>
     where
         T: Observer + 'static,
     {
         let observer = Arc::new(observer);
         let router = Router::new(realm.clone(), observer.clone());
-        let proxy = if let Some(opt) = proxy_opt {
-            Some(
-                Proxy::new(
-                    opt,
-                    ProxyObserverExt {
-                        router: router.clone(),
-                    },
-                )
-                .await?,
-            )
-        } else {
-            None
-        };
-
         Ok(Self {
             observer,
             router,
             realm,
-            proxy,
         })
     }
 
@@ -292,26 +271,19 @@ impl Service {
     /// let processor = service.get_processor(0, addr);
     /// assert_eq!(processor.index, 0);
     /// ```
-    pub fn get_processor(&self, index: u8, external: SocketAddr) -> Processor {
+    pub fn get_processor(
+        &self,
+        index: u8,
+        external: SocketAddr,
+        proxy: Option<Proxy>,
+    ) -> Processor {
         Processor::new(
             index,
             external,
             self.realm.clone(),
             self.router.clone(),
             self.observer.clone(),
-            self.proxy.clone(),
+            proxy,
         )
     }
-}
-
-pub(crate) struct ProxyObserverExt {
-    router: Arc<Router>,
-}
-
-impl ProxyObserver for ProxyObserverExt {
-    fn create_permission(&self, id: u8, from: SocketAddr, peer: SocketAddr) {
-        self.router.bind_port(&from, peer.port(), Some(id));
-    }
-
-    fn relay(&self, buf: &[u8]) {}
 }

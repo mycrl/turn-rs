@@ -271,9 +271,8 @@ impl Observer for Events {
 pub async fn server_main(config: Arc<Config>) -> anyhow::Result<()> {
     let monitor = Monitor::new();
     let events = Events::new(config.clone(), monitor.clone());
-    let service =
-        Service::new(events, config.turn.realm.clone(), &config.proxy).await?;
-    server::run(monitor.clone(), &service, config.clone()).await?;
+    let service = Service::new(events, config.turn.realm.clone()).await?;
+    server::run(config.clone(), monitor.clone(), &service).await?;
 
     let controller = Controller::new(config.clone(), monitor, service);
     api::start(&config, &controller).await?;

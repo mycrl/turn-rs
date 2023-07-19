@@ -1,5 +1,6 @@
 use faster_stun::Decoder;
 use bytes::BytesMut;
+use turn_proxy::Proxy;
 use std::{
     io::ErrorKind::ConnectionReset,
     sync::Arc,
@@ -41,6 +42,7 @@ pub async fn tcp_processor(
     service: Service,
     router: Arc<Router>,
     monitor: Monitor,
+    proxy: Option<Proxy>,
 ) {
     let local_addr = listen
         .local_addr()
@@ -49,11 +51,12 @@ pub async fn tcp_processor(
     // Accept all connections on the current listener, but exit the entire
     // process when an error occurs.
     while let Ok((socket, addr)) = listen.accept().await {
+        let proxy = proxy.clone();
         let actor = monitor.get_actor();
         let router = router.clone();
-        let proxy = service.clone().proxy.clone();
         let (index, mut receiver) = router.get_receiver().await;
-        let mut processor = service.get_processor(index, interface.external);
+        let mut processor =
+            service.get_processor(index, interface.external, proxy.clone());
 
         log::info!(
             "tcp socket accept: addr={:?}, interface={:?}",
@@ -198,6 +201,7 @@ pub async fn udp_processor(
     service: Service,
     router: Arc<Router>,
     monitor: Monitor,
+    proxy: Option<Proxy>,
 ) {
     let socket = Arc::new(socket);
     let local_addr = socket
@@ -206,11 +210,12 @@ pub async fn udp_processor(
     let (index, mut receiver) = router.get_receiver().await;
 
     for _ in 0..num_cpus::get() {
+        let proxy = proxy.clone();
         let actor = monitor.get_actor();
         let socket = socket.clone();
         let router = router.clone();
-        let proxy = service.clone().proxy.clone();
-        let mut processor = service.get_processor(index, interface.external);
+        let mut processor =
+            service.get_processor(index, interface.external, proxy.clone());
 
         tokio::spawn(async move {
             let mut buf = vec![0u8; 2048];

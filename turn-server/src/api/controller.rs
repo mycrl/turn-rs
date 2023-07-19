@@ -149,12 +149,13 @@ impl Controller {
     /// // let state_js = ctr.get_stats().await;
     /// ```
     pub async fn get_stats(State(this): State<&Self>) -> Json<Stats> {
+        let router = this.service.get_router();
         Json(Stats {
             software: SOFTWARE.to_string(),
             uptime: this.timer.elapsed().as_secs(),
             realm: this.config.turn.realm.clone(),
-            port_allocated: this.service.router.len() as u16,
-            port_capacity: this.service.router.capacity() as u16,
+            port_allocated: router.len() as u16,
+            port_capacity: router.capacity() as u16,
             interfaces: this.config.turn.interfaces.clone(),
         })
     }
@@ -199,9 +200,10 @@ impl Controller {
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
     ) -> Json<Vec<(String, Vec<SocketAddr>)>> {
+        let router = this.service.get_router();
         let skip = pars.skip.unwrap_or(0);
         let limit = pars.limit.unwrap_or(20);
-        Json(this.service.router.get_users(skip, limit))
+        Json(router.get_users(skip, limit))
     }
 
     /// Get node information
@@ -224,12 +226,8 @@ impl Controller {
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<Option<INode>> {
-        Json(
-            this.service
-                .router
-                .get_node(&Arc::new(pars.addr))
-                .map(INode::from),
-        )
+        let router = this.service.get_router();
+        Json(router.get_node(&Arc::new(pars.addr)).map(INode::from))
     }
 
     /// Delete a node under the user.
@@ -253,6 +251,7 @@ impl Controller {
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<bool> {
-        Json(this.service.router.remove(&Arc::new(pars.addr)).is_some())
+        let router = this.service.get_router();
+        Json(router.remove(&Arc::new(pars.addr)).is_some())
     }
 }

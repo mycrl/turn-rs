@@ -1,11 +1,9 @@
 pub mod rpc;
 
-use std::{
-    net::{
-        SocketAddr,
-        IpAddr,
-    },
-    sync::Arc,
+use std::sync::Arc;
+use std::net::{
+    SocketAddr,
+    IpAddr,
 };
 
 use anyhow::{
@@ -16,8 +14,8 @@ use anyhow::{
 use parking_lot::RwLock;
 use rpc::{
     Rpc,
-    RpcObserver,
     Payload,
+    RpcObserver,
     ProxyStateNotifyNode,
     transport::TransportAddr,
 };
@@ -38,6 +36,7 @@ pub trait ProxyObserver: Send + Sync {
     fn relay(&self, buf: &[u8]);
 }
 
+#[derive(Clone)]
 pub struct Proxy {
     nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>>,
     rpc: Arc<Rpc>,
@@ -59,15 +58,18 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn new<T>(
-        options: &ProxyOptions,
-        observer: T,
-    ) -> Result<Arc<Self>>
+    pub async fn new<T>(options: &ProxyOptions, observer: T) -> Result<Self>
     where
         T: ProxyObserver + 'static,
     {
         let nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>> = Default::default();
-        Ok(Arc::new(Self {
+        log::info!(
+            "create proxy mod: bind={}, proxy={}",
+            options.bind,
+            options.proxy
+        );
+
+        Ok(Self {
             rpc: Rpc::new(
                 TransportAddr {
                     bind: options.bind,
@@ -80,7 +82,7 @@ impl Proxy {
             )
             .await?,
             nodes,
-        }))
+        })
     }
 
     /// Get user list.
@@ -195,7 +197,7 @@ impl RpcObserver for RpcObserverExt {
     fn on(&self, payload: Payload) {
         match payload {
             Payload::ProxyStateNotify(nodes) => {
-                println!("========================= 111 {:?}", nodes);
+                log::info!("received state sync from proxy: state={:?}", nodes);
                 *self.nodes.write() = nodes;
             },
             Payload::CreatePermission {
@@ -204,6 +206,13 @@ impl RpcObserver for RpcObserverExt {
                 peer,
             } => {
                 self.observer.create_permission(id, from, peer);
+                log::info!(
+                    "received create permission from proxy: id={}, from={}, \
+                     peer={}",
+                    id,
+                    from,
+                    peer
+                );
             },
         }
     }
