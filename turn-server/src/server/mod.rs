@@ -14,6 +14,7 @@ use std::sync::Arc;
 use turn_proxy::{
     Proxy,
     ProxyObserver,
+    rpc::RelayPayload,
 };
 
 use turn_rs::Service;
@@ -35,7 +36,9 @@ impl ProxyObserver for ProxyExt {
             .bind_port(&from, peer.port(), Some(id));
     }
 
-    fn relay(&self, buf: &[u8]) {}
+    fn relay<'a>(&'a self, payload: RelayPayload<'a>) {
+        // self.router.send(index, class, addr, data)
+    }
 }
 
 /// start turn server.

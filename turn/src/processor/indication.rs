@@ -9,7 +9,6 @@ use crate::StunClass;
 use super::{
     Context,
     Response,
-    ResponseRelay,
 };
 
 use faster_stun::{
@@ -22,6 +21,26 @@ use faster_stun::attribute::{
     XorPeerAddress,
     Data,
 };
+
+#[inline(always)]
+async fn check_addr(ctx: &Context, peer: &SocketAddr, data: &[u8]) -> bool {
+    if ctx.env.external.ip() == peer.ip() {
+        return true;
+    }
+
+    let proxy = match &ctx.env.proxy {
+        None => return false,
+        Some(p) => p,
+    };
+
+    let node = match proxy.get_online_node(&peer.ip()) {
+        None => return false,
+        Some(n) => n,
+    };
+
+    let _ = proxy.relay(&node, ctx.addr, peer.clone(), data).await;
+    false
+}
 
 /// process send indication request
 ///
@@ -67,7 +86,7 @@ use faster_stun::attribute::{
 /// and [15](https://tools.ietf.org/html/rfc8656#section-15).
 ///
 /// The resulting UDP datagram is then sent to the peer.
-pub fn process<'a, 'b, 'c>(
+pub async fn process<'a, 'b, 'c>(
     ctx: Context,
     reader: MessageReader<'a, 'b>,
     bytes: &'c mut BytesMut,
@@ -77,14 +96,14 @@ pub fn process<'a, 'b, 'c>(
         Some(x) => x,
     };
 
-    if ctx.env.external.ip() != peer.ip() {
-        return Ok(None);
-    }
-
     let data = match reader.get::<Data>() {
         None => return Ok(None),
         Some(x) => x,
     };
+
+    if !check_addr(&ctx, &peer, data).await {
+        return Ok(None);
+    }
 
     let addr = match ctx.env.router.get_port_bound(peer.port()) {
         None => return Ok(None),
@@ -108,6 +127,6 @@ pub fn process<'a, 'b, 'c>(
     pack.append::<Data>(data);
     pack.flush(None)?;
 
-    let to = Some(ResponseRelay::Router(addr, index));
+    let to = Some((addr, index));
     Ok(Some(Response::new(bytes, StunClass::Message, to)))
 }

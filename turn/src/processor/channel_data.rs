@@ -3,7 +3,6 @@ use crate::StunClass;
 use super::{
     Context,
     Response,
-    ResponseRelay,
 };
 
 /// process channel data
@@ -40,6 +39,6 @@ pub fn process(ctx: Context, data: ChannelData<'_>) -> Option<Response<'_>> {
     Some(Response::new(
         data.buf,
         StunClass::Channel,
-        Some(ResponseRelay::Router(addr, index)),
+        Some((addr, index)),
     ))
 }

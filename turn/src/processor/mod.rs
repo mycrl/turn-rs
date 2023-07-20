@@ -352,28 +352,23 @@ impl Processor {
             Method::CreatePermission(Kind::Request) => create_permission::process(ctx, m, w).await,
             Method::ChannelBind(Kind::Request) => channel_bind::process(ctx, m, w).await,
             Method::Refresh(Kind::Request) => refresh::process(ctx, m, w).await,
-            Method::SendIndication => indication::process(ctx, m, w),
+            Method::SendIndication => indication::process(ctx, m, w).await,
             _ => Ok(None),
         }
     }
 }
 
-pub enum ResponseRelay {
-    Router(SocketAddr, u8),
-    Proxy(SocketAddr, u8),
-}
-
 pub struct Response<'a> {
     pub data: &'a [u8],
     pub kind: StunClass,
-    pub relay: Option<ResponseRelay>,
+    pub relay: Option<(SocketAddr, u8)>,
 }
 
 impl<'a> Response<'a> {
     pub(crate) fn new(
         data: &'a [u8],
         kind: StunClass,
-        relay: Option<ResponseRelay>,
+        relay: Option<(SocketAddr, u8)>,
     ) -> Self {
         Self {
             data,

@@ -14,7 +14,7 @@ use bytes::{
 use turn_proxy::rpc::{
     transport::Protocol,
     ProxyStateNotifyNode,
-    Payload,
+    Request,
 };
 
 use tokio::io::*;
@@ -187,9 +187,9 @@ async fn send_state(
         ret.push(node.state.read().await.clone());
     }
 
-    let payload: Vec<u8> = Payload::ProxyStateNotify(ret).into();
-    let head = Protocol::encode_header(&payload, index as u8);
-    let vect = [IoSlice::new(&head), IoSlice::new(&payload)];
+    let req: Vec<u8> = Request::ProxyStateNotify(ret).into();
+    let head = Protocol::encode_header(&req, index as u8);
+    let vect = [IoSlice::new(&head), IoSlice::new(&req)];
     socket.write_vectored(&vect).await?;
     Ok(())
 }

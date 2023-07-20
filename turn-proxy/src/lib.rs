@@ -6,15 +6,12 @@ use std::net::{
     IpAddr,
 };
 
-use anyhow::{
-    Result,
-    anyhow,
-};
-
+use anyhow::Result;
 use parking_lot::RwLock;
+use rpc::RelayPayload;
 use rpc::{
     Rpc,
-    Payload,
+    Request,
     RpcObserver,
     ProxyStateNotifyNode,
     transport::TransportAddr,
@@ -33,12 +30,12 @@ pub struct ProxyOptions {
 
 pub trait ProxyObserver: Send + Sync {
     fn create_permission(&self, id: u8, from: SocketAddr, peer: SocketAddr);
-    fn relay(&self, buf: &[u8]);
+    fn relay<'a>(&'a self, payload: RelayPayload<'a>);
 }
 
 #[derive(Clone)]
 pub struct Proxy {
-    nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>>,
+    nodes: Arc<RwLock<Vec<Arc<ProxyStateNotifyNode>>>>,
     rpc: Arc<Rpc>,
 }
 
@@ -62,7 +59,8 @@ impl Proxy {
     where
         T: ProxyObserver + 'static,
     {
-        let nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>> = Default::default();
+        let nodes: Arc<RwLock<Vec<Arc<ProxyStateNotifyNode>>>> =
+            Default::default();
         log::info!(
             "create proxy mod: bind={}, proxy={}",
             options.bind,
@@ -100,14 +98,15 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub fn in_online_nodes(&self, addr: &IpAddr) -> bool {
-        if let Some(node) =
-            self.nodes.read().iter().find(|n| &n.external.ip() == addr)
-        {
-            node.online
-        } else {
-            false
-        }
+    pub fn get_online_node(
+        &self,
+        addr: &IpAddr,
+    ) -> Option<Arc<ProxyStateNotifyNode>> {
+        self.nodes
+            .read()
+            .iter()
+            .find(|n| &n.external.ip() == addr)
+            .cloned()
     }
 
     /// Get user list.
@@ -125,8 +124,23 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn relay(&self, payload: &[u8], to: u8) -> Result<()> {
-        self.rpc.send(payload, to).await?;
+    pub async fn relay(
+        &self,
+        node: &ProxyStateNotifyNode,
+        from: SocketAddr,
+        peer: SocketAddr,
+        data: &[u8],
+    ) -> Result<()> {
+        self.rpc
+            .send(
+                RelayPayload {
+                    from,
+                    peer,
+                    data,
+                },
+                node.index,
+            )
+            .await?;
         Ok(())
     }
 
@@ -147,16 +161,12 @@ impl Proxy {
     /// ```
     pub fn create_permission(
         &self,
+        node: &ProxyStateNotifyNode,
         from: &SocketAddr,
         peer: &SocketAddr,
     ) -> Result<()> {
-        let nodes = self.nodes.read();
-        let node = nodes
-            .iter()
-            .find(|n| &n.external.ip() == &peer.ip())
-            .ok_or_else(|| anyhow!("not found node!"))?;
         self.rpc.send_with_order(
-            Payload::CreatePermission {
+            Request::CreatePermission {
                 id: node.index,
                 from: from.clone(),
                 peer: peer.clone(),
@@ -170,17 +180,17 @@ impl Proxy {
 
 struct RpcObserverExt {
     observer: Arc<dyn ProxyObserver>,
-    nodes: Arc<RwLock<Vec<ProxyStateNotifyNode>>>,
+    nodes: Arc<RwLock<Vec<Arc<ProxyStateNotifyNode>>>>,
 }
 
 impl RpcObserver for RpcObserverExt {
-    fn on(&self, payload: Payload) {
-        match payload {
-            Payload::ProxyStateNotify(nodes) => {
+    fn on(&self, req: Request) {
+        match req {
+            Request::ProxyStateNotify(nodes) => {
                 log::info!("received state sync from proxy: state={:?}", nodes);
-                *self.nodes.write() = nodes;
+                *self.nodes.write() = nodes.into_iter().map(Arc::new).collect()
             },
-            Payload::CreatePermission {
+            Request::CreatePermission {
                 id,
                 from,
                 peer,
@@ -197,7 +207,7 @@ impl RpcObserver for RpcObserverExt {
         }
     }
 
-    fn on_relay(&self, buf: &[u8]) {
-        self.observer.relay(buf);
+    fn on_relay<'a>(&'a self, payload: RelayPayload<'a>) {
+        self.observer.relay(payload);
     }
 }

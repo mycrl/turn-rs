@@ -264,11 +264,12 @@ impl Transport {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn send(&self, buf: &[u8], to: u8) -> Result<()> {
-        let head = Protocol::encode_header(buf, to);
-        transport_udp_err(self.socket.send_to(&head, self.addr.proxy).await)?;
-        transport_udp_err(self.socket.send_to(buf, self.addr.proxy).await)?;
-
+    pub async fn send(&self, data: &[u8], to: u8) -> Result<()> {
+        let head = Protocol::encode_header(data, to);
+        let mut buf = Vec::with_capacity(4 + data.len());
+        buf[0..4].copy_from_slice(&head);
+        buf[4..].copy_from_slice(data);
+        transport_udp_err(self.socket.send_to(&buf, self.addr.proxy).await)?;
         Ok(())
     }
 
@@ -315,6 +316,21 @@ impl Transport {
     }
 }
 
+/// Get user list.
+///
+/// This interface returns the username and a list of addresses used by this
+/// user.
+///
+/// # Example
+///
+/// ```ignore
+/// let config = Config::new()
+/// let service = Service::new(/* ... */);;
+/// let monitor = Monitor::new(/* ... */);
+///
+/// let ctr = Controller::new(service.get_router(), config, monitor);
+/// // let users_js = ctr.get_users().await;
+/// ```
 fn transport_udp_err<T>(ret: Result<T, std::io::Error>) -> Result<Option<T>> {
     match ret {
         Ok(ret) => Ok(Some(ret)),

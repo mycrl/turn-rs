@@ -81,11 +81,12 @@ fn check_addr(ctx: &Context, peer: &SocketAddr) -> CheckRet {
         Some(p) => p,
     };
 
-    if !proxy.in_online_nodes(&peer.ip()) {
-        return CheckRet::Failed;
-    }
+    let node = match proxy.get_online_node(&peer.ip()) {
+        None => return CheckRet::Failed,
+        Some(n) => n,
+    };
 
-    let ret = proxy.create_permission(&ctx.addr, &peer);
+    let ret = proxy.create_permission(&node, &ctx.addr, &peer);
     ret.map(|_| CheckRet::Done).unwrap_or(CheckRet::Failed)
 }
 

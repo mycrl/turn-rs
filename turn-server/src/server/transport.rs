@@ -1,6 +1,3 @@
-use faster_stun::Decoder;
-use bytes::BytesMut;
-use turn_proxy::Proxy;
 use std::{
     io::ErrorKind::ConnectionReset,
     sync::Arc,
@@ -13,6 +10,9 @@ use crate::{
     router::Router,
 };
 
+use faster_stun::Decoder;
+use bytes::BytesMut;
+use turn_proxy::Proxy;
 use tokio::{
     io::AsyncReadExt,
     io::AsyncWriteExt,
@@ -22,7 +22,6 @@ use tokio::{
 use turn_rs::{
     Service,
     StunClass,
-    processor::ResponseRelay,
 };
 
 use tokio::net::{
@@ -51,7 +50,6 @@ pub async fn tcp_processor(
     // Accept all connections on the current listener, but exit the entire
     // process when an error occurs.
     while let Ok((socket, addr)) = listen.accept().await {
-        let proxy = proxy.clone();
         let actor = monitor.get_actor();
         let router = router.clone();
         let (index, mut receiver) = router.get_receiver().await;
@@ -150,25 +148,8 @@ pub async fn tcp_processor(
                     let chunk = buf.split_to(size);
                     if let Ok(Some(res)) = processor.process(&chunk, addr).await
                     {
-                        if let Some(relay) = res.relay {
-                            match relay {
-                                ResponseRelay::Router(addr, to) => {
-                                    router
-                                        .send(to, res.kind, &addr, res.data)
-                                        .await;
-                                },
-                                ResponseRelay::Proxy(addr, to) => {
-                                    if let Some(proxy) = &proxy {
-                                        if proxy
-                                            .relay(res.data, to)
-                                            .await
-                                            .is_err()
-                                        {
-                                            break;
-                                        }
-                                    }
-                                },
-                            }
+                        if let Some((addr, to)) = res.relay {
+                            router.send(to, res.kind, &addr, res.data).await;
                         } else {
                             if writer
                                 .lock()
@@ -218,7 +199,6 @@ pub async fn udp_processor(
     let (index, mut receiver) = router.get_receiver().await;
 
     for _ in 0..num_cpus::get() {
-        let proxy = proxy.clone();
         let actor = monitor.get_actor();
         let socket = socket.clone();
         let router = router.clone();
@@ -248,25 +228,8 @@ pub async fn udp_processor(
                     if let Ok(Some(res)) =
                         processor.process(&buf[..size], addr).await
                     {
-                        if let Some(relay) = res.relay {
-                            match relay {
-                                ResponseRelay::Router(addr, to) => {
-                                    router
-                                        .send(to, res.kind, &addr, res.data)
-                                        .await;
-                                },
-                                ResponseRelay::Proxy(addr, to) => {
-                                    if let Some(proxy) = &proxy {
-                                        if proxy
-                                            .relay(res.data, to)
-                                            .await
-                                            .is_err()
-                                        {
-                                            break;
-                                        }
-                                    }
-                                },
-                            }
+                        if let Some((addr, to)) = res.relay {
+                            router.send(to, res.kind, &addr, res.data).await;
                         } else {
                             if let Err(e) =
                                 socket.send_to(res.data, &addr).await
