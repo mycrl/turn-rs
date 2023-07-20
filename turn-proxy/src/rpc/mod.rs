@@ -84,14 +84,14 @@ pub enum RelayPayloadKind {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct RelayPayload<'a> {
+pub struct RelayPayload {
     pub kind: RelayPayloadKind,
     pub from: SocketAddr,
     pub peer: SocketAddr,
-    pub data: &'a [u8],
+    pub data: Vec<u8>,
 }
 
-impl<'a> TryFrom<&'a [u8]> for RelayPayload<'a> {
+impl TryFrom<&[u8]> for RelayPayload {
     type Error = anyhow::Error;
 
     /// Get user list.
@@ -109,12 +109,12 @@ impl<'a> TryFrom<&'a [u8]> for RelayPayload<'a> {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         Ok(rmp_serde::from_slice(value)?)
     }
 }
 
-impl Into<Vec<u8>> for RelayPayload<'_> {
+impl Into<Vec<u8>> for RelayPayload {
     /// Get user list.
     ///
     /// This interface returns the username and a list of addresses used by this
@@ -138,7 +138,7 @@ impl Into<Vec<u8>> for RelayPayload<'_> {
 #[async_trait]
 pub trait RpcObserver: Send + Sync {
     fn on(&self, req: Request);
-    async fn on_relay<'a>(&'a self, payload: RelayPayload<'a>);
+    async fn on_relay(&self, payload: RelayPayload);
 }
 
 pub struct Rpc {
@@ -169,8 +169,11 @@ impl Rpc {
                     }
                     Ok(ret) = transport_.recv(&mut buf) => {
                         if let Some((buf, _)) = ret {
-                            if let Ok(payload) = RelayPayload::try_from(buf.as_ref()) {
+                            let ret = RelayPayload::try_from(buf.as_ref());
+                            if let Ok(payload) = ret {
                                 observer.on_relay(payload).await;
+                            } else {
+                                println!("{:?}", ret);
                             }
                         }
                     }
@@ -228,7 +231,7 @@ impl Rpc {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn send(&self, payload: RelayPayload<'_>, to: u8) -> Result<()> {
+    pub async fn send(&self, payload: RelayPayload, to: u8) -> Result<()> {
         let data: Vec<u8> = payload.into();
         self.transport.send(&data, to).await?;
         Ok(())

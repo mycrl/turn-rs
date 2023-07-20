@@ -37,7 +37,7 @@ struct ProxyExt {
 
 #[async_trait]
 impl ProxyObserver for ProxyExt {
-    async fn relay<'a>(&'a self, payload: RelayPayload<'a>) {
+    async fn relay(&self, payload: RelayPayload) {
         let class = match payload.kind {
             RelayPayloadKind::Message => StunClass::Message,
             RelayPayloadKind::Channel => StunClass::Channel,
@@ -47,7 +47,7 @@ impl ProxyObserver for ProxyExt {
         if let Some(addr) = router.get_port_bound(payload.peer.port()) {
             if let Some(node) = router.get_node(&addr) {
                 self.router
-                    .send(node.index, class, &addr, payload.data)
+                    .send(node.index, class, &addr, &payload.data)
                     .await;
             }
         }

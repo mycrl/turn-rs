@@ -1,10 +1,7 @@
 mod config;
 
 use std::sync::Arc;
-use std::io::{
-    ErrorKind::ConnectionReset,
-    IoSlice,
-};
+use std::io::ErrorKind::ConnectionReset;
 
 use bytes::{
     BytesMut,
@@ -88,23 +85,17 @@ async fn main() -> anyhow::Result<()> {
                 _ => continue,
             };
 
-            if let Ok(Some(ret)) = Protocol::decode(&buf[..size]) {
-                if let Some(node) = nodes_.get(ret.to as usize) {
+            if let Ok(Some((_, to))) = Protocol::decode_head(&buf[..size]) {
+                if let Some(node) = nodes_.get(to as usize) {
+                    let addr = node.state.read().await.addr;
                     if let Err(e) = socket
-                        .send_to(ret.data, node.state.read().await.addr)
+                        .send_to(&buf[..size], addr)
                         .await
                     {
                         if e.kind() != ConnectionReset {
                             break;
                         }
                     }
-                } else {
-                    log::warn!(
-                        "received a legtimate but insecure packet!: size={}, \
-                         to={}",
-                        ret.size,
-                        ret.to
-                    );
                 }
             }
         }
@@ -115,15 +106,23 @@ async fn main() -> anyhow::Result<()> {
 
     let delay = Duration::from_millis(config.net.recon_delay);
     loop {
+        let mut is_ok = false;
+
         for (i, node) in nodes.iter().enumerate() {
             let mut state = node.state.write().await;
             if !state.online {
                 if let Ok(socket) = TcpStream::connect(state.addr).await {
                     log::info!("connected to proxy node: addr={}", state.addr);
+
                     on_tcp_socket(i, nodes.clone(), socket);
                     state.online = true;
+                    is_ok = true;
                 }
             }
+        }
+
+        if is_ok {
+            send_state(&nodes).await;
         }
 
         sleep(delay).await;
@@ -140,68 +139,74 @@ fn on_tcp_socket(
             .peer_addr()
             .expect("get socket remote socket is failed!");
 
-        if send_state(index, &nodes, &mut socket).await.is_ok() {
-            log::info!("send state to proxy node: addr={}", remote_addr);
+        let mut receiver = nodes[index].tcp.receiver.lock().await;
+        let mut buf = BytesMut::new();
 
-            let mut receiver = nodes[index].tcp.receiver.lock().await;
-            let mut buf = BytesMut::new();
-
-            loop {
-                tokio::select! {
-                    ret = socket.read_buf(&mut buf) => {
-                        let size = if let Ok(size) = ret {
-                            if size == 0 {
-                                break;
-                            }
-
-                            size
-                        } else {
+        loop {
+            tokio::select! {
+                ret = socket.read_buf(&mut buf) => {
+                    let size = if let Ok(size) = ret {
+                        if size == 0 {
                             break;
-                        };
+                        }
 
-                        if let Ok(ret) = Protocol::decode_head(&buf[..size]) {
-                            if let Some((size, to)) = ret {
-                                let data = buf.split_to(size).split_off(4);
-                                if let Some(node) = nodes.get(to as usize) {
-                                    if node.tcp.sender.send(data.freeze()).is_err() {
-                                        break;
-                                    }
+                        size
+                    } else {
+                        break;
+                    };
+
+                    if let Ok(ret) = Protocol::decode_head(&buf[..size]) {
+                        if let Some((size, to)) = ret {
+                            let data = buf.split_to(size).split_off(4);
+                            if let Some(node) = nodes.get(to as usize) {
+                                if node.tcp.sender.send(data.freeze()).is_err() {
+                                    break;
                                 }
                             }
-                        } else {
-                            break;
                         }
-                    },
-                    Some(ret) = receiver.recv() => {
-                        if socket.write_all(&ret).await.is_err() {
-                            break;
-                        }
-                    },
-                    else => {
+                    } else {
                         break;
                     }
+                },
+                Some(ret) = receiver.recv() => {
+                    if socket.write_all(&ret).await.is_err() {
+                        break;
+                    }
+                },
+                else => {
+                    break;
                 }
             }
         }
 
-        nodes[index].state.write().await.online = false;
-        log::info!("proxy node disconnect: addr={}", remote_addr);
+        {
+            nodes[index].state.write().await.online = false;
+            log::info!("proxy node disconnect: addr={}", remote_addr);
+        }
+
+        send_state(&nodes).await;
     });
 }
 
-async fn send_state(
-    index: usize,
-    nodes: &Vec<ProxyNode>,
-    socket: &mut TcpStream,
-) -> Result<()> {
+async fn send_state(nodes: &Vec<ProxyNode>) {
     let mut ret = Vec::with_capacity(nodes.len());
     for node in nodes {
         ret.push(node.state.read().await.clone());
     }
 
     let req: Vec<u8> = Request::ProxyStateNotify(ret).into();
-    let head = Protocol::encode_header(&req, index as u8);
-    let vect = [IoSlice::new(&head), IoSlice::new(&req)];
-    socket.write_vectored(&vect).await?;
-    Ok(())
+    for node in nodes {
+        let state = node.state.read().await;
+        if !state.online {
+            continue;
+        }
+
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(&Protocol::encode_header(&req, state.index));
+        buf.extend_from_slice(&req);
+
+        if node.tcp.sender.send(buf.freeze()).is_err() {
+            log::error!("send to tcp channel failed!");
+        }
+    }
 }

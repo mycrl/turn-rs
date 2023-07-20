@@ -61,7 +61,7 @@ impl Protocol {
         let size = u16::from_be_bytes(buf[1..3].try_into()?);
         let size = size as usize;
         Ok(if size <= buf.len() {
-            Some((size, buf[4]))
+            Some((size, buf[3]))
         } else {
             None
         })
@@ -265,10 +265,11 @@ impl Transport {
     /// // let users_js = ctr.get_users().await;
     /// ```
     pub async fn send(&self, data: &[u8], to: u8) -> Result<()> {
+        let mut buf = Vec::new();
         let head = Protocol::encode_header(data, to);
-        let mut buf = vec![0u8; 4 + data.len()];
-        buf[0..4].copy_from_slice(&head);
-        buf[4..].copy_from_slice(data);
+
+        buf.extend_from_slice(&head);
+        buf.extend_from_slice(data);
         transport_udp_err(self.socket.send_to(&buf, self.addr.proxy).await)?;
         Ok(())
     }
@@ -305,14 +306,13 @@ impl Transport {
         }
 
         if size == 0 {
-            return Err(anyhow!("socket read ret size == 0"));
+            return Ok(None);
         }
 
-        if let Some(ret) = Protocol::decode(&buf[..size])? {
-            Ok(Some((ret.data, ret.to)))
-        } else {
-            Ok(None)
-        }
+        Ok(match Protocol::decode(&buf[..size]) {
+            Ok(Some(ret)) => Some((ret.data, ret.to)),
+            _ => None
+        })
     }
 }
 

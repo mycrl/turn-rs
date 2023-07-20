@@ -34,7 +34,7 @@ pub struct ProxyOptions {
 
 #[async_trait]
 pub trait ProxyObserver: Send + Sync {
-    async fn relay<'a>(&'a self, payload: RelayPayload<'a>);
+    async fn relay(&self, payload: RelayPayload);
 }
 
 #[derive(Clone)]
@@ -139,10 +139,10 @@ impl Proxy {
         self.rpc
             .send(
                 RelayPayload {
+                    data: data.to_vec(),
                     kind,
                     from,
                     peer,
-                    data,
                 },
                 node.index,
             )
@@ -167,7 +167,7 @@ impl RpcObserver for RpcObserverExt {
         }
     }
 
-    async fn on_relay<'a>(&'a self, payload: RelayPayload<'a>) {
+    async fn on_relay(&self, payload: RelayPayload) {
         self.observer.relay(payload).await;
     }
 }
