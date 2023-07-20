@@ -89,11 +89,22 @@ async fn main() -> anyhow::Result<()> {
             };
 
             if let Ok(Some(ret)) = Protocol::decode(&buf[..size]) {
-                let state = nodes_[ret.to as usize].state.read().await;
-                if let Err(e) = socket.send_to(ret.data, state.addr).await {
-                    if e.kind() != ConnectionReset {
-                        break;
+                if let Some(node) = nodes_.get(ret.to as usize) {
+                    if let Err(e) = socket
+                        .send_to(ret.data, node.state.read().await.addr)
+                        .await
+                    {
+                        if e.kind() != ConnectionReset {
+                            break;
+                        }
                     }
+                } else {
+                    log::warn!(
+                        "received a legtimate but insecure packet!: size={}, \
+                         to={}",
+                        ret.size,
+                        ret.to
+                    );
                 }
             }
         }
@@ -102,6 +113,7 @@ async fn main() -> anyhow::Result<()> {
         std::process::exit(-1);
     });
 
+    let delay = Duration::from_millis(config.net.recon_delay);
     loop {
         for (i, node) in nodes.iter().enumerate() {
             let mut state = node.state.write().await;
@@ -114,7 +126,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        sleep(Duration::from_millis(config.net.recon_delay)).await;
+        sleep(delay).await;
     }
 }
 
