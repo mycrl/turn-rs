@@ -7,6 +7,7 @@ edition = "2021"
 anyhow = "1.0"
 bytes = "1.4.0"
 parking_lot = "0.12"
+async-trait = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }

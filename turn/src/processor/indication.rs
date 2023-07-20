@@ -1,5 +1,6 @@
 use anyhow::Result;
 use bytes::BytesMut;
+use turn_proxy::rpc::RelayPayloadKind;
 use std::{
     net::SocketAddr,
     sync::Arc,
@@ -38,7 +39,15 @@ async fn check_addr(ctx: &Context, peer: &SocketAddr, data: &[u8]) -> bool {
         Some(n) => n,
     };
 
-    let _ = proxy.relay(&node, ctx.addr, peer.clone(), data).await;
+    let _ = proxy
+        .relay(
+            &node,
+            ctx.addr,
+            peer.clone(),
+            RelayPayloadKind::Message,
+            data,
+        )
+        .await;
     false
 }
 
@@ -110,7 +119,7 @@ pub async fn process<'a, 'b, 'c>(
         Some(a) => a,
     };
 
-    let relay = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
+    let port = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
         None => return Ok(None),
         Some(p) => p,
     };
@@ -121,7 +130,7 @@ pub async fn process<'a, 'b, 'c>(
     };
 
     let method = Method::DataIndication;
-    let target = Arc::new(SocketAddr::new(ctx.env.external.ip(), relay.port));
+    let target = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
     let mut pack = MessageWriter::extend(method, &reader, bytes);
     pack.append::<XorPeerAddress>(*target.as_ref());
     pack.append::<Data>(data);

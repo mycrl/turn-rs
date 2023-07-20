@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::Result;
+use async_trait::async_trait;
 use tokio::sync::mpsc;
 use serde::{
     Deserialize,
@@ -29,11 +30,6 @@ pub struct ProxyStateNotifyNode {
 #[derive(Deserialize, Serialize, Debug)]
 pub enum Request {
     ProxyStateNotify(Vec<ProxyStateNotifyNode>),
-    CreatePermission {
-        id: u8,
-        from: SocketAddr,
-        peer: SocketAddr,
-    },
 }
 
 impl TryFrom<&[u8]> for Request {
@@ -80,8 +76,16 @@ impl Into<Vec<u8>> for Request {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RelayPayloadKind {
+    Message,
+    Channel,
+}
+
 #[derive(Deserialize, Serialize, Debug)]
 pub struct RelayPayload<'a> {
+    pub kind: RelayPayloadKind,
     pub from: SocketAddr,
     pub peer: SocketAddr,
     pub data: &'a [u8],
@@ -131,13 +135,14 @@ impl Into<Vec<u8>> for RelayPayload<'_> {
     }
 }
 
+#[async_trait]
 pub trait RpcObserver: Send + Sync {
     fn on(&self, req: Request);
-    fn on_relay<'a>(&'a self, payload: RelayPayload<'a>);
+    async fn on_relay<'a>(&'a self, payload: RelayPayload<'a>);
 }
 
 pub struct Rpc {
-    sender: mpsc::UnboundedSender<(Request, u8)>,
+    sender: mpsc::Sender<(Request, u8)>,
     transport: Transport,
 }
 
@@ -146,7 +151,7 @@ impl Rpc {
         addr: TransportAddr,
         observer: T,
     ) -> Result<Arc<Self>> {
-        let (sender, mut receiver) = mpsc::unbounded_channel::<(Request, u8)>();
+        let (sender, mut receiver) = mpsc::channel::<(Request, u8)>(5);
 
         let mut order_transport = OrderTransport::new(addr).await?;
         let transport = Transport::new(addr).await?;
@@ -165,7 +170,7 @@ impl Rpc {
                     Ok(ret) = transport_.recv(&mut buf) => {
                         if let Some((buf, _)) = ret {
                             if let Ok(payload) = RelayPayload::try_from(buf.as_ref()) {
-                                observer.on_relay(payload);
+                                observer.on_relay(payload).await;
                             }
                         }
                     }
@@ -203,8 +208,8 @@ impl Rpc {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub fn send_with_order(&self, req: Request, to: u8) -> Result<()> {
-        self.sender.send((req, to))?;
+    pub async fn send_with_order(&self, req: Request, to: u8) -> Result<()> {
+        self.sender.send((req, to)).await?;
         Ok(())
     }
 

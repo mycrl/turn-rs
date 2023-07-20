@@ -266,7 +266,7 @@ impl Transport {
     /// ```
     pub async fn send(&self, data: &[u8], to: u8) -> Result<()> {
         let head = Protocol::encode_header(data, to);
-        let mut buf = Vec::with_capacity(4 + data.len());
+        let mut buf = vec![0u8; 4 + data.len()];
         buf[0..4].copy_from_slice(&head);
         buf[4..].copy_from_slice(data);
         transport_udp_err(self.socket.send_to(&buf, self.addr.proxy).await)?;

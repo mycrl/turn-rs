@@ -7,8 +7,12 @@ use std::net::{
 };
 
 use anyhow::Result;
+use async_trait::async_trait;
 use parking_lot::RwLock;
-use rpc::RelayPayload;
+use rpc::{
+    RelayPayload,
+    RelayPayloadKind,
+};
 use rpc::{
     Rpc,
     Request,
@@ -28,9 +32,9 @@ pub struct ProxyOptions {
     pub proxy: SocketAddr,
 }
 
+#[async_trait]
 pub trait ProxyObserver: Send + Sync {
-    fn create_permission(&self, id: u8, from: SocketAddr, peer: SocketAddr);
-    fn relay<'a>(&'a self, payload: RelayPayload<'a>);
+    async fn relay<'a>(&'a self, payload: RelayPayload<'a>);
 }
 
 #[derive(Clone)]
@@ -129,11 +133,13 @@ impl Proxy {
         node: &ProxyStateNotifyNode,
         from: SocketAddr,
         peer: SocketAddr,
+        kind: RelayPayloadKind,
         data: &[u8],
     ) -> Result<()> {
         self.rpc
             .send(
                 RelayPayload {
+                    kind,
                     from,
                     peer,
                     data,
@@ -143,39 +149,6 @@ impl Proxy {
             .await?;
         Ok(())
     }
-
-    /// Get user list.
-    ///
-    /// This interface returns the username and a list of addresses used by this
-    /// user.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let users_js = ctr.get_users().await;
-    /// ```
-    pub fn create_permission(
-        &self,
-        node: &ProxyStateNotifyNode,
-        from: &SocketAddr,
-        peer: &SocketAddr,
-    ) -> Result<()> {
-        self.rpc.send_with_order(
-            Request::CreatePermission {
-                id: node.index,
-                from: from.clone(),
-                peer: peer.clone(),
-            },
-            node.index,
-        )?;
-
-        Ok(())
-    }
 }
 
 struct RpcObserverExt {
@@ -183,6 +156,7 @@ struct RpcObserverExt {
     nodes: Arc<RwLock<Vec<Arc<ProxyStateNotifyNode>>>>,
 }
 
+#[async_trait]
 impl RpcObserver for RpcObserverExt {
     fn on(&self, req: Request) {
         match req {
@@ -190,24 +164,10 @@ impl RpcObserver for RpcObserverExt {
                 log::info!("received state sync from proxy: state={:?}", nodes);
                 *self.nodes.write() = nodes.into_iter().map(Arc::new).collect()
             },
-            Request::CreatePermission {
-                id,
-                from,
-                peer,
-            } => {
-                self.observer.create_permission(id, from, peer);
-                log::info!(
-                    "received create permission from proxy: id={}, from={}, \
-                     peer={}",
-                    id,
-                    from,
-                    peer
-                );
-            },
         }
     }
 
-    fn on_relay<'a>(&'a self, payload: RelayPayload<'a>) {
-        self.observer.relay(payload);
+    async fn on_relay<'a>(&'a self, payload: RelayPayload<'a>) {
+        self.observer.relay(payload).await;
     }
 }

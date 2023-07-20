@@ -297,17 +297,11 @@ impl PortPools {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Relay {
-    pub port: u16,
-    pub proxy: Option<u8>,
-}
-
 /// port table.
 pub struct Ports {
     pools: Mutex<PortPools>,
     map: RwLock<HashMap<u16, SocketAddr>>,
-    bounds: RwLock<HashMap<SocketAddr, HashMap<SocketAddr, Relay>>>,
+    bounds: RwLock<HashMap<SocketAddr, HashMap<SocketAddr, u16>>>,
 }
 
 impl Ports {
@@ -384,7 +378,7 @@ impl Ports {
     ///
     /// assert_eq!(pools.get_bound(&local, &peer), Some((port, Some(0))));
     /// ```
-    pub fn get_bound(&self, a: &SocketAddr, p: &SocketAddr) -> Option<Relay> {
+    pub fn get_bound(&self, a: &SocketAddr, p: &SocketAddr) -> Option<u16> {
         self.bounds.read().get(p)?.get(a).cloned()
     }
 
@@ -422,22 +416,14 @@ impl Ports {
     ///
     /// assert!(pools.bound(&addr, port, Some(0)).is_some());
     /// ```
-    pub fn bound(
-        &self,
-        a: &SocketAddr,
-        port: u16,
-        proxy: Option<u8>,
-    ) -> Option<()> {
+    pub fn bound(&self, addr: &SocketAddr, port: u16) -> Option<()> {
         let peer = self.map.read().get(&port)?.clone();
         self.bounds
             .write()
-            .entry(a.clone())
+            .entry(addr.clone())
             .or_insert_with(|| HashMap::with_capacity(10))
             .entry(peer)
-            .or_insert(Relay {
-                port,
-                proxy,
-            });
+            .or_insert(port);
         Some(())
     }
 

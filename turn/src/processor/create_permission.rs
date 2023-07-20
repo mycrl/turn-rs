@@ -64,30 +64,28 @@ fn resolve<'a, 'b, 'c>(
     Ok(Some(Response::new(bytes, StunClass::Message, None)))
 }
 
-enum CheckRet {
-    Failed,
+enum Ret {
     Next,
-    Done,
+    Failed,
+    Relay,
 }
 
 #[inline(always)]
-fn check_addr(ctx: &Context, peer: &SocketAddr) -> CheckRet {
+fn check_addr(ctx: &Context, peer: &SocketAddr) -> Ret {
     if ctx.env.external.ip() == peer.ip() {
-        return CheckRet::Next;
+        return Ret::Next;
     }
 
-    let proxy = match &ctx.env.proxy {
-        None => return CheckRet::Failed,
-        Some(p) => p,
-    };
-
-    let node = match proxy.get_online_node(&peer.ip()) {
-        None => return CheckRet::Failed,
-        Some(n) => n,
-    };
-
-    let ret = proxy.create_permission(&node, &ctx.addr, &peer);
-    ret.map(|_| CheckRet::Done).unwrap_or(CheckRet::Failed)
+    ctx.env
+        .proxy
+        .as_ref()
+        .map(|proxy| {
+            proxy
+                .get_online_node(&peer.ip())
+                .map(|_| Ret::Relay)
+                .unwrap_or(Ret::Failed)
+        })
+        .unwrap_or(Ret::Failed)
 }
 
 /// process create permission request
@@ -145,17 +143,12 @@ pub async fn process<'a, 'b, 'c>(
     };
 
     match check_addr(&ctx, &peer) {
-        CheckRet::Failed => return reject(ctx, reader, bytes, Forbidden),
-        CheckRet::Done => return resolve(&reader, &key, bytes),
-        CheckRet::Next => (),
+        Ret::Failed => return reject(ctx, reader, bytes, Forbidden),
+        Ret::Relay => return resolve(&reader, &key, bytes),
+        Ret::Next => (),
     }
 
-    if ctx
-        .env
-        .router
-        .bind_port(&ctx.addr, peer.port(), None)
-        .is_none()
-    {
+    if ctx.env.router.bind_port(&ctx.addr, peer.port()).is_none() {
         return reject(ctx, reader, bytes, Forbidden);
     }
 

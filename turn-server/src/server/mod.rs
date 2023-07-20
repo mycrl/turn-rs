@@ -9,15 +9,21 @@ use super::config::{
     Config,
 };
 
-use std::net::SocketAddr;
 use std::sync::Arc;
+
+use async_trait::async_trait;
+use turn_proxy::rpc::RelayPayloadKind;
 use turn_proxy::{
     Proxy,
     ProxyObserver,
     rpc::RelayPayload,
 };
 
-use turn_rs::Service;
+use turn_rs::{
+    Service,
+    StunClass,
+};
+
 use tokio::net::{
     TcpListener,
     UdpSocket,
@@ -29,15 +35,22 @@ struct ProxyExt {
     router: Arc<Router>,
 }
 
+#[async_trait]
 impl ProxyObserver for ProxyExt {
-    fn create_permission(&self, id: u8, from: SocketAddr, peer: SocketAddr) {
-        self.service
-            .get_router()
-            .bind_port(&from, peer.port(), Some(id));
-    }
+    async fn relay<'a>(&'a self, payload: RelayPayload<'a>) {
+        let class = match payload.kind {
+            RelayPayloadKind::Message => StunClass::Message,
+            RelayPayloadKind::Channel => StunClass::Channel,
+        };
 
-    fn relay<'a>(&'a self, payload: RelayPayload<'a>) {
-        // self.router.send(index, class, addr, data)
+        let router = self.service.get_router();
+        if let Some(addr) = router.get_port_bound(payload.peer.port()) {
+            if let Some(node) = router.get_node(&addr) {
+                self.router
+                    .send(node.index, class, &addr, payload.data)
+                    .await;
+            }
+        }
     }
 }
 

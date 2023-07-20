@@ -8,7 +8,6 @@ use self::nodes::Nodes;
 use self::ports::Ports;
 use self::nonces::Nonces;
 use self::channels::Channels;
-use self::ports::Relay;
 
 use faster_stun::util::long_key;
 use std::sync::atomic::{
@@ -462,7 +461,7 @@ impl Router {
         &self,
         a: &SocketAddr,
         p: &SocketAddr,
-    ) -> Option<Relay> {
+    ) -> Option<u16> {
         self.ports.get_bound(a, p)
     }
 
@@ -578,13 +577,8 @@ impl Router {
     /// let port = router.alloc_port(&addr).unwrap();
     /// assert!(router.bind_port(&addr, port, Some(0)).is_some());
     /// ```
-    pub fn bind_port(
-        &self,
-        a: &SocketAddr,
-        port: u16,
-        proxy: Option<u8>,
-    ) -> Option<()> {
-        self.ports.bound(a, port, proxy)
+    pub fn bind_port(&self, addr: &SocketAddr, port: u16) -> Option<()> {
+        self.ports.bound(addr, port)
     }
 
     /// bind channel number for State.
