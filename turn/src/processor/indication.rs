@@ -105,14 +105,14 @@ pub async fn process<'a, 'b, 'c>(
         Some(x) => x,
     };
 
+    if !check_addr(&ctx, &peer, &reader).await {
+        return Ok(None);
+    }
+    
     let data = match reader.get::<Data>() {
         None => return Ok(None),
         Some(x) => x,
     };
-
-    if !check_addr(&ctx, &peer, data).await {
-        return Ok(None);
-    }
 
     let addr = match ctx.env.router.get_port_bound(peer.port()) {
         None => return Ok(None),

@@ -15,11 +15,11 @@ realm = "localhost"
 [[turn.interfaces]]
 transport = "udp"
 bind = "0.0.0.0:3479"
-external = "172.17.239.29:3479"
+external = "172.21.148.165:3479"
 
 [proxy]
 bind = "0.0.0.0:3480"
-proxy = "172.17.224.1:5000"
+proxy = "172.21.144.1:5000"
 
 [controller]
 # controller bind

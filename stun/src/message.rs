@@ -271,7 +271,7 @@ pub struct MessageReader<'a, 'b> {
     /// message transaction id.
     pub token: &'a [u8],
     /// message source bytes.
-    raw: &'a [u8],
+    buf: &'a [u8],
     /// message valid block bytes size.
     valid_offset: u16,
     // message attribute list.
@@ -339,7 +339,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// assert!(result);
     /// ```
     pub fn integrity(&self, auth: &Auth) -> Result<()> {
-        ensure!(!self.raw.is_empty(), "buf is empty");
+        ensure!(!self.buf.is_empty(), "buf is empty");
         ensure!(self.valid_offset >= 20, "buf is empty");
 
         // unwrap MessageIntegrity attribute,
@@ -351,9 +351,9 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         // create multiple submit.
         let size_buf = (self.valid_offset + 4).to_be_bytes();
         let body = vec![
-            &self.raw[0..2],
+            &self.buf[0..2],
             &size_buf,
-            &self.raw[4..self.valid_offset as usize],
+            &self.buf[4..self.valid_offset as usize],
         ];
 
         // digest the message buffer.
@@ -463,9 +463,9 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     }
 
         Ok(Self {
+            buf,
             token,
             method,
-            raw: buf,
             attributes,
             valid_offset,
         })
@@ -493,7 +493,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
 
 impl<'a> AsRef<[u8]> for MessageReader<'a, '_> {
     fn as_ref(&self) -> &'a [u8] {
-        self.raw
+        self.buf
     }
 }
 
@@ -501,6 +501,6 @@ impl<'a> std::ops::Deref for MessageReader<'a, '_> {
     type Target = [u8];
 
     fn deref(&self) -> &'a Self::Target {
-        self.raw
+        self.buf
     }
 }
