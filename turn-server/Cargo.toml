@@ -21,6 +21,7 @@ categories = [
 ]
 
 [dependencies]
+ahash = "0.8.3"
 bytes = "1.4.0"
 bitvec = "1.0"
 parking_lot = "0.12"

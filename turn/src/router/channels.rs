@@ -1,7 +1,7 @@
 use super::ports::capacity;
 use parking_lot::RwLock;
+use ahash::AHashMap;
 use std::{
-    collections::HashMap,
     net::SocketAddr,
     time::Instant,
 };
@@ -222,8 +222,8 @@ impl IntoIterator for Channel {
 
 /// channels table.
 pub struct Channels {
-    map: RwLock<HashMap<u16, Channel>>,
-    bounds: RwLock<HashMap<(SocketAddr, u16), SocketAddr>>,
+    map: RwLock<AHashMap<u16, Channel>>,
+    bounds: RwLock<AHashMap<(SocketAddr, u16), SocketAddr>>,
 }
 
 impl Default for Channels {
@@ -235,8 +235,8 @@ impl Default for Channels {
 impl Channels {
     pub fn new() -> Self {
         Self {
-            map: RwLock::new(HashMap::with_capacity(capacity())),
-            bounds: RwLock::new(HashMap::with_capacity(capacity())),
+            map: RwLock::new(AHashMap::with_capacity(capacity())),
+            bounds: RwLock::new(AHashMap::with_capacity(capacity())),
         }
     }
 

@@ -1,7 +1,7 @@
 use super::ports::capacity;
 use parking_lot::RwLock;
+use ahash::AHashMap;
 use std::{
-    collections::HashMap,
     net::SocketAddr,
     time::Instant,
     sync::Arc,
@@ -84,7 +84,7 @@ impl Nonce {
 
 /// nonce table.
 pub struct Nonces {
-    map: RwLock<HashMap<SocketAddr, Nonce>>,
+    map: RwLock<AHashMap<SocketAddr, Nonce>>,
 }
 
 impl Default for Nonces {
@@ -96,7 +96,7 @@ impl Default for Nonces {
 impl Nonces {
     pub fn new() -> Self {
         Self {
-            map: RwLock::new(HashMap::with_capacity(capacity())),
+            map: RwLock::new(AHashMap::with_capacity(capacity())),
         }
     }
 

@@ -1,3 +1,4 @@
+use ahash::AHashMap;
 use rand::{
     thread_rng,
     Rng,
@@ -9,7 +10,6 @@ use parking_lot::{
 };
 
 use std::{
-    collections::HashMap,
     net::SocketAddr,
     ops::Range,
 };
@@ -319,8 +319,8 @@ impl PortPools {
 /// port table.
 pub struct Ports {
     pools: Mutex<PortPools>,
-    map: RwLock<HashMap<u16, SocketAddr>>,
-    bounds: RwLock<HashMap<SocketAddr, HashMap<SocketAddr, u16>>>,
+    map: RwLock<AHashMap<u16, SocketAddr>>,
+    bounds: RwLock<AHashMap<SocketAddr, AHashMap<SocketAddr, u16>>>,
 }
 
 impl Default for Ports {
@@ -332,8 +332,8 @@ impl Default for Ports {
 impl Ports {
     pub fn new() -> Self {
         Self {
-            bounds: RwLock::new(HashMap::with_capacity(capacity())),
-            map: RwLock::new(HashMap::with_capacity(capacity())),
+            bounds: RwLock::new(AHashMap::with_capacity(capacity())),
+            map: RwLock::new(AHashMap::with_capacity(capacity())),
             pools: Mutex::new(PortPools::new()),
         }
     }
@@ -460,7 +460,7 @@ impl Ports {
         self.bounds
             .write()
             .entry(*addr)
-            .or_insert_with(|| HashMap::with_capacity(10))
+            .or_insert_with(|| AHashMap::with_capacity(10))
             .entry(peer)
             .or_insert(port);
         Some(())

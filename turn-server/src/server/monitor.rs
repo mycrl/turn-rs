@@ -1,9 +1,11 @@
+use ahash::AHashMap;
 use serde::Serialize;
 use parking_lot::Mutex;
 use tokio::sync::mpsc::*;
+
 use std::{
+    collections::BTreeSet,
     net::SocketAddr,
-    collections::*,
     sync::Arc,
 };
 
@@ -38,11 +40,10 @@ pub struct Store {
 
 impl Store {
     /// update status information
+    #[rustfmt::skip]
     fn change(&mut self, payload: Stats) {
         match payload {
-            Stats::ReceivedBytes(v) => {
-                self.received_bytes.add((v / 1024) as u64)
-            },
+            Stats::ReceivedBytes(v) => self.received_bytes.add((v / 1024) as u64),
             Stats::SendBytes(v) => self.send_bytes.add((v / 1024) as u64),
             Stats::ReceivedPkts(v) => self.received_pkts.add(v as u64),
             Stats::SendPkts(v) => self.send_pkts.add(v as u64),
@@ -54,7 +55,7 @@ impl Store {
 #[derive(Clone)]
 pub struct Monitor {
     links: Arc<Mutex<BTreeSet<SocketAddr>>>,
-    nodes: Arc<Mutex<HashMap<SocketAddr, Store>>>,
+    nodes: Arc<Mutex<AHashMap<SocketAddr, Store>>>,
     sender: Sender<(SocketAddr, Stats)>,
 }
 
@@ -68,7 +69,7 @@ impl Monitor {
     /// Create a monitoring instance
     pub fn new() -> Self {
         let (sender, mut receiver) = channel(2);
-        let nodes: Arc<Mutex<HashMap<SocketAddr, Store>>> = Default::default();
+        let nodes: Arc<Mutex<AHashMap<SocketAddr, Store>>> = Default::default();
 
         let nodes_ = nodes.clone();
         tokio::spawn(async move {

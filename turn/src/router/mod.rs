@@ -642,7 +642,12 @@ impl Router {
     /// let port = router.alloc_port(&addr).unwrap();
     /// assert!(router.bind_channel(&addr, port, 0x4000).is_some());
     /// ```
-    pub fn bind_channel(&self, addr: &SocketAddr, port: u16, channel: u16) -> Option<()> {
+    pub fn bind_channel(
+        &self,
+        addr: &SocketAddr,
+        port: u16,
+        channel: u16,
+    ) -> Option<()> {
         let source = self.ports.get(port)?;
         self.channels.insert(addr, channel, &source)?;
         self.nodes.push_channel(addr, channel)?;

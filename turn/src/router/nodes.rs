@@ -1,7 +1,12 @@
 use super::ports::capacity;
 use parking_lot::RwLock;
+use ahash::{
+    AHashMap,
+    AHashSet,
+};
+
 use std::{
-    collections::*,
+    collections::BTreeMap,
     net::SocketAddr,
     time::Instant,
     sync::Arc,
@@ -143,8 +148,8 @@ impl Node {
 
 /// node table.
 pub struct Nodes {
-    map: RwLock<HashMap<SocketAddr, Node>>,
-    addrs: RwLock<BTreeMap<String, HashSet<SocketAddr>>>,
+    map: RwLock<AHashMap<SocketAddr, Node>>,
+    addrs: RwLock<BTreeMap<String, AHashSet<SocketAddr>>>,
 }
 
 impl Default for Nodes {
@@ -157,7 +162,7 @@ impl Nodes {
     pub fn new() -> Self {
         Self {
             addrs: RwLock::new(BTreeMap::new()),
-            map: RwLock::new(HashMap::with_capacity(capacity())),
+            map: RwLock::new(AHashMap::with_capacity(capacity())),
         }
     }
 
@@ -272,7 +277,7 @@ impl Nodes {
 
         addrs
             .entry(username.to_string())
-            .or_insert_with(|| HashSet::with_capacity(5))
+            .or_insert_with(|| AHashSet::with_capacity(5))
             .insert(*addr);
         Some(pwd)
     }

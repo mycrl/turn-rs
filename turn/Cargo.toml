@@ -20,6 +20,7 @@ categories = [
 ]
 
 [dependencies]
+ahash = "0.8.3"
 turn-proxy = { path = "../turn-proxy" }
 faster-stun = { path = "../stun" }
 parking_lot = "0.12"

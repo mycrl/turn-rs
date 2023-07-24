@@ -1,10 +1,8 @@
+use std::net::SocketAddr;
+
+use ahash::AHashMap;
 use bitvec::prelude::*;
 use turn_rs::StunClass;
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-};
-
 use tokio::sync::{
     RwLock,
     Mutex,
@@ -20,7 +18,7 @@ type Receiver = UnboundedSender<(Vec<u8>, StunClass, SocketAddr)>;
 
 /// Handles packet forwarding between transport protocols.
 pub struct Router {
-    senders: RwLock<HashMap<u8, Receiver>>,
+    senders: RwLock<AHashMap<u8, Receiver>>,
     bits: Mutex<&'static mut BitSlice<u8, Lsb0>>,
 }
 
