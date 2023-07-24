@@ -8,12 +8,6 @@ use std::{
 };
 
 /// turn node session.
-///
-/// * the authentication information.
-/// * the port bind table.
-/// * the channel alloc table.
-/// * the group number.
-/// * the time-to-expiry for each relayed transport address.
 #[derive(Clone)]
 pub struct Node {
     pub index: u8,
@@ -153,6 +147,12 @@ pub struct Nodes {
     addrs: RwLock<BTreeMap<String, HashSet<SocketAddr>>>,
 }
 
+impl Default for Nodes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Nodes {
     pub fn new() -> Self {
         Self {
@@ -181,7 +181,7 @@ impl Nodes {
             .iter()
             .skip(skip)
             .take(limit)
-            .map(|(k, v)| (k.clone(), v.iter().map(|v| *v).collect()))
+            .map(|(k, v)| (k.clone(), v.iter().copied().collect()))
             .collect()
     }
 
@@ -268,12 +268,12 @@ impl Nodes {
 
         let pwd = node.get_secret();
         let mut addrs = self.addrs.write();
-        self.map.write().insert(addr.clone(), node);
+        self.map.write().insert(*addr, node);
 
         addrs
             .entry(username.to_string())
             .or_insert_with(|| HashSet::with_capacity(5))
-            .insert(addr.clone());
+            .insert(*addr);
         Some(pwd)
     }
 
@@ -465,7 +465,7 @@ impl Nodes {
             .read()
             .iter()
             .filter(|(_, v)| v.is_death())
-            .map(|(k, _)| k.clone())
+            .map(|(k, _)| *k)
             .collect::<Vec<SocketAddr>>()
     }
 }

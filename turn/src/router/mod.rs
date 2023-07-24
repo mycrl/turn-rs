@@ -60,10 +60,10 @@ impl Router {
     pub fn new(realm: String, observer: Arc<dyn Observer>) -> Arc<Self> {
         let this = Arc::new(Self {
             is_close: AtomicBool::new(false),
-            channels: Channels::new(),
-            nonces: Nonces::new(),
-            ports: Ports::new(),
-            nodes: Nodes::new(),
+            channels: Channels::default(),
+            nonces: Nonces::default(),
+            ports: Ports::default(),
+            nodes: Nodes::default(),
             observer,
             realm,
         });
@@ -121,6 +121,25 @@ impl Router {
     /// ```
     pub fn len(&self) -> usize {
         self.ports.len()
+    }
+
+    /// get router allocate size is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    /// impl Observer for ObserverTest {}
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// assert_eq!(router.is_empty(), true);
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.ports.len() == 0
     }
 
     /// get user list.

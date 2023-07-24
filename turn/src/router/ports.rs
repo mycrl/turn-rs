@@ -55,6 +55,12 @@ pub struct PortPools {
     peak: usize,
 }
 
+impl Default for PortPools {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PortPools {
     pub fn new() -> Self {
         Self {
@@ -93,6 +99,19 @@ impl PortPools {
     /// ```
     pub fn len(&self) -> usize {
         self.allocated
+    }
+
+    /// get pools allocated size is empty.
+    ///
+    /// ```
+    /// use turn_rs::router::ports::PortPools;
+    ///
+    /// let mut pools = PortPools::new();
+    /// assert_eq!(pools.len(), 0);
+    /// assert_eq!(pools.empty(), true);
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.allocated == 0
     }
 
     /// random assign a port.
@@ -304,6 +323,12 @@ pub struct Ports {
     bounds: RwLock<HashMap<SocketAddr, HashMap<SocketAddr, u16>>>,
 }
 
+impl Default for Ports {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Ports {
     pub fn new() -> Self {
         Self {
@@ -339,6 +364,20 @@ impl Ports {
     /// ```
     pub fn len(&self) -> usize {
         self.pools.lock().len()
+    }
+
+    /// get ports allocated size is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use turn_rs::router::ports::*;
+    ///
+    /// let ports = Ports::new();
+    /// assert_eq!(ports.is_empty(), true);
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.pools.lock().len() == 0
     }
 
     /// get address from port.
@@ -397,7 +436,7 @@ impl Ports {
     /// ```
     pub fn alloc(&self, a: &SocketAddr) -> Option<u16> {
         let port = self.pools.lock().alloc(None)?;
-        self.map.write().insert(port, a.clone());
+        self.map.write().insert(port, *a);
         Some(port)
     }
 
@@ -417,10 +456,10 @@ impl Ports {
     /// assert!(pools.bound(&addr, port, Some(0)).is_some());
     /// ```
     pub fn bound(&self, addr: &SocketAddr, port: u16) -> Option<()> {
-        let peer = self.map.read().get(&port)?.clone();
+        let peer = *self.map.read().get(&port)?;
         self.bounds
             .write()
-            .entry(addr.clone())
+            .entry(*addr)
             .or_insert_with(|| HashMap::with_capacity(10))
             .entry(peer)
             .or_insert(port);

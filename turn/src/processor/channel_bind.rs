@@ -32,12 +32,12 @@ use faster_stun::attribute::ErrKind::{
 
 /// return channel binding error response
 #[inline(always)]
-fn reject<'a, 'b, 'c>(
+fn reject<'a>(
     ctx: Context,
-    reader: MessageReader<'a, 'b>,
-    bytes: &'c mut BytesMut,
+    reader: MessageReader,
+    bytes: &'a mut BytesMut,
     err: ErrKind,
-) -> Result<Option<Response<'c>>> {
+) -> Result<Option<Response<'a>>> {
     let method = Method::ChannelBind(Kind::Error);
     let mut pack = MessageWriter::extend(method, &reader, bytes);
     pack.append::<ErrorCode>(Error::from(err));
@@ -48,11 +48,11 @@ fn reject<'a, 'b, 'c>(
 
 /// return channel binding ok response
 #[inline(always)]
-fn resolve<'c>(
+fn resolve<'a>(
     reader: &MessageReader,
     key: &[u8; 16],
-    bytes: &'c mut BytesMut,
-) -> Result<Option<Response<'c>>> {
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let method = Method::ChannelBind(Kind::Response);
     MessageWriter::extend(method, reader, bytes).flush(Some(key))?;
     Ok(Some(Response::new(bytes, StunClass::Message, None)))

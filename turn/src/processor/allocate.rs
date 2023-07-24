@@ -43,12 +43,12 @@ use faster_stun::attribute::ErrKind::{
 
 /// return allocate error response
 #[inline(always)]
-fn reject<'a, 'b, 'c>(
+fn reject<'a>(
     ctx: Context,
-    reader: MessageReader<'a, 'b>,
-    bytes: &'c mut BytesMut,
+    reader: MessageReader,
+    bytes: &'a mut BytesMut,
     err: ErrKind,
-) -> Result<Option<Response<'c>>> {
+) -> Result<Option<Response<'a>>> {
     let method = Method::Allocate(Kind::Error);
     let nonce = ctx.env.router.get_nonce(&ctx.addr);
     let mut pack = MessageWriter::extend(method, &reader, bytes);
@@ -70,13 +70,13 @@ fn reject<'a, 'b, 'c>(
 /// example, a server may choose this technique to implement the
 /// EVEN-PORT attribute.
 #[inline(always)]
-fn resolve<'a, 'b, 'c>(
+fn resolve<'a>(
     ctx: &Context,
-    reader: &MessageReader<'a, 'b>,
+    reader: &MessageReader,
     key: &[u8; 16],
     port: u16,
-    bytes: &'c mut BytesMut,
-) -> Result<Option<Response<'c>>> {
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let method = Method::Allocate(Kind::Response);
     let alloc_addr = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
     let mut pack = MessageWriter::extend(method, reader, bytes);

@@ -24,11 +24,11 @@ use faster_stun::attribute::{
 
 /// return refresh error response
 #[inline(always)]
-fn reject<'a, 'b, 'c>(
-    reader: MessageReader<'a, 'b>,
-    bytes: &'c mut BytesMut,
+fn reject<'a>(
+    reader: MessageReader,
+    bytes: &'a mut BytesMut,
     err: ErrKind,
-) -> Result<Option<Response<'c>>> {
+) -> Result<Option<Response<'a>>> {
     let method = Method::Refresh(Kind::Error);
     let mut pack = MessageWriter::extend(method, &reader, bytes);
     pack.append::<ErrorCode>(Error::from(err));
@@ -38,12 +38,12 @@ fn reject<'a, 'b, 'c>(
 
 /// return refresh ok response
 #[inline(always)]
-pub fn resolve<'a, 'b, 'c>(
-    reader: &MessageReader<'a, 'b>,
+pub fn resolve<'a>(
+    reader: &MessageReader,
     lifetime: u32,
     key: &[u8; 16],
-    bytes: &'c mut BytesMut,
-) -> Result<Option<Response<'c>>> {
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let method = Method::Refresh(Kind::Response);
     let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<Lifetime>(lifetime);

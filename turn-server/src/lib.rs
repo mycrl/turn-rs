@@ -61,7 +61,7 @@ impl Observer for Events {
     /// standard services.
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
-        self.monitor.set(addr.clone());
+        self.monitor.set(*addr);
         self.hooks.events(&hooks::Events::Allocated {
             addr,
             name,

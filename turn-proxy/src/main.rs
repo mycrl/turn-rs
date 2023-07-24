@@ -88,10 +88,7 @@ async fn main() -> anyhow::Result<()> {
             if let Ok(Some((_, to))) = Protocol::decode_head(&buf[..size]) {
                 if let Some(node) = nodes_.get(to as usize) {
                     let addr = node.state.read().await.addr;
-                    if let Err(e) = socket
-                        .send_to(&buf[..size], addr)
-                        .await
-                    {
+                    if let Err(e) = socket.send_to(&buf[..size], addr).await {
                         if e.kind() != ConnectionReset {
                             break;
                         }
@@ -191,7 +188,7 @@ fn on_tcp_socket(
 async fn send_state(nodes: &Vec<ProxyNode>) {
     let mut ret = Vec::with_capacity(nodes.len());
     for node in nodes {
-        ret.push(node.state.read().await.clone());
+        ret.push(*node.state.read().await);
     }
 
     let req: Vec<u8> = Request::ProxyStateNotify(ret).into();

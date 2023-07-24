@@ -40,13 +40,7 @@ async fn check_addr(ctx: &Context, peer: &SocketAddr, data: &[u8]) -> bool {
     };
 
     let _ = proxy
-        .relay(
-            &node,
-            ctx.addr,
-            peer.clone(),
-            RelayPayloadKind::Message,
-            data,
-        )
+        .relay(&node, ctx.addr, *peer, RelayPayloadKind::Message, data)
         .await;
     false
 }
@@ -108,7 +102,7 @@ pub async fn process<'a, 'b, 'c>(
     if !check_addr(&ctx, &peer, &reader).await {
         return Ok(None);
     }
-    
+
     let data = match reader.get::<Data>() {
         None => return Ok(None),
         Some(x) => x,

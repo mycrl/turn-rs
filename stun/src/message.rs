@@ -304,8 +304,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         self.attributes
             .iter()
             .find(|(k, _)| k == &kind)
-            .map(|(_, v)| T::try_from(v, self.token).ok())
-            .flatten()
+            .and_then(|(_, v)| T::try_from(v, self.token).ok())
     }
 
     /// check MessageReaderIntegrity attribute.

@@ -311,7 +311,7 @@ impl Transport {
 
         Ok(match Protocol::decode(&buf[..size]) {
             Ok(Some(ret)) => Some((ret.data, ret.to)),
-            _ => None
+            _ => None,
         })
     }
 }

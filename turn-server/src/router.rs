@@ -16,11 +16,18 @@ use tokio::sync::mpsc::{
     UnboundedSender,
 };
 
+type Receiver = UnboundedSender<(Vec<u8>, StunClass, SocketAddr)>;
+
 /// Handles packet forwarding between transport protocols.
 pub struct Router {
-    senders:
-        RwLock<HashMap<u8, UnboundedSender<(Vec<u8>, StunClass, SocketAddr)>>>,
+    senders: RwLock<HashMap<u8, Receiver>>,
     bits: Mutex<&'static mut BitSlice<u8, Lsb0>>,
+}
+
+impl Default for Router {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Router {
@@ -110,7 +117,7 @@ impl Router {
 
         {
             if let Some(sender) = self.senders.read().await.get(&index) {
-                if sender.send((data.to_vec(), class, addr.clone())).is_err() {
+                if sender.send((data.to_vec(), class, *addr)).is_err() {
                     is_destroy = true;
                 }
             }

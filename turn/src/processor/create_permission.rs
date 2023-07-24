@@ -36,12 +36,12 @@ use faster_stun::attribute::ErrKind::{
 
 /// return create permission error response
 #[inline(always)]
-fn reject<'a, 'b, 'c>(
+fn reject<'a>(
     ctx: Context,
-    reader: MessageReader<'a, 'b>,
-    bytes: &'c mut BytesMut,
+    reader: MessageReader,
+    bytes: &'a mut BytesMut,
     err: ErrKind,
-) -> Result<Option<Response<'c>>> {
+) -> Result<Option<Response<'a>>> {
     let method = Method::CreatePermission(Kind::Error);
     let mut pack = MessageWriter::extend(method, &reader, bytes);
     pack.append::<ErrorCode>(Error::from(err));
@@ -52,11 +52,11 @@ fn reject<'a, 'b, 'c>(
 
 /// return create permission ok response
 #[inline(always)]
-fn resolve<'a, 'b, 'c>(
-    reader: &MessageReader<'a, 'b>,
+fn resolve<'a>(
+    reader: &MessageReader,
     key: &[u8; 16],
-    bytes: &'c mut BytesMut,
-) -> Result<Option<Response<'c>>> {
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let method = Method::CreatePermission(Kind::Response);
     let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<Software>(SOFTWARE);

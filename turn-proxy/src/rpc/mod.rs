@@ -55,7 +55,7 @@ impl TryFrom<&[u8]> for Request {
     }
 }
 
-impl Into<Vec<u8>> for Request {
+impl From<Request> for Vec<u8> {
     /// Get user list.
     ///
     /// This interface returns the username and a list of addresses used by this
@@ -71,8 +71,8 @@ impl Into<Vec<u8>> for Request {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    fn into(self) -> Vec<u8> {
-        rmp_serde::to_vec(&self).expect("serde to json string failed!")
+    fn from(val: Request) -> Self {
+        rmp_serde::to_vec(&val).expect("serde to json string failed!")
     }
 }
 
@@ -114,7 +114,7 @@ impl TryFrom<&[u8]> for RelayPayload {
     }
 }
 
-impl Into<Vec<u8>> for RelayPayload {
+impl From<RelayPayload> for Vec<u8> {
     /// Get user list.
     ///
     /// This interface returns the username and a list of addresses used by this
@@ -130,8 +130,8 @@ impl Into<Vec<u8>> for RelayPayload {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    fn into(self) -> Vec<u8> {
-        rmp_serde::to_vec(&self).expect("serde to json string failed!")
+    fn from(val: RelayPayload) -> Self {
+        rmp_serde::to_vec(&val).expect("serde to json string failed!")
     }
 }
 
@@ -169,7 +169,7 @@ impl Rpc {
                     }
                     Ok(ret) = transport_.recv(&mut buf) => {
                         if let Some((buf, _)) = ret {
-                            let ret = RelayPayload::try_from(buf.as_ref());
+                            let ret = RelayPayload::try_from(buf);
                             if let Ok(payload) = ret {
                                 observer.on_relay(payload).await;
                             } else {

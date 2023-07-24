@@ -191,7 +191,7 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     }
 }
 
-impl Into<&'static str> for Kind {
+impl From<Kind> for &'static str {
     /// # Unit Test
     ///
     /// ```
@@ -202,22 +202,22 @@ impl Into<&'static str> for Kind {
     /// assert_eq!(err, "Try Alternate");
     /// ```
     #[rustfmt::skip]
-    fn into(self) -> &'static str {
-        match self {
-            Self::TryAlternate => "Try Alternate",
-            Self::BadRequest => "Bad Request",
-            Self::Unauthorized => "Unauthorized",
-            Self::Forbidden => "Forbidden",
-            Self::RequestTimedout => "Request Timed out",
-            Self::UnknownAttribute => "Unknown Attribute",
-            Self::AllocationMismatch => "Allocation Mismatch",
-            Self::StaleNonce => "Stale Nonce",
-            Self::AddressFamilyNotSupported => "Address Family not Supported",
-            Self::WrongCredentials => "Wrong Credentials",
-            Self::UnsupportedTransportAddress => "Unsupported Transport Address",
-            Self::AllocationQuotaReached => "Allocation Quota Reached",
-            Self::ServerError => "Server Error",
-            Self::InsufficientCapacity => "Insufficient Capacity",
+    fn from(val: Kind) -> Self {
+        match val {
+            Kind::TryAlternate => "Try Alternate",
+            Kind::BadRequest => "Bad Request",
+            Kind::Unauthorized => "Unauthorized",
+            Kind::Forbidden => "Forbidden",
+            Kind::RequestTimedout => "Request Timed out",
+            Kind::UnknownAttribute => "Unknown Attribute",
+            Kind::AllocationMismatch => "Allocation Mismatch",
+            Kind::StaleNonce => "Stale Nonce",
+            Kind::AddressFamilyNotSupported => "Address Family not Supported",
+            Kind::WrongCredentials => "Wrong Credentials",
+            Kind::UnsupportedTransportAddress => "Unsupported Transport Address",
+            Kind::AllocationQuotaReached => "Allocation Quota Reached",
+            Kind::ServerError => "Server Error",
+            Kind::InsufficientCapacity => "Insufficient Capacity",
         }
     }
 }

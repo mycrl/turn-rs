@@ -29,6 +29,12 @@ pub struct Nonce {
     timer: Instant,
 }
 
+impl Default for Nonce {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Nonce {
     pub fn new() -> Self {
         Self {
@@ -81,6 +87,12 @@ pub struct Nonces {
     map: RwLock<HashMap<SocketAddr, Nonce>>,
 }
 
+impl Default for Nonces {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Nonces {
     pub fn new() -> Self {
         Self {
@@ -112,7 +124,7 @@ impl Nonces {
 
         self.map
             .write()
-            .entry(a.clone())
+            .entry(*a)
             .or_insert_with(Nonce::new)
             .unwind()
     }

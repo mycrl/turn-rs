@@ -51,13 +51,13 @@ pub enum Events<'a> {
 impl Events<'_> {
     #[rustfmt::skip]
     const fn to_str(&self) -> &'static str {
-        match self {
-            &Self::Allocated {..} => "allocated",
-            &Self::Binding {..} => "binding",
-            &Self::ChannelBind {..} => "channel_bind",
-            &Self::CreatePermission {..} => "create_permission",
-            &Self::Refresh {..} => "refresh",
-            &Self::Abort {..} => "abort",
+        match *self {
+            Self::Allocated {..} => "allocated",
+            Self::Binding {..} => "binding",
+            Self::ChannelBind {..} => "channel_bind",
+            Self::CreatePermission {..} => "create_permission",
+            Self::Refresh {..} => "refresh",
+            Self::Abort {..} => "abort",
         }
     }
 }
@@ -75,7 +75,7 @@ impl Hooks {
     fn hooks(res: reqwest::Response) -> Result<reqwest::Response> {
         log::info!("hooks response: {:?}", res);
         (res.status() == 200)
-            .then(|| res)
+            .then_some(res)
             .ok_or_else(|| anyhow!("request failed!"))
     }
 

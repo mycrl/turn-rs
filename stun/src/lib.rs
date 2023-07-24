@@ -55,11 +55,6 @@ use anyhow::{
     anyhow,
 };
 
-use std::convert::{
-    TryFrom,
-    Into,
-};
-
 pub use channel::ChannelData;
 pub use message::*;
 
@@ -208,7 +203,7 @@ impl TryFrom<u16> for Method {
     }
 }
 
-impl Into<u16> for Method {
+impl From<Method> for u16 {
     /// # Unit Test
     ///
     /// ```
@@ -233,25 +228,25 @@ impl Into<u16> for Method {
     /// assert_eq!(0x0016u16, Method::SendIndication.into());
     /// assert_eq!(0x0017u16, Method::DataIndication.into());
     /// ```
-    fn into(self) -> u16 {
-        match self {
-            Self::Binding(Kind::Request) => 0x0001,
-            Self::Binding(Kind::Response) => 0x0101,
-            Self::Binding(Kind::Error) => 0x0111,
-            Self::Allocate(Kind::Request) => 0x0003,
-            Self::Allocate(Kind::Response) => 0x0103,
-            Self::Allocate(Kind::Error) => 0x0113,
-            Self::CreatePermission(Kind::Request) => 0x0008,
-            Self::CreatePermission(Kind::Response) => 0x0108,
-            Self::CreatePermission(Kind::Error) => 0x0118,
-            Self::ChannelBind(Kind::Request) => 0x0009,
-            Self::ChannelBind(Kind::Response) => 0x0109,
-            Self::ChannelBind(Kind::Error) => 0x0119,
-            Self::Refresh(Kind::Request) => 0x0004,
-            Self::Refresh(Kind::Response) => 0x0104,
-            Self::Refresh(Kind::Error) => 0x0114,
-            Self::SendIndication => 0x0016,
-            Self::DataIndication => 0x0017,
+    fn from(val: Method) -> Self {
+        match val {
+            Method::Binding(Kind::Request) => 0x0001,
+            Method::Binding(Kind::Response) => 0x0101,
+            Method::Binding(Kind::Error) => 0x0111,
+            Method::Allocate(Kind::Request) => 0x0003,
+            Method::Allocate(Kind::Response) => 0x0103,
+            Method::Allocate(Kind::Error) => 0x0113,
+            Method::CreatePermission(Kind::Request) => 0x0008,
+            Method::CreatePermission(Kind::Response) => 0x0108,
+            Method::CreatePermission(Kind::Error) => 0x0118,
+            Method::ChannelBind(Kind::Request) => 0x0009,
+            Method::ChannelBind(Kind::Response) => 0x0109,
+            Method::ChannelBind(Kind::Error) => 0x0119,
+            Method::Refresh(Kind::Request) => 0x0004,
+            Method::Refresh(Kind::Response) => 0x0104,
+            Method::Refresh(Kind::Error) => 0x0114,
+            Method::SendIndication => 0x0016,
+            Method::DataIndication => 0x0017,
         }
     }
 }

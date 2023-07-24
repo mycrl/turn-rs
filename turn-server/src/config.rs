@@ -227,8 +227,7 @@ impl Config {
         Ok(toml::from_str(
             &Cli::parse()
                 .config
-                .map(|path| read_to_string(path).ok())
-                .flatten()
+                .and_then(|path| read_to_string(path).ok())
                 .unwrap_or("".to_string()),
         )?)
     }

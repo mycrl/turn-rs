@@ -72,11 +72,11 @@ pub async fn run(
     monitor: Monitor,
     service: &Service,
 ) -> anyhow::Result<()> {
-    let router = Arc::new(Router::new());
+    let router = Arc::new(Router::default());
     let proxy = if let Some(cfg) = &config.proxy {
         Some(
             Proxy::new(
-                &cfg,
+                cfg,
                 ProxyExt {
                     service: service.clone(),
                     router: router.clone(),

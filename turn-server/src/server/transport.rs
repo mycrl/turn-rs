@@ -96,14 +96,13 @@ pub async fn tcp_processor(
                 // checked.
                 if kind == StunClass::Channel {
                     let pad = bytes.len() % 4;
-                    if pad > 0 {
-                        if writer
+                    if pad > 0
+                        && writer
                             .write_all(&ZERO_BUF[..(4 - pad)])
                             .await
                             .is_err()
-                        {
-                            break;
-                        }
+                    {
+                        break;
                     }
                 }
             }
@@ -154,7 +153,7 @@ pub async fn tcp_processor(
                             if writer
                                 .lock()
                                 .await
-                                .write_all(&res.data)
+                                .write_all(res.data)
                                 .await
                                 .is_err()
                             {

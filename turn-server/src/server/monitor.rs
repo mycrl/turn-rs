@@ -58,6 +58,12 @@ pub struct Monitor {
     sender: Sender<(SocketAddr, Stats)>,
 }
 
+impl Default for Monitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Monitor {
     /// Create a monitoring instance
     pub fn new() -> Self {
