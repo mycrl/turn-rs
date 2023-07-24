@@ -246,7 +246,7 @@ pub async fn udp_processor(
                 }
             }
 
-            router.remove(processor.index).await;
+            router.remove(processor.attach).await;
             log::error!("udp server close: interface={:?}", local_addr,);
         });
     }

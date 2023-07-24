@@ -273,12 +273,12 @@ impl Service {
     /// ```
     pub fn get_processor(
         &self,
-        index: u8,
+        attach: u8,
         external: SocketAddr,
         proxy: Option<Proxy>,
     ) -> Processor {
         Processor::new(
-            index,
+            attach,
             external,
             self.realm.clone(),
             self.router.clone(),

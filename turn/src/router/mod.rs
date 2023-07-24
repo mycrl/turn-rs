@@ -219,8 +219,8 @@ impl Router {
     /// assert_eq!(node.ports, vec![]);
     /// assert_eq!(node.index, 0);
     /// ```
-    pub fn get_node(&self, a: &SocketAddr) -> Option<nodes::Node> {
-        self.nodes.get_node(a)
+    pub fn get_node(&self, addr: &SocketAddr) -> Option<nodes::Node> {
+        self.nodes.get_node(addr)
     }
 
     /// get node bound list.
@@ -255,8 +255,8 @@ impl Router {
     /// let ret = router.get_node_addrs("test");
     /// assert_eq!(ret, vec![addr]);
     /// ```
-    pub fn get_node_addrs(&self, u: &str) -> Vec<SocketAddr> {
-        self.nodes.get_addrs(u)
+    pub fn get_node_addrs(&self, username: &str) -> Vec<SocketAddr> {
+        self.nodes.get_addrs(username)
     }
 
     /// get the nonce of the node SocketAddr.
@@ -291,8 +291,8 @@ impl Router {
     /// let nonce = router.get_nonce(&addr);
     /// assert_eq!(nonce.len(), 16);
     /// ```
-    pub fn get_nonce(&self, a: &SocketAddr) -> Arc<String> {
-        self.nonces.get(a)
+    pub fn get_nonce(&self, addr: &SocketAddr) -> Arc<String> {
+        self.nonces.get(addr)
     }
 
     /// get the password of the node SocketAddr.
@@ -328,18 +328,18 @@ impl Router {
     /// ```
     pub fn get_key_block(
         &self,
-        index: u8,
-        a: &SocketAddr,
-        u: &str,
+        attach: u8,
+        addr: &SocketAddr,
+        username: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let key = self.nodes.get_secret(a);
+        let key = self.nodes.get_secret(addr);
         if key.is_some() {
             return key;
         }
 
-        let pwd = self.observer.auth_block(a, u)?;
-        let key = long_key(u, &pwd, &self.realm);
-        self.nodes.insert(index, a, u, key, &pwd)
+        let pwd = self.observer.auth_block(addr, username)?;
+        let key = long_key(username, &pwd, &self.realm);
+        self.nodes.insert(attach, addr, username, key, &pwd)
     }
 
     /// get the password of the node SocketAddr.
@@ -347,18 +347,18 @@ impl Router {
     /// require remote control service to distribute keys.
     pub async fn get_key(
         &self,
-        index: u8,
-        a: &SocketAddr,
-        u: &str,
+        attach: u8,
+        addr: &SocketAddr,
+        username: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let key = self.nodes.get_secret(a);
+        let key = self.nodes.get_secret(addr);
         if key.is_some() {
             return key;
         }
 
-        let pwd = self.observer.auth(a, u).await?;
-        let key = long_key(u, &pwd, &self.realm);
-        self.nodes.insert(index, a, u, key, &pwd)
+        let pwd = self.observer.auth(addr, username).await?;
+        let key = long_key(username, &pwd, &self.realm);
+        self.nodes.insert(attach, addr, username, key, &pwd)
     }
 
     /// obtain the peer address bound to the current
@@ -397,10 +397,10 @@ impl Router {
     /// ```
     pub fn get_channel_bound(
         &self,
-        a: &SocketAddr,
-        c: u16,
+        addr: &SocketAddr,
+        channel: u16,
     ) -> Option<SocketAddr> {
-        self.channels.get_bound(a, c)
+        self.channels.get_bound(addr, channel)
     }
 
     /// obtain the peer address bound to the current
@@ -437,8 +437,8 @@ impl Router {
     /// assert!(router.bind_port(&addr, port).is_some());
     /// assert_eq!(router.get_port_bound(port), Some(addr));
     /// ```
-    pub fn get_port_bound(&self, p: u16) -> Option<SocketAddr> {
-        self.ports.get(p)
+    pub fn get_port_bound(&self, port: u16) -> Option<SocketAddr> {
+        self.ports.get(port)
     }
 
     /// get node the port.
@@ -478,10 +478,10 @@ impl Router {
     /// ```
     pub fn get_bound_port(
         &self,
-        a: &SocketAddr,
-        p: &SocketAddr,
+        addr: &SocketAddr,
+        peer: &SocketAddr,
     ) -> Option<u16> {
-        self.ports.get_bound(a, p)
+        self.ports.get_bound(addr, peer)
     }
 
     /// alloc a port from State.
@@ -553,9 +553,9 @@ impl Router {
     /// assert_eq!(key.as_slice(), &secret);
     /// assert!(router.alloc_port(&addr).is_some());
     /// ```
-    pub fn alloc_port(&self, a: &SocketAddr) -> Option<u16> {
-        let port = self.ports.alloc(a)?;
-        self.nodes.push_port(a, port);
+    pub fn alloc_port(&self, addr: &SocketAddr) -> Option<u16> {
+        let port = self.ports.alloc(addr)?;
+        self.nodes.push_port(addr, port);
         Some(port)
     }
 
@@ -642,10 +642,10 @@ impl Router {
     /// let port = router.alloc_port(&addr).unwrap();
     /// assert!(router.bind_channel(&addr, port, 0x4000).is_some());
     /// ```
-    pub fn bind_channel(&self, a: &SocketAddr, p: u16, c: u16) -> Option<()> {
-        let source = self.ports.get(p)?;
-        self.channels.insert(a, c, &source)?;
-        self.nodes.push_channel(a, c)?;
+    pub fn bind_channel(&self, addr: &SocketAddr, port: u16, channel: u16) -> Option<()> {
+        let source = self.ports.get(port)?;
+        self.channels.insert(addr, channel, &source)?;
+        self.nodes.push_channel(addr, channel)?;
         Some(())
     }
 
@@ -713,11 +713,11 @@ impl Router {
     ///
     /// assert!(router.get_node(&addr).is_none());
     /// ```
-    pub fn refresh(&self, a: &SocketAddr, delay: u32) {
+    pub fn refresh(&self, addr: &SocketAddr, delay: u32) {
         if delay > 0 {
-            self.nodes.set_lifetime(a, delay);
+            self.nodes.set_lifetime(addr, delay);
         } else {
-            self.remove(a);
+            self.remove(addr);
         }
     }
 
@@ -752,15 +752,15 @@ impl Router {
     /// assert!(router.remove(&addr).is_some());
     /// assert!(router.get_node(&addr).is_none());
     /// ```
-    pub fn remove(&self, a: &SocketAddr) -> Option<()> {
-        let node = self.nodes.remove(a)?;
-        self.ports.remove(a, &node.ports);
+    pub fn remove(&self, addr: &SocketAddr) -> Option<()> {
+        let node = self.nodes.remove(addr)?;
+        self.ports.remove(addr, &node.ports);
         for c in node.channels {
             self.channels.remove(c);
         }
 
-        self.nonces.remove(a);
-        self.observer.abort(a, &node.username);
+        self.nonces.remove(addr);
+        self.observer.abort(addr, &node.username);
         Some(())
     }
 

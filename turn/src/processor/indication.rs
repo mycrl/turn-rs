@@ -118,9 +118,9 @@ pub async fn process<'a, 'b, 'c>(
         Some(p) => p,
     };
 
-    let index = match ctx.env.router.get_node(&addr) {
+    let attach = match ctx.env.router.get_node(&addr) {
         None => return Ok(None),
-        Some(p) => p.index,
+        Some(p) => p.attach,
     };
 
     let method = Method::DataIndication;
@@ -130,6 +130,6 @@ pub async fn process<'a, 'b, 'c>(
     pack.append::<Data>(data);
     pack.flush(None)?;
 
-    let to = Some((addr, index));
+    let to = Some((addr, attach));
     Ok(Some(Response::new(bytes, StunClass::Message, to)))
 }

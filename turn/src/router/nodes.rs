@@ -10,7 +10,7 @@ use std::{
 /// turn node session.
 #[derive(Clone)]
 pub struct Node {
-    pub index: u8,
+    pub attach: u8,
     pub channels: Vec<u16>,
     pub ports: Vec<u16>,
     pub timer: Instant,
@@ -25,7 +25,7 @@ impl Node {
     ///
     /// node session from group number and long key.
     pub fn new(
-        index: u8,
+        attach: u8,
         username: String,
         secret: [u8; 16],
         password: String,
@@ -38,7 +38,7 @@ impl Node {
             lifetime: 600,
             username,
             password,
-            index,
+            attach,
         }
     }
 
@@ -253,14 +253,14 @@ impl Nodes {
     /// ```
     pub fn insert(
         &self,
-        index: u8,
+        attach: u8,
         addr: &SocketAddr,
         username: &str,
         secret: [u8; 16],
         password: &str,
     ) -> Option<Arc<[u8; 16]>> {
         let node = Node::new(
-            index,
+            attach,
             username.to_string(),
             secret,
             password.to_string(),
