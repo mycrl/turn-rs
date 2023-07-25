@@ -54,8 +54,7 @@ impl Router {
     ///     let router = Router::new();
     ///     let (index, mut receiver) = router.get_receiver();
     ///
-    ///     router
-    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3]);
+    ///     router.send(index, StunClass::Channel, &addr, &[1, 2, 3]);
     ///     let ret = receiver.recv().await.unwrap();
     ///     assert_eq!(ret.0, vec![1, 2, 3]);
     ///     assert_eq!(ret.1, StunClass::Channel);
@@ -93,15 +92,14 @@ impl Router {
     ///     let router = Router::new();
     ///     let (index, mut receiver) = router.get_receiver();
     ///
-    ///     router
-    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3]);
+    ///     router.send(index, StunClass::Channel, &addr, &[1, 2, 3]);
     ///     let ret = receiver.recv().await.unwrap();
     ///     assert_eq!(ret.0, vec![1, 2, 3]);
     ///     assert_eq!(ret.1, StunClass::Channel);
     ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
-    pub async fn send(
+    pub fn send(
         &self,
         index: u8,
         class: StunClass,
@@ -138,8 +136,7 @@ impl Router {
     ///     let router = Router::new();
     ///     let (index, mut receiver) = router.get_receiver();
     ///
-    ///     router
-    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3]);
+    ///     router.send(index, StunClass::Channel, &addr, &[1, 2, 3]);
     ///     let ret = receiver.recv().await.unwrap();
     ///     assert_eq!(ret.0, vec![1, 2, 3]);
     ///     assert_eq!(ret.1, StunClass::Channel);

@@ -148,7 +148,7 @@ pub async fn tcp_processor(
                     if let Ok(Some(res)) = processor.process(&chunk, addr).await
                     {
                         if let Some((addr, to)) = res.relay {
-                            router.send(to, res.kind, &addr, res.data).await;
+                            router.send(to, res.kind, &addr, res.data);
                         } else {
                             if writer
                                 .lock()
@@ -228,7 +228,7 @@ pub async fn udp_processor(
                         processor.process(&buf[..size], addr).await
                     {
                         if let Some((addr, to)) = res.relay {
-                            router.send(to, res.kind, &addr, res.data).await;
+                            router.send(to, res.kind, &addr, res.data);
                         } else {
                             if let Err(e) =
                                 socket.send_to(res.data, &addr).await

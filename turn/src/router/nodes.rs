@@ -264,12 +264,8 @@ impl Nodes {
         secret: [u8; 16],
         password: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let node = Node::new(
-            mark,
-            username.to_string(),
-            secret,
-            password.to_string(),
-        );
+        let node =
+            Node::new(mark, username.to_string(), secret, password.to_string());
 
         let pwd = node.get_secret();
         let mut addrs = self.addrs.write();

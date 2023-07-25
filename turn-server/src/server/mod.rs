@@ -46,9 +46,7 @@ impl ProxyObserver for ProxyExt {
         let router = self.service.get_router();
         if let Some(addr) = router.get_port_bound(payload.peer.port()) {
             if let Some(node) = router.get_node(&addr) {
-                self.router
-                    .send(node.mark, class, &addr, &payload.data)
-                    .await;
+                self.router.send(node.mark, class, &addr, &payload.data);
             }
         }
     }
