@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use ahash::AHashMap;
 use bitvec::prelude::*;
 use turn_rs::StunClass;
-use tokio::sync::{
+use parking_lot::{
     RwLock,
     Mutex,
 };
@@ -52,26 +52,24 @@ impl Router {
     /// async fn main() {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///     let router = Router::new();
-    ///     let (index, mut receiver) = router.get_receiver().await;
+    ///     let (index, mut receiver) = router.get_receiver();
     ///
     ///     router
-    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3])
-    ///         .await;
+    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3]);
     ///     let ret = receiver.recv().await.unwrap();
     ///     assert_eq!(ret.0, vec![1, 2, 3]);
     ///     assert_eq!(ret.1, StunClass::Channel);
     ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
-    pub async fn get_receiver(
+    pub fn get_receiver(
         &self,
     ) -> (u8, UnboundedReceiver<(Vec<u8>, StunClass, SocketAddr)>) {
         let index = self
             .alloc_index()
-            .await
             .expect("transport router alloc index failed!");
         let (sender, receiver) = unbounded_channel();
-        self.senders.write().await.insert(index, sender);
+        self.senders.write().insert(index, sender);
         (index, receiver)
     }
 
@@ -93,11 +91,10 @@ impl Router {
     /// async fn main() {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///     let router = Router::new();
-    ///     let (index, mut receiver) = router.get_receiver().await;
+    ///     let (index, mut receiver) = router.get_receiver();
     ///
     ///     router
-    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3])
-    ///         .await;
+    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3]);
     ///     let ret = receiver.recv().await.unwrap();
     ///     assert_eq!(ret.0, vec![1, 2, 3]);
     ///     assert_eq!(ret.1, StunClass::Channel);
@@ -114,7 +111,7 @@ impl Router {
         let mut is_destroy = false;
 
         {
-            if let Some(sender) = self.senders.read().await.get(&index) {
+            if let Some(sender) = self.senders.read().get(&index) {
                 if sender.send((data.to_vec(), class, *addr)).is_err() {
                     is_destroy = true;
                 }
@@ -122,7 +119,7 @@ impl Router {
         }
 
         if is_destroy {
-            self.remove(index).await;
+            self.remove(index);
         }
     }
 
@@ -139,37 +136,36 @@ impl Router {
     /// async fn main() {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///     let router = Router::new();
-    ///     let (index, mut receiver) = router.get_receiver().await;
+    ///     let (index, mut receiver) = router.get_receiver();
     ///
     ///     router
-    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3])
-    ///         .await;
+    ///         .send(index, StunClass::Channel, &addr, &[1, 2, 3]);
     ///     let ret = receiver.recv().await.unwrap();
     ///     assert_eq!(ret.0, vec![1, 2, 3]);
     ///     assert_eq!(ret.1, StunClass::Channel);
     ///     assert_eq!(ret.2, addr);
     ///
-    ///     router.remove(index).await;
+    ///     router.remove(index);
     ///     assert!(receiver.recv().await.is_none());
     /// }
     /// ```
-    pub async fn remove(&self, index: u8) {
-        if let Some(sender) = self.senders.write().await.remove(&index) {
-            self.free_index(index).await;
+    pub fn remove(&self, index: u8) {
+        if let Some(sender) = self.senders.write().remove(&index) {
+            self.free_index(index);
             drop(sender)
         }
     }
 
     /// alloc a index.
-    async fn alloc_index(&self) -> Option<u8> {
-        let mut bits = self.bits.lock().await;
+    fn alloc_index(&self) -> Option<u8> {
+        let mut bits = self.bits.lock();
         let index = bits.first_one().map(|i| i as u8)?;
         bits.set(index as usize, false);
         Some(index)
     }
 
     /// free a index from alloced.
-    async fn free_index(&self, index: u8) {
-        self.bits.lock().await.set(index as usize, true);
+    fn free_index(&self, index: u8) {
+        self.bits.lock().set(index as usize, true);
     }
 }

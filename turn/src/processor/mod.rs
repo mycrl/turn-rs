@@ -30,7 +30,7 @@ use faster_stun::{
 };
 
 pub struct Env {
-    pub attach: u8,
+    pub mark: u8,
     pub realm: Arc<String>,
     pub router: Arc<Router>,
     pub external: Arc<SocketAddr>,
@@ -44,12 +44,11 @@ pub struct Processor {
     env: Arc<Env>,
     decoder: Decoder,
     writer: BytesMut,
-    pub attach: u8,
 }
 
 impl Processor {
     pub(crate) fn new(
-        attach: u8,
+        mark: u8,
         external: SocketAddr,
         realm: String,
         router: Arc<Router>,
@@ -57,7 +56,6 @@ impl Processor {
         proxy: Option<Proxy>,
     ) -> Self {
         Self {
-            attach,
             decoder: Decoder::new(),
             writer: BytesMut::with_capacity(4096),
             env: Arc::new(Env {
@@ -65,7 +63,7 @@ impl Processor {
                 realm: Arc::new(realm),
                 observer,
                 router,
-                attach,
+                mark,
                 proxy,
             }),
         }
@@ -436,7 +434,7 @@ pub(crate) async fn verify_message<'a>(
     let key = ctx
         .env
         .router
-        .get_key(ctx.env.attach, &ctx.addr, username)
+        .get_key(ctx.env.mark, &ctx.addr, username)
         .await?;
 
     reader.integrity(&key).ok()?;

@@ -241,17 +241,17 @@ impl Service {
     ///
     /// Service::new(ObserverTest, "test".to_string());
     /// ```
-    pub async fn new<T>(observer: T, realm: String) -> anyhow::Result<Self>
+    pub fn new<T>(observer: T, realm: String) -> Self
     where
         T: Observer + 'static,
     {
         let observer = Arc::new(observer);
         let router = Router::new(realm.clone(), observer.clone());
-        Ok(Self {
+        Self {
             observer,
             router,
             realm,
-        })
+        }
     }
 
     /// Get processor.
@@ -268,17 +268,16 @@ impl Service {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let service = Service::new(ObserverTest, "test".to_string());
-    /// let processor = service.get_processor(0, addr);
-    /// assert_eq!(processor.index, 0);
+    /// service.get_processor(0, addr, None);
     /// ```
     pub fn get_processor(
         &self,
-        attach: u8,
+        mark: u8,
         external: SocketAddr,
         proxy: Option<Proxy>,
     ) -> Processor {
         Processor::new(
-            attach,
+            mark,
             external,
             self.realm.clone(),
             self.router.clone(),

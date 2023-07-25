@@ -217,7 +217,7 @@ impl Router {
     /// assert_eq!(node.secret.as_slice(), &secret);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.index, 0);
+    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn get_node(&self, addr: &SocketAddr) -> Option<nodes::Node> {
         self.nodes.get_node(addr)
@@ -328,7 +328,7 @@ impl Router {
     /// ```
     pub fn get_key_block(
         &self,
-        attach: u8,
+        mark: u8,
         addr: &SocketAddr,
         username: &str,
     ) -> Option<Arc<[u8; 16]>> {
@@ -339,7 +339,7 @@ impl Router {
 
         let pwd = self.observer.auth_block(addr, username)?;
         let key = long_key(username, &pwd, &self.realm);
-        self.nodes.insert(attach, addr, username, key, &pwd)
+        self.nodes.insert(mark, addr, username, key, &pwd)
     }
 
     /// get the password of the node SocketAddr.
@@ -347,7 +347,7 @@ impl Router {
     /// require remote control service to distribute keys.
     pub async fn get_key(
         &self,
-        attach: u8,
+        mark: u8,
         addr: &SocketAddr,
         username: &str,
     ) -> Option<Arc<[u8; 16]>> {
@@ -358,7 +358,7 @@ impl Router {
 
         let pwd = self.observer.auth(addr, username).await?;
         let key = long_key(username, &pwd, &self.realm);
-        self.nodes.insert(attach, addr, username, key, &pwd)
+        self.nodes.insert(mark, addr, username, key, &pwd)
     }
 
     /// obtain the peer address bound to the current
@@ -594,7 +594,7 @@ impl Router {
     /// assert_eq!(key.as_slice(), &secret);
     ///
     /// let port = router.alloc_port(&addr).unwrap();
-    /// assert!(router.bind_port(&addr, port, Some(0)).is_some());
+    /// assert!(router.bind_port(&addr, port).is_some());
     /// ```
     pub fn bind_port(&self, addr: &SocketAddr, port: u16) -> Option<()> {
         self.ports.bound(addr, port)

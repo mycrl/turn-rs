@@ -35,10 +35,10 @@ use super::{
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
 pub fn process(ctx: Context, data: ChannelData<'_>) -> Option<Response<'_>> {
     let addr = ctx.env.router.get_channel_bound(&ctx.addr, data.number)?;
-    let attach = ctx.env.router.get_node(&addr)?.attach;
+    let mark = ctx.env.router.get_node(&addr)?.mark;
     Some(Response::new(
         data.buf,
         StunClass::Channel,
-        Some((addr, attach)),
+        Some((addr, mark)),
     ))
 }

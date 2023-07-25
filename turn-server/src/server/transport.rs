@@ -52,7 +52,7 @@ pub async fn tcp_processor(
     while let Ok((socket, addr)) = listen.accept().await {
         let actor = monitor.get_actor();
         let router = router.clone();
-        let (index, mut receiver) = router.get_receiver().await;
+        let (index, mut receiver) = router.get_receiver();
         let mut processor =
             service.get_processor(index, interface.external, proxy.clone());
 
@@ -168,7 +168,7 @@ pub async fn tcp_processor(
                 }
             }
 
-            router.remove(index).await;
+            router.remove(index);
             log::info!(
                 "tcp socket disconnect: addr={:?}, interface={:?}",
                 addr,
@@ -195,7 +195,7 @@ pub async fn udp_processor(
     let local_addr = socket
         .local_addr()
         .expect("get udp socket local addr failed!");
-    let (index, mut receiver) = router.get_receiver().await;
+    let (index, mut receiver) = router.get_receiver();
 
     for _ in 0..num_cpus::get() {
         let actor = monitor.get_actor();
@@ -245,9 +245,6 @@ pub async fn udp_processor(
                     }
                 }
             }
-
-            router.remove(processor.attach).await;
-            log::error!("udp server close: interface={:?}", local_addr,);
         });
     }
 
@@ -262,4 +259,7 @@ pub async fn udp_processor(
             actor.send(addr, Stats::SendPkts(1));
         }
     }
+
+    router.remove(index);
+    log::error!("udp server close: interface={:?}", local_addr,);
 }

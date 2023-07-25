@@ -108,7 +108,7 @@ impl PortPools {
     ///
     /// let mut pools = PortPools::new();
     /// assert_eq!(pools.len(), 0);
-    /// assert_eq!(pools.empty(), true);
+    /// assert_eq!(pools.is_empty(), true);
     /// ```
     pub fn is_empty(&self) -> bool {
         self.allocated == 0
@@ -412,10 +412,10 @@ impl Ports {
     /// let pools = Ports::new();
     ///
     /// let port = pools.alloc(&local).unwrap();
-    /// assert!(pools.bound(&local, port, Some(0)).is_some());
-    /// assert!(pools.bound(&peer, port, Some(0)).is_some());
+    /// assert!(pools.bound(&local, port).is_some());
+    /// assert!(pools.bound(&peer, port).is_some());
     ///
-    /// assert_eq!(pools.get_bound(&local, &peer), Some((port, Some(0))));
+    /// assert_eq!(pools.get_bound(&local, &peer), Some(port));
     /// ```
     pub fn get_bound(&self, a: &SocketAddr, p: &SocketAddr) -> Option<u16> {
         self.bounds.read().get(p)?.get(a).cloned()
@@ -453,7 +453,7 @@ impl Ports {
     /// let pools = Ports::new();
     /// let port = pools.alloc(&addr).unwrap();
     ///
-    /// assert!(pools.bound(&addr, port, Some(0)).is_some());
+    /// assert!(pools.bound(&addr, port).is_some());
     /// ```
     pub fn bound(&self, addr: &SocketAddr, port: u16) -> Option<()> {
         let peer = *self.map.read().get(&port)?;
@@ -479,7 +479,7 @@ impl Ports {
     /// let pools = Ports::new();
     /// let port = pools.alloc(&addr).unwrap();
     ///
-    /// assert!(pools.bound(&addr, port, Some(0)).is_some());
+    /// assert!(pools.bound(&addr, port).is_some());
     /// assert!(pools.remove(&addr, &vec![port]).is_some());
     /// ```
     pub fn remove(&self, a: &SocketAddr, ports: &[u16]) -> Option<()> {

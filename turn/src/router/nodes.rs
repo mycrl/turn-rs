@@ -15,7 +15,7 @@ use std::{
 /// turn node session.
 #[derive(Clone)]
 pub struct Node {
-    pub attach: u8,
+    pub mark: u8,
     pub channels: Vec<u16>,
     pub ports: Vec<u16>,
     pub timer: Instant,
@@ -30,7 +30,7 @@ impl Node {
     ///
     /// node session from group number and long key.
     pub fn new(
-        attach: u8,
+        mark: u8,
         username: String,
         secret: [u8; 16],
         password: String,
@@ -43,7 +43,7 @@ impl Node {
             lifetime: 600,
             username,
             password,
-            attach,
+            mark,
         }
     }
 
@@ -209,7 +209,7 @@ impl Nodes {
     /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
     /// assert_eq!(node.channels.len(), 0);
     /// assert_eq!(node.ports.len(), 0);
-    /// assert_eq!(node.index, 0);
+    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn get_node(&self, a: &SocketAddr) -> Option<Node> {
         self.map.read().get(a).cloned()
@@ -254,18 +254,18 @@ impl Nodes {
     /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
     /// assert_eq!(node.channels.len(), 0);
     /// assert_eq!(node.ports.len(), 0);
-    /// assert_eq!(node.index, 0);
+    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn insert(
         &self,
-        attach: u8,
+        mark: u8,
         addr: &SocketAddr,
         username: &str,
         secret: [u8; 16],
         password: &str,
     ) -> Option<Arc<[u8; 16]>> {
         let node = Node::new(
-            attach,
+            mark,
             username.to_string(),
             secret,
             password.to_string(),
@@ -303,7 +303,7 @@ impl Nodes {
     /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![60000]);
-    /// assert_eq!(node.index, 0);
+    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn push_port(&self, a: &SocketAddr, port: u16) -> Option<()> {
         self.map.write().get_mut(a)?.push_port(port);
@@ -331,7 +331,7 @@ impl Nodes {
     /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
     /// assert_eq!(node.channels, vec![0x4000]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.index, 0);
+    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn push_channel(&self, a: &SocketAddr, channel: u16) -> Option<()> {
         self.map.write().get_mut(a)?.push_channel(channel);
@@ -359,7 +359,7 @@ impl Nodes {
     /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.index, 0);
+    /// assert_eq!(node.mark, 0);
     /// assert!(!node.is_death());
     ///
     /// assert!(nodes.set_lifetime(&addr, 0).is_some());
@@ -370,7 +370,7 @@ impl Nodes {
     /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.index, 0);
+    /// assert_eq!(node.mark, 0);
     /// assert!(node.is_death());
     /// ```
     pub fn set_lifetime(&self, a: &SocketAddr, delay: u32) -> Option<()> {
@@ -397,7 +397,7 @@ impl Nodes {
     /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.index, 0);
+    /// assert_eq!(node.mark, 0);
     ///
     /// assert!(nodes.remove(&addr).is_some());
     /// assert!(nodes.get_node(&addr).is_none());
