@@ -1,9 +1,6 @@
-use std::convert::TryFrom;
 use crate::util;
-use anyhow::{
-    Result,
-    ensure,
-};
+use anyhow::{ensure, Result};
+use std::convert::TryFrom;
 
 /// The ChannelData Message
 ///

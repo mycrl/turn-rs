@@ -1,28 +1,10 @@
+use crate::{StunClass, SOFTWARE};
+use super::{Context, Response};
+
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::{
-    Kind,
-    Method,
-    MessageReader,
-    MessageWriter,
-};
-
-use crate::{
-    SOFTWARE,
-    StunClass,
-};
-
-use super::{
-    Context,
-    Response,
-};
-
-use faster_stun::attribute::{
-    XorMappedAddress,
-    MappedAddress,
-    ResponseOrigin,
-    Software,
-};
+use faster_stun::{Kind, MessageReader, MessageWriter, Method};
+use faster_stun::attribute::{MappedAddress, ResponseOrigin, Software, XorMappedAddress};
 
 /// process binding request
 ///

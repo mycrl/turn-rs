@@ -1,25 +1,15 @@
-pub mod config;
-pub mod server;
-pub mod router;
 pub mod api;
+pub mod config;
+pub mod router;
+pub mod server;
 
+use std::{net::SocketAddr, sync::Arc};
+
+use api::{controller::Controller, hooks};
 use async_trait::async_trait;
 use config::Config;
 use server::Monitor;
-use turn_rs::{
-    Service,
-    Observer,
-};
-
-use api::{
-    controller::Controller,
-    hooks,
-};
-
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
+use turn_rs::{Observer, Service};
 
 struct Events {
     hooks: hooks::Hooks,

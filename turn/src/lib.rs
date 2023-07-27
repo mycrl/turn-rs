@@ -5,12 +5,10 @@ pub use processor::Processor;
 pub use router::nodes::Node;
 pub use router::Router;
 
+use std::{net::SocketAddr, sync::Arc};
+
 use async_trait::async_trait;
 use turn_proxy::Proxy;
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StunClass {

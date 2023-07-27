@@ -1,21 +1,8 @@
+use anyhow::{anyhow, ensure, Result};
+use bytes::{BufMut, BytesMut};
+
 use std::convert::TryInto;
-use bytes::{
-    BufMut,
-    BytesMut,
-};
-
-use anyhow::{
-    anyhow,
-    ensure,
-    Result,
-};
-
-use std::net::{
-    IpAddr,
-    Ipv4Addr,
-    Ipv6Addr,
-    SocketAddr,
-};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 pub const FAMILY_IPV4: u8 = 0x01;
 pub const FAMILY_IPV6: u8 = 0x02;

@@ -2,17 +2,9 @@ use std::net::SocketAddr;
 
 use ahash::AHashMap;
 use bitvec::prelude::*;
+use parking_lot::{Mutex, RwLock};
 use turn_rs::StunClass;
-use parking_lot::{
-    RwLock,
-    Mutex,
-};
-
-use tokio::sync::mpsc::{
-    unbounded_channel,
-    UnboundedReceiver,
-    UnboundedSender,
-};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 type Receiver = UnboundedSender<(Vec<u8>, StunClass, SocketAddr)>;
 

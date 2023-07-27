@@ -1,9 +1,6 @@
-use faster_stun::ChannelData;
+use super::{Context, Response};
 use crate::StunClass;
-use super::{
-    Context,
-    Response,
-};
+use faster_stun::ChannelData;
 
 /// process channel data
 ///

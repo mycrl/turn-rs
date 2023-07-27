@@ -1,40 +1,15 @@
 mod config;
 
-use std::sync::Arc;
 use std::io::ErrorKind::ConnectionReset;
+use std::sync::Arc;
 
-use bytes::{
-    BytesMut,
-    Bytes,
-};
-
-use turn_proxy::rpc::{
-    transport::Protocol,
-    ProxyStateNotifyNode,
-    Request,
-};
-
+use bytes::{Bytes, BytesMut};
+use turn_proxy::rpc::{transport::Protocol, ProxyStateNotifyNode, Request};
 use tokio::io::*;
-use tokio::time::{
-    Duration,
-    sleep,
-};
-
-use tokio::net::{
-    TcpStream,
-    UdpSocket,
-};
-
-use tokio::sync::{
-    Mutex,
-    RwLock,
-};
-
-use tokio::sync::mpsc::{
-    UnboundedSender,
-    UnboundedReceiver,
-    unbounded_channel,
-};
+use tokio::time::{sleep, Duration};
+use tokio::net::{TcpStream, UdpSocket};
+use tokio::sync::{Mutex, RwLock};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 struct Channel {
     receiver: Mutex<UnboundedReceiver<Bytes>>,

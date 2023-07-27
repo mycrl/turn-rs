@@ -6,28 +6,14 @@ pub mod create_permission;
 pub mod indication;
 pub mod refresh;
 
+use crate::{router::Router, Observer, StunClass};
+
+use std::{net::SocketAddr, sync::Arc};
+
 use anyhow::Result;
 use bytes::BytesMut;
+use faster_stun::{attribute::UserName, Decoder, Kind, MessageReader as Message, Method, Payload};
 use turn_proxy::Proxy;
-use crate::{
-    router::Router,
-    Observer,
-    StunClass,
-};
-
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
-
-use faster_stun::{
-    Kind,
-    Method,
-    Decoder,
-    Payload,
-    MessageReader as Message,
-    attribute::UserName,
-};
 
 pub struct Env {
     pub mark: u8,

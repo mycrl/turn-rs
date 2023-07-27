@@ -1,15 +1,8 @@
-use turn_proxy::ProxyOptions;
-use clap::Parser;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use std::{collections::HashMap, fs::read_to_string, net::SocketAddr};
 
-use std::{
-    collections::HashMap,
-    fs::read_to_string,
-    net::SocketAddr,
-};
+use clap::Parser;
+use serde::{Deserialize, Serialize};
+use turn_proxy::ProxyOptions;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]

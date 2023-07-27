@@ -1,16 +1,6 @@
 use criterion::*;
-use tests::{
-    create_turn,
-    create_client,
-    allocate_request,
-    create_permission_request,
-    indication,
-};
-
-use tokio::{
-    runtime::Runtime,
-    net::UdpSocket,
-};
+use tests::{allocate_request, create_client, create_permission_request, create_turn, indication};
+use tokio::{net::UdpSocket, runtime::Runtime};
 
 fn create_turn_block(rt: &Runtime) {
     rt.block_on(async { create_turn().await })

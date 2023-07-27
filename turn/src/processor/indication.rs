@@ -1,27 +1,13 @@
 use anyhow::Result;
 use bytes::BytesMut;
+use faster_stun::{MessageReader, MessageWriter, Method};
+use faster_stun::attribute::{Data, XorPeerAddress};
 use turn_proxy::rpc::RelayPayloadKind;
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
 
+use std::{net::SocketAddr, sync::Arc};
+
+use super::{Context, Response};
 use crate::StunClass;
-use super::{
-    Context,
-    Response,
-};
-
-use faster_stun::{
-    MessageReader,
-    MessageWriter,
-    Method,
-};
-
-use faster_stun::attribute::{
-    XorPeerAddress,
-    Data,
-};
 
 #[inline(always)]
 async fn check_addr(ctx: &Context, peer: &SocketAddr, data: &[u8]) -> bool {

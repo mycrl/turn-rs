@@ -1,23 +1,7 @@
-use md5::{
-    Md5,
-    Digest,
-};
-
-use crc::{
-    CRC_32_ISO_HDLC,
-    Crc,
-};
-
-use hmac::{
-    digest::CtOutput,
-    Hmac,
-    Mac,
-};
-
-use anyhow::{
-    anyhow,
-    Result,
-};
+use anyhow::{anyhow, Result};
+use crc::{Crc, CRC_32_ISO_HDLC};
+use hmac::{digest::CtOutput, Hmac, Mac};
+use md5::{Digest, Md5};
 
 /// compute padding size.
 ///
@@ -98,7 +82,7 @@ pub fn hmac_sha1(key: &[u8], source: Vec<&[u8]>) -> Result<CtOutput<Hmac<sha1::S
             }
 
             Ok(mac.finalize())
-        },
+        }
     }
 }
 

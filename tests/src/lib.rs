@@ -1,49 +1,21 @@
 use bytes::BytesMut;
 use faster_stun::attribute::{
-    XorMappedAddress,
-    MappedAddress,
-    ResponseOrigin,
-    ReqeestedTransport,
-    Transport,
-    ErrorCode,
-    ErrKind,
-    Realm,
-    UserName,
-    XorRelayedAddress,
-    Lifetime,
-    XorPeerAddress,
-    ChannelNumber,
-    Data,
+    ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Realm, ReqeestedTransport,
+    ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress, XorRelayedAddress,
 };
 
-use faster_stun::{
-    MessageWriter,
-    Decoder,
-    Payload,
-    Method,
-    Kind,
-    MessageReader,
-};
-
+use faster_stun::{Decoder, Kind, MessageReader, MessageWriter, Method, Payload};
 use once_cell::sync::Lazy;
 use rand::seq::SliceRandom;
 use tokio::net::UdpSocket;
 use turn_server::{
-    config::{
-        *,
-        self,
-    },
+    config::{self, *},
     server_main,
 };
 
-use std::net::{
-    IpAddr,
-    SocketAddr,
-    Ipv4Addr,
-};
-
-use std::sync::Arc;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// global static var
 
@@ -55,7 +27,6 @@ pub const REALM: &'static str = "local-test";
 
 static mut RECV_BUF: [u8; 1500] = [0u8; 1500];
 static mut SEND_BUF: Lazy<BytesMut> = Lazy::new(|| BytesMut::with_capacity(2048));
-
 static TOKEN_BUF: Lazy<[u8; 12]> = Lazy::new(|| {
     let mut rng = rand::thread_rng();
     let mut token = [0u8; 12];

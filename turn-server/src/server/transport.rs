@@ -1,33 +1,14 @@
-use std::{
-    io::ErrorKind::ConnectionReset,
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{io::ErrorKind::ConnectionReset, net::SocketAddr, sync::Arc};
 
 use super::Monitor;
-use crate::{
-    server::monitor::Stats,
-    router::Router,
-};
+use crate::{router::Router, server::monitor::Stats};
 
-use faster_stun::Decoder;
 use bytes::BytesMut;
+use faster_stun::Decoder;
+use tokio::{io::AsyncReadExt, io::AsyncWriteExt, sync::Mutex};
 use turn_proxy::Proxy;
-use tokio::{
-    io::AsyncReadExt,
-    io::AsyncWriteExt,
-    sync::Mutex,
-};
-
-use turn_rs::{
-    Service,
-    StunClass,
-};
-
-use tokio::net::{
-    UdpSocket,
-    TcpListener,
-};
+use turn_rs::{Service, StunClass};
+use tokio::net::{TcpListener, UdpSocket};
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
 
@@ -131,7 +112,7 @@ pub async fn tcp_processor(
                         Ok(s) => {
                             actor.send(addr, Stats::ReceivedPkts(1));
                             s
-                        },
+                        }
                     };
 
                     let chunk = buf.split_to(size);

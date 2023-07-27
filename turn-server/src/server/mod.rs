@@ -1,33 +1,18 @@
-pub mod transport;
 pub mod monitor;
+pub mod transport;
 
 pub use self::monitor::*;
 
+use super::config::{Config, Transport};
 use super::router::Router;
-use super::config::{
-    Transport,
-    Config,
-};
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use turn_proxy::rpc::RelayPayloadKind;
-use turn_proxy::{
-    Proxy,
-    ProxyObserver,
-    rpc::RelayPayload,
-};
-
-use turn_rs::{
-    Service,
-    StunClass,
-};
-
-use tokio::net::{
-    TcpListener,
-    UdpSocket,
-};
+use turn_proxy::{rpc::RelayPayload, Proxy, ProxyObserver};
+use turn_rs::{Service, StunClass};
+use tokio::net::{TcpListener, UdpSocket};
 
 #[derive(Clone)]
 struct ProxyExt {
@@ -94,7 +79,7 @@ pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> an
                     monitor.clone(),
                     proxy.clone(),
                 ));
-            },
+            }
             Transport::TCP => {
                 tokio::spawn(transport::tcp_processor(
                     TcpListener::bind(i.bind).await?,
@@ -104,7 +89,7 @@ pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> an
                     monitor.clone(),
                     proxy.clone(),
                 ));
-            },
+            }
         }
 
         log::info!(

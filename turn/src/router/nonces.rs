@@ -1,17 +1,10 @@
 use super::ports::capacity;
-use parking_lot::RwLock;
-use ahash::AHashMap;
-use std::{
-    net::SocketAddr,
-    time::Instant,
-    sync::Arc,
-};
 
-use rand::{
-    distributions::Alphanumeric,
-    thread_rng,
-    Rng,
-};
+use std::{net::SocketAddr, sync::Arc, time::Instant};
+
+use ahash::AHashMap;
+use parking_lot::RwLock;
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
 /// Session nonce.
 ///

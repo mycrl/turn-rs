@@ -1,25 +1,10 @@
+use anyhow::{anyhow, ensure, Result};
+use bytes::{BufMut, BytesMut};
+
 use std::convert::TryFrom;
-use anyhow::{
-    Result,
-    ensure,
-    anyhow,
-};
 
-use super::attribute::{
-    MessageIntegrity,
-    AttrKind,
-    Property,
-};
-
-use super::{
-    Method,
-    util,
-};
-
-use bytes::{
-    BytesMut,
-    BufMut,
-};
+use super::attribute::{AttrKind, MessageIntegrity, Property};
+use super::{util, Method};
 
 const ZOER_BUF: [u8; 10] = [0u8; 10];
 const COOKIE: [u8; 4] = 0x2112A442u32.to_be_bytes();

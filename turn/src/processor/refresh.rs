@@ -1,26 +1,10 @@
-use bytes::BytesMut;
-use anyhow::Result;
+use super::{verify_message, Context, Response};
 use crate::StunClass;
-use super::{
-    Context,
-    Response,
-    verify_message,
-};
 
-use faster_stun::{
-    Kind,
-    Method,
-    MessageReader,
-    MessageWriter,
-};
-
-use faster_stun::attribute::{
-    ErrKind::Unauthorized,
-    ErrKind,
-    Error,
-    ErrorCode,
-    Lifetime,
-};
+use anyhow::Result;
+use bytes::BytesMut;
+use faster_stun::{Kind, MessageReader, MessageWriter, Method};
+use faster_stun::attribute::{ErrKind, ErrKind::Unauthorized, Error, ErrorCode, Lifetime};
 
 /// return refresh error response
 #[inline(always)]

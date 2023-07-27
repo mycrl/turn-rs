@@ -45,15 +45,12 @@
 //! More information on STUN Usages can be found in [Section 13].
 
 pub mod attribute;
-pub mod message;
 pub mod channel;
+pub mod message;
 pub mod util;
 
+use anyhow::{anyhow, Result};
 use attribute::*;
-use anyhow::{
-    Result,
-    anyhow,
-};
 
 pub use channel::ChannelData;
 pub use message::*;

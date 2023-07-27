@@ -1,30 +1,11 @@
 use std::io::IoSlice;
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{net::SocketAddr, sync::Arc};
 
-use anyhow::{
-    Result,
-    anyhow,
-};
-
-use bytes::{
-    BytesMut,
-    Bytes,
-};
-
+use anyhow::{anyhow, Result};
+use bytes::{Bytes, BytesMut};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
-use tokio::sync::mpsc::{
-    UnboundedSender,
-    UnboundedReceiver,
-    unbounded_channel,
-};
-
-use tokio::{
-    net::*,
-    io::*,
-};
+use tokio::{io::*, net::*};
 
 pub struct Protocol;
 
@@ -333,6 +314,6 @@ fn transport_udp_err<T>(ret: Result<T, std::io::Error>) -> Result<Option<T>> {
             } else {
                 Err(e.into())
             }
-        },
+        }
     }
 }

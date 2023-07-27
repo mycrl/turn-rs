@@ -2,26 +2,16 @@ pub mod address;
 pub mod error;
 
 use crate::util;
+use bytes::{BufMut, BytesMut};
 use num_enum::TryFromPrimitive;
-use std::{
-    convert::TryFrom,
-    net::SocketAddr,
-};
 
-use bytes::{
-    BytesMut,
-    BufMut,
-};
+use std::{convert::TryFrom, net::SocketAddr};
 
 pub use address::Addr;
-pub use error::{
-    Kind as ErrKind,
-    Error,
-};
+pub use error::{Error, Kind as ErrKind};
 
 #[repr(u8)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq)]
+#[derive(TryFromPrimitive, PartialEq, Eq)]
 pub enum Transport {
     TCP = 0x06,
     UDP = 0x11,
@@ -96,8 +86,7 @@ pub enum Transport {
 /// 0x8002: PASSWORD-ALGORITHMS
 /// 0x8003: ALTERNATE-DOMAIN
 #[repr(u16)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(TryFromPrimitive, PartialEq, Eq, Hash, Debug)]
 pub enum AttrKind {
     UserName = 0x0006,
     Data = 0x0013,

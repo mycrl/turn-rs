@@ -1,23 +1,13 @@
 pub mod transport;
 
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
-use serde::{
-    Deserialize,
-    Serialize,
-};
 
-use self::transport::{
-    OrderTransport,
-    Transport,
-    TransportAddr,
-};
+use self::transport::{OrderTransport, Transport, TransportAddr};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub struct ProxyStateNotifyNode {
@@ -76,8 +66,7 @@ impl From<Request> for Vec<u8> {
     }
 }
 
-#[derive(Deserialize, Serialize)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RelayPayloadKind {
     Message,
     Channel,

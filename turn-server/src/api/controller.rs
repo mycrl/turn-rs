@@ -1,25 +1,11 @@
-use tokio::time::Instant;
+use std::{net::SocketAddr, sync::Arc};
+
+use crate::{config::*, server::*};
+
+use axum::{extract::Query, extract::State, Json};
 use serde::*;
-use axum::{
-    extract::Query,
-    extract::State,
-    Json,
-};
-
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
-
-use crate::{
-    config::*,
-    server::*,
-};
-
-use turn_rs::{
-    Service,
-    Node,
-};
+use tokio::time::Instant;
+use turn_rs::{Node, Service};
 
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(

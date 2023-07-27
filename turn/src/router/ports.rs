@@ -1,18 +1,8 @@
 use ahash::AHashMap;
-use rand::{
-    thread_rng,
-    Rng,
-};
+use rand::{thread_rng, Rng};
+use parking_lot::{Mutex, RwLock};
 
-use parking_lot::{
-    RwLock,
-    Mutex,
-};
-
-use std::{
-    net::SocketAddr,
-    ops::Range,
-};
+use std::{net::SocketAddr, ops::Range};
 
 /// Bit Flag
 #[derive(PartialEq)]

@@ -1,13 +1,7 @@
-use std::{
-    fs::read_to_string,
-    net::SocketAddr,
-};
+use std::{fs::read_to_string, net::SocketAddr};
 
 use clap::Parser;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Net {

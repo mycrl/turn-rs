@@ -3,24 +3,16 @@ pub mod nodes;
 pub mod nonces;
 pub mod ports;
 
-use crate::Observer;
-use self::nodes::Nodes;
-use self::ports::Ports;
-use self::nonces::Nonces;
 use self::channels::Channels;
+use self::nodes::Nodes;
+use self::nonces::Nonces;
+use self::ports::Ports;
+use crate::Observer;
 
 use faster_stun::util::long_key;
-use std::sync::atomic::{
-    AtomicBool,
-    Ordering,
-};
 
-use std::{
-    time::Duration,
-    net::SocketAddr,
-    sync::Arc,
-    thread,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
 /// Router State Tree.
 ///

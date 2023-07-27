@@ -1,30 +1,14 @@
 pub mod rpc;
 
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
-use std::net::{
-    SocketAddr,
-    IpAddr,
-};
 
 use anyhow::Result;
 use async_trait::async_trait;
 use parking_lot::RwLock;
-use rpc::{
-    RelayPayload,
-    RelayPayloadKind,
-};
-use rpc::{
-    Rpc,
-    Request,
-    RpcObserver,
-    ProxyStateNotifyNode,
-    transport::TransportAddr,
-};
-
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use rpc::{transport::TransportAddr, ProxyStateNotifyNode, Request, Rpc, RpcObserver};
+use rpc::{RelayPayload, RelayPayloadKind};
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ProxyOptions {
@@ -159,7 +143,7 @@ impl RpcObserver for RpcObserverExt {
             Request::ProxyStateNotify(nodes) => {
                 log::info!("received state sync from proxy: state={:?}", nodes);
                 *self.nodes.write() = nodes.into_iter().map(Arc::new).collect()
-            },
+            }
         }
     }
 

@@ -1,34 +1,11 @@
+use super::{verify_message, Context, Response};
+use crate::StunClass;
+
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::StunClass;
-use super::{
-    Context,
-    Response,
-    verify_message,
-};
-
-use faster_stun::{
-    Kind,
-    Method,
-    MessageReader,
-    MessageWriter,
-};
-
-use faster_stun::attribute::{
-    ErrKind,
-    Error,
-    ErrorCode,
-    Realm,
-    ChannelNumber,
-    XorPeerAddress,
-};
-
-use faster_stun::attribute::ErrKind::{
-    BadRequest,
-    Unauthorized,
-    InsufficientCapacity,
-    Forbidden,
-};
+use faster_stun::{Kind, MessageReader, MessageWriter, Method};
+use faster_stun::attribute::{ChannelNumber, ErrKind, Error, ErrorCode, Realm, XorPeerAddress};
+use faster_stun::attribute::ErrKind::{BadRequest, Forbidden, InsufficientCapacity, Unauthorized};
 
 /// return channel binding error response
 #[inline(always)]

@@ -1,15 +1,10 @@
 use super::ports::capacity;
-use parking_lot::RwLock;
-use ahash::AHashMap;
-use std::{
-    net::SocketAddr,
-    time::Instant,
-};
 
-use std::iter::{
-    IntoIterator,
-    Iterator,
-};
+use ahash::AHashMap;
+use parking_lot::RwLock;
+
+use std::{net::SocketAddr, time::Instant};
+use std::iter::{IntoIterator, Iterator};
 
 /// channels iterator.
 pub struct Iter {

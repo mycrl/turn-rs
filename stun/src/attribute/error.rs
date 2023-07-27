@@ -1,20 +1,11 @@
-use num_enum::TryFromPrimitive;
-use anyhow::ensure;
 use crate::util;
-use bytes::{
-    BufMut,
-    BytesMut,
-};
 
-use std::cmp::{
-    Eq,
-    PartialEq,
-};
+use anyhow::ensure;
+use bytes::{BufMut, BytesMut};
+use num_enum::TryFromPrimitive;
 
-use std::convert::{
-    Into,
-    TryFrom,
-};
+use std::cmp::{Eq, PartialEq};
+use std::convert::{Into, TryFrom};
 
 /// The following error codes, along with their recommended reason
 /// phrases, are defined:
@@ -57,9 +48,7 @@ use std::convert::{
 /// 500  Server Error: The server has suffered a temporary error.  The
 ///      client should try again.
 #[repr(u16)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq)]
-#[derive(Copy, Clone, Debug)]
+#[derive(TryFromPrimitive, PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Kind {
     TryAlternate = 0x0300,
     BadRequest = 0x0400,

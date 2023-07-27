@@ -1,13 +1,9 @@
-use ahash::AHashMap;
-use serde::Serialize;
-use parking_lot::Mutex;
-use tokio::sync::mpsc::*;
+use std::{collections::BTreeSet, net::SocketAddr, sync::Arc};
 
-use std::{
-    collections::BTreeSet,
-    net::SocketAddr,
-    sync::Arc,
-};
+use ahash::AHashMap;
+use parking_lot::Mutex;
+use serde::Serialize;
+use tokio::sync::mpsc::*;
 
 /// The type of information passed in the monitoring channel
 #[derive(Debug, Clone)]
@@ -29,8 +25,7 @@ impl Add for u64 {
 }
 
 /// Worker independent monitoring statistics
-#[derive(PartialEq, Eq, Clone, Copy)]
-#[derive(Debug, Default, Serialize)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Default, Serialize)]
 pub struct Store {
     pub received_bytes: u64,
     pub send_bytes: u64,
