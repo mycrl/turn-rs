@@ -12,7 +12,8 @@ use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::{attribute::UserName, Decoder, Kind, MessageReader as Message, Method, Payload};
+use faster_stun::*;
+use faster_stun::attribute::*;
 use turn_proxy::Proxy;
 
 pub struct Env {
@@ -321,7 +322,7 @@ impl Processor {
     #[inline(always)]
     async fn message_process<'c>(
         ctx: Context,
-        m: Message<'_, '_>,
+        m: MessageReader<'_, '_>,
         w: &'c mut BytesMut,
     ) -> Result<Option<Response<'c>>> {
         match m.method {
@@ -400,7 +401,7 @@ pub struct Context {
 /// FINGERPRINT, appear after MESSAGE-INTEGRITY.
 pub(crate) async fn verify_message<'a>(
     ctx: &Context,
-    reader: &Message<'a, '_>,
+    reader: &MessageReader<'a, '_>,
 ) -> Option<(&'a str, Arc<[u8; 16]>)> {
     let username = reader.get::<UserName>()?;
     let key = ctx

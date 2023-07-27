@@ -3,8 +3,9 @@ use crate::StunClass;
 
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::attribute::{ErrKind, ErrKind::Unauthorized, Error, ErrorCode, Lifetime};
-use faster_stun::{Kind, MessageReader, MessageWriter, Method};
+use faster_stun::attribute::ErrKind::*;
+use faster_stun::attribute::*;
+use faster_stun::*;
 
 /// return refresh error response
 #[inline(always)]

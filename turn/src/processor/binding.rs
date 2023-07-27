@@ -3,8 +3,8 @@ use crate::{StunClass, SOFTWARE};
 
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::attribute::{MappedAddress, ResponseOrigin, Software, XorMappedAddress};
-use faster_stun::{Kind, MessageReader, MessageWriter, Method};
+use faster_stun::attribute::*;
+use faster_stun::*;
 
 /// process binding request
 ///

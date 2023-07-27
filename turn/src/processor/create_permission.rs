@@ -5,9 +5,9 @@ use std::net::SocketAddr;
 
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::attribute::ErrKind::{BadRequest, Forbidden, Unauthorized};
-use faster_stun::attribute::{ErrKind, Error, ErrorCode, Realm, Software, XorPeerAddress};
-use faster_stun::{Kind, MessageReader, MessageWriter, Method};
+use faster_stun::attribute::ErrKind::*;
+use faster_stun::attribute::*;
+use faster_stun::*;
 
 /// return create permission error response
 #[inline(always)]
