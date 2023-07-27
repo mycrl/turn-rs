@@ -7,7 +7,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 use parking_lot::RwLock;
 use rpc::{transport::TransportAddr, ProxyStateNotifyNode, Request, Rpc, RpcObserver};
-use rpc::{RelayPayload, RelayPayloadExpend, RelayPayloadKind};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -18,7 +17,7 @@ pub struct ProxyOptions {
 
 #[async_trait]
 pub trait ProxyObserver: Send + Sync {
-    async fn relay(&self, payload: RelayPayload);
+    async fn relay(&self, payload: &[u8]);
 }
 
 #[derive(Clone)]
@@ -108,27 +107,8 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn relay(
-        &self,
-        node: &ProxyStateNotifyNode,
-        from: SocketAddr,
-        peer: SocketAddr,
-        kind: RelayPayloadKind,
-        data: &[u8],
-        expend: RelayPayloadExpend,
-    ) -> Result<()> {
-        self.rpc
-            .send(
-                RelayPayload {
-                    data: data.to_vec(),
-                    expend,
-                    kind,
-                    from,
-                    peer,
-                },
-                node.index,
-            )
-            .await?;
+    pub async fn relay(&self, node: &ProxyStateNotifyNode, data: &[u8]) -> Result<()> {
+        self.rpc.send(data, node.index).await?;
         Ok(())
     }
 }
@@ -149,7 +129,7 @@ impl RpcObserver for RpcObserverExt {
         }
     }
 
-    async fn on_relay(&self, payload: RelayPayload) {
+    async fn on_relay(&self, payload: &[u8]) {
         self.observer.relay(payload).await;
     }
 }

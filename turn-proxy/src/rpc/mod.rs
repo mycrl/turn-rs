@@ -66,75 +66,10 @@ impl From<Request> for Vec<u8> {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RelayPayloadKind {
-    Message,
-    Channel,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub enum RelayPayloadExpend {
-    Message(Vec<u8>),
-    Channel(u16),
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub struct RelayPayload {
-    pub kind: RelayPayloadKind,
-    pub from: SocketAddr,
-    pub peer: SocketAddr,
-    pub data: Vec<u8>,
-    pub expend: RelayPayloadExpend,
-}
-
-impl TryFrom<&[u8]> for RelayPayload {
-    type Error = anyhow::Error;
-
-    /// Get user list.
-    ///
-    /// This interface returns the username and a list of addresses used by this
-    /// user.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let users_js = ctr.get_users().await;
-    /// ```
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Ok(rmp_serde::from_slice(value)?)
-    }
-}
-
-impl From<RelayPayload> for Vec<u8> {
-    /// Get user list.
-    ///
-    /// This interface returns the username and a list of addresses used by this
-    /// user.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let users_js = ctr.get_users().await;
-    /// ```
-    fn from(val: RelayPayload) -> Self {
-        rmp_serde::to_vec(&val).expect("serde to json string failed!")
-    }
-}
-
 #[async_trait]
 pub trait RpcObserver: Send + Sync {
     fn on(&self, req: Request);
-    async fn on_relay(&self, payload: RelayPayload);
+    async fn on_relay(&self, payload: &[u8]);
 }
 
 pub struct Rpc {
@@ -165,10 +100,7 @@ impl Rpc {
                     }
                     Ok(ret) = transport_.recv(&mut buf) => {
                         if let Some((buf, _)) = ret {
-                            let ret = RelayPayload::try_from(buf);
-                            if let Ok(payload) = ret {
-                                observer.on_relay(payload).await;
-                            }
+                            observer.on_relay(buf).await;
                         }
                     }
                     Some((req, to)) = receiver.recv() => {
@@ -222,9 +154,8 @@ impl Rpc {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn send(&self, payload: RelayPayload, to: u8) -> Result<()> {
-        let data: Vec<u8> = payload.into();
-        self.transport.send(&data, to).await?;
+    pub async fn send(&self, payload: &[u8], to: u8) -> Result<()> {
+        self.transport.send(&payload, to).await?;
         Ok(())
     }
 }

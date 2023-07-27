@@ -5,37 +5,13 @@ pub use self::monitor::*;
 
 use super::config::{Config, Transport};
 use super::router::Router;
+use crate::proxy::ProxyExt;
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use tokio::net::{TcpListener, UdpSocket};
-use turn_proxy::rpc::RelayPayloadKind;
-use turn_proxy::{rpc::RelayPayload, Proxy, ProxyObserver};
-use turn_rs::{Service, StunClass};
-
-#[derive(Clone)]
-struct ProxyExt {
-    service: Service,
-    router: Arc<Router>,
-}
-
-#[async_trait]
-impl ProxyObserver for ProxyExt {
-    async fn relay(&self, payload: RelayPayload) {
-        let class = match payload.kind {
-            RelayPayloadKind::Message => StunClass::Message,
-            RelayPayloadKind::Channel => StunClass::Channel,
-        };
-
-        let router = self.service.get_router();
-        if let Some(addr) = router.get_port_bound(payload.peer.port()) {
-            if let Some(node) = router.get_node(&addr) {
-                self.router.send(node.mark, class, &addr, &payload.data);
-            }
-        }
-    }
-}
+use turn_proxy::Proxy;
+use turn_rs::Service;
 
 /// start turn server.
 ///

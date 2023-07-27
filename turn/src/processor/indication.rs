@@ -7,10 +7,9 @@ use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::{Data, XorPeerAddress};
 use faster_stun::{MessageReader, MessageWriter, Method};
-use turn_proxy::rpc::{RelayPayloadExpend, RelayPayloadKind};
 
 #[inline(always)]
-async fn check_addr(ctx: &Context, peer: &SocketAddr, token: &[u8], data: &[u8]) -> bool {
+async fn check_addr(ctx: &Context, peer: &SocketAddr, data: &[u8]) -> bool {
     if ctx.env.external.ip() == peer.ip() {
         return true;
     }
@@ -25,16 +24,7 @@ async fn check_addr(ctx: &Context, peer: &SocketAddr, token: &[u8], data: &[u8])
         Some(n) => n,
     };
 
-    let _ = proxy
-        .relay(
-            &node,
-            ctx.addr,
-            *peer,
-            RelayPayloadKind::Message,
-            data,
-            RelayPayloadExpend::Message(token.to_vec()),
-        )
-        .await;
+    let _ = proxy.relay(&node, data).await;
     false
 }
 
@@ -92,14 +82,14 @@ pub async fn process<'a>(
         Some(x) => x,
     };
 
+    if !check_addr(&ctx, &peer, &reader).await {
+        return Ok(None);
+    }
+
     let data = match reader.get::<Data>() {
         None => return Ok(None),
         Some(x) => x,
     };
-
-    if !check_addr(&ctx, &peer, data, reader.token).await {
-        return Ok(None);
-    }
 
     let addr = match ctx.env.router.get_port_bound(peer.port()) {
         None => return Ok(None),
