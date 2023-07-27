@@ -158,7 +158,7 @@ impl Rpc {
         let observer = Arc::new(observer);
         let transport_ = transport.clone();
         tokio::spawn(async move {
-            let mut buf = [0u8; 4096];
+            let mut buf = vec![0u8; 4096];
 
             loop {
                 tokio::select! {
@@ -172,8 +172,6 @@ impl Rpc {
                             let ret = RelayPayload::try_from(buf);
                             if let Ok(payload) = ret {
                                 observer.on_relay(payload).await;
-                            } else {
-                                println!("{:?}", ret);
                             }
                         }
                     }

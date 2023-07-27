@@ -162,8 +162,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -174,11 +173,7 @@ impl Router {
     /// let users = router.get_users(0, 10);
     /// assert_eq!(users.as_slice(), &[("test".to_string(), vec![addr])]);
     /// ```
-    pub fn get_users(
-        &self,
-        skip: usize,
-        limit: usize,
-    ) -> Vec<(String, Vec<SocketAddr>)> {
+    pub fn get_users(&self, skip: usize, limit: usize) -> Vec<(String, Vec<SocketAddr>)> {
         self.nodes.get_users(skip, limit)
     }
 
@@ -202,8 +197,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -243,8 +237,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -279,8 +272,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -317,8 +309,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -382,8 +373,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -395,11 +385,7 @@ impl Router {
     /// assert!(router.bind_port(&addr, port).is_some());
     /// assert_eq!(router.get_port_bound(port), Some(addr));
     /// ```
-    pub fn get_channel_bound(
-        &self,
-        addr: &SocketAddr,
-        channel: u16,
-    ) -> Option<SocketAddr> {
+    pub fn get_channel_bound(&self, addr: &SocketAddr, channel: u16) -> Option<SocketAddr> {
         self.channels.get_bound(addr, channel)
     }
 
@@ -424,8 +410,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -462,8 +447,7 @@ impl Router {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -476,11 +460,7 @@ impl Router {
     /// assert!(router.bind_port(&peer, port).is_some());
     /// assert_eq!(router.get_bound_port(&addr, &peer), Some(port));
     /// ```
-    pub fn get_bound_port(
-        &self,
-        addr: &SocketAddr,
-        peer: &SocketAddr,
-    ) -> Option<u16> {
+    pub fn get_bound_port(&self, addr: &SocketAddr, peer: &SocketAddr) -> Option<u16> {
         self.ports.get_bound(addr, peer)
     }
 
@@ -543,8 +523,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -584,8 +563,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -630,8 +608,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -642,12 +619,7 @@ impl Router {
     /// let port = router.alloc_port(&addr).unwrap();
     /// assert!(router.bind_channel(&addr, port, 0x4000).is_some());
     /// ```
-    pub fn bind_channel(
-        &self,
-        addr: &SocketAddr,
-        port: u16,
-        channel: u16,
-    ) -> Option<()> {
+    pub fn bind_channel(&self, addr: &SocketAddr, port: u16, channel: u16) -> Option<()> {
         let source = self.ports.get(port)?;
         self.channels.insert(addr, channel, &source)?;
         self.nodes.push_channel(addr, channel)?;
@@ -706,8 +678,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -746,8 +717,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -789,8 +759,7 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));

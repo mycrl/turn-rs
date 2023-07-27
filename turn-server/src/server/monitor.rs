@@ -186,11 +186,7 @@ impl Monitor {
     ///     assert_eq!(nodes, vec![(addr, Store::default())]);
     /// }
     /// ```
-    pub fn get_nodes(
-        &self,
-        skip: usize,
-        limit: usize,
-    ) -> Vec<(SocketAddr, Store)> {
+    pub fn get_nodes(&self, skip: usize, limit: usize) -> Vec<(SocketAddr, Store)> {
         let links = self.links.lock();
         let nodes = self.nodes.lock();
 

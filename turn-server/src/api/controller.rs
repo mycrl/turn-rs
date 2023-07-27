@@ -123,11 +123,7 @@ impl Controller {
     ///
     /// Controller::new(service.get_router(), config, monitor);
     /// ```
-    pub fn new(
-        config: Arc<Config>,
-        monitor: Monitor,
-        service: Service,
-    ) -> Arc<Self> {
+    pub fn new(config: Arc<Config>, monitor: Monitor, service: Service) -> Arc<Self> {
         Arc::new(Self {
             timer: Instant::now(),
             monitor,

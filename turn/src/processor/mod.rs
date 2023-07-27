@@ -191,9 +191,7 @@ impl Processor {
 
         Ok(match self.decoder.decode(b)? {
             Payload::ChannelData(x) => channel_data::process(ctx, x),
-            Payload::Message(x) => {
-                Self::message_process(ctx, x, &mut self.writer).await?
-            },
+            Payload::Message(x) => Self::message_process(ctx, x, &mut self.writer).await?,
         })
     }
 
@@ -209,9 +207,7 @@ impl Processor {
 
         Ok(match payload {
             Payload::ChannelData(x) => channel_data::process(ctx, x),
-            Payload::Message(x) => {
-                Self::message_process(ctx, x, &mut self.writer).await?
-            },
+            Payload::Message(x) => Self::message_process(ctx, x, &mut self.writer).await?,
         })
     }
 
@@ -252,11 +248,9 @@ impl Processor {
     ///
     /// Specifically, if:
     ///
-    /// * the server requires the use of the long-term credential mechanism,
-    ///   and;
+    /// * the server requires the use of the long-term credential mechanism, and;
     ///
-    /// * a non-Allocate request passes authentication under this mechanism,
-    ///   and;
+    /// * a non-Allocate request passes authentication under this mechanism, and;
     ///
     /// * the 5-tuple identifies an existing allocation, but;
     ///
@@ -363,11 +357,7 @@ pub struct Response<'a> {
 }
 
 impl<'a> Response<'a> {
-    pub(crate) fn new(
-        data: &'a [u8],
-        kind: StunClass,
-        relay: Option<(SocketAddr, u8)>,
-    ) -> Self {
+    pub(crate) fn new(data: &'a [u8], kind: StunClass, relay: Option<(SocketAddr, u8)>) -> Self {
         Self {
             data,
             kind,

@@ -29,12 +29,7 @@ impl Node {
     /// create node session.
     ///
     /// node session from group number and long key.
-    pub fn new(
-        mark: u8,
-        username: String,
-        secret: [u8; 16],
-        password: String,
-    ) -> Self {
+    pub fn new(mark: u8, username: String, secret: [u8; 16], password: String) -> Self {
         Self {
             channels: Vec::with_capacity(5),
             ports: Vec::with_capacity(10),
@@ -56,8 +51,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node =
-    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
     ///
     /// node.set_lifetime(0);
     /// assert!(node.is_death());
@@ -77,8 +71,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node =
-    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
     ///
     /// node.set_lifetime(0);
     /// assert!(node.is_death());
@@ -97,8 +90,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node =
-    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
     ///
     /// let secret = node.get_secret();
     /// assert_eq!(secret.as_slice(), &[0u8; 16]);
@@ -114,8 +106,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node =
-    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
     ///
     /// node.push_port(43196);
     /// assert_eq!(&node.ports, &[43196]);
@@ -133,8 +124,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node =
-    ///     Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
     ///
     /// node.push_channel(0x4000);
     /// assert_eq!(&node.channels, &[0x4000]);
@@ -176,11 +166,7 @@ impl Nodes {
     /// let nodes = Nodes::new();
     /// assert_eq!(nodes.get_users(0, 10), vec![]);
     /// ```
-    pub fn get_users(
-        &self,
-        skip: usize,
-        limit: usize,
-    ) -> Vec<(String, Vec<SocketAddr>)> {
+    pub fn get_users(&self, skip: usize, limit: usize) -> Vec<(String, Vec<SocketAddr>)> {
         self.addrs
             .read()
             .iter()
@@ -264,9 +250,7 @@ impl Nodes {
         secret: [u8; 16],
         password: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let node =
-            Node::new(mark, username.to_string(), secret, password.to_string());
-
+        let node = Node::new(mark, username.to_string(), secret, password.to_string());
         let pwd = node.get_secret();
         let mut addrs = self.addrs.write();
         self.map.write().insert(*addr, node);

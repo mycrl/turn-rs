@@ -65,11 +65,7 @@ impl ProxyObserver for ProxyExt {
 ///
 /// // run(&service, config).await?
 /// ```
-pub async fn run(
-    config: Arc<Config>,
-    monitor: Monitor,
-    service: &Service,
-) -> anyhow::Result<()> {
+pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> anyhow::Result<()> {
     let router = Arc::new(Router::default());
     let proxy = if let Some(cfg) = &config.proxy {
         Some(
@@ -92,7 +88,7 @@ pub async fn run(
             Transport::UDP => {
                 tokio::spawn(transport::udp_processor(
                     UdpSocket::bind(i.bind).await?,
-                    i.clone(),
+                    i.external.clone(),
                     service.clone(),
                     router.clone(),
                     monitor.clone(),
@@ -102,7 +98,7 @@ pub async fn run(
             Transport::TCP => {
                 tokio::spawn(transport::tcp_processor(
                     TcpListener::bind(i.bind).await?,
-                    i.clone(),
+                    i.external.clone(),
                     service.clone(),
                     router.clone(),
                     monitor.clone(),

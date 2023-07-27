@@ -61,9 +61,7 @@ impl Router {
     ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
-    pub fn get_receiver(
-        &self,
-    ) -> (u8, UnboundedReceiver<(Vec<u8>, StunClass, SocketAddr)>) {
+    pub fn get_receiver(&self) -> (u8, UnboundedReceiver<(Vec<u8>, StunClass, SocketAddr)>) {
         let index = self
             .alloc_index()
             .expect("transport router alloc index failed!");
@@ -99,13 +97,7 @@ impl Router {
     ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
-    pub fn send(
-        &self,
-        index: u8,
-        class: StunClass,
-        addr: &SocketAddr,
-        data: &[u8],
-    ) {
+    pub fn send(&self, index: u8, class: StunClass, addr: &SocketAddr, data: &[u8]) {
         let mut is_destroy = false;
 
         {

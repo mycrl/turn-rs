@@ -182,12 +182,7 @@ impl Observer for Events {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
-    fn create_permission(
-        &self,
-        addr: &SocketAddr,
-        name: &str,
-        relay: &SocketAddr,
-    ) {
+    fn create_permission(&self, addr: &SocketAddr, name: &str, relay: &SocketAddr) {
         log::info!(
             "create permission: addr={:?}, name={:?}, realy={:?}",
             addr,

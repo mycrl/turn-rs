@@ -289,12 +289,8 @@ impl Transport {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub async fn recv<'a>(
-        &self,
-        buf: &'a mut [u8],
-    ) -> Result<Option<(&'a [u8], u8)>> {
-        let (size, source) = if let Some(ret) =
-            transport_udp_err(self.socket.recv_from(buf).await)?
+    pub async fn recv<'a>(&self, buf: &'a mut [u8]) -> Result<Option<(&'a [u8], u8)>> {
+        let (size, source) = if let Some(ret) = transport_udp_err(self.socket.recv_from(buf).await)?
         {
             ret
         } else {

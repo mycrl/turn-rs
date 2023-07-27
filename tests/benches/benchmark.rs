@@ -24,11 +24,7 @@ fn allocate_request_block(rt: &Runtime, socket: &UdpSocket) -> u16 {
     rt.block_on(async { allocate_request(&socket).await })
 }
 
-fn create_permission_request_block(
-    rt: &Runtime,
-    socket: &UdpSocket,
-    port: u16,
-) {
+fn create_permission_request_block(rt: &Runtime, socket: &UdpSocket, port: u16) {
     rt.block_on(async { create_permission_request(&socket, port).await })
 }
 

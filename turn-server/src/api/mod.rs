@@ -63,10 +63,7 @@ where
     ///
     /// If Poll::Ready(Err(_)) is returned, the service is no longer able to
     /// service requests and the caller should discard the service instance.
-    fn poll_ready(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 

@@ -113,8 +113,7 @@ impl Addr {
     /// use faster_stun::attribute::*;
     /// use bytes::BytesMut;
     ///
-    /// let xor_addr_buf: [u8; 8] =
-    ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
+    /// let xor_addr_buf: [u8; 8] = [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
     ///
     /// let addr_buf: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
     ///
@@ -132,12 +131,7 @@ impl Addr {
     /// Addr::into(&source, &token, &mut buffer, false);
     /// assert_eq!(&addr_buf, &buffer[..]);
     /// ```
-    pub fn into(
-        a: &SocketAddr,
-        token: &[u8],
-        buf: &mut BytesMut,
-        is_xor: bool,
-    ) {
+    pub fn into(a: &SocketAddr, token: &[u8], buf: &mut BytesMut, is_xor: bool) {
         buf.put_u8(0);
         let xor_addr = if is_xor { xor(a, token) } else { *a };
 
@@ -164,8 +158,7 @@ impl Addr {
     /// ```
     /// use faster_stun::attribute::*;
     ///
-    /// let xor_addr_buf: [u8; 8] =
-    ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
+    /// let xor_addr_buf: [u8; 8] = [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
     ///
     /// let addr_buf: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
     ///
@@ -181,11 +174,7 @@ impl Addr {
     /// let addr = Addr::try_from(&addr_buf, &token, false).unwrap();
     /// assert_eq!(addr, source);
     /// ```
-    pub fn try_from(
-        packet: &[u8],
-        token: &[u8],
-        is_xor: bool,
-    ) -> Result<SocketAddr> {
+    pub fn try_from(packet: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr> {
         ensure!(packet.len() >= 4, "buf len < 4");
         let port = u16::from_be_bytes([packet[2], packet[3]]);
 
@@ -230,8 +219,8 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr> {
 /// use std::net::IpAddr;
 ///
 /// let buf: [u8; 20] = [
-///     0x00, 0x01, 0xdd, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-///     0x00, 0x00, 0xFF, 0xFF, 0xC0, 0x0A, 0x2F, 0x0F,
+///     0x00, 0x01, 0xdd, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF,
+///     0xFF, 0xC0, 0x0A, 0x2F, 0x0F,
 /// ];
 ///
 /// let source: IpAddr = "::ffff:192.10.47.15".parse().unwrap();
@@ -308,8 +297,7 @@ pub fn xor_v4(addr: Ipv4Addr) -> IpAddr {
 ///
 /// let source: Ipv6Addr = "::ffff:192.10.47.15".parse().unwrap();
 ///
-/// let xor: IpAddr =
-///     "2112:a442:6c46:6254:754b:bbae:8642:637e".parse().unwrap();
+/// let xor: IpAddr = "2112:a442:6c46:6254:754b:bbae:8642:637e".parse().unwrap();
 ///
 /// let token: [u8; 12] = [
 ///     0x6c, 0x46, 0x62, 0x54, 0x75, 0x4b, 0x44, 0x51, 0x46, 0x48, 0x4c, 0x71,

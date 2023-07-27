@@ -76,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
     log::info!("udp socket bind: addr={}", config.net.bind);
 
     tokio::spawn(async move {
-        let mut buf = [0u8; 4096];
+        let mut buf = vec![0u8; 4096];
 
         loop {
             let size = match socket.recv_from(&mut buf).await {
@@ -126,11 +126,7 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-fn on_tcp_socket(
-    index: usize,
-    nodes: Arc<Vec<ProxyNode>>,
-    mut socket: TcpStream,
-) {
+fn on_tcp_socket(index: usize, nodes: Arc<Vec<ProxyNode>>, mut socket: TcpStream) {
     tokio::spawn(async move {
         let remote_addr = socket
             .peer_addr()

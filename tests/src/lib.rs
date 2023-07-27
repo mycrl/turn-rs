@@ -45,7 +45,7 @@ use std::net::{
 use std::sync::Arc;
 use std::collections::HashMap;
 
-/** global static var */
+/// global static var
 
 pub const BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 pub const BIND_ADDR: SocketAddr = SocketAddr::new(BIND_IP, 3478);
@@ -54,8 +54,7 @@ pub const PASSWORD: &'static str = "test";
 pub const REALM: &'static str = "local-test";
 
 static mut RECV_BUF: [u8; 1500] = [0u8; 1500];
-static mut SEND_BUF: Lazy<BytesMut> =
-    Lazy::new(|| BytesMut::with_capacity(2048));
+static mut SEND_BUF: Lazy<BytesMut> = Lazy::new(|| BytesMut::with_capacity(2048));
 
 static TOKEN_BUF: Lazy<[u8; 12]> = Lazy::new(|| {
     let mut rng = rand::thread_rng();
@@ -68,11 +67,9 @@ static KEY_BUF: Lazy<[u8; 16]> =
     Lazy::new(|| faster_stun::util::long_key(USERNAME, PASSWORD, REALM));
 static mut DECODER: Lazy<Decoder> = Lazy::new(|| Decoder::new());
 
-/** global static var */
+/// global static var end
 
-fn get_message_from_payload<'a, 'b>(
-    payload: Payload<'a, 'b>,
-) -> MessageReader<'a, 'b> {
+fn get_message_from_payload<'a, 'b>(payload: Payload<'a, 'b>) -> MessageReader<'a, 'b> {
     if let Payload::Message(m) = payload {
         m
     } else {
@@ -121,11 +118,7 @@ pub async fn create_client() -> UdpSocket {
 
 static BIND_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
     let mut buf = BytesMut::with_capacity(1500);
-    let mut msg = MessageWriter::new(
-        Method::Binding(Kind::Request),
-        &TOKEN_BUF,
-        &mut buf,
-    );
+    let mut msg = MessageWriter::new(Method::Binding(Kind::Request), &TOKEN_BUF, &mut buf);
 
     msg.flush(None).unwrap();
     buf
@@ -176,11 +169,7 @@ pub async fn binding_request(socket: &UdpSocket) {
 
 static BASE_ALLOCATE_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
     let mut buf = BytesMut::with_capacity(1500);
-    let mut msg = MessageWriter::new(
-        Method::Allocate(Kind::Request),
-        &TOKEN_BUF,
-        &mut buf,
-    );
+    let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &TOKEN_BUF, &mut buf);
 
     msg.append::<ReqeestedTransport>(Transport::UDP);
     msg.flush(None).unwrap();
@@ -226,11 +215,7 @@ pub async fn base_allocate_request(socket: &UdpSocket) {
 
 static ALLOCATE_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
     let mut buf = BytesMut::with_capacity(1500);
-    let mut msg = MessageWriter::new(
-        Method::Allocate(Kind::Request),
-        &TOKEN_BUF,
-        &mut buf,
-    );
+    let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &TOKEN_BUF, &mut buf);
 
     msg.append::<ReqeestedTransport>(Transport::UDP);
     msg.append::<UserName>(USERNAME);
@@ -387,11 +372,9 @@ pub async fn create_permission_request(socket: &UdpSocket, port: u16) {
 /// transaction would initially fail but succeed on a
 /// retransmission.
 pub async fn channel_bind_request(socket: &UdpSocket, port: u16) {
-    let mut msg = MessageWriter::new(
-        Method::ChannelBind(Kind::Request),
-        &TOKEN_BUF,
-        unsafe { &mut SEND_BUF },
-    );
+    let mut msg = MessageWriter::new(Method::ChannelBind(Kind::Request), &TOKEN_BUF, unsafe {
+        &mut SEND_BUF
+    });
 
     msg.append::<ChannelNumber>(0x4000);
     msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
@@ -453,11 +436,9 @@ pub async fn channel_bind_request(socket: &UdpSocket, port: u16) {
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
 pub async fn refresh_request(socket: &UdpSocket) {
-    let mut msg = MessageWriter::new(
-        Method::Refresh(Kind::Request),
-        &TOKEN_BUF,
-        unsafe { &mut SEND_BUF },
-    );
+    let mut msg = MessageWriter::new(Method::Refresh(Kind::Request), &TOKEN_BUF, unsafe {
+        &mut SEND_BUF
+    });
 
     msg.append::<Lifetime>(0);
     msg.append::<UserName>(USERNAME);
@@ -526,10 +507,8 @@ pub async fn refresh_request(socket: &UdpSocket) {
 ///
 /// The resulting UDP datagram is then sent to the peer.
 pub async fn indication(local: &UdpSocket, peer: &UdpSocket, port: u16) {
-    let mut msg =
-        MessageWriter::new(Method::SendIndication, &TOKEN_BUF, unsafe {
-            &mut SEND_BUF
-        });
+    let mut msg = MessageWriter::new(Method::SendIndication, &TOKEN_BUF, unsafe { &mut SEND_BUF });
+
     msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
     msg.append::<Data>(TOKEN_BUF.as_slice());
     msg.flush(None).unwrap();

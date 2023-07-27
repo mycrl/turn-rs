@@ -63,8 +63,7 @@ impl Proxy {
     where
         T: ProxyObserver + 'static,
     {
-        let nodes: Arc<RwLock<Vec<Arc<ProxyStateNotifyNode>>>> =
-            Default::default();
+        let nodes: Arc<RwLock<Vec<Arc<ProxyStateNotifyNode>>>> = Default::default();
         log::info!(
             "create proxy mod: bind={}, proxy={}",
             options.bind,
@@ -102,10 +101,7 @@ impl Proxy {
     /// let ctr = Controller::new(service.get_router(), config, monitor);
     /// // let users_js = ctr.get_users().await;
     /// ```
-    pub fn get_online_node(
-        &self,
-        addr: &IpAddr,
-    ) -> Option<Arc<ProxyStateNotifyNode>> {
+    pub fn get_online_node(&self, addr: &IpAddr) -> Option<Arc<ProxyStateNotifyNode>> {
         self.nodes
             .read()
             .iter()
