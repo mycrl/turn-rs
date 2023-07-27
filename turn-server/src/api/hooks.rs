@@ -2,8 +2,8 @@ use crate::config::Config;
 
 use std::{net::SocketAddr, sync::Arc};
 
-use serde::*;
 use anyhow::{anyhow, Result};
+use serde::*;
 
 #[rustfmt::skip]
 #[derive(Serialize)]

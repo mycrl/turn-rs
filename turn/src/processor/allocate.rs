@@ -1,16 +1,16 @@
-use crate::{StunClass, SOFTWARE};
 use super::{verify_message, Context, Response};
+use crate::{StunClass, SOFTWARE};
 
 use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::{Kind, MessageReader, MessageWriter, Method};
 use faster_stun::attribute::ErrKind::{ServerError, Unauthorized};
 use faster_stun::attribute::{
     ErrKind, Error, ErrorCode, Lifetime, Nonce, Realm, ReqeestedTransport, Software,
     XorMappedAddress, XorRelayedAddress,
 };
+use faster_stun::{Kind, MessageReader, MessageWriter, Method};
 
 /// return allocate error response
 #[inline(always)]

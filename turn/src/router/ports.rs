@@ -1,6 +1,6 @@
 use ahash::AHashMap;
-use rand::{thread_rng, Rng};
 use parking_lot::{Mutex, RwLock};
+use rand::{thread_rng, Rng};
 
 use std::{net::SocketAddr, ops::Range};
 

@@ -5,11 +5,11 @@ use crate::config::Config;
 
 use std::{task::Context, task::Poll};
 
+use axum::{routing::delete, routing::get, Router};
 use controller::Controller;
 use http::{HeaderValue, Method, Request};
-use tower_http::cors::CorsLayer;
-use axum::{routing::delete, routing::get, Router};
 use tower::{Layer, Service};
+use tower_http::cors::CorsLayer;
 
 /// Layer that adds high level logs to a Service.
 #[derive(Default, Clone)]
@@ -108,7 +108,7 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
         "controller server listening: addr={:?}",
         &cfg.controller.listen
     );
-    
+
     axum::Server::bind(&cfg.controller.listen)
         .serve(app.into_make_service())
         .await?;

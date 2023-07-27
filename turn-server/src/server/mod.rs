@@ -9,10 +9,10 @@ use super::router::Router;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tokio::net::{TcpListener, UdpSocket};
 use turn_proxy::rpc::RelayPayloadKind;
 use turn_proxy::{rpc::RelayPayload, Proxy, ProxyObserver};
 use turn_rs::{Service, StunClass};
-use tokio::net::{TcpListener, UdpSocket};
 
 #[derive(Clone)]
 struct ProxyExt {

@@ -3,8 +3,8 @@ use super::ports::capacity;
 use ahash::AHashMap;
 use parking_lot::RwLock;
 
-use std::{net::SocketAddr, time::Instant};
 use std::iter::{IntoIterator, Iterator};
+use std::{net::SocketAddr, time::Instant};
 
 /// channels iterator.
 pub struct Iter {

@@ -13,8 +13,8 @@ use turn_server::{
     server_main,
 };
 
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
 /// global static var

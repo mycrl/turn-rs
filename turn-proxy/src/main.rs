@@ -4,12 +4,12 @@ use std::io::ErrorKind::ConnectionReset;
 use std::sync::Arc;
 
 use bytes::{Bytes, BytesMut};
-use turn_proxy::rpc::{transport::Protocol, ProxyStateNotifyNode, Request};
 use tokio::io::*;
-use tokio::time::{sleep, Duration};
 use tokio::net::{TcpStream, UdpSocket};
-use tokio::sync::{Mutex, RwLock};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::{Mutex, RwLock};
+use tokio::time::{sleep, Duration};
+use turn_proxy::rpc::{transport::Protocol, ProxyStateNotifyNode, Request};
 
 struct Channel {
     receiver: Mutex<UnboundedReceiver<Bytes>>,

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::{MessageReader, MessageWriter, Method};
 use faster_stun::attribute::{Data, XorPeerAddress};
+use faster_stun::{MessageReader, MessageWriter, Method};
 use turn_proxy::rpc::RelayPayloadKind;
 
 use std::{net::SocketAddr, sync::Arc};

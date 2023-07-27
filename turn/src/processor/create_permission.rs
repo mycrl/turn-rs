@@ -1,13 +1,13 @@
-use crate::{StunClass, SOFTWARE};
 use super::{verify_message, Context, Response};
+use crate::{StunClass, SOFTWARE};
 
 use std::net::SocketAddr;
 
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::{Kind, MessageReader, MessageWriter, Method};
-use faster_stun::attribute::{ErrKind, Error, ErrorCode, Realm, Software, XorPeerAddress};
 use faster_stun::attribute::ErrKind::{BadRequest, Forbidden, Unauthorized};
+use faster_stun::attribute::{ErrKind, Error, ErrorCode, Realm, Software, XorPeerAddress};
+use faster_stun::{Kind, MessageReader, MessageWriter, Method};
 
 /// return create permission error response
 #[inline(always)]

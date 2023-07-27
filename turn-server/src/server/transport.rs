@@ -5,10 +5,10 @@ use crate::{router::Router, server::monitor::Stats};
 
 use bytes::BytesMut;
 use faster_stun::Decoder;
+use tokio::net::{TcpListener, UdpSocket};
 use tokio::{io::AsyncReadExt, io::AsyncWriteExt, sync::Mutex};
 use turn_proxy::Proxy;
 use turn_rs::{Service, StunClass};
-use tokio::net::{TcpListener, UdpSocket};
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
 
