@@ -39,10 +39,7 @@ impl<'a, 'b> MessageWriter<'a> {
         buf.put_u16(0);
         buf.put(&COOKIE[..]);
         buf.put(token.as_slice());
-        Self {
-            raw: buf,
-            token,
-        }
+        Self { raw: buf, token }
     }
 
     /// rely on old message to create new message.

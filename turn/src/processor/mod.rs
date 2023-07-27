@@ -358,11 +358,7 @@ pub struct Response<'a> {
 
 impl<'a> Response<'a> {
     pub(crate) fn new(data: &'a [u8], kind: StunClass, relay: Option<(SocketAddr, u8)>) -> Self {
-        Self {
-            data,
-            kind,
-            relay,
-        }
+        Self { data, kind, relay }
     }
 }
 

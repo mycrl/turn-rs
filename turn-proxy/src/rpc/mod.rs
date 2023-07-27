@@ -188,10 +188,7 @@ impl Rpc {
             }
         });
 
-        Ok(Arc::new(Self {
-            transport,
-            sender,
-        }))
+        Ok(Arc::new(Self { transport, sender }))
     }
 
     /// Get user list.

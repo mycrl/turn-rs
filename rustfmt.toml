@@ -9,6 +9,5 @@ normalize_comments = true
 reorder_impl_items = true
 reorder_imports = false
 reorder_modules = false
-struct_lit_single_line = false
-tab_spaces = 4
+struct_lit_single_line = true
 use_field_init_shorthand = true

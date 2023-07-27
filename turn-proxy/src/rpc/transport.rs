@@ -189,10 +189,7 @@ impl OrderTransport {
             }
         });
 
-        Ok(Self {
-            receiver,
-            sender,
-        })
+        Ok(Self { receiver, sender })
     }
 
     /// Get user list.
