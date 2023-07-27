@@ -7,7 +7,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use parking_lot::RwLock;
 use rpc::{transport::TransportAddr, ProxyStateNotifyNode, Request, Rpc, RpcObserver};
-use rpc::{RelayPayload, RelayPayloadKind};
+use rpc::{RelayPayload, RelayPayloadExpend, RelayPayloadKind};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -115,11 +115,13 @@ impl Proxy {
         peer: SocketAddr,
         kind: RelayPayloadKind,
         data: &[u8],
+        expend: RelayPayloadExpend,
     ) -> Result<()> {
         self.rpc
             .send(
                 RelayPayload {
                     data: data.to_vec(),
+                    expend,
                     kind,
                     from,
                     peer,

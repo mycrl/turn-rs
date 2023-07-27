@@ -73,11 +73,18 @@ pub enum RelayPayloadKind {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
+pub enum RelayPayloadExpend {
+    Message(Vec<u8>),
+    Channel(u16),
+}
+
+#[derive(Deserialize, Serialize, Debug)]
 pub struct RelayPayload {
     pub kind: RelayPayloadKind,
     pub from: SocketAddr,
     pub peer: SocketAddr,
     pub data: Vec<u8>,
+    pub expend: RelayPayloadExpend,
 }
 
 impl TryFrom<&[u8]> for RelayPayload {
