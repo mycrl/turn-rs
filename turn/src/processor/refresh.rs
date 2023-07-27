@@ -75,11 +75,11 @@ pub fn resolve<'a>(
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-pub async fn process<'a, 'b, 'c>(
+pub async fn process<'a>(
     ctx: Context,
-    reader: MessageReader<'a, 'b>,
-    bytes: &'c mut BytesMut,
-) -> Result<Option<Response<'c>>> {
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let (username, key) = match verify_message(&ctx, &reader).await {
         None => return reject(reader, bytes, Unauthorized),
         Some(ret) => ret,

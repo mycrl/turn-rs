@@ -102,11 +102,11 @@ fn check_addr(ctx: &Context, peer: &SocketAddr) -> Ret {
 /// idempotency of CreatePermission requests over UDP using the
 /// "stateless stack approach".  Retransmitted CreatePermission
 /// requests will simply refresh the permissions.
-pub async fn process<'a, 'b, 'c>(
+pub async fn process<'a>(
     ctx: Context,
-    reader: MessageReader<'a, 'b>,
-    bytes: &'c mut BytesMut,
-) -> Result<Option<Response<'c>>> {
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let (username, key) = match verify_message(&ctx, &reader).await {
         None => return reject(ctx, reader, bytes, Unauthorized),
         Some(ret) => ret,

@@ -75,11 +75,11 @@ async fn check_addr(ctx: &Context, peer: &SocketAddr, data: &[u8]) -> bool {
 /// and [15](https://tools.ietf.org/html/rfc8656#section-15).
 ///
 /// The resulting UDP datagram is then sent to the peer.
-pub async fn process<'a, 'b, 'c>(
+pub async fn process<'a>(
     ctx: Context,
-    reader: MessageReader<'a, 'b>,
-    bytes: &'c mut BytesMut,
-) -> Result<Option<Response<'c>>> {
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let peer = match reader.get::<XorPeerAddress>() {
         None => return Ok(None),
         Some(x) => x,

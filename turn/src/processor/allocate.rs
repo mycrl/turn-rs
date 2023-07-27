@@ -72,11 +72,11 @@ fn resolve<'a>(
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
-pub async fn process<'a, 'b, 'c>(
+pub async fn process<'a>(
     ctx: Context,
-    reader: MessageReader<'a, 'b>,
-    bytes: &'c mut BytesMut,
-) -> Result<Option<Response<'c>>> {
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     if reader.get::<ReqeestedTransport>().is_none() {
         return reject(ctx, reader, bytes, ServerError);
     }

@@ -65,11 +65,11 @@ fn resolve<'a>(
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-pub async fn process<'a, 'b, 'c>(
+pub async fn process<'a>(
     ctx: Context,
-    reader: MessageReader<'a, 'b>,
-    bytes: &'c mut BytesMut,
-) -> Result<Option<Response<'c>>> {
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let peer = match reader.get::<XorPeerAddress>() {
         None => return reject(ctx, reader, bytes, BadRequest),
         Some(a) => a,
