@@ -29,16 +29,7 @@ use turn_rs::Service;
 pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> anyhow::Result<()> {
     let router = Arc::new(Router::default());
     let proxy = if let Some(cfg) = &config.proxy {
-        Some(
-            Proxy::new(
-                cfg,
-                ProxyExt {
-                    service: service.clone(),
-                    router: router.clone(),
-                },
-            )
-            .await?,
-        )
+        Some(Proxy::new(cfg, ProxyExt::new(service.clone(), router.clone())).await?)
     } else {
         None
     };
