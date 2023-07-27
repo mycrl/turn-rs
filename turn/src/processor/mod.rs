@@ -12,8 +12,8 @@ use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::*;
 use faster_stun::attribute::*;
+use faster_stun::*;
 use turn_proxy::Proxy;
 
 pub struct Env {
