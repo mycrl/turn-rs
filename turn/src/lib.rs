@@ -262,9 +262,14 @@ impl Service {
     /// let service = Service::new(ObserverTest, "test".to_string());
     /// service.get_processor(0, addr, None);
     /// ```
-    pub fn get_processor(&self, mark: u8, external: SocketAddr, proxy: Option<Proxy>) -> Processor {
+    pub fn get_processor(
+        &self,
+        interface: SocketAddr,
+        external: SocketAddr,
+        proxy: Option<Proxy>,
+    ) -> Processor {
         Processor::new(
-            mark,
+            interface,
             external,
             self.realm.clone(),
             self.router.clone(),

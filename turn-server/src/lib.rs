@@ -121,7 +121,8 @@ impl Observer for TObserver {
             number
         );
 
-        self.hooks.events(&Events::ChannelBind { addr, name, number });
+        self.hooks
+            .events(&Events::ChannelBind { addr, name, number });
     }
 
     /// create permission request

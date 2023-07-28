@@ -17,7 +17,7 @@ use faster_stun::*;
 use turn_proxy::Proxy;
 
 pub struct Env {
-    pub mark: u8,
+    pub interface: SocketAddr,
     pub realm: Arc<String>,
     pub router: Arc<Router>,
     pub external: Arc<SocketAddr>,
@@ -35,7 +35,7 @@ pub struct Processor {
 
 impl Processor {
     pub(crate) fn new(
-        mark: u8,
+        interface: SocketAddr,
         external: SocketAddr,
         realm: String,
         router: Arc<Router>,
@@ -48,9 +48,9 @@ impl Processor {
             env: Arc::new(Env {
                 external: Arc::new(external),
                 realm: Arc::new(realm),
+                interface,
                 observer,
                 router,
-                mark,
                 proxy,
             }),
         }
@@ -340,11 +340,15 @@ impl Processor {
 pub struct Response<'a> {
     pub data: &'a [u8],
     pub kind: StunClass,
-    pub relay: Option<(SocketAddr, u8)>,
+    pub relay: Option<(SocketAddr, Arc<SocketAddr>)>,
 }
 
 impl<'a> Response<'a> {
-    pub(crate) fn new(data: &'a [u8], kind: StunClass, relay: Option<(SocketAddr, u8)>) -> Self {
+    pub(crate) fn new(
+        data: &'a [u8],
+        kind: StunClass,
+        relay: Option<(SocketAddr, Arc<SocketAddr>)>,
+    ) -> Self {
         Self { data, kind, relay }
     }
 }
@@ -407,7 +411,7 @@ pub(crate) async fn verify_message<'a>(
     let key = ctx
         .env
         .router
-        .get_key(ctx.env.mark, &ctx.addr, username)
+        .get_key(&ctx.env.interface, &ctx.addr, username)
         .await?;
 
     reader.integrity(&key).ok()?;

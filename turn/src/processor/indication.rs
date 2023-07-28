@@ -97,21 +97,17 @@ pub async fn process<'a>(
         Some(a) => a,
     };
 
-    let mark = match ctx.env.router.get_node(&addr) {
+    let interface = match ctx.env.router.get_interface(&addr) {
         None => return Ok(None),
-        Some(p) => p.mark,
+        Some(p) => p,
     };
-
-    // TODO: 因为xorpeeraddress是客户端生成的，直接指向了目标地址，所以无需再重新构造，
-    // 删除了 get bound port的流程，但是在多接口的情况下，可能存在多个ip地址的情况，
-    // 这里还是需要手动构造一个xor addr
 
     let method = Method::DataIndication;
     let mut pack = MessageWriter::extend(method, &reader, bytes);
-    pack.append::<XorPeerAddress>(peer);
+    pack.append::<XorPeerAddress>(SocketAddr::new(interface.ip(), peer.port()));
     pack.append::<Data>(data);
     pack.flush(None)?;
 
-    let to = Some((addr, mark));
+    let to = Some((addr, interface));
     Ok(Some(Response::new(bytes, StunClass::Message, to)))
 }

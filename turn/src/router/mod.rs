@@ -1,15 +1,14 @@
 pub mod channels;
+pub mod interfaces;
 pub mod nodes;
 pub mod nonces;
 pub mod ports;
 
-use self::channels::Channels;
-use self::nodes::Nodes;
-use self::nonces::Nonces;
-use self::ports::Ports;
+use self::{
+    channels::Channels, interfaces::Interfaces, nodes::Nodes, nonces::Nonces, ports::Ports,
+};
 use crate::Observer;
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
 /// Router State Tree.
@@ -29,7 +28,7 @@ pub struct Router {
     nonces: Nonces,
     nodes: Nodes,
     channels: Channels,
-    is_close: AtomicBool,
+    interfaces: Interfaces,
 }
 
 impl Router {
@@ -49,7 +48,7 @@ impl Router {
     /// ```
     pub fn new(realm: String, observer: Arc<dyn Observer>) -> Arc<Self> {
         let this = Arc::new(Self {
-            is_close: AtomicBool::new(false),
+            interfaces: Interfaces::default(),
             channels: Channels::default(),
             nonces: Nonces::default(),
             ports: Ports::default(),
@@ -58,17 +57,19 @@ impl Router {
             realm,
         });
 
-        let this_ = this.clone();
+        let this_ = Arc::downgrade(&this);
         thread::spawn(move || loop {
             thread::sleep(Duration::from_secs(60));
-            if !this_.is_close.load(Ordering::Relaxed) {
-                this_.nodes.get_deaths().iter().for_each(|a| {
-                    this_.remove(a);
+            if let Some(this) = this_.upgrade() {
+                this.nodes.get_deaths().iter().for_each(|a| {
+                    this.remove(a);
                 });
 
-                this_.channels.get_deaths().iter().for_each(|c| {
-                    this_.channels.remove(*c);
+                this.channels.get_deaths().iter().for_each(|c| {
+                    this.channels.remove(*c);
                 });
+            } else {
+                break;
             }
         });
 
@@ -130,6 +131,10 @@ impl Router {
     /// ```
     pub fn is_empty(&self) -> bool {
         self.ports.len() == 0
+    }
+
+    pub fn get_interface(&self, addr: &SocketAddr) -> Option<Arc<SocketAddr>> {
+        self.interfaces.get_ref(addr)
     }
 
     /// get user list.
@@ -309,8 +314,8 @@ impl Router {
     /// ```
     pub fn get_key_block(
         &self,
-        mark: u8,
         addr: &SocketAddr,
+        interface: &SocketAddr,
         username: &str,
     ) -> Option<Arc<[u8; 16]>> {
         let key = self.nodes.get_secret(addr);
@@ -319,7 +324,9 @@ impl Router {
         }
 
         let pwd = self.observer.auth_block(addr, username)?;
-        self.nodes.insert(mark, addr, &self.realm, username, &pwd)
+        let key = self.nodes.insert(addr, &self.realm, username, &pwd)?;
+        self.interfaces.insert(*addr, *interface);
+        Some(key)
     }
 
     /// get the password of the node SocketAddr.
@@ -327,8 +334,8 @@ impl Router {
     /// require remote control service to distribute keys.
     pub async fn get_key(
         &self,
-        mark: u8,
         addr: &SocketAddr,
+        interface: &SocketAddr,
         username: &str,
     ) -> Option<Arc<[u8; 16]>> {
         let key = self.nodes.get_secret(addr);
@@ -337,7 +344,9 @@ impl Router {
         }
 
         let pwd = self.observer.auth(addr, username).await?;
-        self.nodes.insert(mark, addr, &self.realm, username, &pwd)
+        let key = self.nodes.insert(addr, &self.realm, username, &pwd)?;
+        self.interfaces.insert(*addr, *interface);
+        Some(key)
     }
 
     /// obtain the peer address bound to the current
@@ -723,6 +732,7 @@ impl Router {
         }
 
         self.nonces.remove(addr);
+        self.interfaces.remove(addr);
         self.observer.abort(addr, &node.username);
         Some(())
     }
@@ -762,11 +772,5 @@ impl Router {
         for addr in self.nodes.get_addrs(u) {
             self.remove(&addr);
         }
-    }
-}
-
-impl Drop for Router {
-    fn drop(&mut self) {
-        self.is_close.store(true, Ordering::Relaxed);
     }
 }

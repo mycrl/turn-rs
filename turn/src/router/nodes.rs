@@ -9,7 +9,6 @@ use parking_lot::RwLock;
 /// turn node session.
 #[derive(Clone)]
 pub struct Node {
-    pub mark: u8,
     pub channels: Vec<u16>,
     pub ports: Vec<u16>,
     pub timer: Instant,
@@ -23,7 +22,7 @@ impl Node {
     /// create node session.
     ///
     /// node session from group number and long key.
-    pub fn new(mark: u8, realm: &str, username: &str, password: &str) -> Self {
+    pub fn new(realm: &str, username: &str, password: &str) -> Self {
         let secret = Arc::new(long_key(username, password, realm));
         Self {
             channels: Vec::with_capacity(5),
@@ -33,7 +32,6 @@ impl Node {
             timer: Instant::now(),
             lifetime: 600,
             secret,
-            mark,
         }
     }
 
@@ -243,13 +241,12 @@ impl Nodes {
     /// ```
     pub fn insert(
         &self,
-        mark: u8,
         addr: &SocketAddr,
         realm: &str,
         username: &str,
         password: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let node = Node::new(mark, realm, username, password);
+        let node = Node::new(realm, username, password);
         let pwd = node.get_secret();
         let mut addrs = self.addrs.write();
         self.map.write().insert(*addr, node);

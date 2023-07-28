@@ -34,7 +34,7 @@ pub async fn tcp_processor(
         let actor = monitor.get_actor();
         let router = router.clone();
         let (mark, mut receiver) = router.get_receiver();
-        let mut processor = service.get_processor(mark, external, proxy.clone());
+        let mut processor = service.get_processor(addr, external, proxy.clone());
 
         log::info!(
             "tcp socket accept: addr={:?}, interface={:?}",
@@ -155,16 +155,16 @@ pub async fn udp_processor(
     proxy: Option<Proxy>,
 ) {
     let socket = Arc::new(socket);
+    let (mark, mut receiver) = router.get_receiver();
     let local_addr = socket
         .local_addr()
         .expect("get udp socket local addr failed!");
-    let (mark, mut receiver) = router.get_receiver();
 
     for _ in 0..num_cpus::get() {
         let actor = monitor.get_actor();
         let socket = socket.clone();
         let router = router.clone();
-        let mut processor = service.get_processor(mark, external, proxy.clone());
+        let mut processor = service.get_processor(external, external, proxy.clone());
 
         tokio::spawn(async move {
             let mut buf = vec![0u8; 2048];
@@ -187,17 +187,20 @@ pub async fn udp_processor(
                 // excluding content)
                 if size >= 4 {
                     if let Ok(Some(res)) = processor.process(&buf[..size], addr).await {
-                        if let Some((addr, to)) = res.relay {
-                            router.send(to, res.kind, &addr, res.data);
-                        } else {
-                            if let Err(e) = socket.send_to(res.data, &addr).await {
-                                if e.kind() != ConnectionReset {
-                                    break;
-                                }
+                        match res.relay {
+                            Some((addr, to)) if to.ip() != external.ip() => {
+                                router.send(to, res.kind, &addr, res.data);
                             }
+                            _ => {
+                                if let Err(e) = socket.send_to(res.data, &addr).await {
+                                    if e.kind() != ConnectionReset {
+                                        break;
+                                    }
+                                }
 
-                            actor.send(addr, Stats::SendBytes(res.data.len() as u16));
-                            actor.send(addr, Stats::SendPkts(1));
+                                actor.send(addr, Stats::SendBytes(res.data.len() as u16));
+                                actor.send(addr, Stats::SendPkts(1));
+                            }
                         }
                     }
                 }
