@@ -3,7 +3,6 @@ pub mod transport;
 use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
@@ -66,10 +65,9 @@ impl From<Request> for Vec<u8> {
     }
 }
 
-#[async_trait]
 pub trait RpcObserver: Send + Sync {
     fn on(&self, req: Request);
-    async fn on_relay(&self, payload: &[u8]);
+    fn on_relay(&self, payload: &[u8]);
 }
 
 pub struct Rpc {
@@ -100,7 +98,7 @@ impl Rpc {
                     }
                     Ok(ret) = transport_.recv(&mut buf) => {
                         if let Some((buf, _)) = ret {
-                            observer.on_relay(buf).await;
+                            observer.on_relay(buf);
                         }
                     }
                     Some((req, to)) = receiver.recv() => {

@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
 
 use super::{Context, Response};
 use crate::StunClass;
@@ -96,20 +96,14 @@ pub async fn process<'a>(
         Some(a) => a,
     };
 
-    let port = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
-        None => return Ok(None),
-        Some(p) => p,
-    };
-
     let mark = match ctx.env.router.get_node(&addr) {
         None => return Ok(None),
         Some(p) => p.mark,
     };
 
     let method = Method::DataIndication;
-    let target = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
     let mut pack = MessageWriter::extend(method, &reader, bytes);
-    pack.append::<XorPeerAddress>(*target.as_ref());
+    pack.append::<XorPeerAddress>(peer);
     pack.append::<Data>(data);
     pack.flush(None)?;
 

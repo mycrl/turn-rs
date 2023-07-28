@@ -4,7 +4,6 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::Result;
-use async_trait::async_trait;
 use parking_lot::RwLock;
 use rpc::{transport::TransportAddr, ProxyStateNotifyNode, Request, Rpc, RpcObserver};
 use serde::{Deserialize, Serialize};
@@ -15,9 +14,8 @@ pub struct ProxyOptions {
     pub proxy: SocketAddr,
 }
 
-#[async_trait]
 pub trait ProxyObserver: Send + Sync {
-    async fn relay(&self, payload: &[u8]);
+    fn relay(&self, payload: &[u8]);
 }
 
 #[derive(Clone)]
@@ -118,7 +116,6 @@ struct RpcObserverExt {
     nodes: Arc<RwLock<Vec<Arc<ProxyStateNotifyNode>>>>,
 }
 
-#[async_trait]
 impl RpcObserver for RpcObserverExt {
     fn on(&self, req: Request) {
         match req {
@@ -129,7 +126,7 @@ impl RpcObserver for RpcObserverExt {
         }
     }
 
-    async fn on_relay(&self, payload: &[u8]) {
-        self.observer.relay(payload).await;
+    fn on_relay(&self, payload: &[u8]) {
+        self.observer.relay(payload);
     }
 }
