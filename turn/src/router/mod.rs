@@ -9,8 +9,6 @@ use self::nonces::Nonces;
 use self::ports::Ports;
 use crate::Observer;
 
-use faster_stun::util::long_key;
-
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
@@ -321,8 +319,7 @@ impl Router {
         }
 
         let pwd = self.observer.auth_block(addr, username)?;
-        let key = long_key(username, &pwd, &self.realm);
-        self.nodes.insert(mark, addr, username, key, &pwd)
+        self.nodes.insert(mark, addr, &self.realm, username, &pwd)
     }
 
     /// get the password of the node SocketAddr.
@@ -340,8 +337,7 @@ impl Router {
         }
 
         let pwd = self.observer.auth(addr, username).await?;
-        let key = long_key(username, &pwd, &self.realm);
-        self.nodes.insert(mark, addr, username, key, &pwd)
+        self.nodes.insert(mark, addr, &self.realm, username, &pwd)
     }
 
     /// obtain the peer address bound to the current

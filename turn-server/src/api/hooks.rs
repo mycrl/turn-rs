@@ -123,7 +123,7 @@ impl Hooks {
     ///
     /// Only subscribed events are pushed, other events are ignored.
     ///
-    /// TODO: This method will not wait for the send to succeed, and will
+    /// Note: This method will not wait for the send to succeed, and will
     /// complete regardless of success or failure.
     pub fn events(&self, event: &Events<'_>) {
         let uri = match &self.config.hooks.bind {

@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, net::SocketAddr, sync::Arc, time::Instant};
 use super::ports::capacity;
 
 use ahash::{AHashMap, AHashSet};
+use faster_stun::util::long_key;
 use parking_lot::RwLock;
 
 /// turn node session.
@@ -22,15 +23,16 @@ impl Node {
     /// create node session.
     ///
     /// node session from group number and long key.
-    pub fn new(mark: u8, username: String, secret: [u8; 16], password: String) -> Self {
+    pub fn new(mark: u8, realm: &str, username: &str, password: &str) -> Self {
+        let secret = Arc::new(long_key(username, password, realm));
         Self {
             channels: Vec::with_capacity(5),
             ports: Vec::with_capacity(10),
-            secret: Arc::new(secret),
+            username: username.to_string(),
+            password: password.to_string(),
             timer: Instant::now(),
             lifetime: 600,
-            username,
-            password,
+            secret,
             mark,
         }
     }
@@ -44,7 +46,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new(0, "test", "test", "test");
     ///
     /// node.set_lifetime(0);
     /// assert!(node.is_death());
@@ -64,7 +66,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new(0, "test", "test", "test");
     ///
     /// node.set_lifetime(0);
     /// assert!(node.is_death());
@@ -83,10 +85,14 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new(0, "test", "test", "test");
+    /// let key = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157,
+    ///     36, 56, 143, 91, 155, 16, 224, 239
+    /// ];
     ///
     /// let secret = node.get_secret();
-    /// assert_eq!(secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(secret.as_slice(), &key);
     /// ```
     pub fn get_secret(&self) -> Arc<[u8; 16]> {
         self.secret.clone()
@@ -99,7 +105,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new(0, "test", "test", "test");
     ///
     /// node.push_port(43196);
     /// assert_eq!(&node.ports, &[43196]);
@@ -239,11 +245,11 @@ impl Nodes {
         &self,
         mark: u8,
         addr: &SocketAddr,
+        realm: &str,
         username: &str,
-        secret: [u8; 16],
         password: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let node = Node::new(mark, username.to_string(), secret, password.to_string());
+        let node = Node::new(mark, realm, username, password);
         let pwd = node.get_secret();
         let mut addrs = self.addrs.write();
         self.map.write().insert(*addr, node);

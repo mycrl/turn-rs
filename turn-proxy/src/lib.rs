@@ -15,7 +15,7 @@ pub struct ProxyOptions {
 }
 
 pub trait ProxyObserver: Send + Sync {
-    fn relay(&self, payload: &[u8]);
+    fn relay(&mut self, payload: &[u8]);
 }
 
 #[derive(Clone)]
@@ -58,8 +58,8 @@ impl Proxy {
                     proxy: options.proxy,
                 },
                 RpcObserverExt {
-                    observer: Arc::new(observer),
                     nodes: nodes.clone(),
+                    observer,
                 },
             )
             .await?,
@@ -111,13 +111,13 @@ impl Proxy {
     }
 }
 
-struct RpcObserverExt {
-    observer: Arc<dyn ProxyObserver>,
+struct RpcObserverExt<T: ProxyObserver> {
     nodes: Arc<RwLock<Vec<Arc<ProxyStateNotifyNode>>>>,
+    observer: T,
 }
 
-impl RpcObserver for RpcObserverExt {
-    fn on(&self, req: Request) {
+impl<T: ProxyObserver> RpcObserver for RpcObserverExt<T> {
+    fn on(&mut self, req: Request) {
         match req {
             Request::ProxyStateNotify(nodes) => {
                 log::info!("received state sync from proxy: state={:?}", nodes);
@@ -126,7 +126,7 @@ impl RpcObserver for RpcObserverExt {
         }
     }
 
-    fn on_relay(&self, payload: &[u8]) {
+    fn on_relay(&mut self, payload: &[u8]) {
         self.observer.relay(payload);
     }
 }

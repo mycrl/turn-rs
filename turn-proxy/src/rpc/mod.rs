@@ -66,8 +66,8 @@ impl From<Request> for Vec<u8> {
 }
 
 pub trait RpcObserver: Send + Sync {
-    fn on(&self, req: Request);
-    fn on_relay(&self, payload: &[u8]);
+    fn on(&mut self, req: Request);
+    fn on_relay(&mut self, payload: &[u8]);
 }
 
 pub struct Rpc {
@@ -78,13 +78,12 @@ pub struct Rpc {
 impl Rpc {
     pub async fn new<T: RpcObserver + 'static>(
         addr: TransportAddr,
-        observer: T,
+        mut observer: T,
     ) -> Result<Arc<Self>> {
         let (sender, mut receiver) = mpsc::channel::<(Request, u8)>(5);
 
         let mut order_transport = OrderTransport::new(addr).await?;
         let transport = Transport::new(addr).await?;
-        let observer = Arc::new(observer);
         let transport_ = transport.clone();
         tokio::spawn(async move {
             let mut buf = vec![0u8; 4096];

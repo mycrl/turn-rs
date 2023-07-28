@@ -10,6 +10,7 @@ use faster_stun::{MessageReader, MessageWriter, Method};
 
 #[inline(always)]
 async fn check_addr(ctx: &Context, peer: &SocketAddr, data: &[u8]) -> bool {
+    // TODO: 多interface的情况下，可能不是当前接口的ip，可能从当前接口路由到其他接口
     if ctx.env.external.ip() == peer.ip() {
         return true;
     }
@@ -100,6 +101,10 @@ pub async fn process<'a>(
         None => return Ok(None),
         Some(p) => p.mark,
     };
+
+    // TODO: 因为xorpeeraddress是客户端生成的，直接指向了目标地址，所以无需再重新构造，
+    // 删除了 get bound port的流程，但是在多接口的情况下，可能存在多个ip地址的情况，
+    // 这里还是需要手动构造一个xor addr
 
     let method = Method::DataIndication;
     let mut pack = MessageWriter::extend(method, &reader, bytes);

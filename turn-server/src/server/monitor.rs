@@ -207,7 +207,7 @@ pub struct MonitorActor {
 }
 
 impl MonitorActor {
-    /// TODO: Delivery of updates is not guaranteed.
+    /// Note: Delivery of updates is not guaranteed.
     pub fn send(&self, addr: SocketAddr, payload: Stats) {
         let _ = self.sender.try_send((addr, payload));
     }
