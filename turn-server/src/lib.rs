@@ -6,18 +6,18 @@ pub mod server;
 
 use std::{net::SocketAddr, sync::Arc};
 
-use api::{controller::Controller, hooks::Hooks, payload::Events as PEvents};
+use api::{controller::Controller, hooks::Hooks, payload::Events};
 use async_trait::async_trait;
 use config::Config;
 use server::Monitor;
 use turn_rs::{Observer, Service};
 
-struct Events {
+struct TObserver {
     hooks: Hooks,
     monitor: Monitor,
 }
 
-impl Events {
+impl TObserver {
     fn new(cfg: Arc<Config>, monitor: Monitor) -> Self {
         Self {
             hooks: Hooks::new(cfg),
@@ -27,7 +27,7 @@ impl Events {
 }
 
 #[async_trait]
-impl Observer for Events {
+impl Observer for TObserver {
     async fn auth(&self, addr: &SocketAddr, name: &str) -> Option<String> {
         let pwd = self.hooks.auth(addr, name).await.ok();
         log::info!("auth: addr={:?}, name={:?}, pwd={:?}", addr, name, pwd);
@@ -53,7 +53,7 @@ impl Observer for Events {
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
         self.monitor.set(*addr);
-        self.hooks.events(&PEvents::Allocated { addr, name, port });
+        self.hooks.events(&Events::Allocated { addr, name, port });
     }
 
     /// binding request
@@ -80,7 +80,7 @@ impl Observer for Events {
     /// allocated by the outermost NAT with respect to the STUN server.
     fn binding(&self, addr: &SocketAddr) {
         log::info!("binding: addr={:?}", addr);
-        self.hooks.events(&PEvents::Binding { addr });
+        self.hooks.events(&Events::Binding { addr });
     }
 
     /// channel binding request
@@ -121,8 +121,7 @@ impl Observer for Events {
             number
         );
 
-        self.hooks
-            .events(&PEvents::ChannelBind { addr, name, number });
+        self.hooks.events(&Events::ChannelBind { addr, name, number });
     }
 
     /// create permission request
@@ -173,7 +172,7 @@ impl Observer for Events {
         );
 
         self.hooks
-            .events(&PEvents::CreatePermission { addr, name, relay });
+            .events(&Events::CreatePermission { addr, name, relay });
     }
 
     /// refresh request
@@ -217,7 +216,7 @@ impl Observer for Events {
     /// this as equivalent to a success response (see below).
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
         log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
-        self.hooks.events(&PEvents::Refresh { addr, name, time });
+        self.hooks.events(&Events::Refresh { addr, name, time });
     }
 
     /// node exit
@@ -228,7 +227,7 @@ impl Observer for Events {
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
         self.monitor.delete(addr);
-        self.hooks.events(&PEvents::Abort { addr, name });
+        self.hooks.events(&Events::Abort { addr, name });
     }
 }
 
@@ -237,11 +236,11 @@ impl Observer for Events {
 /// directly start the server.
 pub async fn server_main(config: Arc<Config>) -> anyhow::Result<()> {
     let monitor = Monitor::new();
-    let events = Events::new(config.clone(), monitor.clone());
-    let service = Service::new(events, config.turn.realm.clone());
+    let observer = TObserver::new(config.clone(), monitor.clone());
+    let service = Service::new(observer, config.turn.realm.clone());
     server::run(config.clone(), monitor.clone(), &service).await?;
 
-    let controller = Controller::new(config.clone(), monitor, service);
-    api::start(&config, &controller).await?;
+    let ctr = Controller::new(config.clone(), monitor, service);
+    api::start(&config, &ctr).await?;
     Ok(())
 }
