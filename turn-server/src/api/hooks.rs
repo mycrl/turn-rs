@@ -1,61 +1,9 @@
+use super::payload::Events;
 use crate::config::Config;
 
 use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::{anyhow, Result};
-use serde::*;
-
-#[rustfmt::skip]
-#[derive(Serialize)]
-pub enum Events<'a> {
-    /// allocate request
-    Allocated {
-        addr: &'a SocketAddr,
-        name: &'a str,
-        port: u16,
-    },
-    /// binding request
-    Binding { 
-        addr: &'a SocketAddr 
-    },
-    /// channel binding request
-    ChannelBind {
-        addr: &'a SocketAddr,
-        name: &'a str,
-        number: u16,
-    },
-    /// create permission request
-    CreatePermission {
-        addr: &'a SocketAddr,
-        name: &'a str,
-        relay: &'a SocketAddr,
-    },
-    /// refresh request
-    Refresh {
-        addr: &'a SocketAddr,
-        name: &'a str,
-        time: u32,
-    },
-    /// node exit
-    Abort { 
-        addr: &'a SocketAddr, 
-        name: &'a str 
-    },
-}
-
-impl Events<'_> {
-    #[rustfmt::skip]
-    const fn to_str(&self) -> &'static str {
-        match *self {
-            Self::Allocated {..} => "allocated",
-            Self::Binding {..} => "binding",
-            Self::ChannelBind {..} => "channel_bind",
-            Self::CreatePermission {..} => "create_permission",
-            Self::Refresh {..} => "refresh",
-            Self::Abort {..} => "abort",
-        }
-    }
-}
 
 /// web hooks
 ///

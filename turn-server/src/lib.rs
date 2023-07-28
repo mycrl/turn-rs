@@ -6,21 +6,21 @@ pub mod server;
 
 use std::{net::SocketAddr, sync::Arc};
 
-use api::{controller::Controller, hooks};
+use api::{controller::Controller, hooks::Hooks, payload::Events as PEvents};
 use async_trait::async_trait;
 use config::Config;
 use server::Monitor;
 use turn_rs::{Observer, Service};
 
 struct Events {
-    hooks: hooks::Hooks,
+    hooks: Hooks,
     monitor: Monitor,
 }
 
 impl Events {
     fn new(cfg: Arc<Config>, monitor: Monitor) -> Self {
         Self {
-            hooks: hooks::Hooks::new(cfg),
+            hooks: Hooks::new(cfg),
             monitor,
         }
     }
@@ -53,8 +53,7 @@ impl Observer for Events {
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
         self.monitor.set(*addr);
-        self.hooks
-            .events(&hooks::Events::Allocated { addr, name, port });
+        self.hooks.events(&PEvents::Allocated { addr, name, port });
     }
 
     /// binding request
@@ -81,7 +80,7 @@ impl Observer for Events {
     /// allocated by the outermost NAT with respect to the STUN server.
     fn binding(&self, addr: &SocketAddr) {
         log::info!("binding: addr={:?}", addr);
-        self.hooks.events(&hooks::Events::Binding { addr });
+        self.hooks.events(&PEvents::Binding { addr });
     }
 
     /// channel binding request
@@ -123,7 +122,7 @@ impl Observer for Events {
         );
 
         self.hooks
-            .events(&hooks::Events::ChannelBind { addr, name, number });
+            .events(&PEvents::ChannelBind { addr, name, number });
     }
 
     /// create permission request
@@ -174,7 +173,7 @@ impl Observer for Events {
         );
 
         self.hooks
-            .events(&hooks::Events::CreatePermission { addr, name, relay });
+            .events(&PEvents::CreatePermission { addr, name, relay });
     }
 
     /// refresh request
@@ -218,8 +217,7 @@ impl Observer for Events {
     /// this as equivalent to a success response (see below).
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
         log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
-        self.hooks
-            .events(&hooks::Events::Refresh { addr, name, time });
+        self.hooks.events(&PEvents::Refresh { addr, name, time });
     }
 
     /// node exit
@@ -230,7 +228,7 @@ impl Observer for Events {
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
         self.monitor.delete(addr);
-        self.hooks.events(&hooks::Events::Abort { addr, name });
+        self.hooks.events(&PEvents::Abort { addr, name });
     }
 }
 

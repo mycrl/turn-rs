@@ -1,5 +1,6 @@
 pub mod controller;
 pub mod hooks;
+pub mod payload;
 
 use crate::config::Config;
 

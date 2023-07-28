@@ -1,76 +1,12 @@
 use std::{net::SocketAddr, sync::Arc};
 
+use super::payload::{Node, Stats, SOFTWARE};
 use crate::{config::*, server::*};
 
 use axum::{extract::Query, extract::State, Json};
-use serde::*;
+use serde::Deserialize;
 use tokio::time::Instant;
-use turn_rs::{Node, Service};
-
-#[rustfmt::skip]
-static SOFTWARE: &str = concat!(
-    env!("CARGO_PKG_NAME"), 
-    ":",
-    env!("CARGO_PKG_VERSION")
-);
-
-#[derive(Serialize)]
-pub struct Stats {
-    /// Software information, usually a name and version string.
-    software: String,
-    /// The listening interfaces of the turn server.
-    interfaces: Vec<Interface>,
-    /// The running time of the server, in seconds.
-    uptime: u64,
-    /// Turn server port pool capacity.
-    port_capacity: u16,
-    /// The number of ports that the turn server has classified.
-    port_allocated: u16,
-    /// The partition where the turn server resides.
-    realm: String,
-}
-
-/// node information in the turn server
-#[derive(Serialize)]
-pub struct INode {
-    /// Username for the current INodeion.
-    username: String,
-    /// The user key for the current INodeion.
-    password: String,
-    /// The lifetime of the current user.
-    lifetime: u64,
-    /// The active time of the current user, in seconds.
-    timer: u64,
-    /// List of assigned channel numbers.
-    allocated_channels: Vec<u16>,
-    /// List of assigned port numbers.
-    allocated_ports: Vec<u16>,
-}
-
-impl From<Node> for INode {
-    /// # Example
-    ///
-    /// ```ignore
-    /// let node = Node {
-    ///     ...
-    /// };
-    ///
-    /// let INode = INode::from(node.clone());
-    /// assert_eq!(INode.username, node.username);
-    /// assert_eq!(INode.password, node.password);
-    /// assert_eq!(INoder.lifetime, node.lifetime);
-    /// ```
-    fn from(value: Node) -> Self {
-        INode {
-            timer: value.timer.elapsed().as_secs(),
-            username: value.username.clone(),
-            allocated_channels: value.channels,
-            allocated_ports: value.ports,
-            password: value.password,
-            lifetime: value.lifetime,
-        }
-    }
-}
+use turn_rs::Service;
 
 #[derive(Debug, Deserialize)]
 pub struct AddrParams {
@@ -207,9 +143,9 @@ impl Controller {
     pub async fn get_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
-    ) -> Json<Option<INode>> {
+    ) -> Json<Option<Node>> {
         let router = this.service.get_router();
-        Json(router.get_node(&Arc::new(pars.addr)).map(INode::from))
+        Json(router.get_node(&Arc::new(pars.addr)).map(Node::from))
     }
 
     /// Delete a node under the user.
