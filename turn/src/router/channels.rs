@@ -21,6 +21,33 @@ impl Iter {
     }
 }
 
+impl Iterator for Iter {
+    type Item = SocketAddr;
+
+    /// Iterator for channels.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let mut iter = Iter::new(Channel::new(&addr));
+    ///
+    /// assert_eq!(iter.next(), Some(addr));
+    /// ```
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = match self.index < 2 {
+            true => self.inner.bound[self.index],
+            false => None,
+        };
+
+        self.index += 1;
+        item
+    }
+}
+
 /// Peer channels.
 ///
 /// A channel binding consists of:
@@ -163,33 +190,6 @@ impl Channel {
     }
 }
 
-impl Iterator for Iter {
-    type Item = SocketAddr;
-
-    /// Iterator for channels.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use turn_rs::router::channels::*;
-    /// use std::net::SocketAddr;
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let mut iter = Iter::new(Channel::new(&addr));
-    ///
-    /// assert_eq!(iter.next(), Some(addr));
-    /// ```
-    fn next(&mut self) -> Option<Self::Item> {
-        let item = match self.index < 2 {
-            true => self.inner.bound[self.index],
-            false => None,
-        };
-
-        self.index += 1;
-        item
-    }
-}
-
 impl IntoIterator for Channel {
     type IntoIter = Iter;
     type Item = SocketAddr;
@@ -283,7 +283,6 @@ impl Channels {
         });
 
         let is_include = if !is_empty { channel.includes(a) } else { true };
-
         if !channel.is_half() && !is_include {
             return None;
         }
