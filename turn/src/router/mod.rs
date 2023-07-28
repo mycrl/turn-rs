@@ -133,6 +133,38 @@ impl Router {
         self.ports.len() == 0
     }
 
+    /// get addr interface.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let net = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    ///
+    /// let interface = router.get_interface(0, 10);
+    /// assert_eq!(interface, Some(Arc::new(net)));
+    /// ```
     pub fn get_interface(&self, addr: &SocketAddr) -> Option<Arc<SocketAddr>> {
         self.interfaces.get_ref(addr)
     }
