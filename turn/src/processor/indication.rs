@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use super::{Context, Response};
+use super::{ip_is_local, Context, Response};
 use crate::StunClass;
 
 use anyhow::Result;
@@ -10,8 +10,7 @@ use faster_stun::{MessageReader, MessageWriter, Method};
 
 #[inline(always)]
 async fn check_addr(ctx: &Context, peer: &SocketAddr, data: &[u8]) -> bool {
-    // TODO: 多interface的情况下，可能不是当前接口的ip，可能从当前接口路由到其他接口
-    if ctx.env.external.ip() == peer.ip() {
+    if ip_is_local(ctx, peer) {
         return true;
     }
 
@@ -97,6 +96,11 @@ pub async fn process<'a>(
         Some(a) => a,
     };
 
+    let port = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
+        None => return Ok(None),
+        Some(p) => p,
+    };
+
     let interface = match ctx.env.router.get_interface(&addr) {
         None => return Ok(None),
         Some(p) => p,
@@ -104,10 +108,10 @@ pub async fn process<'a>(
 
     let method = Method::DataIndication;
     let mut pack = MessageWriter::extend(method, &reader, bytes);
-    pack.append::<XorPeerAddress>(SocketAddr::new(interface.ip(), peer.port()));
+    pack.append::<XorPeerAddress>(SocketAddr::new(interface.ip(), port));
     pack.append::<Data>(data);
     pack.flush(None)?;
 
-    let to = Some((addr, interface));
+    let to = (ctx.env.external.ip() != peer.ip()).then(|| (addr, interface));
     Ok(Some(Response::new(bytes, StunClass::Message, to)))
 }

@@ -46,6 +46,12 @@ pub struct Turn {
 }
 
 impl Turn {
+    pub fn get_externals(&self) -> Vec<SocketAddr> {
+        self.interfaces.iter().map(|item| item.external).collect()
+    }
+}
+
+impl Turn {
     fn realm() -> String {
         "localhost".to_string()
     }

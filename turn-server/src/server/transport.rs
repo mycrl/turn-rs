@@ -33,7 +33,7 @@ pub async fn tcp_processor(
     while let Ok((socket, addr)) = listen.accept().await {
         let actor = monitor.get_actor();
         let router = router.clone();
-        let (mark, mut receiver) = router.get_receiver();
+        let mut receiver = router.get_receiver(addr);
         let mut processor = service.get_processor(addr, external, proxy.clone());
 
         log::info!(
@@ -118,7 +118,7 @@ pub async fn tcp_processor(
                     let chunk = buf.split_to(size);
                     if let Ok(Some(res)) = processor.process(&chunk, addr).await {
                         if let Some((addr, to)) = res.relay {
-                            router.send(to, res.kind, &addr, res.data);
+                            router.send(&to, res.kind, &addr, res.data);
                         } else {
                             if writer.lock().await.write_all(res.data).await.is_err() {
                                 break 'a;
@@ -131,7 +131,7 @@ pub async fn tcp_processor(
                 }
             }
 
-            router.remove(mark);
+            router.remove(&addr);
             log::info!(
                 "tcp socket disconnect: addr={:?}, interface={:?}",
                 addr,
@@ -155,11 +155,6 @@ pub async fn udp_processor(
     proxy: Option<Proxy>,
 ) {
     let socket = Arc::new(socket);
-    let (mark, mut receiver) = router.get_receiver();
-    let local_addr = socket
-        .local_addr()
-        .expect("get udp socket local addr failed!");
-
     for _ in 0..num_cpus::get() {
         let actor = monitor.get_actor();
         let socket = socket.clone();
@@ -187,20 +182,17 @@ pub async fn udp_processor(
                 // excluding content)
                 if size >= 4 {
                     if let Ok(Some(res)) = processor.process(&buf[..size], addr).await {
-                        match res.relay {
-                            Some((addr, to)) if to.ip() != external.ip() => {
-                                router.send(to, res.kind, &addr, res.data);
-                            }
-                            _ => {
-                                if let Err(e) = socket.send_to(res.data, &addr).await {
-                                    if e.kind() != ConnectionReset {
-                                        break;
-                                    }
+                        if let Some((addr, to)) = res.relay {
+                            router.send(&to, res.kind, &addr, res.data);
+                        } else {
+                            if let Err(e) = socket.send_to(res.data, &addr).await {
+                                if e.kind() != ConnectionReset {
+                                    break;
                                 }
-
-                                actor.send(addr, Stats::SendBytes(res.data.len() as u16));
-                                actor.send(addr, Stats::SendPkts(1));
                             }
+
+                            actor.send(addr, Stats::SendBytes(res.data.len() as u16));
+                            actor.send(addr, Stats::SendPkts(1));
                         }
                     }
                 }
@@ -209,6 +201,7 @@ pub async fn udp_processor(
     }
 
     let actor = monitor.get_actor();
+    let mut receiver = router.get_receiver(external);
     while let Some((bytes, _, addr)) = receiver.recv().await {
         if let Err(e) = socket.send_to(&bytes, addr).await {
             if e.kind() != ConnectionReset {
@@ -220,6 +213,9 @@ pub async fn udp_processor(
         }
     }
 
-    router.remove(mark);
+    router.remove(&external);
+    let local_addr = socket
+        .local_addr()
+        .expect("get udp socket local addr failed!");
     log::error!("udp server close: interface={:?}", local_addr);
 }

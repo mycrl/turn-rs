@@ -21,6 +21,7 @@ pub struct Env {
     pub realm: Arc<String>,
     pub router: Arc<Router>,
     pub external: Arc<SocketAddr>,
+    pub externals: Arc<Vec<SocketAddr>>,
     pub observer: Arc<dyn Observer>,
     pub proxy: Option<Proxy>,
 }
@@ -30,13 +31,14 @@ pub struct Env {
 pub struct Processor {
     env: Arc<Env>,
     decoder: Decoder,
-    writer: BytesMut,
+    buf: BytesMut,
 }
 
 impl Processor {
     pub(crate) fn new(
         interface: SocketAddr,
         external: SocketAddr,
+        externals: Arc<Vec<SocketAddr>>,
         realm: String,
         router: Arc<Router>,
         observer: Arc<dyn Observer>,
@@ -44,10 +46,11 @@ impl Processor {
     ) -> Self {
         Self {
             decoder: Decoder::new(),
-            writer: BytesMut::with_capacity(4096),
+            buf: BytesMut::with_capacity(4096),
             env: Arc::new(Env {
                 external: Arc::new(external),
                 realm: Arc::new(realm),
+                externals,
                 interface,
                 observer,
                 router,
@@ -178,23 +181,7 @@ impl Processor {
 
         Ok(match self.decoder.decode(b)? {
             Payload::ChannelData(x) => channel_data::process(ctx, x),
-            Payload::Message(x) => Self::message_process(ctx, x, &mut self.writer).await?,
-        })
-    }
-
-    pub async fn process_ext<'c, 'a: 'c>(
-        &'a mut self,
-        payload: Payload<'a, 'c>,
-        addr: SocketAddr,
-    ) -> Result<Option<Response<'c>>> {
-        let ctx = Context {
-            env: self.env.clone(),
-            addr,
-        };
-
-        Ok(match payload {
-            Payload::ChannelData(x) => channel_data::process(ctx, x),
-            Payload::Message(x) => Self::message_process(ctx, x, &mut self.writer).await?,
+            Payload::Message(x) => Self::message_process(ctx, x, &mut self.buf).await?,
         })
     }
 
@@ -344,6 +331,7 @@ pub struct Response<'a> {
 }
 
 impl<'a> Response<'a> {
+    #[inline(always)]
     pub(crate) fn new(
         data: &'a [u8],
         kind: StunClass,
@@ -403,6 +391,7 @@ pub struct Context {
 /// the end of the MESSAGE-INTEGRITY attribute prior to calculating the
 /// HMAC.  Such adjustment is necessary when attributes, such as
 /// FINGERPRINT, appear after MESSAGE-INTEGRITY.
+#[inline(always)]
 pub(crate) async fn verify_message<'a>(
     ctx: &Context,
     reader: &MessageReader<'a, '_>,
@@ -411,9 +400,15 @@ pub(crate) async fn verify_message<'a>(
     let key = ctx
         .env
         .router
-        .get_key(&ctx.env.interface, &ctx.addr, username)
+        .get_key(&ctx.addr, &ctx.env.interface, username)
         .await?;
 
     reader.integrity(&key).ok()?;
     Some((username, key))
+}
+
+/// Check if the ip address belongs to the current turn server.
+#[inline(always)]
+pub(crate) fn ip_is_local(ctx: &Context, addr: &SocketAddr) -> bool {
+    ctx.env.externals.iter().any(|item| item.ip() == addr.ip())
 }

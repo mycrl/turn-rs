@@ -238,7 +238,8 @@ impl Observer for TObserver {
 pub async fn server_main(config: Arc<Config>) -> anyhow::Result<()> {
     let monitor = Monitor::new();
     let observer = TObserver::new(config.clone(), monitor.clone());
-    let service = Service::new(observer, config.turn.realm.clone());
+    let externals = config.turn.get_externals();
+    let service = Service::new(config.turn.realm.clone(), externals, observer);
     server::run(config.clone(), monitor.clone(), &service).await?;
 
     let ctr = Controller::new(config.clone(), monitor, service);

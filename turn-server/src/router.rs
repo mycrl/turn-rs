@@ -1,33 +1,19 @@
 use std::net::SocketAddr;
 
 use ahash::AHashMap;
-use bitvec::prelude::*;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use turn_rs::StunClass;
 
 type Receiver = UnboundedSender<(Vec<u8>, StunClass, SocketAddr)>;
 
 /// Handles packet forwarding between transport protocols.
+#[derive(Default)]
 pub struct Router {
-    senders: RwLock<AHashMap<u8, Receiver>>,
-    bits: Mutex<&'static mut BitSlice<u8, Lsb0>>,
-}
-
-impl Default for Router {
-    fn default() -> Self {
-        Self::new()
-    }
+    senders: RwLock<AHashMap<SocketAddr, Receiver>>,
 }
 
 impl Router {
-    pub fn new() -> Self {
-        Self {
-            senders: Default::default(),
-            bits: Mutex::new(unsafe { bits![static mut u8, Lsb0; 1; 255] }),
-        }
-    }
-
     /// Get the endpoint reader for the route.
     ///
     /// Each transport protocol is layered according to its own endpoint, and
@@ -53,13 +39,13 @@ impl Router {
     ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
-    pub fn get_receiver(&self) -> (u8, UnboundedReceiver<(Vec<u8>, StunClass, SocketAddr)>) {
-        let index = self
-            .alloc_index()
-            .expect("transport router alloc index failed!");
+    pub fn get_receiver(
+        &self,
+        interface: SocketAddr,
+    ) -> UnboundedReceiver<(Vec<u8>, StunClass, SocketAddr)> {
         let (sender, receiver) = unbounded_channel();
-        self.senders.write().insert(index, sender);
-        (index, receiver)
+        self.senders.write().insert(interface, sender);
+        receiver
     }
 
     /// Send data to router.
@@ -89,11 +75,11 @@ impl Router {
     ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
-    pub fn send(&self, index: u8, class: StunClass, addr: &SocketAddr, data: &[u8]) {
+    pub fn send(&self, interface: &SocketAddr, class: StunClass, addr: &SocketAddr, data: &[u8]) {
         let mut is_destroy = false;
 
         {
-            if let Some(sender) = self.senders.read().get(&index) {
+            if let Some(sender) = self.senders.read().get(&interface) {
                 if sender.send((data.to_vec(), class, *addr)).is_err() {
                     is_destroy = true;
                 }
@@ -101,7 +87,7 @@ impl Router {
         }
 
         if is_destroy {
-            self.remove(index);
+            self.remove(interface);
         }
     }
 
@@ -130,23 +116,7 @@ impl Router {
     ///     assert!(receiver.recv().await.is_none());
     /// }
     /// ```
-    pub fn remove(&self, index: u8) {
-        if let Some(sender) = self.senders.write().remove(&index) {
-            self.free_index(index);
-            drop(sender)
-        }
-    }
-
-    /// alloc a index.
-    fn alloc_index(&self) -> Option<u8> {
-        let mut bits = self.bits.lock();
-        let index = bits.first_one().map(|i| i as u8)?;
-        bits.set(index as usize, false);
-        Some(index)
-    }
-
-    /// free a index from alloced.
-    fn free_index(&self, index: u8) {
-        self.bits.lock().set(index as usize, true);
+    pub fn remove(&self, interface: &SocketAddr) {
+        drop(self.senders.write().remove(&interface))
     }
 }

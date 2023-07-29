@@ -1,4 +1,4 @@
-use super::{verify_message, Context, Response};
+use super::{ip_is_local, verify_message, Context, Response};
 use crate::{StunClass, SOFTWARE};
 
 use std::net::SocketAddr;
@@ -47,7 +47,7 @@ enum Ret {
 
 #[inline(always)]
 fn check_addr(ctx: &Context, peer: &SocketAddr) -> Ret {
-    if ctx.env.external.ip() == peer.ip() {
+    if ip_is_local(ctx, peer) {
         return Ret::Next;
     }
 

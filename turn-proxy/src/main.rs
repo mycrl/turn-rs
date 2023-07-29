@@ -35,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
                 sender,
             },
             state: RwLock::new(ProxyStateNotifyNode {
-                external: node.external,
+                externals: node.externals.clone(),
                 index: index as u8,
                 addr: node.bind,
                 online: false,
@@ -159,7 +159,7 @@ fn on_tcp_socket(index: usize, nodes: Arc<Vec<ProxyNode>>, mut socket: TcpStream
 async fn send_state(nodes: &Vec<ProxyNode>) {
     let mut ret = Vec::with_capacity(nodes.len());
     for node in nodes {
-        ret.push(*node.state.read().await);
+        ret.push(node.state.read().await.clone());
     }
 
     let req: Vec<u8> = Request::ProxyStateNotify(ret).into();

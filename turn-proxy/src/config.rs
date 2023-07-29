@@ -33,7 +33,7 @@ impl Default for Net {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Node {
     pub bind: SocketAddr,
-    pub external: SocketAddr,
+    pub externals: Vec<SocketAddr>,
 }
 
 #[derive(Deserialize, Debug)]

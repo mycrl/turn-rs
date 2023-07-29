@@ -8,9 +8,9 @@ use tokio::sync::mpsc;
 
 use self::transport::{OrderTransport, Transport, TransportAddr};
 
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ProxyStateNotifyNode {
-    pub external: SocketAddr,
+    pub externals: Vec<SocketAddr>,
     pub addr: SocketAddr,
     pub online: bool,
     pub index: u8,

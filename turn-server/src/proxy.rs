@@ -27,35 +27,36 @@ impl ProxyExt {
 }
 
 impl ProxyExt {
-    fn indication(&self, message: MessageReader<'_, '_>, bytes: &mut BytesMut) -> Option<()> {
-        let router = self.service.get_router();
+    fn on_relay(&mut self, payload: &[u8]) -> Option<()> {
+        if let Ok(payload) = self.decoder.decode(payload) {
+            match payload {
+                Payload::Message(message) => {
+                    let router = self.service.get_router();
 
-        let data = message.get::<Data>()?;
-        let peer = message.get::<XorPeerAddress>()?;
-        let addr = router.get_port_bound(peer.port())?;
-        let mark = router.get_node(&addr)?.mark;
+                    let data = message.get::<Data>()?;
+                    let peer = message.get::<XorPeerAddress>()?;
+                    let addr = router.get_port_bound(peer.port())?;
+                    let interface = router.get_interface(&addr)?;
 
-        let mut pack = MessageWriter::extend(Method::DataIndication, &message, bytes);
-        pack.append::<XorPeerAddress>(peer);
-        pack.append::<Data>(data);
-        pack.flush(None).ok()?;
+                    let mut pack =
+                        MessageWriter::extend(Method::DataIndication, &message, &mut self.buf);
+                    pack.append::<XorPeerAddress>(peer);
+                    pack.append::<Data>(data);
+                    pack.flush(None).ok()?;
 
-        self.router.send(mark, StunClass::Message, &addr, &bytes);
+                    self.router
+                        .send(&interface, StunClass::Message, &addr, &mut self.buf);
+                }
+                _ => {}
+            }
+        }
+
         Some(())
     }
-
-    fn channel(&self) {}
 }
 
 impl ProxyObserver for ProxyExt {
     fn relay(&mut self, payload: &[u8]) {
-        if let Ok(payload) = self.decoder.decode(payload) {
-            match payload {
-                Payload::Message(message) => {
-                    // self.indication(message, &mut self.buf);
-                }
-                Payload::ChannelData(data) => {}
-            }
-        }
+        self.on_relay(payload);
     }
 }

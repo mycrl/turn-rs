@@ -86,7 +86,7 @@ impl Proxy {
         self.nodes
             .read()
             .iter()
-            .find(|n| &n.external.ip() == addr)
+            .find(|n| n.externals.iter().any(|e| &e.ip() == addr))
             .cloned()
     }
 

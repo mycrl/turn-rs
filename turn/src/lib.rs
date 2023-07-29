@@ -212,6 +212,7 @@ pub trait Observer: Send + Sync {
 pub struct Service {
     router: Arc<Router>,
     observer: Arc<dyn Observer>,
+    externals: Arc<Vec<SocketAddr>>,
     realm: String,
 }
 
@@ -233,13 +234,14 @@ impl Service {
     ///
     /// Service::new(ObserverTest, "test".to_string());
     /// ```
-    pub fn new<T>(observer: T, realm: String) -> Self
+    pub fn new<T>(realm: String, externals: Vec<SocketAddr>, observer: T) -> Self
     where
         T: Observer + 'static,
     {
         let observer = Arc::new(observer);
         let router = Router::new(realm.clone(), observer.clone());
         Self {
+            externals: Arc::new(externals),
             observer,
             router,
             realm,
@@ -271,6 +273,7 @@ impl Service {
         Processor::new(
             interface,
             external,
+            self.externals.clone(),
             self.realm.clone(),
             self.router.clone(),
             self.observer.clone(),
