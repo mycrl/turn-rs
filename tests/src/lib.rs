@@ -59,7 +59,6 @@ pub async fn create_turn() {
     tokio::spawn(async move {
         server_main(Arc::new(Config {
             auth,
-            proxy: None,
             controller: Controller::default(),
             hooks: Hooks::default(),
             log: Log::default(),

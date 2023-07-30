@@ -18,7 +18,7 @@ fn reject<'a>(
     let mut pack = MessageWriter::extend(method, &reader, bytes);
     pack.append::<ErrorCode>(Error::from(err));
     pack.flush(None)?;
-    Ok(Some(Response::new(bytes, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// return refresh ok response
@@ -33,7 +33,7 @@ pub fn resolve<'a>(
     let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<Lifetime>(lifetime);
     pack.flush(Some(key))?;
-    Ok(Some(Response::new(bytes, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// process refresh request

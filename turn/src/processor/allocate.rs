@@ -24,7 +24,7 @@ fn reject<'a>(
     pack.append::<Realm>(&ctx.env.realm);
     pack.append::<Nonce>(&nonce);
     pack.flush(None)?;
-    Ok(Some(Response::new(bytes, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// return allocate ok response
@@ -53,7 +53,7 @@ fn resolve<'a>(
     pack.append::<Lifetime>(600);
     pack.append::<Software>(SOFTWARE);
     pack.flush(Some(key))?;
-    Ok(Some(Response::new(bytes, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// process allocate request

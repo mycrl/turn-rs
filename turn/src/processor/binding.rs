@@ -41,5 +41,5 @@ pub fn process<'a>(
     pack.append::<Software>(SOFTWARE);
     pack.flush(None)?;
     ctx.env.observer.binding(&ctx.addr);
-    Ok(Some(Response::new(bytes, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }

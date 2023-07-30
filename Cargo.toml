@@ -9,6 +9,5 @@ members = [
     "tests",
     "turn",
     "stun",
-    "turn-server",
-    "turn-proxy"
+    "turn-server"
 ]

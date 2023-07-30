@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use ahash::AHashMap;
 use parking_lot::RwLock;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::*;
 use turn_rs::StunClass;
 
 type Receiver = UnboundedSender<(Vec<u8>, StunClass, SocketAddr)>;
@@ -29,10 +29,10 @@ impl Router {
     /// #[tokio::main]
     /// async fn main() {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    ///     let router = Router::new();
-    ///     let (index, mut receiver) = router.get_receiver();
+    ///     let router = Router::default();
+    ///     let mut receiver = router.get_receiver(addr);
     ///
-    ///     router.send(index, StunClass::Channel, &addr, &[1, 2, 3]);
+    ///     router.send(&addr, StunClass::Channel, &addr, &[1, 2, 3]);
     ///     let ret = receiver.recv().await.unwrap();
     ///     assert_eq!(ret.0, vec![1, 2, 3]);
     ///     assert_eq!(ret.1, StunClass::Channel);
@@ -65,10 +65,10 @@ impl Router {
     /// #[tokio::main]
     /// async fn main() {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    ///     let router = Router::new();
-    ///     let (index, mut receiver) = router.get_receiver();
+    ///     let router = Router::default();
+    ///     let mut receiver = router.get_receiver(addr);
     ///
-    ///     router.send(index, StunClass::Channel, &addr, &[1, 2, 3]);
+    ///     router.send(&addr, StunClass::Channel, &addr, &[1, 2, 3]);
     ///     let ret = receiver.recv().await.unwrap();
     ///     assert_eq!(ret.0, vec![1, 2, 3]);
     ///     assert_eq!(ret.1, StunClass::Channel);
@@ -103,16 +103,16 @@ impl Router {
     /// #[tokio::main]
     /// async fn main() {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    ///     let router = Router::new();
-    ///     let (index, mut receiver) = router.get_receiver();
+    ///     let router = Router::default();
+    ///     let mut receiver = router.get_receiver(addr);
     ///
-    ///     router.send(index, StunClass::Channel, &addr, &[1, 2, 3]);
+    ///     router.send(&addr, StunClass::Channel, &addr, &[1, 2, 3]);
     ///     let ret = receiver.recv().await.unwrap();
     ///     assert_eq!(ret.0, vec![1, 2, 3]);
     ///     assert_eq!(ret.1, StunClass::Channel);
     ///     assert_eq!(ret.2, addr);
     ///
-    ///     router.remove(index);
+    ///     router.remove(&addr);
     ///     assert!(receiver.recv().await.is_none());
     /// }
     /// ```

@@ -44,7 +44,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node = Node::new(0, "test", "test", "test");
+    /// let mut node = Node::new("test", "test", "test");
     ///
     /// node.set_lifetime(0);
     /// assert!(node.is_death());
@@ -64,7 +64,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node = Node::new(0, "test", "test", "test");
+    /// let mut node = Node::new("test", "test", "test");
     ///
     /// node.set_lifetime(0);
     /// assert!(node.is_death());
@@ -83,14 +83,9 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node = Node::new(0, "test", "test", "test");
-    /// let key = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157,
-    ///     36, 56, 143, 91, 155, 16, 224, 239
-    /// ];
-    ///
+    /// let mut node = Node::new("test", "test", "test");
     /// let secret = node.get_secret();
-    /// assert_eq!(secret.as_slice(), &key);
+    /// assert_eq!(secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
     /// ```
     pub fn get_secret(&self) -> Arc<[u8; 16]> {
         self.secret.clone()
@@ -103,7 +98,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node = Node::new(0, "test", "test", "test");
+    /// let mut node = Node::new("test", "test", "test");
     ///
     /// node.push_port(43196);
     /// assert_eq!(&node.ports, &[43196]);
@@ -121,7 +116,7 @@ impl Node {
     /// ```
     /// use turn_rs::router::nodes::*;
     ///
-    /// let mut node = Node::new(0, "test".to_string(), [0u8; 16], "test".to_string());
+    /// let mut node = Node::new("test", "test", "test");
     ///
     /// node.push_channel(0x4000);
     /// assert_eq!(&node.channels, &[0x4000]);
@@ -184,15 +179,14 @@ impl Nodes {
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    /// nodes.insert(&addr, "test", "test", "test");
     ///
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
     /// assert_eq!(node.channels.len(), 0);
     /// assert_eq!(node.ports.len(), 0);
-    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn get_node(&self, a: &SocketAddr) -> Option<Node> {
         self.map.read().get(a).cloned()
@@ -209,10 +203,10 @@ impl Nodes {
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    /// nodes.insert(&addr, "test", "test", "test");
     ///
     /// let secret = nodes.get_secret(&addr).unwrap();
-    /// assert_eq!(secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
     /// ```
     pub fn get_secret(&self, a: &SocketAddr) -> Option<Arc<[u8; 16]>> {
         self.map.read().get(a).map(|n| n.get_secret())
@@ -229,15 +223,14 @@ impl Nodes {
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    /// nodes.insert(&addr, "test", "test", "test");
     ///
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
     /// assert_eq!(node.channels.len(), 0);
     /// assert_eq!(node.ports.len(), 0);
-    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn insert(
         &self,
@@ -269,17 +262,16 @@ impl Nodes {
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    /// nodes.insert(&addr, "test", "test", "test");
     ///
     /// assert!(nodes.push_port(&addr, 60000).is_some());
     ///
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![60000]);
-    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn push_port(&self, a: &SocketAddr, port: u16) -> Option<()> {
         self.map.write().get_mut(a)?.push_port(port);
@@ -297,17 +289,16 @@ impl Nodes {
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    /// nodes.insert(&addr, "test", "test", "test");
     ///
     /// assert!(nodes.push_channel(&addr, 0x4000).is_some());
     ///
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
     /// assert_eq!(node.channels, vec![0x4000]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn push_channel(&self, a: &SocketAddr, channel: u16) -> Option<()> {
         self.map.write().get_mut(a)?.push_channel(channel);
@@ -325,17 +316,16 @@ impl Nodes {
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    /// nodes.insert(&addr, "test", "test", "test");
     ///
     /// assert!(nodes.set_lifetime(&addr, 600).is_some());
     ///
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.mark, 0);
     /// assert!(!node.is_death());
     ///
     /// assert!(nodes.set_lifetime(&addr, 0).is_some());
@@ -343,10 +333,9 @@ impl Nodes {
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.mark, 0);
     /// assert!(node.is_death());
     /// ```
     pub fn set_lifetime(&self, a: &SocketAddr, delay: u32) -> Option<()> {
@@ -365,15 +354,14 @@ impl Nodes {
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    /// nodes.insert(&addr, "test", "test", "test");
     ///
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[0u8; 16]);
+    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.mark, 0);
     ///
     /// assert!(nodes.remove(&addr).is_some());
     /// assert!(nodes.get_node(&addr).is_none());
@@ -403,8 +391,8 @@ impl Nodes {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let addr1 = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     ///
-    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
-    /// nodes.insert(1, &addr1, "test", [0u8; 16], "test");
+    /// nodes.insert(&addr, "test", "test", "test");
+    /// nodes.insert(&addr1, "test", "test", "test");
     ///
     /// let ret = nodes.get_addrs("test");
     ///
@@ -433,7 +421,7 @@ impl Nodes {
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
-    /// nodes.insert(0, &addr, "test", [0u8; 16], "test");
+    /// nodes.insert(&addr, "test", "test", "test");
     ///
     /// assert!(nodes.set_lifetime(&addr, 600).is_some());
     /// assert_eq!(nodes.get_deaths(), vec![]);

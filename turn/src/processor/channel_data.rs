@@ -32,13 +32,7 @@ use faster_stun::ChannelData;
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
 pub fn process(ctx: Context, data: ChannelData<'_>) -> Option<Response<'_>> {
     let addr = ctx.env.router.get_channel_bound(&ctx.addr, data.number)?;
-    Some(Response::new(
-        data.buf,
-        StunClass::Channel,
-        if ctx.env.external.ip() != addr.ip() {
-            Some((addr, ctx.env.router.get_interface(&addr)?))
-        } else {
-            None
-        }
-    ))
+    let interface = ctx.env.router.get_interface(&addr)?;
+    let to = (&ctx.env.interface != interface.as_ref()).then(|| interface);
+    Some(Response::new(data.buf, StunClass::Channel, Some(addr), to))
 }

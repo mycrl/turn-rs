@@ -8,26 +8,6 @@ use bytes::BytesMut;
 use faster_stun::attribute::{Data, XorPeerAddress};
 use faster_stun::{MessageReader, MessageWriter, Method};
 
-#[inline(always)]
-async fn check_addr(ctx: &Context, peer: &SocketAddr, data: &[u8]) -> bool {
-    if ip_is_local(ctx, peer) {
-        return true;
-    }
-
-    let proxy = match &ctx.env.proxy {
-        None => return false,
-        Some(p) => p,
-    };
-
-    let node = match proxy.get_online_node(&peer.ip()) {
-        None => return false,
-        Some(n) => n,
-    };
-
-    let _ = proxy.relay(&node, data).await;
-    false
-}
-
 /// process send indication request
 ///
 /// When the server receives a Send indication, it processes as per
@@ -82,7 +62,7 @@ pub async fn process<'a>(
         Some(x) => x,
     };
 
-    if !check_addr(&ctx, &peer, &reader).await {
+    if !ip_is_local(&ctx, &peer) {
         return Ok(None);
     }
 
@@ -112,6 +92,6 @@ pub async fn process<'a>(
     pack.append::<Data>(data);
     pack.flush(None)?;
 
-    let to = (ctx.env.external.ip() != peer.ip()).then(|| (addr, interface));
-    Ok(Some(Response::new(bytes, StunClass::Message, to)))
+    let to = (&ctx.env.interface != interface.as_ref()).then(|| interface);
+    Ok(Some(Response::new(bytes, StunClass::Msg, Some(addr), to)))
 }

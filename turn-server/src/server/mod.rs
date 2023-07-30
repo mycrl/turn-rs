@@ -5,12 +5,10 @@ pub use self::monitor::*;
 
 use super::config::{Config, Transport};
 use super::router::Router;
-use crate::proxy::ProxyExt;
 
 use std::sync::Arc;
 
 use tokio::net::{TcpListener, UdpSocket};
-use turn_proxy::Proxy;
 use turn_rs::Service;
 
 /// start turn server.
@@ -28,12 +26,6 @@ use turn_rs::Service;
 /// ```
 pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> anyhow::Result<()> {
     let router = Arc::new(Router::default());
-    let proxy = if let Some(cfg) = &config.proxy {
-        Some(Proxy::new(cfg, ProxyExt::new(service.clone(), router.clone())).await?)
-    } else {
-        None
-    };
-
     for i in config.turn.interfaces.clone() {
         let service = service.clone();
         match i.transport {
@@ -44,7 +36,6 @@ pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> an
                     service.clone(),
                     router.clone(),
                     monitor.clone(),
-                    proxy.clone(),
                 ));
             }
             Transport::TCP => {
@@ -54,7 +45,6 @@ pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> an
                     service.clone(),
                     router.clone(),
                     monitor.clone(),
-                    proxy.clone(),
                 ));
             }
         }

@@ -4,10 +4,10 @@ pub mod nodes;
 pub mod nonces;
 pub mod ports;
 
+use crate::Observer;
 use self::{
     channels::Channels, interfaces::Interfaces, nodes::Nodes, nonces::Nonces, ports::Ports,
 };
-use crate::Observer;
 
 use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
@@ -152,18 +152,17 @@ impl Router {
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let net = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let secret = [
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
-    /// let interface = router.get_interface(0, 10);
-    /// assert_eq!(interface, Some(Arc::new(net)));
+    /// let interface = router.get_interface(&addr);
+    /// assert_eq!(interface, Some(Arc::new(addr)));
     /// ```
     pub fn get_interface(&self, addr: &SocketAddr) -> Option<Arc<SocketAddr>> {
         self.interfaces.get_ref(addr)
@@ -193,7 +192,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -228,7 +227,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -238,7 +237,6 @@ impl Router {
     /// assert_eq!(node.secret.as_slice(), &secret);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.mark, 0);
     /// ```
     pub fn get_node(&self, addr: &SocketAddr) -> Option<nodes::Node> {
         self.nodes.get_node(addr)
@@ -268,7 +266,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -303,7 +301,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -340,7 +338,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// ```
@@ -406,7 +404,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -443,7 +441,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -480,7 +478,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -556,7 +554,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// assert!(router.alloc_port(&addr).is_some());
@@ -596,7 +594,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -641,7 +639,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -711,7 +709,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// router.refresh(&addr, 0);
@@ -750,7 +748,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// assert!(router.remove(&addr).is_some());
@@ -793,7 +791,7 @@ impl Router {
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// router.remove_from_user("test");

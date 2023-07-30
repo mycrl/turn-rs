@@ -14,7 +14,6 @@ use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::*;
 use faster_stun::*;
-use turn_proxy::Proxy;
 
 pub struct Env {
     pub interface: SocketAddr,
@@ -23,7 +22,6 @@ pub struct Env {
     pub external: Arc<SocketAddr>,
     pub externals: Arc<Vec<SocketAddr>>,
     pub observer: Arc<dyn Observer>,
-    pub proxy: Option<Proxy>,
 }
 
 /// process udp message
@@ -42,7 +40,6 @@ impl Processor {
         realm: String,
         router: Arc<Router>,
         observer: Arc<dyn Observer>,
-        proxy: Option<Proxy>,
     ) -> Self {
         Self {
             decoder: Decoder::new(),
@@ -54,7 +51,6 @@ impl Processor {
                 interface,
                 observer,
                 router,
-                proxy,
             }),
         }
     }
@@ -327,7 +323,8 @@ impl Processor {
 pub struct Response<'a> {
     pub data: &'a [u8],
     pub kind: StunClass,
-    pub relay: Option<(SocketAddr, Arc<SocketAddr>)>,
+    pub relay: Option<SocketAddr>,
+    pub interface: Option<Arc<SocketAddr>>,
 }
 
 impl<'a> Response<'a> {
@@ -335,9 +332,15 @@ impl<'a> Response<'a> {
     pub(crate) fn new(
         data: &'a [u8],
         kind: StunClass,
-        relay: Option<(SocketAddr, Arc<SocketAddr>)>,
+        relay: Option<SocketAddr>,
+        interface: Option<Arc<SocketAddr>>,
     ) -> Self {
-        Self { data, kind, relay }
+        Self {
+            data,
+            kind,
+            relay,
+            interface,
+        }
     }
 }
 

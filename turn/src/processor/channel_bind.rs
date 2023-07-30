@@ -20,7 +20,7 @@ fn reject<'a>(
     pack.append::<ErrorCode>(Error::from(err));
     pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some(Response::new(bytes, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// return channel binding ok response
@@ -32,7 +32,7 @@ fn resolve<'a>(
 ) -> Result<Option<Response<'a>>> {
     let method = Method::ChannelBind(Kind::Response);
     MessageWriter::extend(method, reader, bytes).flush(Some(key))?;
-    Ok(Some(Response::new(bytes, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// process channel binding request

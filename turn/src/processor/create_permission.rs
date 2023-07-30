@@ -1,8 +1,6 @@
 use super::{ip_is_local, verify_message, Context, Response};
 use crate::{StunClass, SOFTWARE};
 
-use std::net::SocketAddr;
-
 use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::ErrKind::*;
@@ -22,7 +20,7 @@ fn reject<'a>(
     pack.append::<ErrorCode>(Error::from(err));
     pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some(Response::new(bytes, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// return create permission ok response
@@ -36,31 +34,7 @@ fn resolve<'a>(
     let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<Software>(SOFTWARE);
     pack.flush(Some(key))?;
-    Ok(Some(Response::new(bytes, StunClass::Message, None)))
-}
-
-enum Ret {
-    Next,
-    Failed,
-    Relay,
-}
-
-#[inline(always)]
-fn check_addr(ctx: &Context, peer: &SocketAddr) -> Ret {
-    if ip_is_local(ctx, peer) {
-        return Ret::Next;
-    }
-
-    ctx.env
-        .proxy
-        .as_ref()
-        .map(|proxy| {
-            proxy
-                .get_online_node(&peer.ip())
-                .map(|_| Ret::Relay)
-                .unwrap_or(Ret::Failed)
-        })
-        .unwrap_or(Ret::Failed)
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// process create permission request
@@ -117,10 +91,8 @@ pub async fn process<'a>(
         Some(a) => a,
     };
 
-    match check_addr(&ctx, &peer) {
-        Ret::Failed => return reject(ctx, reader, bytes, Forbidden),
-        Ret::Relay => return resolve(&reader, &key, bytes),
-        Ret::Next => (),
+    if !ip_is_local(&ctx, &peer) {
+        return reject(ctx, reader, bytes, Forbidden);
     }
 
     if ctx.env.router.bind_port(&ctx.addr, peer.port()).is_none() {

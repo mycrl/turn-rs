@@ -7,7 +7,6 @@ use bytes::BytesMut;
 use faster_stun::Decoder;
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::{io::AsyncReadExt, io::AsyncWriteExt, sync::Mutex};
-use turn_proxy::Proxy;
 use turn_rs::{Service, StunClass};
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
@@ -22,7 +21,6 @@ pub async fn tcp_processor(
     service: Service,
     router: Arc<Router>,
     monitor: Monitor,
-    proxy: Option<Proxy>,
 ) {
     let local_addr = listen
         .local_addr()
@@ -31,10 +29,10 @@ pub async fn tcp_processor(
     // Accept all connections on the current listener, but exit the entire
     // process when an error occurs.
     while let Ok((socket, addr)) = listen.accept().await {
-        let actor = monitor.get_actor();
         let router = router.clone();
+        let actor = monitor.get_actor();
         let mut receiver = router.get_receiver(addr);
-        let mut processor = service.get_processor(addr, external, proxy.clone());
+        let mut processor = service.get_processor(addr, external);
 
         log::info!(
             "tcp socket accept: addr={:?}, interface={:?}",
@@ -117,8 +115,9 @@ pub async fn tcp_processor(
 
                     let chunk = buf.split_to(size);
                     if let Ok(Some(res)) = processor.process(&chunk, addr).await {
-                        if let Some((addr, to)) = res.relay {
-                            router.send(&to, res.kind, &addr, res.data);
+                        let target = res.relay.unwrap_or(addr);
+                        if let Some(to) = res.interface {
+                            router.send(&to, res.kind, &target, res.data);
                         } else {
                             if writer.lock().await.write_all(res.data).await.is_err() {
                                 break 'a;
@@ -152,14 +151,13 @@ pub async fn udp_processor(
     service: Service,
     router: Arc<Router>,
     monitor: Monitor,
-    proxy: Option<Proxy>,
 ) {
     let socket = Arc::new(socket);
     for _ in 0..num_cpus::get() {
-        let actor = monitor.get_actor();
         let socket = socket.clone();
         let router = router.clone();
-        let mut processor = service.get_processor(external, external, proxy.clone());
+        let actor = monitor.get_actor();
+        let mut processor = service.get_processor(external, external);
 
         tokio::spawn(async move {
             let mut buf = vec![0u8; 2048];
@@ -182,10 +180,11 @@ pub async fn udp_processor(
                 // excluding content)
                 if size >= 4 {
                     if let Ok(Some(res)) = processor.process(&buf[..size], addr).await {
-                        if let Some((addr, to)) = res.relay {
-                            router.send(&to, res.kind, &addr, res.data);
+                        let target = res.relay.unwrap_or(addr);
+                        if let Some(to) = res.interface {
+                            router.send(&to, res.kind, &target, res.data);
                         } else {
-                            if let Err(e) = socket.send_to(res.data, &addr).await {
+                            if let Err(e) = socket.send_to(res.data, &target).await {
                                 if e.kind() != ConnectionReset {
                                     break;
                                 }

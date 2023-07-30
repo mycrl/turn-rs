@@ -8,11 +8,10 @@ pub use router::Router;
 use std::{net::SocketAddr, sync::Arc};
 
 use async_trait::async_trait;
-use turn_proxy::Proxy;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StunClass {
-    Message,
+    Msg,
     Channel,
 }
 
@@ -232,7 +231,7 @@ impl Service {
     ///
     /// impl Observer for ObserverTest {}
     ///
-    /// Service::new(ObserverTest, "test".to_string());
+    /// Service::new("test".to_string(), vec![], ObserverTest);
     /// ```
     pub fn new<T>(realm: String, externals: Vec<SocketAddr>, observer: T) -> Self
     where
@@ -261,15 +260,10 @@ impl Service {
     /// impl Observer for ObserverTest {}
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let service = Service::new(ObserverTest, "test".to_string());
-    /// service.get_processor(0, addr, None);
+    /// let service = Service::new("test".to_string(), vec![], ObserverTest);
+    /// service.get_processor(addr, addr);
     /// ```
-    pub fn get_processor(
-        &self,
-        interface: SocketAddr,
-        external: SocketAddr,
-        proxy: Option<Proxy>,
-    ) -> Processor {
+    pub fn get_processor(&self, interface: SocketAddr, external: SocketAddr) -> Processor {
         Processor::new(
             interface,
             external,
@@ -277,7 +271,6 @@ impl Service {
             self.realm.clone(),
             self.router.clone(),
             self.observer.clone(),
-            proxy,
         )
     }
 }

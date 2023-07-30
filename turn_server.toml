@@ -26,17 +26,7 @@ external = "127.0.0.1:3478"
 [[turn.interfaces]]
 transport = "tcp"
 bind = "127.0.0.1:3478"
-# external address
-#
-# specify the node external address and port.
-# for the case of exposing the service to the outside,
-# you need to manually specify the server external IP
-# address and service listening port.
 external = "127.0.0.1:3478"
-
-[proxy]
-bind = "0.0.0.0:3481"
-proxy = "127.0.0.1:5000"
 
 [controller]
 # controller bind
