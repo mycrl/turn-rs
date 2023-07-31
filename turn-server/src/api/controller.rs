@@ -1,92 +1,12 @@
+use std::{net::SocketAddr, sync::Arc};
+
+use super::payload::{Node, Stats, SOFTWARE};
+use crate::{config::*, server::*};
+
+use axum::{extract::Query, extract::State, Json};
+use serde::Deserialize;
 use tokio::time::Instant;
-use serde::*;
-use axum::{
-    extract::Query,
-    extract::State,
-    Json,
-};
-
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
-
-use crate::{
-    config::*,
-    server::{
-        Store,
-        Monitor,
-    },
-};
-use turn_rs::{
-    Router,
-    Node,
-};
-
-#[rustfmt::skip]
-static SOFTWARE: &str = concat!(
-    env!("CARGO_PKG_NAME"), 
-    ":",
-    env!("CARGO_PKG_VERSION")
-);
-
-#[derive(Serialize)]
-pub struct Stats {
-    /// Software information, usually a name and version string.
-    software: String,
-    /// The listening interfaces of the turn server.
-    interfaces: Vec<Interface>,
-    /// The running time of the server, in seconds.
-    uptime: u64,
-    /// Turn server port pool capacity.
-    port_capacity: u16,
-    /// The number of ports that the turn server has classified.
-    port_allocated: u16,
-    /// The partition where the turn server resides.
-    realm: String,
-}
-
-/// node information in the turn server
-#[derive(Serialize)]
-pub struct INode {
-    /// Username for the current INodeion.
-    username: String,
-    /// The user key for the current INodeion.
-    password: String,
-    /// The lifetime of the current user.
-    lifetime: u64,
-    /// The active time of the current user, in seconds.
-    timer: u64,
-    /// List of assigned channel numbers.
-    allocated_channels: Vec<u16>,
-    /// List of assigned port numbers.
-    allocated_ports: Vec<u16>,
-}
-
-impl From<Node> for INode {
-    /// # Example
-    ///
-    /// ```ignore
-    /// let node = Node {
-    ///     ...
-    /// };
-    ///
-    /// let INode = INode::from(node.clone());
-    /// assert_eq!(INode.username, node.username);
-    /// assert_eq!(INode.password, node.password);
-    /// assert_eq!(INoder.lifetime, node.lifetime);
-    /// ```
-    fn from(value: Node) -> Self {
-        INode {
-            timer: value.timer.elapsed().as_secs(),
-            username: value.username.clone(),
-            allocated_channels: value.channels,
-            allocated_ports: value.ports,
-            password: value.password,
-            lifetime: value.lifetime,
-        }
-    }
-}
+use turn_rs::Service;
 
 #[derive(Debug, Deserialize)]
 pub struct AddrParams {
@@ -105,7 +25,7 @@ pub struct Qiter {
 /// information and reports through the controller.
 pub struct Controller {
     config: Arc<Config>,
-    router: Arc<Router>,
+    service: Service,
     monitor: Monitor,
     timer: Instant,
 }
@@ -125,15 +45,11 @@ impl Controller {
     ///
     /// Controller::new(service.get_router(), config, monitor);
     /// ```
-    pub fn new(
-        config: Arc<Config>,
-        monitor: Monitor,
-        router: Arc<Router>,
-    ) -> Arc<Self> {
+    pub fn new(config: Arc<Config>, monitor: Monitor, service: Service) -> Arc<Self> {
         Arc::new(Self {
             timer: Instant::now(),
             monitor,
-            router,
+            service,
             config,
         })
     }
@@ -151,12 +67,13 @@ impl Controller {
     /// // let state_js = ctr.get_stats().await;
     /// ```
     pub async fn get_stats(State(this): State<&Self>) -> Json<Stats> {
+        let router = this.service.get_router();
         Json(Stats {
             software: SOFTWARE.to_string(),
             uptime: this.timer.elapsed().as_secs(),
             realm: this.config.turn.realm.clone(),
-            port_allocated: this.router.len() as u16,
-            port_capacity: this.router.capacity() as u16,
+            port_allocated: router.len() as u16,
+            port_capacity: router.capacity() as u16,
             interfaces: this.config.turn.interfaces.clone(),
         })
     }
@@ -201,9 +118,10 @@ impl Controller {
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
     ) -> Json<Vec<(String, Vec<SocketAddr>)>> {
+        let router = this.service.get_router();
         let skip = pars.skip.unwrap_or(0);
         let limit = pars.limit.unwrap_or(20);
-        Json(this.router.get_users(skip, limit))
+        Json(router.get_users(skip, limit))
     }
 
     /// Get node information
@@ -225,8 +143,9 @@ impl Controller {
     pub async fn get_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
-    ) -> Json<Option<INode>> {
-        Json(this.router.get_node(&Arc::new(pars.addr)).map(INode::from))
+    ) -> Json<Option<Node>> {
+        let router = this.service.get_router();
+        Json(router.get_node(&Arc::new(pars.addr)).map(Node::from))
     }
 
     /// Delete a node under the user.
@@ -246,15 +165,11 @@ impl Controller {
     /// let addr = "127.0.0.1:8080".parse().unwrap();
     /// // let remove_node_js = ctr.remove_user(addr).await;
     /// ```
-    #[rustfmt::skip]
     pub async fn remove_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<bool> {
-        Json(
-            this.router
-                .remove(&Arc::new(pars.addr))
-                .is_some()
-        )
+        let router = this.service.get_router();
+        Json(router.remove(&Arc::new(pars.addr)).is_some())
     }
 }

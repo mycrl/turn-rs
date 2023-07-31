@@ -1,54 +1,39 @@
-use bytes::BytesMut;
-use anyhow::Result;
+use super::{verify_message, Context, Response};
 use crate::StunClass;
-use super::{
-    Context,
-    Response,
-};
 
-use faster_stun::{
-    Kind,
-    Method,
-    MessageReader,
-    MessageWriter,
-};
-
-use faster_stun::attribute::{
-    ErrKind::Unauthorized,
-    ErrKind,
-    Error,
-    ErrorCode,
-    Lifetime,
-    UserName,
-};
+use anyhow::Result;
+use bytes::BytesMut;
+use faster_stun::attribute::ErrKind::*;
+use faster_stun::attribute::*;
+use faster_stun::*;
 
 /// return refresh error response
 #[inline(always)]
-fn reject<'a, 'b, 'c>(
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-    e: ErrKind,
-) -> Result<Response<'c>> {
+fn reject<'a>(
+    reader: MessageReader,
+    bytes: &'a mut BytesMut,
+    err: ErrKind,
+) -> Result<Option<Response<'a>>> {
     let method = Method::Refresh(Kind::Error);
-    let mut pack = MessageWriter::extend(method, &m, w);
-    pack.append::<ErrorCode>(Error::from(e));
+    let mut pack = MessageWriter::extend(method, &reader, bytes);
+    pack.append::<ErrorCode>(Error::from(err));
     pack.flush(None)?;
-    Ok(Some((w, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// return refresh ok response
 #[inline(always)]
-pub fn resolve<'a, 'b, 'c>(
-    m: &MessageReader<'a, 'b>,
+pub fn resolve<'a>(
+    reader: &MessageReader,
     lifetime: u32,
-    p: &[u8; 16],
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
+    key: &[u8; 16],
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let method = Method::Refresh(Kind::Response);
-    let mut pack = MessageWriter::extend(method, m, w);
+    let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<Lifetime>(lifetime);
-    pack.flush(Some(p))?;
-    Ok(Some((w, StunClass::Message, None)))
+    pack.flush(Some(key))?;
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// process refresh request
@@ -90,31 +75,18 @@ pub fn resolve<'a, 'b, 'c>(
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-pub async fn process<'a, 'b, 'c>(
+pub async fn process<'a>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
-    let u = match m.get::<UserName>() {
-        Some(u) => u,
-        _ => return reject(m, w, Unauthorized),
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
+    let (username, key) = match verify_message(&ctx, &reader).await {
+        None => return reject(reader, bytes, Unauthorized),
+        Some(ret) => ret,
     };
 
-    let l = match m.get::<Lifetime>() {
-        Some(l) => l,
-        _ => 600,
-    };
-
-    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
-        None => return reject(m, w, Unauthorized),
-        Some(a) => a,
-    };
-
-    if m.integrity(&key).is_err() {
-        return reject(m, w, Unauthorized);
-    }
-
-    ctx.env.observer.refresh(&ctx.addr, u, l);
-    ctx.env.router.refresh(&ctx.addr, l);
-    resolve(&m, l, &key, w)
+    let time = reader.get::<Lifetime>().unwrap_or(600);
+    ctx.env.observer.refresh(&ctx.addr, username, time);
+    ctx.env.router.refresh(&ctx.addr, time);
+    resolve(&reader, time, &key, bytes)
 }

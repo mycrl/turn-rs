@@ -1,17 +1,10 @@
 use super::ports::capacity;
-use parking_lot::RwLock;
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    time::Instant,
-    sync::Arc,
-};
 
-use rand::{
-    distributions::Alphanumeric,
-    thread_rng,
-    Rng,
-};
+use std::{net::SocketAddr, sync::Arc, time::Instant};
+
+use ahash::AHashMap;
+use parking_lot::RwLock;
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
 /// Session nonce.
 ///
@@ -27,6 +20,12 @@ use rand::{
 pub struct Nonce {
     raw: Arc<String>,
     timer: Instant,
+}
+
+impl Default for Nonce {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Nonce {
@@ -78,13 +77,19 @@ impl Nonce {
 
 /// nonce table.
 pub struct Nonces {
-    map: RwLock<HashMap<SocketAddr, Nonce>>,
+    map: RwLock<AHashMap<SocketAddr, Nonce>>,
+}
+
+impl Default for Nonces {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Nonces {
     pub fn new() -> Self {
         Self {
-            map: RwLock::new(HashMap::with_capacity(capacity())),
+            map: RwLock::new(AHashMap::with_capacity(capacity())),
         }
     }
 
@@ -112,7 +117,7 @@ impl Nonces {
 
         self.map
             .write()
-            .entry(a.clone())
+            .entry(*a)
             .or_insert_with(Nonce::new)
             .unwind()
     }

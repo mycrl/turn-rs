@@ -1,66 +1,9 @@
+use super::payload::Events;
 use crate::config::Config;
-use serde::*;
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
 
-use anyhow::{
-    Result,
-    anyhow,
-};
+use std::{net::SocketAddr, sync::Arc};
 
-#[rustfmt::skip]
-#[derive(Serialize)]
-pub enum Events<'a> {
-    /// allocate request
-    Allocated {
-        addr: &'a SocketAddr,
-        name: &'a str,
-        port: u16,
-    },
-    /// binding request
-    Binding { 
-        addr: &'a SocketAddr 
-    },
-    /// channel binding request
-    ChannelBind {
-        addr: &'a SocketAddr,
-        name: &'a str,
-        number: u16,
-    },
-    /// create permission request
-    CreatePermission {
-        addr: &'a SocketAddr,
-        name: &'a str,
-        relay: &'a SocketAddr,
-    },
-    /// refresh request
-    Refresh {
-        addr: &'a SocketAddr,
-        name: &'a str,
-        time: u32,
-    },
-    /// node exit
-    Abort { 
-        addr: &'a SocketAddr, 
-        name: &'a str 
-    },
-}
-
-impl Events<'_> {
-    #[rustfmt::skip]
-    const fn to_str(&self) -> &'static str {
-        match self {
-            &Self::Allocated {..} => "allocated",
-            &Self::Binding {..} => "binding",
-            &Self::ChannelBind {..} => "channel_bind",
-            &Self::CreatePermission {..} => "create_permission",
-            &Self::Refresh {..} => "refresh",
-            &Self::Abort {..} => "abort",
-        }
-    }
-}
+use anyhow::{anyhow, Result};
 
 /// web hooks
 ///
@@ -75,7 +18,7 @@ impl Hooks {
     fn hooks(res: reqwest::Response) -> Result<reqwest::Response> {
         log::info!("hooks response: {:?}", res);
         (res.status() == 200)
-            .then(|| res)
+            .then_some(res)
             .ok_or_else(|| anyhow!("request failed!"))
     }
 
@@ -128,7 +71,7 @@ impl Hooks {
     ///
     /// Only subscribed events are pushed, other events are ignored.
     ///
-    /// TODO: This method will not wait for the send to succeed, and will
+    /// Note: This method will not wait for the send to succeed, and will
     /// complete regardless of success or failure.
     pub fn events(&self, event: &Events<'_>) {
         let uri = match &self.config.hooks.bind {

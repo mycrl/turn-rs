@@ -1,26 +1,15 @@
 pub mod channels;
+pub mod interfaces;
 pub mod nodes;
 pub mod nonces;
 pub mod ports;
 
-use nodes::Nodes;
-use ports::Ports;
-use nonces::Nonces;
-use channels::Channels;
-use faster_stun::util::long_key;
-
 use crate::Observer;
-use std::sync::atomic::{
-    AtomicBool,
-    Ordering,
+use self::{
+    channels::Channels, interfaces::Interfaces, nodes::Nodes, nonces::Nonces, ports::Ports,
 };
 
-use std::{
-    time::Duration,
-    net::SocketAddr,
-    sync::Arc,
-    thread,
-};
+use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
 /// Router State Tree.
 ///
@@ -39,7 +28,7 @@ pub struct Router {
     nonces: Nonces,
     nodes: Nodes,
     channels: Channels,
-    is_close: AtomicBool,
+    interfaces: Interfaces,
 }
 
 impl Router {
@@ -59,26 +48,28 @@ impl Router {
     /// ```
     pub fn new(realm: String, observer: Arc<dyn Observer>) -> Arc<Self> {
         let this = Arc::new(Self {
-            is_close: AtomicBool::new(false),
-            channels: Channels::new(),
-            nonces: Nonces::new(),
-            ports: Ports::new(),
-            nodes: Nodes::new(),
+            interfaces: Interfaces::default(),
+            channels: Channels::default(),
+            nonces: Nonces::default(),
+            ports: Ports::default(),
+            nodes: Nodes::default(),
             observer,
             realm,
         });
 
-        let this_ = this.clone();
+        let this_ = Arc::downgrade(&this);
         thread::spawn(move || loop {
             thread::sleep(Duration::from_secs(60));
-            if !this_.is_close.load(Ordering::Relaxed) {
-                this_.nodes.get_deaths().iter().for_each(|a| {
-                    this_.remove(a);
+            if let Some(this) = this_.upgrade() {
+                this.nodes.get_deaths().iter().for_each(|a| {
+                    this.remove(a);
                 });
 
-                this_.channels.get_deaths().iter().for_each(|c| {
-                    this_.channels.remove(*c);
+                this.channels.get_deaths().iter().for_each(|c| {
+                    this.channels.remove(*c);
                 });
+            } else {
+                break;
             }
         });
 
@@ -123,6 +114,60 @@ impl Router {
         self.ports.len()
     }
 
+    /// get router allocate size is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    /// impl Observer for ObserverTest {}
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// assert_eq!(router.is_empty(), true);
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.ports.len() == 0
+    }
+
+    /// get addr interface.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// use std::net::SocketAddr;
+    /// use turn_rs::router::*;
+    /// use turn_rs::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    ///
+    /// let interface = router.get_interface(&addr);
+    /// assert_eq!(interface, Some(Arc::new(addr)));
+    /// ```
+    pub fn get_interface(&self, addr: &SocketAddr) -> Option<Arc<SocketAddr>> {
+        self.interfaces.get_ref(addr)
+    }
+
     /// get user list.
     ///
     /// # Examples
@@ -143,23 +188,18 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
     /// let users = router.get_users(0, 10);
     /// assert_eq!(users.as_slice(), &[("test".to_string(), vec![addr])]);
     /// ```
-    pub fn get_users(
-        &self,
-        skip: usize,
-        limit: usize,
-    ) -> Vec<(String, Vec<SocketAddr>)> {
+    pub fn get_users(&self, skip: usize, limit: usize) -> Vec<(String, Vec<SocketAddr>)> {
         self.nodes.get_users(skip, limit)
     }
 
@@ -183,12 +223,11 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -198,10 +237,9 @@ impl Router {
     /// assert_eq!(node.secret.as_slice(), &secret);
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
-    /// assert_eq!(node.index, 0);
     /// ```
-    pub fn get_node(&self, a: &SocketAddr) -> Option<nodes::Node> {
-        self.nodes.get_node(a)
+    pub fn get_node(&self, addr: &SocketAddr) -> Option<nodes::Node> {
+        self.nodes.get_node(addr)
     }
 
     /// get node bound list.
@@ -224,20 +262,19 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
     /// let ret = router.get_node_addrs("test");
     /// assert_eq!(ret, vec![addr]);
     /// ```
-    pub fn get_node_addrs(&self, u: &str) -> Vec<SocketAddr> {
-        self.nodes.get_addrs(u)
+    pub fn get_node_addrs(&self, username: &str) -> Vec<SocketAddr> {
+        self.nodes.get_addrs(username)
     }
 
     /// get the nonce of the node SocketAddr.
@@ -260,20 +297,19 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
     /// let nonce = router.get_nonce(&addr);
     /// assert_eq!(nonce.len(), 16);
     /// ```
-    pub fn get_nonce(&self, a: &SocketAddr) -> Arc<String> {
-        self.nonces.get(a)
+    pub fn get_nonce(&self, addr: &SocketAddr) -> Arc<String> {
+        self.nonces.get(addr)
     }
 
     /// get the password of the node SocketAddr.
@@ -298,29 +334,29 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// ```
     pub fn get_key_block(
         &self,
-        index: u8,
-        a: &SocketAddr,
-        u: &str,
+        addr: &SocketAddr,
+        interface: &SocketAddr,
+        username: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let key = self.nodes.get_secret(a);
+        let key = self.nodes.get_secret(addr);
         if key.is_some() {
             return key;
         }
 
-        let pwd = self.observer.auth_block(a, u)?;
-        let key = long_key(u, &pwd, &self.realm);
-        self.nodes.insert(index, a, u, key, &pwd)
+        let pwd = self.observer.auth_block(addr, username)?;
+        let key = self.nodes.insert(addr, &self.realm, username, &pwd)?;
+        self.interfaces.insert(*addr, *interface);
+        Some(key)
     }
 
     /// get the password of the node SocketAddr.
@@ -328,18 +364,19 @@ impl Router {
     /// require remote control service to distribute keys.
     pub async fn get_key(
         &self,
-        index: u8,
-        a: &SocketAddr,
-        u: &str,
+        addr: &SocketAddr,
+        interface: &SocketAddr,
+        username: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let key = self.nodes.get_secret(a);
+        let key = self.nodes.get_secret(addr);
         if key.is_some() {
             return key;
         }
 
-        let pwd = self.observer.auth(a, u).await?;
-        let key = long_key(u, &pwd, &self.realm);
-        self.nodes.insert(index, a, u, key, &pwd)
+        let pwd = self.observer.auth(addr, username).await?;
+        let key = self.nodes.insert(addr, &self.realm, username, &pwd)?;
+        self.interfaces.insert(*addr, *interface);
+        Some(key)
     }
 
     /// obtain the peer address bound to the current
@@ -363,12 +400,11 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -376,12 +412,8 @@ impl Router {
     /// assert!(router.bind_port(&addr, port).is_some());
     /// assert_eq!(router.get_port_bound(port), Some(addr));
     /// ```
-    pub fn get_channel_bound(
-        &self,
-        a: &SocketAddr,
-        c: u16,
-    ) -> Option<SocketAddr> {
-        self.channels.get_bound(a, c)
+    pub fn get_channel_bound(&self, addr: &SocketAddr, channel: u16) -> Option<SocketAddr> {
+        self.channels.get_bound(addr, channel)
     }
 
     /// obtain the peer address bound to the current
@@ -405,12 +437,11 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -418,8 +449,8 @@ impl Router {
     /// assert!(router.bind_port(&addr, port).is_some());
     /// assert_eq!(router.get_port_bound(port), Some(addr));
     /// ```
-    pub fn get_port_bound(&self, p: u16) -> Option<SocketAddr> {
-        self.ports.get(p)
+    pub fn get_port_bound(&self, port: u16) -> Option<SocketAddr> {
+        self.ports.get(port)
     }
 
     /// get node the port.
@@ -443,12 +474,11 @@ impl Router {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
@@ -457,12 +487,8 @@ impl Router {
     /// assert!(router.bind_port(&peer, port).is_some());
     /// assert_eq!(router.get_bound_port(&addr, &peer), Some(port));
     /// ```
-    pub fn get_bound_port(
-        &self,
-        a: &SocketAddr,
-        p: &SocketAddr,
-    ) -> Option<u16> {
-        self.ports.get_bound(a, p)
+    pub fn get_bound_port(&self, addr: &SocketAddr, peer: &SocketAddr) -> Option<u16> {
+        self.ports.get_bound(addr, peer)
     }
 
     /// alloc a port from State.
@@ -524,19 +550,18 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// assert!(router.alloc_port(&addr).is_some());
     /// ```
-    pub fn alloc_port(&self, a: &SocketAddr) -> Option<u16> {
-        let port = self.ports.alloc(a)?;
-        self.nodes.push_port(a, port);
+    pub fn alloc_port(&self, addr: &SocketAddr) -> Option<u16> {
+        let port = self.ports.alloc(addr)?;
+        self.nodes.push_port(addr, port);
         Some(port)
     }
 
@@ -565,20 +590,19 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
     /// let port = router.alloc_port(&addr).unwrap();
     /// assert!(router.bind_port(&addr, port).is_some());
     /// ```
-    pub fn bind_port(&self, a: &SocketAddr, port: u16) -> Option<()> {
-        self.ports.bound(a, port)
+    pub fn bind_port(&self, addr: &SocketAddr, port: u16) -> Option<()> {
+        self.ports.bound(addr, port)
     }
 
     /// bind channel number for State.
@@ -611,22 +635,21 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
     /// let port = router.alloc_port(&addr).unwrap();
     /// assert!(router.bind_channel(&addr, port, 0x4000).is_some());
     /// ```
-    pub fn bind_channel(&self, a: &SocketAddr, p: u16, c: u16) -> Option<()> {
-        let source = self.ports.get(p)?;
-        self.channels.insert(a, c, &source)?;
-        self.nodes.push_channel(a, c)?;
+    pub fn bind_channel(&self, addr: &SocketAddr, port: u16, channel: u16) -> Option<()> {
+        let source = self.ports.get(port)?;
+        self.channels.insert(addr, channel, &source)?;
+        self.nodes.push_channel(addr, channel)?;
         Some(())
     }
 
@@ -682,23 +705,22 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// router.refresh(&addr, 0);
     ///
     /// assert!(router.get_node(&addr).is_none());
     /// ```
-    pub fn refresh(&self, a: &SocketAddr, delay: u32) {
+    pub fn refresh(&self, addr: &SocketAddr, delay: u32) {
         if delay > 0 {
-            self.nodes.set_lifetime(a, delay);
+            self.nodes.set_lifetime(addr, delay);
         } else {
-            self.remove(a);
+            self.remove(addr);
         }
     }
 
@@ -722,26 +744,26 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// assert!(router.remove(&addr).is_some());
     /// assert!(router.get_node(&addr).is_none());
     /// ```
-    pub fn remove(&self, a: &SocketAddr) -> Option<()> {
-        let node = self.nodes.remove(a)?;
-        self.ports.remove(a, &node.ports);
+    pub fn remove(&self, addr: &SocketAddr) -> Option<()> {
+        let node = self.nodes.remove(addr)?;
+        self.ports.remove(addr, &node.ports);
         for c in node.channels {
             self.channels.remove(c);
         }
 
-        self.nonces.remove(a);
-        self.observer.abort(a, &node.username);
+        self.nonces.remove(addr);
+        self.interfaces.remove(addr);
+        self.observer.abort(addr, &node.username);
         Some(())
     }
 
@@ -765,12 +787,11 @@ impl Router {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(0, &addr, "test").unwrap();
+    /// let key = router.get_key_block(&addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// router.remove_from_user("test");
@@ -781,11 +802,5 @@ impl Router {
         for addr in self.nodes.get_addrs(u) {
             self.remove(&addr);
         }
-    }
-}
-
-impl Drop for Router {
-    fn drop(&mut self) {
-        self.is_close.store(true, Ordering::Relaxed);
     }
 }

@@ -1,11 +1,9 @@
-use serde::Serialize;
+use std::{collections::BTreeSet, net::SocketAddr, sync::Arc};
+
+use ahash::AHashMap;
 use parking_lot::Mutex;
+use serde::Serialize;
 use tokio::sync::mpsc::*;
-use std::{
-    net::SocketAddr,
-    collections::*,
-    sync::Arc,
-};
 
 /// The type of information passed in the monitoring channel
 #[derive(Debug, Clone)]
@@ -27,8 +25,7 @@ impl Add for u64 {
 }
 
 /// Worker independent monitoring statistics
-#[derive(PartialEq, Eq, Clone, Copy)]
-#[derive(Debug, Default, Serialize)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Default, Serialize)]
 pub struct Store {
     pub received_bytes: u64,
     pub send_bytes: u64,
@@ -38,11 +35,10 @@ pub struct Store {
 
 impl Store {
     /// update status information
+    #[rustfmt::skip]
     fn change(&mut self, payload: Stats) {
         match payload {
-            Stats::ReceivedBytes(v) => {
-                self.received_bytes.add((v / 1024) as u64)
-            },
+            Stats::ReceivedBytes(v) => self.received_bytes.add((v / 1024) as u64),
             Stats::SendBytes(v) => self.send_bytes.add((v / 1024) as u64),
             Stats::ReceivedPkts(v) => self.received_pkts.add(v as u64),
             Stats::SendPkts(v) => self.send_pkts.add(v as u64),
@@ -54,15 +50,21 @@ impl Store {
 #[derive(Clone)]
 pub struct Monitor {
     links: Arc<Mutex<BTreeSet<SocketAddr>>>,
-    nodes: Arc<Mutex<HashMap<SocketAddr, Store>>>,
+    nodes: Arc<Mutex<AHashMap<SocketAddr, Store>>>,
     sender: Sender<(SocketAddr, Stats)>,
+}
+
+impl Default for Monitor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Monitor {
     /// Create a monitoring instance
     pub fn new() -> Self {
         let (sender, mut receiver) = channel(2);
-        let nodes: Arc<Mutex<HashMap<SocketAddr, Store>>> = Default::default();
+        let nodes: Arc<Mutex<AHashMap<SocketAddr, Store>>> = Default::default();
 
         let nodes_ = nodes.clone();
         tokio::spawn(async move {
@@ -179,11 +181,7 @@ impl Monitor {
     ///     assert_eq!(nodes, vec![(addr, Store::default())]);
     /// }
     /// ```
-    pub fn get_nodes(
-        &self,
-        skip: usize,
-        limit: usize,
-    ) -> Vec<(SocketAddr, Store)> {
+    pub fn get_nodes(&self, skip: usize, limit: usize) -> Vec<(SocketAddr, Store)> {
         let links = self.links.lock();
         let nodes = self.nodes.lock();
 
@@ -209,7 +207,7 @@ pub struct MonitorActor {
 }
 
 impl MonitorActor {
-    /// TODO: Delivery of updates is not guaranteed.
+    /// Note: Delivery of updates is not guaranteed.
     pub fn send(&self, addr: SocketAddr, payload: Stats) {
         let _ = self.sender.try_send((addr, payload));
     }

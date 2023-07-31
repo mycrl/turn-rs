@@ -1,41 +1,32 @@
-pub mod config;
-pub mod server;
 pub mod api;
+pub mod config;
+pub mod router;
+pub mod server;
 
+use std::{net::SocketAddr, sync::Arc};
+
+use api::{controller::Controller, hooks::Hooks, payload::Events};
 use async_trait::async_trait;
 use config::Config;
 use server::Monitor;
-use turn_rs::{
-    Service,
-    Observer,
-};
+use turn_rs::{Observer, Service};
 
-use api::{
-    controller::Controller,
-    hooks,
-};
-
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
-
-struct Events {
-    hooks: hooks::Hooks,
+struct TObserver {
+    hooks: Hooks,
     monitor: Monitor,
 }
 
-impl Events {
+impl TObserver {
     fn new(cfg: Arc<Config>, monitor: Monitor) -> Self {
         Self {
-            hooks: hooks::Hooks::new(cfg),
+            hooks: Hooks::new(cfg),
             monitor,
         }
     }
 }
 
 #[async_trait]
-impl Observer for Events {
+impl Observer for TObserver {
     async fn auth(&self, addr: &SocketAddr, name: &str) -> Option<String> {
         let pwd = self.hooks.auth(addr, name).await.ok();
         log::info!("auth: addr={:?}, name={:?}, pwd={:?}", addr, name, pwd);
@@ -60,12 +51,8 @@ impl Observer for Events {
     /// standard services.
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
-        self.monitor.set(addr.clone());
-        self.hooks.events(&hooks::Events::Allocated {
-            addr,
-            name,
-            port,
-        });
+        self.monitor.set(*addr);
+        self.hooks.events(&Events::Allocated { addr, name, port });
     }
 
     /// binding request
@@ -92,9 +79,7 @@ impl Observer for Events {
     /// allocated by the outermost NAT with respect to the STUN server.
     fn binding(&self, addr: &SocketAddr) {
         log::info!("binding: addr={:?}", addr);
-        self.hooks.events(&hooks::Events::Binding {
-            addr,
-        });
+        self.hooks.events(&Events::Binding { addr });
     }
 
     /// channel binding request
@@ -135,11 +120,8 @@ impl Observer for Events {
             number
         );
 
-        self.hooks.events(&hooks::Events::ChannelBind {
-            addr,
-            name,
-            number,
-        });
+        self.hooks
+            .events(&Events::ChannelBind { addr, name, number });
     }
 
     /// create permission request
@@ -181,12 +163,7 @@ impl Observer for Events {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
-    fn create_permission(
-        &self,
-        addr: &SocketAddr,
-        name: &str,
-        relay: &SocketAddr,
-    ) {
+    fn create_permission(&self, addr: &SocketAddr, name: &str, relay: &SocketAddr) {
         log::info!(
             "create permission: addr={:?}, name={:?}, realy={:?}",
             addr,
@@ -194,11 +171,8 @@ impl Observer for Events {
             relay
         );
 
-        self.hooks.events(&hooks::Events::CreatePermission {
-            addr,
-            name,
-            relay,
-        });
+        self.hooks
+            .events(&Events::CreatePermission { addr, name, relay });
     }
 
     /// refresh request
@@ -242,11 +216,7 @@ impl Observer for Events {
     /// this as equivalent to a success response (see below).
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
         log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
-        self.hooks.events(&hooks::Events::Refresh {
-            addr,
-            name,
-            time,
-        });
+        self.hooks.events(&Events::Refresh { addr, name, time });
     }
 
     /// node exit
@@ -257,10 +227,7 @@ impl Observer for Events {
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
         self.monitor.delete(addr);
-        self.hooks.events(&hooks::Events::Abort {
-            addr,
-            name,
-        });
+        self.hooks.events(&Events::Abort { addr, name });
     }
 }
 
@@ -269,12 +236,12 @@ impl Observer for Events {
 /// directly start the server.
 pub async fn server_main(config: Arc<Config>) -> anyhow::Result<()> {
     let monitor = Monitor::new();
-    let events = Events::new(config.clone(), monitor.clone());
-    let service = Service::new(events, config.turn.realm.clone());
-    server::run(monitor.clone(), &service, config.clone()).await?;
+    let observer = TObserver::new(config.clone(), monitor.clone());
+    let externals = config.turn.get_externals();
+    let service = Service::new(config.turn.realm.clone(), externals, observer);
+    server::run(config.clone(), monitor.clone(), &service).await?;
 
-    let router = service.get_router();
-    let controller = Controller::new(config.clone(), monitor, router);
-    api::start(&config, &controller).await?;
+    let ctr = Controller::new(config.clone(), monitor, service);
+    api::start(&config, &ctr).await?;
     Ok(())
 }

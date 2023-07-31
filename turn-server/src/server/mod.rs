@@ -1,21 +1,15 @@
-pub mod transport;
-pub mod router;
 pub mod monitor;
+pub mod transport;
 
-pub use self::router::Router;
 pub use self::monitor::*;
 
-use super::config::{
-    Transport,
-    Config,
-};
+use super::config::{Config, Transport};
+use super::router::Router;
 
 use std::sync::Arc;
+
+use tokio::net::{TcpListener, UdpSocket};
 use turn_rs::Service;
-use tokio::net::{
-    TcpListener,
-    UdpSocket,
-};
 
 /// start turn server.
 ///
@@ -30,32 +24,29 @@ use tokio::net::{
 ///
 /// // run(&service, config).await?
 /// ```
-pub async fn run(
-    monitor: Monitor,
-    service: &Service,
-    config: Arc<Config>,
-) -> anyhow::Result<()> {
-    let router = Arc::new(Router::new());
+pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> anyhow::Result<()> {
+    let router = Arc::new(Router::default());
     for i in config.turn.interfaces.clone() {
         let service = service.clone();
         match i.transport {
             Transport::UDP => {
                 tokio::spawn(transport::udp_processor(
                     UdpSocket::bind(i.bind).await?,
-                    i.clone(),
+                    i.external.clone(),
                     service.clone(),
                     router.clone(),
                     monitor.clone(),
                 ));
-            },
+            }
             Transport::TCP => {
                 tokio::spawn(transport::tcp_processor(
                     TcpListener::bind(i.bind).await?,
-                    move |index| service.get_processor(index, i.external),
+                    i.external.clone(),
+                    service.clone(),
                     router.clone(),
                     monitor.clone(),
                 ));
-            },
+            }
         }
 
         log::info!(
@@ -66,6 +57,5 @@ pub async fn run(
         );
     }
 
-    log::info!("turn server workers: number={}", config.turn.threads);
     Ok(())
 }

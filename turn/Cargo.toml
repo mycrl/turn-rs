@@ -20,7 +20,8 @@ categories = [
 ]
 
 [dependencies]
-faster-stun = { path = "../stun", version = "1" }
+ahash = "0.8.3"
+faster-stun = { path = "../stun" }
 parking_lot = "0.12"
 async-trait = "0.1"
 bytes = "1"

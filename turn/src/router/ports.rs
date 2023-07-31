@@ -1,18 +1,8 @@
-use rand::{
-    thread_rng,
-    Rng,
-};
+use ahash::AHashMap;
+use parking_lot::{Mutex, RwLock};
+use rand::{thread_rng, Rng};
 
-use parking_lot::{
-    RwLock,
-    Mutex,
-};
-
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    ops::Range,
-};
+use std::{net::SocketAddr, ops::Range};
 
 /// Bit Flag
 #[derive(PartialEq)]
@@ -55,6 +45,12 @@ pub struct PortPools {
     peak: usize,
 }
 
+impl Default for PortPools {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PortPools {
     pub fn new() -> Self {
         Self {
@@ -93,6 +89,19 @@ impl PortPools {
     /// ```
     pub fn len(&self) -> usize {
         self.allocated
+    }
+
+    /// get pools allocated size is empty.
+    ///
+    /// ```
+    /// use turn_rs::router::ports::PortPools;
+    ///
+    /// let mut pools = PortPools::new();
+    /// assert_eq!(pools.len(), 0);
+    /// assert_eq!(pools.is_empty(), true);
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.allocated == 0
     }
 
     /// random assign a port.
@@ -300,15 +309,21 @@ impl PortPools {
 /// port table.
 pub struct Ports {
     pools: Mutex<PortPools>,
-    map: RwLock<HashMap<u16, SocketAddr>>,
-    bounds: RwLock<HashMap<SocketAddr, HashMap<SocketAddr, u16>>>,
+    map: RwLock<AHashMap<u16, SocketAddr>>,
+    bounds: RwLock<AHashMap<SocketAddr, AHashMap<SocketAddr, u16>>>,
+}
+
+impl Default for Ports {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Ports {
     pub fn new() -> Self {
         Self {
-            bounds: RwLock::new(HashMap::with_capacity(capacity())),
-            map: RwLock::new(HashMap::with_capacity(capacity())),
+            bounds: RwLock::new(AHashMap::with_capacity(capacity())),
+            map: RwLock::new(AHashMap::with_capacity(capacity())),
             pools: Mutex::new(PortPools::new()),
         }
     }
@@ -339,6 +354,20 @@ impl Ports {
     /// ```
     pub fn len(&self) -> usize {
         self.pools.lock().len()
+    }
+
+    /// get ports allocated size is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use turn_rs::router::ports::*;
+    ///
+    /// let ports = Ports::new();
+    /// assert_eq!(ports.is_empty(), true);
+    /// ```
+    pub fn is_empty(&self) -> bool {
+        self.pools.lock().len() == 0
     }
 
     /// get address from port.
@@ -397,7 +426,7 @@ impl Ports {
     /// ```
     pub fn alloc(&self, a: &SocketAddr) -> Option<u16> {
         let port = self.pools.lock().alloc(None)?;
-        self.map.write().insert(port, a.clone());
+        self.map.write().insert(port, *a);
         Some(port)
     }
 
@@ -416,12 +445,12 @@ impl Ports {
     ///
     /// assert!(pools.bound(&addr, port).is_some());
     /// ```
-    pub fn bound(&self, a: &SocketAddr, port: u16) -> Option<()> {
-        let peer = self.map.read().get(&port)?.clone();
+    pub fn bound(&self, addr: &SocketAddr, port: u16) -> Option<()> {
+        let peer = *self.map.read().get(&port)?;
         self.bounds
             .write()
-            .entry(a.clone())
-            .or_insert_with(|| HashMap::with_capacity(10))
+            .entry(*addr)
+            .or_insert_with(|| AHashMap::with_capacity(10))
             .entry(peer)
             .or_insert(port);
         Some(())

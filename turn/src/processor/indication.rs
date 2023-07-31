@@ -1,26 +1,12 @@
+use std::net::SocketAddr;
+
+use super::{ip_is_local, Context, Response};
+use crate::StunClass;
+
 use anyhow::Result;
 use bytes::BytesMut;
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
-
-use crate::StunClass;
-use super::{
-    Context,
-    Response,
-};
-
-use faster_stun::{
-    MessageReader,
-    MessageWriter,
-    Method,
-};
-
-use faster_stun::attribute::{
-    XorPeerAddress,
-    Data,
-};
+use faster_stun::attribute::{Data, XorPeerAddress};
+use faster_stun::{MessageReader, MessageWriter, Method};
 
 /// process send indication request
 ///
@@ -66,45 +52,46 @@ use faster_stun::attribute::{
 /// and [15](https://tools.ietf.org/html/rfc8656#section-15).
 ///
 /// The resulting UDP datagram is then sent to the peer.
-pub fn process<'a, 'b, 'c>(
+pub async fn process<'a>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
-    let peer = match m.get::<XorPeerAddress>() {
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
+    let peer = match reader.get::<XorPeerAddress>() {
         None => return Ok(None),
         Some(x) => x,
     };
 
-    if ctx.env.external.ip() != peer.ip() {
+    if !ip_is_local(&ctx, &peer) {
         return Ok(None);
     }
 
-    let d = match m.get::<Data>() {
+    let data = match reader.get::<Data>() {
         None => return Ok(None),
         Some(x) => x,
     };
 
-    let a = match ctx.env.router.get_port_bound(peer.port()) {
+    let addr = match ctx.env.router.get_port_bound(peer.port()) {
         None => return Ok(None),
         Some(a) => a,
     };
 
-    let p = match ctx.env.router.get_bound_port(&ctx.addr, &a) {
+    let port = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
         None => return Ok(None),
         Some(p) => p,
     };
 
-    let index = match ctx.env.router.get_node(&a) {
+    let interface = match ctx.env.router.get_interface(&addr) {
         None => return Ok(None),
-        Some(p) => p.index,
+        Some(p) => p,
     };
 
     let method = Method::DataIndication;
-    let s = Arc::new(SocketAddr::new(ctx.env.external.ip(), p));
-    let mut pack = MessageWriter::extend(method, &m, w);
-    pack.append::<XorPeerAddress>(*s.as_ref());
-    pack.append::<Data>(d);
+    let mut pack = MessageWriter::extend(method, &reader, bytes);
+    pack.append::<XorPeerAddress>(SocketAddr::new(interface.ip(), port));
+    pack.append::<Data>(data);
     pack.flush(None)?;
-    Ok(Some((w, StunClass::Message, Some((a, index)))))
+
+    let to = (&ctx.env.interface != interface.as_ref()).then(|| interface);
+    Ok(Some(Response::new(bytes, StunClass::Msg, Some(addr), to)))
 }

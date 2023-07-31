@@ -28,9 +28,8 @@ hmac = "0.12.1"
 sha-1 = "0.10.1"
 crc = "3.0.1"
 
-[dev-dependencies.criterion]
-features = ["html_reports"]
-version = "0.4"
+[dev-dependencies]
+criterion = "0.5"
 
 [[bench]]
 name = "benchmark"

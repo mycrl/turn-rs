@@ -1,28 +1,10 @@
+use super::{Context, Response};
+use crate::{StunClass, SOFTWARE};
+
 use anyhow::Result;
 use bytes::BytesMut;
-use faster_stun::{
-    Kind,
-    Method,
-    MessageReader,
-    MessageWriter,
-};
-
-use crate::{
-    SOFTWARE,
-    StunClass,
-};
-
-use super::{
-    Context,
-    Response,
-};
-
-use faster_stun::attribute::{
-    XorMappedAddress,
-    MappedAddress,
-    ResponseOrigin,
-    Software,
-};
+use faster_stun::attribute::*;
+use faster_stun::*;
 
 /// process binding request
 ///
@@ -49,15 +31,15 @@ use faster_stun::attribute::{
 pub fn process<'a>(
     ctx: Context,
     payload: MessageReader,
-    w: &'a mut BytesMut,
-) -> Result<Response<'a>> {
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let method = Method::Binding(Kind::Response);
-    let mut pack = MessageWriter::extend(method, &payload, w);
+    let mut pack = MessageWriter::extend(method, &payload, bytes);
     pack.append::<XorMappedAddress>(ctx.addr);
     pack.append::<MappedAddress>(ctx.addr);
     pack.append::<ResponseOrigin>(*ctx.env.external.as_ref());
     pack.append::<Software>(SOFTWARE);
     pack.flush(None)?;
     ctx.env.observer.binding(&ctx.addr);
-    Ok(Some((w, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }

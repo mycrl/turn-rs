@@ -1,15 +1,10 @@
 use super::ports::capacity;
-use parking_lot::RwLock;
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    time::Instant,
-};
 
-use std::iter::{
-    IntoIterator,
-    Iterator,
-};
+use ahash::AHashMap;
+use parking_lot::RwLock;
+
+use std::iter::{IntoIterator, Iterator};
+use std::{net::SocketAddr, time::Instant};
 
 /// channels iterator.
 pub struct Iter {
@@ -23,6 +18,33 @@ impl Iter {
             inner: channel,
             index: 0,
         }
+    }
+}
+
+impl Iterator for Iter {
+    type Item = SocketAddr;
+
+    /// Iterator for channels.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use turn_rs::router::channels::*;
+    /// use std::net::SocketAddr;
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let mut iter = Iter::new(Channel::new(&addr));
+    ///
+    /// assert_eq!(iter.next(), Some(addr));
+    /// ```
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = match self.index < 2 {
+            true => self.inner.bound[self.index],
+            false => None,
+        };
+
+        self.index += 1;
+        item
     }
 }
 
@@ -77,7 +99,7 @@ pub struct Channel {
 impl Channel {
     pub fn new(a: &SocketAddr) -> Self {
         Self {
-            bound: [Some(a.clone()), None],
+            bound: [Some(*a), None],
             timer: Instant::now(),
         }
     }
@@ -95,7 +117,7 @@ impl Channel {
     /// assert!(channel.includes(&addr));
     /// ```
     pub fn includes(&self, a: &SocketAddr) -> bool {
-        self.bound.contains(&Some(a.clone()))
+        self.bound.contains(&Some(*a))
     }
 
     /// wether the peer addr has been established.
@@ -130,7 +152,7 @@ impl Channel {
     /// assert!(!channel.is_half());
     /// ```
     pub fn up(&mut self, a: &SocketAddr) {
-        self.bound[1] = Some(a.clone())
+        self.bound[1] = Some(*a)
     }
 
     /// refresh channel lifetime.
@@ -168,33 +190,6 @@ impl Channel {
     }
 }
 
-impl Iterator for Iter {
-    type Item = SocketAddr;
-
-    /// Iterator for channels.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use turn_rs::router::channels::*;
-    /// use std::net::SocketAddr;
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let mut iter = Iter::new(Channel::new(&addr));
-    ///
-    /// assert_eq!(iter.next(), Some(addr));
-    /// ```
-    fn next(&mut self) -> Option<Self::Item> {
-        let item = match self.index < 2 {
-            true => self.inner.bound[self.index].clone(),
-            false => None,
-        };
-
-        self.index += 1;
-        item
-    }
-}
-
 impl IntoIterator for Channel {
     type IntoIter = Iter;
     type Item = SocketAddr;
@@ -222,15 +217,21 @@ impl IntoIterator for Channel {
 
 /// channels table.
 pub struct Channels {
-    map: RwLock<HashMap<u16, Channel>>,
-    bounds: RwLock<HashMap<(SocketAddr, u16), SocketAddr>>,
+    map: RwLock<AHashMap<u16, Channel>>,
+    bounds: RwLock<AHashMap<(SocketAddr, u16), SocketAddr>>,
+}
+
+impl Default for Channels {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Channels {
     pub fn new() -> Self {
         Self {
-            map: RwLock::new(HashMap::with_capacity(capacity())),
-            bounds: RwLock::new(HashMap::with_capacity(capacity())),
+            map: RwLock::new(AHashMap::with_capacity(capacity())),
+            bounds: RwLock::new(AHashMap::with_capacity(capacity())),
         }
     }
 
@@ -252,7 +253,7 @@ impl Channels {
     /// assert_eq!(channels.get_bound(&addr, 43159).unwrap(), peer);
     /// ```
     pub fn get_bound(&self, a: &SocketAddr, c: u16) -> Option<SocketAddr> {
-        self.bounds.read().get(&(a.clone(), c)).cloned()
+        self.bounds.read().get(&(*a, c)).cloned()
     }
 
     /// insert address for peer address to channel table.
@@ -282,7 +283,6 @@ impl Channels {
         });
 
         let is_include = if !is_empty { channel.includes(a) } else { true };
-
         if !channel.is_half() && !is_include {
             return None;
         }
@@ -295,10 +295,7 @@ impl Channels {
             channel.refresh();
         }
 
-        self.bounds
-            .write()
-            .entry((a.clone(), c))
-            .or_insert_with(|| p.clone());
+        self.bounds.write().entry((*a, c)).or_insert_with(|| *p);
         Some(())
     }
 

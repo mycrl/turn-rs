@@ -2,26 +2,16 @@ pub mod address;
 pub mod error;
 
 use crate::util;
+use bytes::{BufMut, BytesMut};
 use num_enum::TryFromPrimitive;
-use std::{
-    convert::TryFrom,
-    net::SocketAddr,
-};
 
-use bytes::{
-    BytesMut,
-    BufMut,
-};
+use std::{convert::TryFrom, net::SocketAddr};
 
 pub use address::Addr;
-pub use error::{
-    Kind as ErrKind,
-    Error,
-};
+pub use error::{Error, Kind as ErrKind};
 
 #[repr(u8)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq)]
+#[derive(TryFromPrimitive, PartialEq, Eq)]
 pub enum Transport {
     TCP = 0x06,
     UDP = 0x11,
@@ -96,8 +86,7 @@ pub enum Transport {
 /// 0x8002: PASSWORD-ALGORITHMS
 /// 0x8003: ALTERNATE-DOMAIN
 #[repr(u16)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(TryFromPrimitive, PartialEq, Eq, Hash, Debug)]
 pub enum AttrKind {
     UserName = 0x0006,
     Data = 0x0013,
@@ -164,10 +153,7 @@ impl<'a> Property<'a> for UserName {
         buf.put(value.as_bytes());
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(std::str::from_utf8(buf)?)
     }
 }
@@ -191,10 +177,7 @@ impl<'a> Property<'a> for Data {
         buf.put(value);
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(buf)
     }
 }
@@ -230,10 +213,7 @@ impl<'a> Property<'a> for Realm {
         buf.put(value.as_bytes());
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(std::str::from_utf8(buf)?)
     }
 }
@@ -262,10 +242,7 @@ impl<'a> Property<'a> for Nonce {
         buf.put(value.as_bytes());
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(std::str::from_utf8(buf)?)
     }
 }
@@ -294,10 +271,7 @@ impl<'a> Property<'a> for Software {
         buf.put(value.as_bytes());
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(std::str::from_utf8(buf)?)
     }
 }
@@ -346,10 +320,7 @@ impl<'a> Property<'a> for MessageIntegrity {
         buf.put(value);
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(buf)
     }
 }
@@ -373,10 +344,7 @@ impl<'a> Property<'a> for XorPeerAddress {
         Addr::into(&value, token, buf, true)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        token: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, true)
     }
 }
@@ -400,10 +368,7 @@ impl<'a> Property<'a> for XorRelayedAddress {
         Addr::into(&value, token, buf, true)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        token: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, true)
     }
 }
@@ -466,10 +431,7 @@ impl<'a> Property<'a> for XorMappedAddress {
         Addr::into(&value, token, buf, true)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        token: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, true)
     }
 }
@@ -521,10 +483,7 @@ impl<'a> Property<'a> for MappedAddress {
         Addr::into(&value, token, buf, false)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        token: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, false)
     }
 }
@@ -546,10 +505,7 @@ impl<'a> Property<'a> for ResponseOrigin {
         Addr::into(&value, token, buf, false)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        token: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], token: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Addr::try_from(buf, token, false)
     }
 }
@@ -592,10 +548,7 @@ impl<'a> Property<'a> for ErrorCode {
         value.into(buf)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Error::try_from(buf)
     }
 }
@@ -618,10 +571,7 @@ impl<'a> Property<'a> for Lifetime {
         buf.put_u32(value)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u32(buf))
     }
 }
@@ -659,10 +609,7 @@ impl<'a> Property<'a> for ReqeestedTransport {
         buf.put_u8(value as u8)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(Transport::try_from(buf[0])?)
     }
 }
@@ -713,10 +660,7 @@ impl<'a> Property<'a> for Fingerprint {
         buf.put_u32(value)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u32(buf))
     }
 }
@@ -747,10 +691,7 @@ impl<'a> Property<'a> for ChannelNumber {
         buf.put_u16(value)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u16(buf))
     }
 }
@@ -777,10 +718,7 @@ impl<'a> Property<'a> for IceControlling {
         buf.put_u64(value)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u64(buf))
     }
 }
@@ -827,10 +765,7 @@ impl<'a> Property<'a> for IceControlled {
         buf.put_u64(value)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u64(buf))
     }
 }
@@ -852,10 +787,7 @@ impl<'a> Property<'a> for Priority {
         buf.put_u32(value)
     }
 
-    fn try_from(
-        buf: &'a [u8],
-        _: &'a [u8],
-    ) -> Result<Self::Inner, Self::Error> {
+    fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
         Ok(util::as_u32(buf))
     }
 }

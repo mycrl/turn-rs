@@ -1,61 +1,38 @@
+use super::{verify_message, Context, Response};
+use crate::StunClass;
+
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::StunClass;
-use super::{
-    Context,
-    Response,
-};
-
-use faster_stun::{
-    Kind,
-    Method,
-    MessageReader,
-    MessageWriter,
-};
-
-use faster_stun::attribute::{
-    ErrKind,
-    Error,
-    ErrorCode,
-    Realm,
-    UserName,
-    ChannelNumber,
-    XorPeerAddress,
-};
-
-use faster_stun::attribute::ErrKind::{
-    BadRequest,
-    Unauthorized,
-    InsufficientCapacity,
-    Forbidden,
-};
+use faster_stun::attribute::ErrKind::*;
+use faster_stun::attribute::*;
+use faster_stun::*;
 
 /// return channel binding error response
 #[inline(always)]
-fn reject<'a, 'b, 'c>(
+fn reject<'a>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-    e: ErrKind,
-) -> Result<Response<'c>> {
+    reader: MessageReader,
+    bytes: &'a mut BytesMut,
+    err: ErrKind,
+) -> Result<Option<Response<'a>>> {
     let method = Method::ChannelBind(Kind::Error);
-    let mut pack = MessageWriter::extend(method, &m, w);
-    pack.append::<ErrorCode>(Error::from(e));
+    let mut pack = MessageWriter::extend(method, &reader, bytes);
+    pack.append::<ErrorCode>(Error::from(err));
     pack.append::<Realm>(&ctx.env.realm);
     pack.flush(None)?;
-    Ok(Some((w, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// return channel binding ok response
 #[inline(always)]
-fn resolve<'c>(
-    m: &MessageReader,
-    p: &[u8; 16],
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
+fn resolve<'a>(
+    reader: &MessageReader,
+    key: &[u8; 16],
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let method = Method::ChannelBind(Kind::Response);
-    MessageWriter::extend(method, m, w).flush(Some(p))?;
-    Ok(Some((w, StunClass::Message, None)))
+    MessageWriter::extend(method, reader, bytes).flush(Some(key))?;
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// process channel binding request
@@ -88,52 +65,43 @@ fn resolve<'c>(
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-pub async fn process<'a, 'b, 'c>(
+pub async fn process<'a>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
-    let peer = match m.get::<XorPeerAddress>() {
-        None => return reject(ctx, m, w, BadRequest),
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
+    let peer = match reader.get::<XorPeerAddress>() {
+        None => return reject(ctx, reader, bytes, BadRequest),
         Some(a) => a,
     };
 
-    let c = match m.get::<ChannelNumber>() {
-        None => return reject(ctx, m, w, BadRequest),
+    let number = match reader.get::<ChannelNumber>() {
+        None => return reject(ctx, reader, bytes, BadRequest),
         Some(c) => c,
     };
 
     if ctx.env.external.ip() != peer.ip() {
-        return reject(ctx, m, w, Forbidden);
+        return reject(ctx, reader, bytes, Forbidden);
     }
 
-    let u = match m.get::<UserName>() {
-        None => return reject(ctx, m, w, Unauthorized),
-        Some(u) => u,
+    if !(0x4000..=0x7FFF).contains(&number) {
+        return reject(ctx, reader, bytes, BadRequest);
+    }
+
+    let (username, key) = match verify_message(&ctx, &reader).await {
+        None => return reject(ctx, reader, bytes, Unauthorized),
+        Some(ret) => ret,
     };
-
-    if !(0x4000..=0x7FFF).contains(&c) {
-        return reject(ctx, m, w, BadRequest);
-    }
-
-    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
-        None => return reject(ctx, m, w, Unauthorized),
-        Some(a) => a,
-    };
-
-    if m.integrity(&key).is_err() {
-        return reject(ctx, m, w, Unauthorized);
-    }
 
     if ctx
         .env
         .router
-        .bind_channel(&ctx.addr, peer.port(), c)
+        .bind_channel(&ctx.addr, peer.port(), number)
         .is_none()
     {
-        return reject(ctx, m, w, InsufficientCapacity);
+        return reject(ctx, reader, bytes, InsufficientCapacity);
     }
 
-    ctx.env.observer.channel_bind(&ctx.addr, u, c);
-    resolve(&m, &key, w)
+    ctx.env.observer.channel_bind(&ctx.addr, username, number);
+    resolve(&reader, &key, bytes)
 }

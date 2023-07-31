@@ -1,62 +1,30 @@
+use super::{verify_message, Context, Response};
+use crate::{StunClass, SOFTWARE};
+
+use std::{net::SocketAddr, sync::Arc};
+
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::{
-    SOFTWARE,
-    StunClass,
-};
-
-use super::{
-    Context,
-    Response,
-};
-
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
-
-use faster_stun::{
-    MessageReader,
-    MessageWriter,
-    Method,
-    Kind,
-};
-
-use faster_stun::attribute::{
-    Error,
-    ErrKind,
-    ErrorCode,
-    Realm,
-    Nonce,
-    ReqeestedTransport,
-    XorMappedAddress,
-    XorRelayedAddress,
-    Lifetime,
-    UserName,
-    Software,
-};
-
-use faster_stun::attribute::ErrKind::{
-    Unauthorized,
-    ServerError,
-};
+use faster_stun::attribute::ErrKind::*;
+use faster_stun::attribute::*;
+use faster_stun::*;
 
 /// return allocate error response
 #[inline(always)]
-fn reject<'a, 'b, 'c>(
+fn reject<'a>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-    e: ErrKind,
-) -> Result<Response<'c>> {
+    reader: MessageReader,
+    bytes: &'a mut BytesMut,
+    err: ErrKind,
+) -> Result<Option<Response<'a>>> {
     let method = Method::Allocate(Kind::Error);
     let nonce = ctx.env.router.get_nonce(&ctx.addr);
-    let mut pack = MessageWriter::extend(method, &m, w);
-    pack.append::<ErrorCode>(Error::from(e));
+    let mut pack = MessageWriter::extend(method, &reader, bytes);
+    pack.append::<ErrorCode>(Error::from(err));
     pack.append::<Realm>(&ctx.env.realm);
     pack.append::<Nonce>(&nonce);
     pack.flush(None)?;
-    Ok(Some((w, StunClass::Message, None)))
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// return allocate ok response
@@ -70,22 +38,22 @@ fn reject<'a, 'b, 'c>(
 /// example, a server may choose this technique to implement the
 /// EVEN-PORT attribute.
 #[inline(always)]
-fn resolve<'a, 'b, 'c>(
+fn resolve<'a>(
     ctx: &Context,
-    m: &MessageReader<'a, 'b>,
-    p: &[u8; 16],
+    reader: &MessageReader,
+    key: &[u8; 16],
     port: u16,
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
     let method = Method::Allocate(Kind::Response);
     let alloc_addr = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
-    let mut pack = MessageWriter::extend(method, m, w);
+    let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<XorRelayedAddress>(*alloc_addr.as_ref());
     pack.append::<XorMappedAddress>(ctx.addr);
     pack.append::<Lifetime>(600);
     pack.append::<Software>(SOFTWARE);
-    pack.flush(Some(p))?;
-    Ok(Some((w, StunClass::Message, None)))
+    pack.flush(Some(key))?;
+    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
 }
 
 /// process allocate request
@@ -104,34 +72,25 @@ fn resolve<'a, 'b, 'c>(
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
-pub async fn process<'a, 'b, 'c>(
+pub async fn process<'a>(
     ctx: Context,
-    m: MessageReader<'a, 'b>,
-    w: &'c mut BytesMut,
-) -> Result<Response<'c>> {
-    if m.get::<ReqeestedTransport>().is_none() {
-        return reject(ctx, m, w, ServerError);
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>> {
+    if reader.get::<ReqeestedTransport>().is_none() {
+        return reject(ctx, reader, bytes, ServerError);
     }
 
-    let u = match m.get::<UserName>() {
-        None => return reject(ctx, m, w, Unauthorized),
-        Some(u) => u,
-    };
-
-    let key = match ctx.env.router.get_key(ctx.env.index, &ctx.addr, u).await {
-        None => return reject(ctx, m, w, Unauthorized),
-        Some(p) => p,
+    let (username, key) = match verify_message(&ctx, &reader).await {
+        None => return reject(ctx, reader, bytes, Unauthorized),
+        Some(ret) => ret,
     };
 
     let port = match ctx.env.router.alloc_port(&ctx.addr) {
-        None => return reject(ctx, m, w, Unauthorized),
+        None => return reject(ctx, reader, bytes, Unauthorized),
         Some(p) => p,
     };
 
-    if m.integrity(&key).is_ok() {
-        ctx.env.observer.allocated(&ctx.addr, u, port);
-        resolve(&ctx, &m, &key, port, w)
-    } else {
-        reject(ctx, m, w, Unauthorized)
-    }
+    ctx.env.observer.allocated(&ctx.addr, username, port);
+    resolve(&ctx, &reader, &key, port, bytes)
 }

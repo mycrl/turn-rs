@@ -5,15 +5,13 @@ pub use processor::Processor;
 pub use router::nodes::Node;
 pub use router::Router;
 
+use std::{net::SocketAddr, sync::Arc};
+
 use async_trait::async_trait;
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StunClass {
-    Message,
+    Msg,
     Channel,
 }
 
@@ -155,13 +153,7 @@ pub trait Observer: Send + Sync {
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
     #[allow(unused)]
-    fn create_permission(
-        &self,
-        addr: &SocketAddr,
-        name: &str,
-        relay: &SocketAddr,
-    ) {
-    }
+    fn create_permission(&self, addr: &SocketAddr, name: &str, relay: &SocketAddr) {}
 
     /// refresh request
     ///
@@ -219,12 +211,13 @@ pub trait Observer: Send + Sync {
 pub struct Service {
     router: Arc<Router>,
     observer: Arc<dyn Observer>,
+    externals: Arc<Vec<SocketAddr>>,
     realm: String,
 }
 
 impl Service {
-    pub fn get_router(&self) -> Arc<Router> {
-        self.router.clone()
+    pub fn get_router(&self) -> &Arc<Router> {
+        &self.router
     }
 
     /// Create turn service.
@@ -238,16 +231,16 @@ impl Service {
     ///
     /// impl Observer for ObserverTest {}
     ///
-    /// Service::new(ObserverTest, "test".to_string());
+    /// Service::new("test".to_string(), vec![], ObserverTest);
     /// ```
-    pub fn new<T>(observer: T, realm: String) -> Self
+    pub fn new<T>(realm: String, externals: Vec<SocketAddr>, observer: T) -> Self
     where
         T: Observer + 'static,
     {
         let observer = Arc::new(observer);
         let router = Router::new(realm.clone(), observer.clone());
-
         Self {
+            externals: Arc::new(externals),
             observer,
             router,
             realm,
@@ -267,14 +260,14 @@ impl Service {
     /// impl Observer for ObserverTest {}
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let service = Service::new(ObserverTest, "test".to_string());
-    /// let processor = service.get_processor(0, addr);
-    /// assert_eq!(processor.index, 0);
+    /// let service = Service::new("test".to_string(), vec![], ObserverTest);
+    /// service.get_processor(addr, addr);
     /// ```
-    pub fn get_processor(&self, index: u8, external: SocketAddr) -> Processor {
+    pub fn get_processor(&self, interface: SocketAddr, external: SocketAddr) -> Processor {
         Processor::new(
-            index,
+            interface,
             external,
+            self.externals.clone(),
             self.realm.clone(),
             self.router.clone(),
             self.observer.clone(),

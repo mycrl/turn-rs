@@ -6,46 +6,22 @@ pub mod create_permission;
 pub mod indication;
 pub mod refresh;
 
+use crate::{router::Router, Observer, StunClass};
+
+use std::{net::SocketAddr, sync::Arc};
+
 use anyhow::Result;
 use bytes::BytesMut;
-use crate::{
-    router::Router,
-    Observer,
-    StunClass,
-};
-
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-};
-
-use faster_stun::{
-    Kind,
-    Method,
-    Decoder,
-    Payload,
-    MessageReader as Message,
-};
-
-#[rustfmt::skip]
-pub type Response<'a> = Option<(
-    &'a [u8], 
-    StunClass, 
-    Option<(SocketAddr, u8)>
-)>;
+use faster_stun::attribute::*;
+use faster_stun::*;
 
 pub struct Env {
-    pub index: u8,
+    pub interface: SocketAddr,
     pub realm: Arc<String>,
     pub router: Arc<Router>,
     pub external: Arc<SocketAddr>,
+    pub externals: Arc<Vec<SocketAddr>>,
     pub observer: Arc<dyn Observer>,
-}
-
-/// message context
-pub struct Context {
-    pub env: Arc<Env>,
-    pub addr: SocketAddr,
 }
 
 /// process udp message
@@ -53,28 +29,28 @@ pub struct Context {
 pub struct Processor {
     env: Arc<Env>,
     decoder: Decoder,
-    writer: BytesMut,
-    pub index: u8,
+    buf: BytesMut,
 }
 
 impl Processor {
     pub(crate) fn new(
-        index: u8,
+        interface: SocketAddr,
         external: SocketAddr,
+        externals: Arc<Vec<SocketAddr>>,
         realm: String,
         router: Arc<Router>,
         observer: Arc<dyn Observer>,
     ) -> Self {
         Self {
-            index,
             decoder: Decoder::new(),
-            writer: BytesMut::with_capacity(4096),
+            buf: BytesMut::with_capacity(4096),
             env: Arc::new(Env {
                 external: Arc::new(external),
                 realm: Arc::new(realm),
+                externals,
+                interface,
                 observer,
                 router,
-                index,
             }),
         }
     }
@@ -193,7 +169,7 @@ impl Processor {
         &'a mut self,
         b: &'a [u8],
         addr: SocketAddr,
-    ) -> Result<Response<'c>> {
+    ) -> Result<Option<Response<'c>>> {
         let ctx = Context {
             env: self.env.clone(),
             addr,
@@ -201,27 +177,7 @@ impl Processor {
 
         Ok(match self.decoder.decode(b)? {
             Payload::ChannelData(x) => channel_data::process(ctx, x),
-            Payload::Message(x) => {
-                Self::message_process(ctx, x, &mut self.writer).await?
-            },
-        })
-    }
-
-    pub async fn process_ext<'c, 'a: 'c>(
-        &'a mut self,
-        payload: Payload<'a, 'c>,
-        addr: SocketAddr,
-    ) -> Result<Response<'c>> {
-        let ctx = Context {
-            env: self.env.clone(),
-            addr,
-        };
-
-        Ok(match payload {
-            Payload::ChannelData(x) => channel_data::process(ctx, x),
-            Payload::Message(x) => {
-                Self::message_process(ctx, x, &mut self.writer).await?
-            },
+            Payload::Message(x) => Self::message_process(ctx, x, &mut self.buf).await?,
         })
     }
 
@@ -262,11 +218,9 @@ impl Processor {
     ///
     /// Specifically, if:
     ///
-    /// * the server requires the use of the long-term credential mechanism,
-    ///   and;
+    /// * the server requires the use of the long-term credential mechanism, and;
     ///
-    /// * a non-Allocate request passes authentication under this mechanism,
-    ///   and;
+    /// * a non-Allocate request passes authentication under this mechanism, and;
     ///
     /// * the 5-tuple identifies an existing allocation, but;
     ///
@@ -351,17 +305,113 @@ impl Processor {
     #[inline(always)]
     async fn message_process<'c>(
         ctx: Context,
-        m: Message<'_, '_>,
+        m: MessageReader<'_, '_>,
         w: &'c mut BytesMut,
-    ) -> Result<Response<'c>> {
+    ) -> Result<Option<Response<'c>>> {
         match m.method {
             Method::Binding(Kind::Request) => binding::process(ctx, m, w),
             Method::Allocate(Kind::Request) => allocate::process(ctx, m, w).await,
             Method::CreatePermission(Kind::Request) => create_permission::process(ctx, m, w).await,
             Method::ChannelBind(Kind::Request) => channel_bind::process(ctx, m, w).await,
             Method::Refresh(Kind::Request) => refresh::process(ctx, m, w).await,
-            Method::SendIndication => indication::process(ctx, m, w),
+            Method::SendIndication => indication::process(ctx, m, w).await,
             _ => Ok(None),
         }
     }
+}
+
+pub struct Response<'a> {
+    pub data: &'a [u8],
+    pub kind: StunClass,
+    pub relay: Option<SocketAddr>,
+    pub interface: Option<Arc<SocketAddr>>,
+}
+
+impl<'a> Response<'a> {
+    #[inline(always)]
+    pub(crate) fn new(
+        data: &'a [u8],
+        kind: StunClass,
+        relay: Option<SocketAddr>,
+        interface: Option<Arc<SocketAddr>>,
+    ) -> Self {
+        Self {
+            data,
+            kind,
+            relay,
+            interface,
+        }
+    }
+}
+
+pub struct Context {
+    pub env: Arc<Env>,
+    pub addr: SocketAddr,
+}
+
+/// The key for the HMAC depends on whether long-term or short-term
+/// credentials are in use.  For long-term credentials, the key is 16
+/// bytes:
+///
+/// key = MD5(username ":" realm ":" SASLprep(password))
+///
+/// That is, the 16-byte key is formed by taking the MD5 hash of the
+/// result of concatenating the following five fields: (1) the username,
+/// with any quotes and trailing nulls removed, as taken from the
+/// USERNAME attribute (in which case SASLprep has already been applied);
+/// (2) a single colon; (3) the realm, with any quotes and trailing nulls
+/// removed; (4) a single colon; and (5) the password, with any trailing
+/// nulls removed and after processing using SASLprep.  For example, if
+/// the username was 'user', the realm was 'realm', and the password was
+/// 'pass', then the 16-byte HMAC key would be the result of performing
+/// an MD5 hash on the string 'user:realm:pass', the resulting hash being
+/// 0x8493fbc53ba582fb4c044c456bdc40eb.
+///
+/// For short-term credentials:
+///
+/// key = SASLprep(password)
+///
+/// where MD5 is defined in RFC 1321 [RFC1321] and SASLprep() is defined
+/// in RFC 4013 [RFC4013].
+///
+/// The structure of the key when used with long-term credentials
+/// facilitates deployment in systems that also utilize SIP.  Typically,
+/// SIP systems utilizing SIP's digest authentication mechanism do not
+/// actually store the password in the database.  Rather, they store a
+/// value called H(A1), which is equal to the key defined above.
+///
+/// Based on the rules above, the hash used to construct MESSAGE-
+/// INTEGRITY includes the length field from the STUN message header.
+/// Prior to performing the hash, the MESSAGE-INTEGRITY attribute MUST be
+/// inserted into the message (with dummy content).  The length MUST then
+/// be set to point to the length of the message up to, and including,
+/// the MESSAGE-INTEGRITY attribute itself, but excluding any attributes
+/// after it.  Once the computation is performed, the value of the
+/// MESSAGE-INTEGRITY attribute can be filled in, and the value of the
+/// length in the STUN header can be set to its correct value -- the
+/// length of the entire message.  Similarly, when validating the
+/// MESSAGE-INTEGRITY, the length field should be adjusted to point to
+/// the end of the MESSAGE-INTEGRITY attribute prior to calculating the
+/// HMAC.  Such adjustment is necessary when attributes, such as
+/// FINGERPRINT, appear after MESSAGE-INTEGRITY.
+#[inline(always)]
+pub(crate) async fn verify_message<'a>(
+    ctx: &Context,
+    reader: &MessageReader<'a, '_>,
+) -> Option<(&'a str, Arc<[u8; 16]>)> {
+    let username = reader.get::<UserName>()?;
+    let key = ctx
+        .env
+        .router
+        .get_key(&ctx.addr, &ctx.env.interface, username)
+        .await?;
+
+    reader.integrity(&key).ok()?;
+    Some((username, key))
+}
+
+/// Check if the ip address belongs to the current turn server.
+#[inline(always)]
+pub(crate) fn ip_is_local(ctx: &Context, addr: &SocketAddr) -> bool {
+    ctx.env.externals.iter().any(|item| item.ip() == addr.ip())
 }

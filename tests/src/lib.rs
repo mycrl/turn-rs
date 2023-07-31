@@ -1,64 +1,46 @@
 use bytes::BytesMut;
 use faster_stun::attribute::{
-    XorMappedAddress,
-    MappedAddress,
-    ResponseOrigin,
-    ReqeestedTransport,
-    Transport,
-    ErrorCode,
-    ErrKind,
-    Realm,
-    UserName,
-    XorRelayedAddress,
-    Lifetime,
-    XorPeerAddress,
-    ChannelNumber,
+    ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Realm, ReqeestedTransport,
+    ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress, XorRelayedAddress,
 };
 
-use faster_stun::{
-    MessageWriter,
-    Decoder,
-    Payload,
-    Method,
-    Kind,
-    MessageReader,
-};
-
+use faster_stun::{Decoder, Kind, MessageReader, MessageWriter, Method, Payload};
+use once_cell::sync::Lazy;
 use rand::seq::SliceRandom;
 use tokio::net::UdpSocket;
 use turn_server::{
-    config::{
-        *,
-        self,
-    },
+    config::{self, *},
     server_main,
 };
 
-use std::net::{
-    IpAddr,
-    SocketAddr,
-    Ipv4Addr,
-};
-
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 
-const BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-const BIND_ADDR: SocketAddr = SocketAddr::new(BIND_IP, 3478);
-const USERNAME: &'static str = "user1";
-const PASSWORD: &'static str = "test";
-const REALM: &'static str = "local-test";
+/// global static var
 
-fn create_token() -> [u8; 12] {
+pub const BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+pub const BIND_ADDR: SocketAddr = SocketAddr::new(BIND_IP, 3478);
+pub const USERNAME: &'static str = "user1";
+pub const PASSWORD: &'static str = "test";
+pub const REALM: &'static str = "local-test";
+
+static mut RECV_BUF: [u8; 1500] = [0u8; 1500];
+static mut SEND_BUF: Lazy<BytesMut> = Lazy::new(|| BytesMut::with_capacity(2048));
+static TOKEN_BUF: Lazy<[u8; 12]> = Lazy::new(|| {
     let mut rng = rand::thread_rng();
     let mut token = [0u8; 12];
     token.shuffle(&mut rng);
     token
-}
+});
 
-fn get_message_from_payload<'a, 'b>(
-    payload: Payload<'a, 'b>,
-) -> MessageReader<'a, 'b> {
+static KEY_BUF: Lazy<[u8; 16]> =
+    Lazy::new(|| faster_stun::util::long_key(USERNAME, PASSWORD, REALM));
+static mut DECODER: Lazy<Decoder> = Lazy::new(|| Decoder::new());
+
+/// global static var end
+
+fn get_message_from_payload<'a, 'b>(payload: Payload<'a, 'b>) -> MessageReader<'a, 'b> {
     if let Payload::Message(m) = payload {
         m
     } else {
@@ -66,8 +48,7 @@ fn get_message_from_payload<'a, 'b>(
     }
 }
 
-#[tokio::test]
-async fn integration_testing() {
+pub async fn create_turn() {
     let mut auth = HashMap::new();
     auth.insert(USERNAME.to_string(), PASSWORD.to_string());
 
@@ -82,7 +63,6 @@ async fn integration_testing() {
             hooks: Hooks::default(),
             log: Log::default(),
             turn: Turn {
-                threads: 1,
                 realm: REALM.to_string(),
                 interfaces: vec![Interface {
                     transport: config::Transport::UDP,
@@ -94,20 +74,25 @@ async fn integration_testing() {
         .await
         .unwrap();
     });
+}
 
-    // Create a udp connection and connect to the turn-server, and then start
-    // the corresponding session process checks in sequence. It should be noted
-    // that the order of request responses is relatively strict, and should not
-    // be changed under normal circumstances.
+// Create a udp connection and connect to the turn-server, and then start
+// the corresponding session process checks in sequence. It should be noted
+// that the order of request responses is relatively strict, and should not
+// be changed under normal circumstances.
+pub async fn create_client() -> UdpSocket {
     let socket = UdpSocket::bind(SocketAddr::new(BIND_IP, 0)).await.unwrap();
     socket.connect(BIND_ADDR).await.unwrap();
-    binding_request(&socket).await;
-    base_allocate_request(&socket).await;
-    let port = allocate_request(&socket).await;
-    create_permission_request(&socket, port).await;
-    channel_bind_request(&socket, port).await;
-    refresh_request(&socket).await;
+    socket
 }
+
+static BIND_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
+    let mut buf = BytesMut::with_capacity(1500);
+    let mut msg = MessageWriter::new(Method::Binding(Kind::Request), &TOKEN_BUF, &mut buf);
+
+    msg.flush(None).unwrap();
+    buf
+});
 
 /// binding request
 ///
@@ -131,22 +116,16 @@ async fn integration_testing() {
 /// attribute within the body of the STUN response will remain untouched.
 /// In this way, the client can learn its reflexive transport address
 /// allocated by the outermost NAT with respect to the STUN server.
-async fn binding_request(socket: &UdpSocket) {
-    let token = create_token();
-    let mut buf = BytesMut::with_capacity(1500);
-    let mut msg =
-        MessageWriter::new(Method::Binding(Kind::Request), &token, &mut buf);
+pub async fn binding_request(socket: &UdpSocket) {
+    socket.send_to(&BIND_REQUEST_BUF, BIND_ADDR).await.unwrap();
+    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
 
-    msg.flush(None).unwrap();
-    socket.send_to(&buf, BIND_ADDR).await.unwrap();
-
-    let mut buf = [0u8; 1500];
-    let mut decoder = Decoder::new();
-    let size = socket.recv(&mut buf).await.unwrap();
-    let ret = get_message_from_payload(decoder.decode(&buf[..size]).unwrap());
+    let decoder = unsafe { &mut DECODER };
+    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
+    let ret = get_message_from_payload(ret);
 
     assert_eq!(ret.method, Method::Binding(Kind::Response));
-    assert_eq!(ret.token, &token);
+    assert_eq!(ret.token, TOKEN_BUF.as_slice());
 
     let value = ret.get::<XorMappedAddress>().unwrap();
     assert_eq!(value, socket.local_addr().unwrap());
@@ -157,6 +136,15 @@ async fn binding_request(socket: &UdpSocket) {
     let value = ret.get::<ResponseOrigin>().unwrap();
     assert_eq!(value, BIND_ADDR);
 }
+
+static BASE_ALLOCATE_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
+    let mut buf = BytesMut::with_capacity(1500);
+    let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &TOKEN_BUF, &mut buf);
+
+    msg.append::<ReqeestedTransport>(Transport::UDP);
+    msg.flush(None).unwrap();
+    buf
+});
 
 /// allocate request
 ///
@@ -174,23 +162,19 @@ async fn binding_request(socket: &UdpSocket) {
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
-async fn base_allocate_request(socket: &UdpSocket) {
-    let token = create_token();
-    let mut buf = BytesMut::with_capacity(1500);
-    let mut msg =
-        MessageWriter::new(Method::Allocate(Kind::Request), &token, &mut buf);
+pub async fn base_allocate_request(socket: &UdpSocket) {
+    socket
+        .send_to(&BASE_ALLOCATE_REQUEST_BUF, BIND_ADDR)
+        .await
+        .unwrap();
 
-    msg.append::<ReqeestedTransport>(Transport::UDP);
-    msg.flush(None).unwrap();
-    socket.send_to(&buf, BIND_ADDR).await.unwrap();
-
-    let mut buf = [0u8; 1500];
-    let mut decoder = Decoder::new();
-    let size = socket.recv(&mut buf).await.unwrap();
-    let ret = get_message_from_payload(decoder.decode(&buf[..size]).unwrap());
+    let decoder = unsafe { &mut DECODER };
+    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
+    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
+    let ret = get_message_from_payload(ret);
 
     assert_eq!(ret.method, Method::Allocate(Kind::Error));
-    assert_eq!(ret.token, &token);
+    assert_eq!(ret.token, TOKEN_BUF.as_slice());
 
     let value = ret.get::<ErrorCode>().unwrap();
     assert_eq!(value.code, ErrKind::Unauthorized as u16);
@@ -198,6 +182,17 @@ async fn base_allocate_request(socket: &UdpSocket) {
     let value = ret.get::<Realm>().unwrap();
     assert_eq!(value, REALM);
 }
+
+static ALLOCATE_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
+    let mut buf = BytesMut::with_capacity(1500);
+    let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &TOKEN_BUF, &mut buf);
+
+    msg.append::<ReqeestedTransport>(Transport::UDP);
+    msg.append::<UserName>(USERNAME);
+    msg.append::<Realm>(REALM);
+    msg.flush(Some(&KEY_BUF)).unwrap();
+    buf
+});
 
 /// allocate request
 ///
@@ -224,27 +219,20 @@ async fn base_allocate_request(socket: &UdpSocket) {
 /// underlying OS and then later assign them to allocations; for
 /// example, a server may choose this technique to implement the
 /// EVEN-PORT attribute.
-async fn allocate_request(socket: &UdpSocket) -> u16 {
-    let token = create_token();
-    let key = faster_stun::util::long_key(USERNAME, PASSWORD, REALM);
-    let mut buf = BytesMut::with_capacity(1500);
-    let mut msg =
-        MessageWriter::new(Method::Allocate(Kind::Request), &token, &mut buf);
+pub async fn allocate_request(socket: &UdpSocket) -> u16 {
+    socket
+        .send_to(&ALLOCATE_REQUEST_BUF, BIND_ADDR)
+        .await
+        .unwrap();
 
-    msg.append::<ReqeestedTransport>(Transport::UDP);
-    msg.append::<UserName>(USERNAME);
-    msg.append::<Realm>(REALM);
-    msg.flush(Some(&key)).unwrap();
-    socket.send_to(&buf, BIND_ADDR).await.unwrap();
-
-    let mut buf = [0u8; 1500];
-    let mut decoder = Decoder::new();
-    let size = socket.recv(&mut buf).await.unwrap();
-    let ret = get_message_from_payload(decoder.decode(&buf[..size]).unwrap());
+    let decoder = unsafe { &mut DECODER };
+    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
+    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
+    let ret = get_message_from_payload(ret);
 
     assert_eq!(ret.method, Method::Allocate(Kind::Response));
-    assert_eq!(ret.token, &token);
-    ret.integrity(&key).unwrap();
+    assert_eq!(ret.token, TOKEN_BUF.as_slice());
+    ret.integrity(&KEY_BUF).unwrap();
 
     let relay = ret.get::<XorRelayedAddress>().unwrap();
     assert_eq!(relay.ip(), BIND_IP);
@@ -297,30 +285,30 @@ async fn allocate_request(socket: &UdpSocket) -> u16 {
 /// idempotency of CreatePermission requests over UDP using the
 /// "stateless stack approach".  Retransmitted CreatePermission
 /// requests will simply refresh the permissions.
-async fn create_permission_request(socket: &UdpSocket, port: u16) {
-    let token = create_token();
-    let key = faster_stun::util::long_key(USERNAME, PASSWORD, REALM);
-    let mut buf = BytesMut::with_capacity(1500);
+pub async fn create_permission_request(socket: &UdpSocket, port: u16) {
     let mut msg = MessageWriter::new(
         Method::CreatePermission(Kind::Request),
-        &token,
-        &mut buf,
+        &TOKEN_BUF,
+        unsafe { &mut SEND_BUF },
     );
 
     msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
     msg.append::<UserName>(USERNAME);
     msg.append::<Realm>(REALM);
-    msg.flush(Some(&key)).unwrap();
-    socket.send_to(&buf, BIND_ADDR).await.unwrap();
+    msg.flush(Some(&KEY_BUF)).unwrap();
+    socket
+        .send_to(unsafe { &SEND_BUF }, BIND_ADDR)
+        .await
+        .unwrap();
 
-    let mut buf = [0u8; 1500];
-    let mut decoder = Decoder::new();
-    let size = socket.recv(&mut buf).await.unwrap();
-    let ret = get_message_from_payload(decoder.decode(&buf[..size]).unwrap());
+    let decoder = unsafe { &mut DECODER };
+    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
+    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
+    let ret = get_message_from_payload(ret);
 
     assert_eq!(ret.method, Method::CreatePermission(Kind::Response));
-    assert_eq!(ret.token, &token);
-    ret.integrity(&key).unwrap();
+    assert_eq!(ret.token, TOKEN_BUF.as_slice());
+    ret.integrity(&KEY_BUF).unwrap();
 }
 
 /// channel binding request
@@ -353,31 +341,29 @@ async fn create_permission_request(socket: &UdpSocket, port: u16) {
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-async fn channel_bind_request(socket: &UdpSocket, port: u16) {
-    let token = create_token();
-    let key = faster_stun::util::long_key(USERNAME, PASSWORD, REALM);
-    let mut buf = BytesMut::with_capacity(1500);
-    let mut msg = MessageWriter::new(
-        Method::ChannelBind(Kind::Request),
-        &token,
-        &mut buf,
-    );
+pub async fn channel_bind_request(socket: &UdpSocket, port: u16) {
+    let mut msg = MessageWriter::new(Method::ChannelBind(Kind::Request), &TOKEN_BUF, unsafe {
+        &mut SEND_BUF
+    });
 
     msg.append::<ChannelNumber>(0x4000);
     msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
     msg.append::<UserName>(USERNAME);
     msg.append::<Realm>(REALM);
-    msg.flush(Some(&key)).unwrap();
-    socket.send_to(&buf, BIND_ADDR).await.unwrap();
+    msg.flush(Some(&KEY_BUF)).unwrap();
+    socket
+        .send_to(unsafe { &SEND_BUF }, BIND_ADDR)
+        .await
+        .unwrap();
 
-    let mut buf = [0u8; 1500];
-    let mut decoder = Decoder::new();
-    let size = socket.recv(&mut buf).await.unwrap();
-    let ret = get_message_from_payload(decoder.decode(&buf[..size]).unwrap());
+    let decoder = unsafe { &mut DECODER };
+    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
+    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
+    let ret = get_message_from_payload(ret);
 
     assert_eq!(ret.method, Method::ChannelBind(Kind::Response));
-    assert_eq!(ret.token, &token);
-    ret.integrity(&key).unwrap();
+    assert_eq!(ret.token, TOKEN_BUF.as_slice());
+    ret.integrity(&KEY_BUF).unwrap();
 }
 
 /// refresh request
@@ -419,28 +405,111 @@ async fn channel_bind_request(socket: &UdpSocket, port: u16) {
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-async fn refresh_request(socket: &UdpSocket) {
-    let token = create_token();
-    let key = faster_stun::util::long_key(USERNAME, PASSWORD, REALM);
-    let mut buf = BytesMut::with_capacity(1500);
-    let mut msg =
-        MessageWriter::new(Method::Refresh(Kind::Request), &token, &mut buf);
+pub async fn refresh_request(socket: &UdpSocket) {
+    let mut msg = MessageWriter::new(Method::Refresh(Kind::Request), &TOKEN_BUF, unsafe {
+        &mut SEND_BUF
+    });
 
     msg.append::<Lifetime>(0);
     msg.append::<UserName>(USERNAME);
     msg.append::<Realm>(REALM);
-    msg.flush(Some(&key)).unwrap();
-    socket.send_to(&buf, BIND_ADDR).await.unwrap();
+    msg.flush(Some(&KEY_BUF)).unwrap();
+    socket
+        .send_to(unsafe { &SEND_BUF }, BIND_ADDR)
+        .await
+        .unwrap();
 
-    let mut buf = [0u8; 1500];
-    let mut decoder = Decoder::new();
-    let size = socket.recv(&mut buf).await.unwrap();
-    let ret = get_message_from_payload(decoder.decode(&buf[..size]).unwrap());
+    let decoder = unsafe { &mut DECODER };
+    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
+    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
+    let ret = get_message_from_payload(ret);
 
     assert_eq!(ret.method, Method::Refresh(Kind::Response));
-    assert_eq!(ret.token, &token);
-    ret.integrity(&key).unwrap();
+    assert_eq!(ret.token, TOKEN_BUF.as_slice());
+    ret.integrity(&KEY_BUF).unwrap();
 
     let value = ret.get::<Lifetime>().unwrap();
     assert_eq!(value, 0);
+}
+
+/// indication request
+///
+/// When the server receives a Send indication, it processes as per
+/// [Section 5](https://tools.ietf.org/html/rfc8656#section-5) plus
+/// the specific rules mentioned here.
+///
+/// The message is first checked for validity.  The Send indication MUST
+/// contain both an XOR-PEER-ADDRESS attribute and a DATA attribute.  If
+/// one of these attributes is missing or invalid, then the message is
+/// discarded.  Note that the DATA attribute is allowed to contain zero
+/// bytes of data.
+///
+/// The Send indication may also contain the DONT-FRAGMENT attribute.  If
+/// the server is unable to set the DF bit on outgoing UDP datagrams when
+/// this attribute is present, then the server acts as if the DONT-
+/// FRAGMENT attribute is an unknown comprehension-required attribute
+/// (and thus the Send indication is discarded).
+///
+/// The server also checks that there is a permission installed for the
+/// IP address contained in the XOR-PEER-ADDRESS attribute.  If no such
+/// permission exists, the message is discarded.  Note that a Send
+/// indication never causes the server to refresh the permission.
+///
+/// The server MAY impose restrictions on the IP address and port values
+/// allowed in the XOR-PEER-ADDRESS attribute; if a value is not allowed,
+/// the server silently discards the Send indication.
+///
+/// If everything is OK, then the server forms a UDP datagram as follows:
+///
+/// * the source transport address is the relayed transport address of
+/// the allocation, where the allocation is determined by the 5-tuple
+/// on which the Send indication arrived;
+///
+/// * the destination transport address is taken from the XOR-PEER-
+/// ADDRESS attribute;
+///
+/// * the data following the UDP header is the contents of the value
+/// field of the DATA attribute.
+///
+/// The handling of the DONT-FRAGMENT attribute (if present), is
+/// described in Sections [14](https://tools.ietf.org/html/rfc8656#section-14)
+/// and [15](https://tools.ietf.org/html/rfc8656#section-15).
+///
+/// The resulting UDP datagram is then sent to the peer.
+pub async fn indication(local: &UdpSocket, peer: &UdpSocket, port: u16) {
+    let mut msg = MessageWriter::new(Method::SendIndication, &TOKEN_BUF, unsafe { &mut SEND_BUF });
+
+    msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
+    msg.append::<Data>(TOKEN_BUF.as_slice());
+    msg.flush(None).unwrap();
+    local
+        .send_to(unsafe { &SEND_BUF }, BIND_ADDR)
+        .await
+        .unwrap();
+
+    let decoder = unsafe { &mut DECODER };
+    let size = peer.recv(unsafe { &mut RECV_BUF }).await.unwrap();
+    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
+    let ret = get_message_from_payload(ret);
+
+    assert_eq!(ret.method, Method::DataIndication);
+    assert_eq!(ret.token, TOKEN_BUF.as_slice());
+
+    let value = ret.get::<Data>().unwrap();
+    assert_eq!(value, TOKEN_BUF.as_slice());
+}
+
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn integration_testing() {
+        crate::create_turn().await;
+        let socket = crate::create_client().await;
+        crate::binding_request(&socket).await;
+        crate::base_allocate_request(&socket).await;
+        let port = crate::allocate_request(&socket).await;
+        crate::create_permission_request(&socket, port).await;
+        crate::channel_bind_request(&socket, port).await;
+        crate::refresh_request(&socket).await;
+    }
 }

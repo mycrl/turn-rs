@@ -1,30 +1,16 @@
 pub mod controller;
 pub mod hooks;
+pub mod payload;
 
-use tower_http::cors::CorsLayer;
-use controller::Controller;
 use crate::config::Config;
-use http::{
-    HeaderValue,
-    Request,
-    Method,
-};
 
-use axum::{
-    routing::delete,
-    routing::get,
-    Router,
-};
+use std::{task::Context, task::Poll};
 
-use std::{
-    task::Context,
-    task::Poll,
-};
-
-use tower::{
-    Service,
-    Layer,
-};
+use axum::{routing::delete, routing::get, Router};
+use controller::Controller;
+use http::{HeaderValue, Method, Request};
+use tower::{Layer, Service};
+use tower_http::cors::CorsLayer;
 
 /// Layer that adds high level logs to a Service.
 #[derive(Default, Clone)]
@@ -34,9 +20,7 @@ impl<S> Layer<S> for LogLayer {
     type Service = LogService<S>;
 
     fn layer(&self, service: S) -> Self::Service {
-        LogService {
-            service,
-        }
+        LogService { service }
     }
 }
 
@@ -63,10 +47,7 @@ where
     ///
     /// If Poll::Ready(Err(_)) is returned, the service is no longer able to
     /// service requests and the caller should discard the service instance.
-    fn poll_ready(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 
@@ -128,6 +109,7 @@ pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
         "controller server listening: addr={:?}",
         &cfg.controller.listen
     );
+
     axum::Server::bind(&cfg.controller.listen)
         .serve(app.into_make_service())
         .await?;

@@ -1,20 +1,11 @@
-use num_enum::TryFromPrimitive;
-use anyhow::ensure;
 use crate::util;
-use bytes::{
-    BufMut,
-    BytesMut,
-};
 
-use std::cmp::{
-    Eq,
-    PartialEq,
-};
+use anyhow::ensure;
+use bytes::{BufMut, BytesMut};
+use num_enum::TryFromPrimitive;
 
-use std::convert::{
-    Into,
-    TryFrom,
-};
+use std::cmp::{Eq, PartialEq};
+use std::convert::{Into, TryFrom};
 
 /// The following error codes, along with their recommended reason
 /// phrases, are defined:
@@ -57,9 +48,7 @@ use std::convert::{
 /// 500  Server Error: The server has suffered a temporary error.  The
 ///      client should try again.
 #[repr(u16)]
-#[derive(TryFromPrimitive)]
-#[derive(PartialEq, Eq)]
-#[derive(Copy, Clone, Debug)]
+#[derive(TryFromPrimitive, PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Kind {
     TryAlternate = 0x0300,
     BadRequest = 0x0400,
@@ -147,8 +136,8 @@ impl Error<'_> {
     /// use bytes::BytesMut;
     ///
     /// let buffer = [
-    ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
-    ///     0x65, 0x72, 0x6e, 0x61, 0x74, 0x65,
+    ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74, 0x65, 0x72, 0x6e, 0x61,
+    ///     0x74, 0x65,
     /// ];
     ///
     /// let mut buf = BytesMut::with_capacity(1280);
@@ -173,8 +162,8 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     /// use std::convert::TryFrom;
     ///
     /// let buffer = [
-    ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
-    ///     0x65, 0x72, 0x6e, 0x61, 0x74, 0x65,
+    ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74, 0x65, 0x72, 0x6e, 0x61,
+    ///     0x74, 0x65,
     /// ];
     ///
     /// let error = Error::try_from(&buffer[..]).unwrap();
@@ -191,7 +180,7 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     }
 }
 
-impl Into<&'static str> for Kind {
+impl From<Kind> for &'static str {
     /// # Unit Test
     ///
     /// ```
@@ -202,22 +191,22 @@ impl Into<&'static str> for Kind {
     /// assert_eq!(err, "Try Alternate");
     /// ```
     #[rustfmt::skip]
-    fn into(self) -> &'static str {
-        match self {
-            Self::TryAlternate => "Try Alternate",
-            Self::BadRequest => "Bad Request",
-            Self::Unauthorized => "Unauthorized",
-            Self::Forbidden => "Forbidden",
-            Self::RequestTimedout => "Request Timed out",
-            Self::UnknownAttribute => "Unknown Attribute",
-            Self::AllocationMismatch => "Allocation Mismatch",
-            Self::StaleNonce => "Stale Nonce",
-            Self::AddressFamilyNotSupported => "Address Family not Supported",
-            Self::WrongCredentials => "Wrong Credentials",
-            Self::UnsupportedTransportAddress => "Unsupported Transport Address",
-            Self::AllocationQuotaReached => "Allocation Quota Reached",
-            Self::ServerError => "Server Error",
-            Self::InsufficientCapacity => "Insufficient Capacity",
+    fn from(val: Kind) -> Self {
+        match val {
+            Kind::TryAlternate => "Try Alternate",
+            Kind::BadRequest => "Bad Request",
+            Kind::Unauthorized => "Unauthorized",
+            Kind::Forbidden => "Forbidden",
+            Kind::RequestTimedout => "Request Timed out",
+            Kind::UnknownAttribute => "Unknown Attribute",
+            Kind::AllocationMismatch => "Allocation Mismatch",
+            Kind::StaleNonce => "Stale Nonce",
+            Kind::AddressFamilyNotSupported => "Address Family not Supported",
+            Kind::WrongCredentials => "Wrong Credentials",
+            Kind::UnsupportedTransportAddress => "Unsupported Transport Address",
+            Kind::AllocationQuotaReached => "Allocation Quota Reached",
+            Kind::ServerError => "Server Error",
+            Kind::InsufficientCapacity => "Insufficient Capacity",
         }
     }
 }

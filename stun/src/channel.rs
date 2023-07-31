@@ -1,9 +1,6 @@
-use std::convert::TryFrom;
 use crate::util;
-use anyhow::{
-    Result,
-    ensure,
-};
+use anyhow::{ensure, Result};
+use std::convert::TryFrom;
 
 /// The ChannelData Message
 ///
@@ -90,10 +87,7 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
         ensure!((0x4000..0xFFFF).contains(&number), "invalid channel data");
         let size = util::as_u16(&buf[2..4]) as usize;
         ensure!(size <= buf.len() - 4, "data body len < size");
-        Ok(Self {
-            buf,
-            number,
-        })
+        Ok(Self { buf, number })
     }
 }
 

@@ -7,15 +7,6 @@
 # this is a good idea to divide the nodes by namespace.
 realm = "localhost"
 
-# thread number
-#
-# by default, the thread pool is used to process UDP packets.
-# because UDP uses SysCall to ensure concurrency security,
-# using multiple threads may not bring a very significant
-# performance improvement, but setting the number of CPU
-# cores can process data to the greatest extent package.
-threads = 12
-
 # turn server listen interfaces
 #
 # The address and port to which the UDP Server is bound. Multiple
@@ -30,6 +21,11 @@ bind = "127.0.0.1:3478"
 # for the case of exposing the service to the outside,
 # you need to manually specify the server external IP
 # address and service listening port.
+external = "127.0.0.1:3478"
+
+[[turn.interfaces]]
+transport = "tcp"
+bind = "127.0.0.1:3478"
 external = "127.0.0.1:3478"
 
 [controller]
