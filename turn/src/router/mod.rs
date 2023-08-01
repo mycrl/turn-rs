@@ -58,9 +58,9 @@ impl Router {
         });
 
         let this_ = Arc::downgrade(&this);
-        thread::spawn(move || loop {
-            thread::sleep(Duration::from_secs(60));
-            if let Some(this) = this_.upgrade() {
+        thread::spawn(move || {
+            while let Some(this) = this_.upgrade() {
+                thread::sleep(Duration::from_secs(60));
                 this.nodes.get_deaths().iter().for_each(|a| {
                     this.remove(a);
                 });
@@ -68,8 +68,6 @@ impl Router {
                 this.channels.get_deaths().iter().for_each(|c| {
                     this.channels.remove(*c);
                 });
-            } else {
-                break;
             }
         });
 
