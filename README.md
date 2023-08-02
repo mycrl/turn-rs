@@ -32,7 +32,6 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 ## Table of contents
 
 * [features](#features)
-* [crates](#crates)
 * [usage](#usage)
   * [docker](#docker)  
   * [linux service](#linux-service)
@@ -50,16 +49,6 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 [`controller-api`]: https://github.com/mycrl/turn-rs/wiki/Controller-API-Reference
 [`hooks-api`]: https://github.com/mycrl/turn-rs/wiki/Hooks-API-Reference
-
-## Crates
-
-* [`stun`], fast and zero-cost stun message decoder and encoder. <sup>([`crate`](https://crates.io/crates/faster-stun))</sup>.
-* [`turn`], a library for handling turn sessions. <sup>([`crate`](https://crates.io/crates/turn-rs))</sup>.
-* [`turn-server`], implementation of turn server based on turn library.
-
-[`stun`]: https://github.com/mycrl/turn-rs/tree/main/stun
-[`turn`]: https://github.com/mycrl/turn-rs/tree/main/turn
-[`turn-server`]: https://github.com/mycrl/turn-rs/tree/main/turn-server
 
 
 ## Usage
