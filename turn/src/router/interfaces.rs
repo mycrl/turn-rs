@@ -6,8 +6,14 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use parking_lot::RwLock;
 
+#[derive(Clone, Copy, Debug)]
+pub struct Interface {
+    pub addr: SocketAddr,
+    pub external: SocketAddr,
+}
+
 pub struct Interfaces {
-    map: RwLock<AHashMap<SocketAddr, Arc<SocketAddr>>>,
+    map: RwLock<AHashMap<SocketAddr, Arc<Interface>>>,
 }
 
 impl Default for Interfaces {
@@ -30,13 +36,20 @@ impl Interfaces {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let interface = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let interfaces = Interfaces::default();
-    /// 
-    /// interfaces.insert(addr, interface);
-    /// let ret = interfaces.get(&addr);
-    /// assert_eq!(ret, Some(interface));
+    ///
+    /// interfaces.insert(addr, interface, interface);
+    /// let ret = interfaces.get(&addr).unwrap();
+    /// assert_eq!(ret.addr, interface);
+    /// assert_eq!(ret.external, interface);
     /// ```
-    pub fn insert(&self, addr: SocketAddr, interface: SocketAddr) {
-        self.map.write().insert(addr, Arc::new(interface));
+    pub fn insert(&self, addr: SocketAddr, interface: SocketAddr, external: SocketAddr) {
+        self.map.write().insert(
+            addr,
+            Arc::new(Interface {
+                addr: interface,
+                external,
+            }),
+        );
     }
 
     /// get interface from addr.
@@ -50,12 +63,13 @@ impl Interfaces {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let interface = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let interfaces = Interfaces::default();
-    /// 
-    /// interfaces.insert(addr, interface);
-    /// let ret = interfaces.get(&addr);
-    /// assert_eq!(ret, Some(interface));
+    ///
+    /// interfaces.insert(addr, interface, interface);
+    /// let ret = interfaces.get(&addr).unwrap();
+    /// assert_eq!(ret.addr, interface);
+    /// assert_eq!(ret.external, interface);
     /// ```
-    pub fn get(&self, addr: &SocketAddr) -> Option<SocketAddr> {
+    pub fn get(&self, addr: &SocketAddr) -> Option<Interface> {
         self.map.read().get(addr).map(|item| *item.as_ref())
     }
 
@@ -71,15 +85,16 @@ impl Interfaces {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let interface = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let interfaces = Interfaces::default();
-    /// 
-    /// interfaces.insert(addr, interface);
-    /// let ret = interfaces.get_ref(&addr);
-    /// assert_eq!(ret, Some(Arc::new(interface)));
+    ///
+    /// interfaces.insert(addr, interface, interface);
+    /// let ret = interfaces.get_ref(&addr).unwrap();
+    /// assert_eq!(ret.addr, interface);
+    /// assert_eq!(ret.external, interface);
     /// ```
-    pub fn get_ref(&self, addr: &SocketAddr) -> Option<Arc<SocketAddr>> {
+    pub fn get_ref(&self, addr: &SocketAddr) -> Option<Arc<Interface>> {
         self.map.read().get(addr).cloned()
     }
-    
+
     /// remove interface from addr.
     ///
     /// # Examples
@@ -92,15 +107,16 @@ impl Interfaces {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let interface = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let interfaces = Interfaces::default();
-    /// 
-    /// interfaces.insert(addr, interface);
-    /// let ret = interfaces.get(&addr);
-    /// assert_eq!(ret, Some(interface));
+    ///
+    /// interfaces.insert(addr, interface, interface);
+    /// let ret = interfaces.get(&addr).unwrap();
+    /// assert_eq!(ret.addr, interface);
+    /// assert_eq!(ret.external, interface);
     ///
     /// interfaces.remove(&addr);
     ///
     /// let ret = interfaces.get(&addr);
-    /// assert_eq!(ret, None);
+    /// assert!(ret.is_none());
     /// ```
     pub fn remove(&self, addr: &SocketAddr) {
         self.map.write().remove(addr);

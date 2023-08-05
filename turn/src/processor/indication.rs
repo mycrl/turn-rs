@@ -88,10 +88,10 @@ pub async fn process<'a>(
 
     let method = Method::DataIndication;
     let mut pack = MessageWriter::extend(method, &reader, bytes);
-    pack.append::<XorPeerAddress>(SocketAddr::new(interface.ip(), port));
+    pack.append::<XorPeerAddress>(SocketAddr::new(interface.external.ip(), port));
     pack.append::<Data>(data);
     pack.flush(None)?;
 
-    let to = (&ctx.env.interface != interface.as_ref()).then(|| interface);
+    let to = (&ctx.env.interface != &interface.addr).then(|| interface.addr);
     Ok(Some(Response::new(bytes, StunClass::Msg, Some(addr), to)))
 }

@@ -324,7 +324,7 @@ pub struct Response<'a> {
     pub data: &'a [u8],
     pub kind: StunClass,
     pub relay: Option<SocketAddr>,
-    pub interface: Option<Arc<SocketAddr>>,
+    pub interface: Option<SocketAddr>,
 }
 
 impl<'a> Response<'a> {
@@ -333,7 +333,7 @@ impl<'a> Response<'a> {
         data: &'a [u8],
         kind: StunClass,
         relay: Option<SocketAddr>,
-        interface: Option<Arc<SocketAddr>>,
+        interface: Option<SocketAddr>,
     ) -> Self {
         Self {
             data,
@@ -403,7 +403,7 @@ pub(crate) async fn verify_message<'a>(
     let key = ctx
         .env
         .router
-        .get_key(&ctx.addr, &ctx.env.interface, username)
+        .get_key(&ctx.addr, &ctx.env.interface, &ctx.env.external, username)
         .await?;
 
     reader.integrity(&key).ok()?;
