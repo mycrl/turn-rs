@@ -8,7 +8,7 @@ use turn_rs::Node as TNode;
 #[rustfmt::skip]
 pub static SOFTWARE: &str = concat!(
     env!("CARGO_PKG_NAME"), 
-    ":",
+    ":", 
     env!("CARGO_PKG_VERSION")
 );
 
@@ -46,18 +46,6 @@ pub struct Node {
 }
 
 impl From<TNode> for Node {
-    /// # Example
-    ///
-    /// ```ignore
-    /// let node = Node {
-    ///     ...
-    /// };
-    ///
-    /// let INode = INode::from(node.clone());
-    /// assert_eq!(INode.username, node.username);
-    /// assert_eq!(INode.password, node.password);
-    /// assert_eq!(INoder.lifetime, node.lifetime);
-    /// ```
     fn from(value: TNode) -> Self {
         Node {
             timer: value.timer.elapsed().as_secs(),
@@ -109,15 +97,14 @@ pub enum Events<'a> {
 }
 
 impl Events<'_> {
-    #[rustfmt::skip]
     pub const fn to_str(&self) -> &'static str {
         match *self {
-            Self::Allocated {..} => "allocated",
-            Self::Binding {..} => "binding",
-            Self::ChannelBind {..} => "channel_bind",
-            Self::CreatePermission {..} => "create_permission",
-            Self::Refresh {..} => "refresh",
-            Self::Abort {..} => "abort",
+            Self::Allocated { .. } => "allocated",
+            Self::Binding { .. } => "binding",
+            Self::ChannelBind { .. } => "channel_bind",
+            Self::CreatePermission { .. } => "create_permission",
+            Self::Refresh { .. } => "refresh",
+            Self::Abort { .. } => "abort",
         }
     }
 }

@@ -15,21 +15,6 @@ pub struct Hooks {
 }
 
 impl Hooks {
-    fn hooks(res: reqwest::Response) -> Result<reqwest::Response> {
-        log::info!("hooks response: {:?}", res);
-        (res.status() == 200)
-            .then_some(res)
-            .ok_or_else(|| anyhow!("request failed!"))
-    }
-
-    /// Create an web hooks
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// // let ext_ctr = Hooks::new(config);
-    /// ```
     pub fn new(config: Arc<Config>) -> Self {
         Self {
             client: reqwest::Client::new(),
@@ -37,21 +22,6 @@ impl Hooks {
         }
     }
 
-    /// request hooks authentication.
-    ///
-    /// This interface will first try to find the internal static certificate
-    /// table, if not found, then request the web interface for
-    /// authentication.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let ext_ctr = Hooks::new(config);
-    ///
-    /// let addr = "127.0.0.1:8080".parse().unwrap();
-    /// // let key = ext_ctr.auth(&addr, "test").await?;
-    /// ```
     pub async fn auth(&self, addr: &SocketAddr, name: &str) -> Result<String> {
         if let Some(v) = self.config.auth.get(name) {
             return Ok(v.clone());
@@ -62,18 +32,15 @@ impl Hooks {
             None => return Err(anyhow!("auth failed!")),
         };
 
-        Ok(Self::hooks(self.client.get(uri).send().await?)?
-            .text()
-            .await?)
+        let res = self.client.get(uri).send().await?;
+        if res.status() != 200 {
+            Err(anyhow!("request failed!"))
+        } else {
+            Ok(res.text().await?)
+        }
     }
 
-    /// push event
-    ///
-    /// Only subscribed events are pushed, other events are ignored.
-    ///
-    /// Note: This method will not wait for the send to succeed, and will
-    /// complete regardless of success or failure.
-    pub fn events(&self, event: &Events<'_>) {
+    pub fn on_events(&self, event: &Events<'_>) {
         let uri = match &self.config.hooks.bind {
             Some(h) => format!("{}/events?kind={}", h, event.to_str()),
             None => return,

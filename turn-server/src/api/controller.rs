@@ -31,20 +31,6 @@ pub struct Controller {
 }
 
 impl Controller {
-    /// Create a controller.
-    ///
-    /// Controllers require external routing and thread monitoring instances, as
-    /// well as configuration information.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// Controller::new(service.get_router(), config, monitor);
-    /// ```
     pub fn new(config: Arc<Config>, monitor: Monitor, service: Service) -> Arc<Self> {
         Arc::new(Self {
             timer: Instant::now(),
@@ -54,17 +40,10 @@ impl Controller {
         })
     }
 
-    /// get server status.
+    /// get server status
     ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let state_js = ctr.get_stats().await;
+    /// ```base
+    /// curl -X GET {hostname}/stats #application/json
     /// ```
     pub async fn get_stats(State(this): State<&Self>) -> Json<Stats> {
         let router = this.service.get_router();
@@ -78,17 +57,10 @@ impl Controller {
         })
     }
 
-    /// Get a list of sockets
+    /// get a list of sockets
     ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let workers_js = ctr.get_report().await;
+    /// ```
+    /// curl -X GET {hostname}/report?skip=0&limit=20 #application/json
     /// ```
     pub async fn get_report(
         State(this): State<&Self>,
@@ -99,20 +71,10 @@ impl Controller {
         Json(this.monitor.get_nodes(skip, limit))
     }
 
-    /// Get user list.
+    /// get user list
     ///
-    /// This interface returns the username and a list of addresses used by this
-    /// user.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// // let users_js = ctr.get_users().await;
+    /// ```
+    /// curl -X GET {hostname}/users?skip=0&limit=20 #application/json
     /// ```
     pub async fn get_users(
         State(this): State<&Self>,
@@ -124,21 +86,10 @@ impl Controller {
         Json(router.get_users(skip, limit))
     }
 
-    /// Get node information
+    /// get node information
     ///
-    /// This interface can obtain the user's basic information and assigned
-    /// information, including the survival time.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// let addr = "127.0.0.1:8080".parse().unwrap();
-    /// // let user_js = ctr.get_node(addr).await;
+    /// ```
+    /// curl -X GET {hostname}/node?addr=127.0.0.1 #application/json
     /// ```
     pub async fn get_node(
         State(this): State<&Self>,
@@ -148,22 +99,10 @@ impl Controller {
         Json(router.get_node(&Arc::new(pars.addr)).map(Node::from))
     }
 
-    /// Delete a node under the user.
+    /// delete a node under the user
     ///
-    /// This will cause all information of the current node to be deleted,
-    /// including the binding relationship, and at the same time terminate the
-    /// INodeion of the current node and stop forwarding data.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let config = Config::new()
-    /// let service = Service::new(/* ... */);;
-    /// let monitor = Monitor::new(/* ... */);
-    ///
-    /// let ctr = Controller::new(service.get_router(), config, monitor);
-    /// let addr = "127.0.0.1:8080".parse().unwrap();
-    /// // let remove_node_js = ctr.remove_user(addr).await;
+    /// ```
+    /// curl -X DELETE {hostname}/node?addr=127.0.0.1
     /// ```
     pub async fn remove_node(
         State(this): State<&Self>,

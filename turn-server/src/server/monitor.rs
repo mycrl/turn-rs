@@ -112,8 +112,6 @@ impl Monitor {
     ///
     /// # Example
     ///
-    /// # Example
-    ///
     /// ```
     /// use turn_server::server::monitor::*;
     /// use std::net::SocketAddr;

@@ -72,19 +72,7 @@ where
 /// any means of authentication, and sensitive information and dangerous
 /// operations can be obtained through this service, please do not expose it
 /// directly to an unsafe environment.
-///
-/// # Example
-///
-/// ```ignore
-/// let config = Config::new()
-/// let service = Service::new(/* ... */);;
-/// let monitor = Monitor::new(/* ... */);
-///
-/// let router = service.get_router();
-/// let ctr = Controller::new(router, config.clone(), monitor);
-/// // start(&config, &ctr).await?;
-/// ```
-pub async fn start(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
+pub async fn start_controller_service(cfg: &Config, ctr: &Controller) -> anyhow::Result<()> {
     let ctr: &'static Controller = unsafe { std::mem::transmute(ctr) };
     let app = Router::new()
         .route("/stats", get(Controller::get_stats))
