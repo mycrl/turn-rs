@@ -59,56 +59,66 @@ impl Controller {
 
     /// get a list of sockets
     ///
-    /// ```
+    /// ```base
     /// curl -X GET {hostname}/report?skip=0&limit=20 #application/json
     /// ```
     pub async fn get_report(
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
     ) -> Json<Vec<(SocketAddr, Store)>> {
-        let skip = pars.skip.unwrap_or(0);
-        let limit = pars.limit.unwrap_or(20);
-        Json(this.monitor.get_nodes(skip, limit))
+        Json(
+            this.monitor
+                .get_nodes(pars.skip.unwrap_or(0), pars.limit.unwrap_or(20)),
+        )
     }
 
     /// get user list
     ///
-    /// ```
+    /// ```base
     /// curl -X GET {hostname}/users?skip=0&limit=20 #application/json
     /// ```
     pub async fn get_users(
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
     ) -> Json<Vec<(String, Vec<SocketAddr>)>> {
-        let router = this.service.get_router();
-        let skip = pars.skip.unwrap_or(0);
-        let limit = pars.limit.unwrap_or(20);
-        Json(router.get_users(skip, limit))
+        Json(
+            this.service
+                .get_router()
+                .get_users(pars.skip.unwrap_or(0), pars.limit.unwrap_or(20)),
+        )
     }
 
     /// get node information
     ///
-    /// ```
+    /// ```base
     /// curl -X GET {hostname}/node?addr=127.0.0.1 #application/json
     /// ```
     pub async fn get_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<Option<Node>> {
-        let router = this.service.get_router();
-        Json(router.get_node(&Arc::new(pars.addr)).map(Node::from))
+        Json(
+            this.service
+                .get_router()
+                .get_node(&Arc::new(pars.addr))
+                .map(Node::from),
+        )
     }
 
     /// delete a node under the user
     ///
-    /// ```
+    /// ```base
     /// curl -X DELETE {hostname}/node?addr=127.0.0.1
     /// ```
     pub async fn remove_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
     ) -> Json<bool> {
-        let router = this.service.get_router();
-        Json(router.remove(&Arc::new(pars.addr)).is_some())
+        Json(
+            this.service
+                .get_router()
+                .remove(&Arc::new(pars.addr))
+                .is_some(),
+        )
     }
 }

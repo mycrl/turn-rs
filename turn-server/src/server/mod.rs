@@ -15,15 +15,6 @@ use turn_rs::Service;
 ///
 /// create a specified number of threads,
 /// each thread processes udp data separately.
-///
-/// # Example
-///
-/// ```ignore
-/// let config = Config::new()
-/// let service = Service::new(/* ... */);;
-///
-/// // run(&service, config).await?
-/// ```
 pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> anyhow::Result<()> {
     let router = Arc::new(Router::default());
     for i in config.turn.interfaces.clone() {
