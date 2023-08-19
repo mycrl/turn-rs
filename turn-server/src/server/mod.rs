@@ -1,10 +1,8 @@
-pub mod monitor;
 pub mod transport;
 
-pub use self::monitor::*;
-
-use super::config::{Config, Transport};
-use super::router::Router;
+use crate::config::{Config, Transport};
+use crate::monitor::Monitor;
+use crate::router::Router;
 
 use std::sync::Arc;
 

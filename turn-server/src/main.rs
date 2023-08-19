@@ -1,3 +1,11 @@
+#[global_allocator]
+#[cfg(target_os = "windows")]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[global_allocator]
+#[cfg(not(target_os = "windows"))]
+static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 use std::sync::Arc;
 use turn_server::config::Config;
 

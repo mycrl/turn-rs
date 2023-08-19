@@ -149,7 +149,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -184,7 +184,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -219,7 +219,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -258,7 +258,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -293,7 +293,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -330,7 +330,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -357,7 +357,7 @@ impl Router {
             return key;
         }
 
-        let pwd = self.observer.auth_block(addr, username)?;
+        let pwd = self.observer.get_password_blocking(addr, username)?;
         let key = self.nodes.insert(addr, &self.realm, username, &pwd)?;
         self.interfaces.insert(*addr, *interface, *external);
         Some(key)
@@ -378,7 +378,7 @@ impl Router {
             return key;
         }
 
-        let pwd = self.observer.auth(addr, username).await?;
+        let pwd = self.observer.get_password(addr, username).await?;
         let key = self.nodes.insert(addr, &self.realm, username, &pwd)?;
         self.interfaces.insert(*addr, *interface, *external);
         Some(key)
@@ -398,7 +398,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -435,7 +435,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -471,7 +471,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -548,7 +548,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -588,7 +588,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -633,7 +633,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -703,7 +703,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -742,7 +742,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -785,7 +785,7 @@ impl Router {
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn auth_block(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }

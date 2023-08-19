@@ -1,7 +1,10 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use super::payload::{Node, Stats, SOFTWARE};
-use crate::{config::*, server::*};
+use crate::{
+    config::Config,
+    monitor::{Monitor, Store},
+};
 
 use axum::{extract::Query, extract::State, Json};
 use serde::Deserialize;
@@ -43,8 +46,10 @@ impl Controller {
     /// get server status
     ///
     /// ```base
-    /// curl -X GET {hostname}/stats #application/json
+    /// curl -X GET [host]/stats #application/json
     /// ```
+    ///
+    /// Note: This interface will return some sensitive information.
     pub async fn get_stats(State(this): State<&Self>) -> Json<Stats> {
         let router = this.service.get_router();
         Json(Stats {
@@ -60,8 +65,13 @@ impl Controller {
     /// get a list of sockets
     ///
     /// ```base
-    /// curl -X GET {hostname}/report?skip=0&limit=20 #application/json
+    /// curl -X GET [host]/report?skip=[number]&limit=[number] #application/json
     /// ```
+    ///
+    /// Note: This interface will return some sensitive information.
+    ///
+    /// This interface will return the list of currently connected nodes and
+    /// the data read and write statistics of the nodes.
     pub async fn get_report(
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
@@ -75,8 +85,14 @@ impl Controller {
     /// get user list
     ///
     /// ```base
-    /// curl -X GET {hostname}/users?skip=0&limit=20 #application/json
+    /// curl -X GET [host]/users?skip=[number]&limit=[number] #application/json
     /// ```
+    ///
+    /// Note: This interface will return some sensitive information.
+    ///
+    /// This interface will return the list of currently connected users, and
+    /// the returned information corresponds to multiple source ips with one
+    /// user name.
     pub async fn get_users(
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
@@ -91,8 +107,13 @@ impl Controller {
     /// get node information
     ///
     /// ```base
-    /// curl -X GET {hostname}/node?addr=127.0.0.1 #application/json
+    /// curl -X GET [host]/node?addr=[ip addr] #application/json
     /// ```
+    ///
+    /// Note: This interface will return some sensitive information.
+    ///
+    /// This interface will return node information, with the node ip as the
+    /// matching condition.
     pub async fn get_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,
@@ -108,8 +129,11 @@ impl Controller {
     /// delete a node under the user
     ///
     /// ```base
-    /// curl -X DELETE {hostname}/node?addr=127.0.0.1
+    /// curl -X DELETE [host]/node?addr=[ip addr]
     /// ```
+    ///
+    /// Deleting a node will stop processing any data exchange behavior of
+    /// the current node.
     pub async fn remove_node(
         State(this): State<&Self>,
         Query(pars): Query<AddrParams>,

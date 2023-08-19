@@ -97,7 +97,7 @@ pub enum Events<'a> {
 }
 
 impl Events<'_> {
-    pub const fn to_str(&self) -> &'static str {
+    pub const fn kind_name(&self) -> &'static str {
         match *self {
             Self::Allocated { .. } => "allocated",
             Self::Binding { .. } => "binding",

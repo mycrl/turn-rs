@@ -1,7 +1,7 @@
 use std::{io::ErrorKind::ConnectionReset, net::SocketAddr, sync::Arc};
 
 use super::Monitor;
-use crate::{router::Router, server::monitor::Stats};
+use crate::{monitor::Stats, router::Router};
 
 use bytes::BytesMut;
 use faster_stun::Decoder;

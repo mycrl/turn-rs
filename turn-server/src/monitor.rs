@@ -90,7 +90,7 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::server::monitor::*;
+    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
     ///
     /// #[tokio::main]
@@ -113,7 +113,7 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::server::monitor::*;
+    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
     ///
     /// #[tokio::main]
@@ -137,7 +137,7 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::server::monitor::*;
+    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
     ///
     /// #[tokio::main]
@@ -166,7 +166,7 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::server::monitor::*;
+    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
     ///
     /// #[tokio::main]
