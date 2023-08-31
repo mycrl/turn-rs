@@ -1,7 +1,10 @@
-use std::{collections::BTreeSet, net::SocketAddr, sync::Arc};
+use std::{
+    collections::BTreeSet,
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+};
 
 use ahash::AHashMap;
-use parking_lot::Mutex;
 use serde::Serialize;
 use tokio::sync::mpsc::*;
 
@@ -69,7 +72,7 @@ impl Monitor {
         let nodes_ = nodes.clone();
         tokio::spawn(async move {
             while let Some((addr, payload)) = receiver.recv().await {
-                if let Some(store) = nodes_.lock().get_mut(&addr) {
+                if let Some(store) = nodes_.lock().unwrap().get_mut(&addr) {
                     store.change(payload);
                 }
             }
@@ -127,8 +130,8 @@ impl Monitor {
     /// }
     /// ```
     pub fn set(&self, addr: SocketAddr) {
-        let mut links = self.links.lock();
-        self.nodes.lock().insert(addr, Store::default());
+        let mut links = self.links.lock().unwrap();
+        self.nodes.lock().unwrap().insert(addr, Store::default());
         links.insert(addr);
     }
 
@@ -155,8 +158,8 @@ impl Monitor {
     /// }
     /// ```
     pub fn delete(&self, addr: &SocketAddr) {
-        self.nodes.lock().remove(addr);
-        self.links.lock().remove(addr);
+        self.nodes.lock().unwrap().remove(addr);
+        self.links.lock().unwrap().remove(addr);
     }
 
     /// Obtain a list of statistics from monitoring
@@ -180,8 +183,8 @@ impl Monitor {
     /// }
     /// ```
     pub fn get_nodes(&self, skip: usize, limit: usize) -> Vec<(SocketAddr, Store)> {
-        let links = self.links.lock();
-        let nodes = self.nodes.lock();
+        let links = self.links.lock().unwrap();
+        let nodes = self.nodes.lock().unwrap();
 
         let mut ret = Vec::with_capacity(limit);
         for addr in links.iter().skip(skip).take(limit) {

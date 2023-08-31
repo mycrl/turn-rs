@@ -1,8 +1,11 @@
 use ahash::AHashMap;
-use parking_lot::{Mutex, RwLock};
 use rand::{thread_rng, Rng};
 
-use std::{net::SocketAddr, ops::Range};
+use std::{
+    net::SocketAddr,
+    ops::Range,
+    sync::{Mutex, RwLock},
+};
 
 /// Bit Flag
 #[derive(PartialEq)]
@@ -339,7 +342,7 @@ impl Ports {
     /// assert_eq!(ports.capacity(), 65535 - 49152);
     /// ```
     pub fn capacity(&self) -> usize {
-        self.pools.lock().capacity()
+        self.pools.lock().unwrap().capacity()
     }
 
     /// get ports allocated size.
@@ -353,7 +356,7 @@ impl Ports {
     /// assert_eq!(ports.len(), 0);
     /// ```
     pub fn len(&self) -> usize {
-        self.pools.lock().len()
+        self.pools.lock().unwrap().len()
     }
 
     /// get ports allocated size is empty.
@@ -367,7 +370,7 @@ impl Ports {
     /// assert_eq!(ports.is_empty(), true);
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.pools.lock().len() == 0
+        self.pools.lock().unwrap().len() == 0
     }
 
     /// get address from port.
@@ -385,7 +388,7 @@ impl Ports {
     /// assert!(ports.get(port).is_some());
     /// ```
     pub fn get(&self, p: u16) -> Option<SocketAddr> {
-        self.map.read().get(&p).cloned()
+        self.map.read().unwrap().get(&p).cloned()
     }
 
     /// get address bound port.
@@ -408,7 +411,7 @@ impl Ports {
     /// assert_eq!(pools.get_bound(&local, &peer), Some(port));
     /// ```
     pub fn get_bound(&self, a: &SocketAddr, p: &SocketAddr) -> Option<u16> {
-        self.bounds.read().get(p)?.get(a).cloned()
+        self.bounds.read().unwrap().get(p)?.get(a).cloned()
     }
 
     /// allocate port in ports.
@@ -425,8 +428,8 @@ impl Ports {
     /// assert_eq!(pools.alloc(&addr).is_some(), true);
     /// ```
     pub fn alloc(&self, a: &SocketAddr) -> Option<u16> {
-        let port = self.pools.lock().alloc(None)?;
-        self.map.write().insert(port, *a);
+        let port = self.pools.lock().unwrap().alloc(None)?;
+        self.map.write().unwrap().insert(port, *a);
         Some(port)
     }
 
@@ -446,9 +449,10 @@ impl Ports {
     /// assert!(pools.bound(&addr, port).is_some());
     /// ```
     pub fn bound(&self, addr: &SocketAddr, port: u16) -> Option<()> {
-        let peer = *self.map.read().get(&port)?;
+        let peer = *self.map.read().unwrap().get(&port)?;
         self.bounds
             .write()
+            .unwrap()
             .entry(*addr)
             .or_insert_with(|| AHashMap::with_capacity(10))
             .entry(peer)
@@ -473,15 +477,15 @@ impl Ports {
     /// assert!(pools.remove(&addr, &vec![port]).is_some());
     /// ```
     pub fn remove(&self, a: &SocketAddr, ports: &[u16]) -> Option<()> {
-        let mut pools = self.pools.lock();
-        let mut map = self.map.write();
+        let mut pools = self.pools.lock().unwrap();
+        let mut map = self.map.write().unwrap();
 
         for p in ports {
             pools.restore(*p);
             map.remove(p);
         }
 
-        self.bounds.write().remove(a);
+        self.bounds.write().unwrap().remove(a);
         Some(())
     }
 }

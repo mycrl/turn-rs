@@ -1,9 +1,12 @@
 use super::ports::capacity;
 
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{
+    net::SocketAddr,
+    sync::{Arc, RwLock},
+    time::Instant,
+};
 
 use ahash::AHashMap;
-use parking_lot::RwLock;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
 /// Session nonce.
@@ -109,7 +112,7 @@ impl Nonces {
     /// assert_eq!(nonce_table.get(&addr).len(), 16);
     /// ```
     pub fn get(&self, a: &SocketAddr) -> Arc<String> {
-        if let Some(n) = self.map.read().get(a) {
+        if let Some(n) = self.map.read().unwrap().get(a) {
             if !n.is_death() {
                 return n.unwind();
             }
@@ -117,6 +120,7 @@ impl Nonces {
 
         self.map
             .write()
+            .unwrap()
             .entry(*a)
             .or_insert_with(Nonce::new)
             .unwind()
@@ -140,6 +144,6 @@ impl Nonces {
     /// assert!(nonce.as_str() != new_nonce.as_str());
     /// ```
     pub fn remove(&self, a: &SocketAddr) {
-        self.map.write().remove(a);
+        self.map.write().unwrap().remove(a);
     }
 }
