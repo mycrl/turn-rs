@@ -37,20 +37,26 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - name: Build Release
+    - name: Build release
       run: cargo build --release
+    - name: Rename release (Linux)
+      if: runner.os == 'Linux'
+      run: mv ./target/release/turn-server ./target/release/turn-server-linux-x86_64
     - name: Upload artifact (Linux)
       if: runner.os == 'Linux'
       uses: actions/upload-artifact@v3
       with:
         name: linux-x86_64
-        path: ./target/release/turn-server
+        path: ./target/release/turn-server-linux-x86_64
+    - name: Rename release (Windows)
+      if: runner.os == 'Windows'
+      run: Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-windows-x86_64.exe"
     - name: Upload artifact (Windows)
       if: runner.os == 'Windows'
       uses: actions/upload-artifact@v3
       with:
         name: windows-x86_64
-        path: ./target/release/turn-server.exe
+        path: ./target/release/turn-server-windows-x86_64.exe
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -67,7 +73,7 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
           gh release delete master -y
         fi
-    - name: Create Release
+    - name: Create release
       id: create_release
       uses: softprops/action-gh-release@v1
       env:
