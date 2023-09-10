@@ -54,13 +54,12 @@ pub async fn tcp_processor(
 
         // Use a separate task to handle messages forwarded to this socket.
         tokio::spawn(async move {
-            while let Some((bytes, kind, target)) = receiver.recv().await {
+            while let Some((bytes, kind, _)) = receiver.recv().await {
                 let mut writer = writer_.lock().await;
                 if writer.write_all(bytes.as_slice()).await.is_err() {
                     break;
                 } else {
-                    actor_.send(target, Stats::SendBytes(bytes.len() as u16));
-                    actor_.send(target, Stats::SendPkts(1));
+                    actor_.send(&addr, &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)]);
                 }
 
                 // The channel data needs to be aligned in multiples of 4 in
@@ -86,7 +85,7 @@ pub async fn tcp_processor(
                 if size == 0 {
                     break;
                 } else {
-                    actor.send(addr, Stats::ReceivedBytes(size as u16));
+                    actor.send(&addr, &[Stats::ReceivedBytes(size)]);
                 }
 
                 // The minimum length of a stun message will not be less
@@ -108,7 +107,7 @@ pub async fn tcp_processor(
                         Ok(s) if s > buf.len() => break,
                         Err(_) => break,
                         Ok(s) => {
-                            actor.send(addr, Stats::ReceivedPkts(1));
+                            actor.send(&addr, &[Stats::ReceivedPkts(1)]);
                             s
                         }
                     };
@@ -123,8 +122,10 @@ pub async fn tcp_processor(
                                 break 'a;
                             }
 
-                            actor.send(addr, Stats::SendBytes(res.data.len() as u16));
-                            actor.send(addr, Stats::SendPkts(1));
+                            actor.send(
+                                &addr,
+                                &[Stats::SendBytes(res.data.len()), Stats::SendPkts(1)],
+                            );
                         }
                     }
                 }
@@ -138,6 +139,8 @@ pub async fn tcp_processor(
             );
         });
     }
+
+    log::error!("tcp server close: interface={:?}", local_addr);
 }
 
 /// udp socket process thread.
@@ -153,6 +156,10 @@ pub async fn udp_processor(
     monitor: Monitor,
 ) {
     let socket = Arc::new(socket);
+    let local_addr = socket
+        .local_addr()
+        .expect("get udp socket local addr failed!");
+
     for _ in 0..num_cpus::get() {
         let socket = socket.clone();
         let router = router.clone();
@@ -172,8 +179,7 @@ pub async fn udp_processor(
                     _ => continue,
                 };
 
-                actor.send(addr, Stats::ReceivedBytes(size as u16));
-                actor.send(addr, Stats::ReceivedPkts(1));
+                actor.send(&addr, &[Stats::ReceivedBytes(size), Stats::ReceivedPkts(1)]);
 
                 // The stun message requires at least 4 bytes. (currently the
                 // smallest stun message is channel data,
@@ -190,8 +196,10 @@ pub async fn udp_processor(
                                 }
                             }
 
-                            actor.send(addr, Stats::SendBytes(res.data.len() as u16));
-                            actor.send(addr, Stats::SendPkts(1));
+                            actor.send(
+                                &addr,
+                                &[Stats::SendBytes(res.data.len()), Stats::SendPkts(1)],
+                            );
                         }
                     }
                 }
@@ -207,14 +215,10 @@ pub async fn udp_processor(
                 break;
             }
         } else {
-            actor.send(addr, Stats::SendBytes(bytes.len() as u16));
-            actor.send(addr, Stats::SendPkts(1));
+            actor.send(&addr, &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)]);
         }
     }
 
     router.remove(&external);
-    let local_addr = socket
-        .local_addr()
-        .expect("get udp socket local addr failed!");
     log::error!("udp server close: interface={:?}", local_addr);
 }

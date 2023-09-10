@@ -44,7 +44,7 @@ listen = "127.0.0.1:3000"
 #
 # Access-Control-Allow-Origin is a header request that states whether the
 # response is shared with requesting code.
-allow_origin = "localhost"
+allow_origin = "*"
 
 [hooks]
 # hooks bind uri

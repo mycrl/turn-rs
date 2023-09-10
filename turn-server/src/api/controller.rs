@@ -3,7 +3,7 @@ use std::{net::SocketAddr, sync::Arc};
 use super::payload::{Node, Stats, SOFTWARE};
 use crate::{
     config::Config,
-    monitor::{Monitor, Store},
+    monitor::{Monitor, NodeCounts},
 };
 
 use axum::{extract::Query, extract::State, Json};
@@ -75,7 +75,7 @@ impl Controller {
     pub async fn get_report(
         State(this): State<&Self>,
         Query(pars): Query<Qiter>,
-    ) -> Json<Vec<(SocketAddr, Store)>> {
+    ) -> Json<Vec<(SocketAddr, NodeCounts)>> {
         Json(
             this.monitor
                 .get_nodes(pars.skip.unwrap_or(0), pars.limit.unwrap_or(20)),

@@ -198,9 +198,9 @@ function Sockets() {
                 <thead>
                     <tr>
                         <th>socket addr</th>
-                        <th>received kbytes</th>
+                        <th>received bytes</th>
                         <th>received bytes/s</th>
-                        <th>send kbytes</th>
+                        <th>send bytes</th>
                         <th>send bytes/s</th>
                         <th>received packages</th>
                         <th>received packages/s</th>
@@ -218,9 +218,9 @@ function Sockets() {
                                 >{ key }</a>
                             </td>
                             <td>{ report[key].received_bytes }</td>
-                            <td>{ range[key].received_bytes_avg * 1024 }</td>
+                            <td>{ range[key].received_bytes_avg }</td>
                             <td>{ report[key].send_bytes }</td>
-                            <td>{ range[key].send_bytes_avg * 1024 }</td>
+                            <td>{ range[key].send_bytes_avg }</td>
                             <td>{ report[key].received_pkts }</td>
                             <td>{ range[key].received_pkts_avg }</td>
                             <td>{ report[key].send_pkts }</td>

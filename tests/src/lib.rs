@@ -23,7 +23,7 @@ pub const BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 pub const BIND_ADDR: SocketAddr = SocketAddr::new(BIND_IP, 3478);
 pub const USERNAME: &'static str = "user1";
 pub const PASSWORD: &'static str = "test";
-pub const REALM: &'static str = "local-test";
+pub const REALM: &'static str = "localhost";
 
 static mut RECV_BUF: [u8; 1500] = [0u8; 1500];
 static mut SEND_BUF: Lazy<BytesMut> = Lazy::new(|| BytesMut::with_capacity(2048));
