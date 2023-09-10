@@ -19,4 +19,62 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test
+  build:
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Build Release
+      run: cargo build --release
+    - name: Upload artifact (Linux)
+      if: runner.os == 'Linux'
+      uses: actions/upload-artifact@v3
+      with:
+        name: linux-x86_64
+        path: ./target/release/turn-server
+    - name: Upload artifact (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-x86_64
+        path: ./target/release/turn-server.exe
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+    - name: Delete old master release
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+          gh release delete master -y
+        fi
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref == 'refs/heads/main' && 'master' || env.VERSION }}
+        name: Release ${{ github.ref == 'refs/heads/main' && 'master' || env.VERSION }}
+        draft: false
+        prerelease: false
+        files: artifacts/**/*
