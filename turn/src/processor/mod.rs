@@ -10,7 +10,6 @@ use crate::{router::Router, Observer, StunClass};
 
 use std::{net::SocketAddr, sync::Arc};
 
-use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::*;
 use faster_stun::*;
@@ -169,7 +168,7 @@ impl Processor {
         &'a mut self,
         b: &'a [u8],
         addr: SocketAddr,
-    ) -> Result<Option<Response<'c>>> {
+    ) -> Result<Option<Response<'c>>, StunError> {
         let ctx = Context {
             env: self.env.clone(),
             addr,
@@ -307,7 +306,7 @@ impl Processor {
         ctx: Context,
         m: MessageReader<'_, '_>,
         w: &'c mut BytesMut,
-    ) -> Result<Option<Response<'c>>> {
+    ) -> Result<Option<Response<'c>>, StunError> {
         match m.method {
             Method::Binding(Kind::Request) => binding::process(ctx, m, w),
             Method::Allocate(Kind::Request) => allocate::process(ctx, m, w).await,

@@ -1,7 +1,8 @@
-use anyhow::{anyhow, ensure, Result};
 use bytes::{BufMut, BytesMut};
 
 use std::convert::TryFrom;
+
+use crate::StunError;
 
 use super::attribute::{AttrKind, MessageIntegrity, Property};
 use super::{util, Method};
@@ -144,7 +145,7 @@ impl<'a, 'b> MessageWriter<'a> {
     ///     .unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
-    pub fn flush(&mut self, auth: Option<&Auth>) -> Result<()> {
+    pub fn flush(&mut self, auth: Option<&Auth>) -> Result<(), StunError> {
         // write attribute list size.
         let size = (self.raw.len() - 20) as u16;
         let size_buf = size.to_be_bytes();
@@ -192,7 +193,7 @@ impl<'a, 'b> MessageWriter<'a> {
     ///     .unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
-    fn integrity(&mut self, auth: &Auth) -> Result<()> {
+    fn integrity(&mut self, auth: &Auth) -> Result<(), StunError> {
         assert!(self.raw.len() >= 20);
 
         // compute new size,
@@ -304,15 +305,16 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     ///     .is_ok();
     /// assert!(result);
     /// ```
-    pub fn integrity(&self, auth: &Auth) -> Result<()> {
-        ensure!(!self.buf.is_empty(), "buf is empty");
-        ensure!(self.valid_offset >= 20, "buf is empty");
+    pub fn integrity(&self, auth: &Auth) -> Result<(), StunError> {
+        if self.buf.is_empty() || !(self.valid_offset >= 20) {
+            return Err(StunError::InvalidInput);
+        }
 
         // unwrap MessageIntegrity attribute,
         // an error occurs if not found.
         let integrity = self
             .get::<MessageIntegrity>()
-            .ok_or_else(|| anyhow!("not found MessageIntegrity"))?;
+            .ok_or_else(|| StunError::NotIntegrity)?;
 
         // create multiple submit.
         let size_buf = (self.valid_offset + 4).to_be_bytes();
@@ -328,7 +330,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
 
         // Compare local and original attribute.
         if integrity != property_buf {
-            return Err(anyhow!("assert fail!"));
+            return Err(StunError::IntegrityFailed);
         }
 
         Ok(())
@@ -355,8 +357,11 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     pub fn decode(
         buf: &'a [u8],
         attributes: &'b mut Vec<(AttrKind, &'a [u8])>,
-    ) -> Result<MessageReader<'a, 'b>> {
-        ensure!(buf.len() >= 20, "message len < 20");
+    ) -> Result<MessageReader<'a, 'b>, StunError> {
+        if !(buf.len() >= 20) {
+            return Err(StunError::InvalidInput)
+        }
+
         let mut find_integrity = false;
         let mut valid_offset = 0;
         let count_size = buf.len();
@@ -367,8 +372,13 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         // check if the message size is overflow
         let method = Method::try_from(util::as_u16(&buf[..2]))?;
         let size = util::as_u16(&buf[2..4]) as usize + 20;
-        ensure!(buf[4..8] == COOKIE[..], "missing cookie");
-        ensure!(count_size >= size, "missing len");
+        if !(buf[4..8] == COOKIE[..]) {
+            return Err(StunError::NotCookie)
+        }
+
+        if !(count_size >= size) {
+            return Err(StunError::InvalidInput)
+        }
 
         // get transaction id
         let token = &buf[8..20];
@@ -450,9 +460,11 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// let size = MessageReader::message_size(&buffer[..]).unwrap();
     /// assert_eq!(size, 20);
     /// ```
-    pub fn message_size(buf: &[u8]) -> Result<usize> {
-        ensure!(buf[0] >> 6 == 0, "not a stun message");
-        ensure!(buf.len() >= 20, "message len < 20");
+    pub fn message_size(buf: &[u8]) -> Result<usize, StunError> {
+        if !(buf[0] >> 6 == 0) || !(buf.len() >= 20) {
+            return Err(StunError::InvalidInput);
+        }
+
         Ok((util::as_u16(&buf[2..4]) + 20) as usize)
     }
 }

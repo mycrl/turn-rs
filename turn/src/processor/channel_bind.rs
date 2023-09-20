@@ -1,7 +1,6 @@
 use super::{verify_message, Context, Response};
 use crate::StunClass;
 
-use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::ErrKind::*;
 use faster_stun::attribute::*;
@@ -14,7 +13,7 @@ fn reject<'a>(
     reader: MessageReader,
     bytes: &'a mut BytesMut,
     err: ErrKind,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let method = Method::ChannelBind(Kind::Error);
     let mut pack = MessageWriter::extend(method, &reader, bytes);
     pack.append::<ErrorCode>(Error::from(err));
@@ -29,7 +28,7 @@ fn resolve<'a>(
     reader: &MessageReader,
     key: &[u8; 16],
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let method = Method::ChannelBind(Kind::Response);
     MessageWriter::extend(method, reader, bytes).flush(Some(key))?;
     Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
@@ -69,7 +68,7 @@ pub async fn process<'a>(
     ctx: Context,
     reader: MessageReader<'_, '_>,
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let peer = match reader.get::<XorPeerAddress>() {
         None => return reject(ctx, reader, bytes, BadRequest),
         Some(a) => a,

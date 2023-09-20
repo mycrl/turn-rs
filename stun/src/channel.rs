@@ -1,5 +1,4 @@
-use crate::util;
-use anyhow::{ensure, Result};
+use crate::{util, StunError};
 use std::convert::TryFrom;
 
 /// The ChannelData Message
@@ -55,9 +54,15 @@ impl ChannelData<'_> {
     /// let size = ChannelData::message_size(&buffer[..], false).unwrap();
     /// assert_eq!(size, 68);
     /// ```
-    pub fn message_size(buf: &[u8], is_tcp: bool) -> Result<usize> {
-        ensure!(buf.len() >= 4, "data len < 4");
-        ensure!((1..3).contains(&(buf[0] >> 6)), "not a channel data");
+    pub fn message_size(buf: &[u8], is_tcp: bool) -> Result<usize, StunError> {
+        if !(buf.len() >= 4) {
+            return Err(StunError::InvalidInput);
+        }
+
+        if !(1..3).contains(&(buf[0] >> 6)) {
+            return Err(StunError::InvalidInput);
+        }
+
         let mut size = (util::as_u16(&buf[2..4]) + 4) as usize;
         if is_tcp && (size % 4) > 0 {
             size += 4 - (size % 4);
@@ -68,7 +73,7 @@ impl ChannelData<'_> {
 }
 
 impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
-    type Error = anyhow::Error;
+    type Error = StunError;
 
     /// # Unit Test
     ///
@@ -82,11 +87,20 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     /// assert_eq!(data.number, 16384);
     /// ```
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
-        ensure!(buf.len() >= 4, "data len < 4");
+        if !(buf.len() >= 4) {
+            return Err(StunError::InvalidInput);
+        }
+
         let number = util::as_u16(&buf[..2]);
-        ensure!((0x4000..0xFFFF).contains(&number), "invalid channel data");
+        if !(0x4000..0xFFFF).contains(&number) {
+            return Err(StunError::InvalidInput);
+        }
+
         let size = util::as_u16(&buf[2..4]) as usize;
-        ensure!(size <= buf.len() - 4, "data body len < size");
+        if !(size <= buf.len() - 4) {
+            return Err(StunError::InvalidInput);
+        }
+
         Ok(Self { buf, number })
     }
 }

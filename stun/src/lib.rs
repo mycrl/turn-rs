@@ -49,11 +49,21 @@ pub mod channel;
 pub mod message;
 pub mod util;
 
-use anyhow::{anyhow, Result};
-use attribute::*;
-
 pub use channel::ChannelData;
 pub use message::*;
+
+#[derive(Debug)]
+pub enum StunError {
+    InvalidInput,
+    UnsupportedIpFamily,
+    ShaFailed,
+    NotIntegrity,
+    IntegrityFailed,
+    NotCookie,
+    UnknownMethod,
+    FatalError,
+    Utf8Error,
+}
 
 /// STUN Methods Registry
 ///
@@ -105,7 +115,7 @@ pub enum Method {
 }
 
 impl TryFrom<u16> for Method {
-    type Error = anyhow::Error;
+    type Error = StunError;
 
     /// # Unit Test
     ///
@@ -195,7 +205,7 @@ impl TryFrom<u16> for Method {
             0x0114 => Self::Refresh(Kind::Error),
             0x0016 => Self::SendIndication,
             0x0017 => Self::DataIndication,
-            _ => return Err(anyhow!("unknown method!")),
+            _ => return Err(StunError::UnknownMethod),
         })
     }
 }
@@ -255,7 +265,7 @@ pub enum Payload<'a, 'b> {
 }
 
 pub struct Decoder {
-    attrs: Vec<(AttrKind, &'static [u8])>,
+    attrs: Vec<(attribute::AttrKind, &'static [u8])>,
 }
 
 impl Decoder {
@@ -287,7 +297,7 @@ impl Decoder {
     ///     assert!(reader.get::<UserName>().is_some())
     /// }
     /// ```
-    pub fn decode<'a>(&mut self, buf: &'a [u8]) -> Result<Payload<'a, '_>> {
+    pub fn decode<'a>(&mut self, buf: &'a [u8]) -> Result<Payload<'a, '_>, StunError> {
         assert!(buf.len() >= 4);
         if !self.attrs.is_empty() {
             self.attrs.clear();
@@ -295,7 +305,7 @@ impl Decoder {
 
         let flag = buf[0] >> 6;
         if flag > 3 {
-            return Err(anyhow!("invalid buf"));
+            return Err(StunError::InvalidInput);
         }
 
         Ok(if flag == 0 {
@@ -330,10 +340,10 @@ impl Decoder {
     /// let size = Decoder::message_size(&buffer, false).unwrap();
     /// assert_eq!(size, 96);
     /// ```
-    pub fn message_size(buf: &[u8], is_tcp: bool) -> Result<usize> {
+    pub fn message_size(buf: &[u8], is_tcp: bool) -> Result<usize, StunError> {
         let flag = buf[0] >> 6;
         if flag > 3 {
-            return Err(anyhow!("invalid buf"));
+            return Err(StunError::InvalidInput);
         }
 
         Ok(if flag == 0 {

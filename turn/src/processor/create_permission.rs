@@ -1,7 +1,6 @@
 use super::{ip_is_local, verify_message, Context, Response};
 use crate::{StunClass, SOFTWARE};
 
-use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::ErrKind::*;
 use faster_stun::attribute::*;
@@ -14,7 +13,7 @@ fn reject<'a>(
     reader: MessageReader,
     bytes: &'a mut BytesMut,
     err: ErrKind,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let method = Method::CreatePermission(Kind::Error);
     let mut pack = MessageWriter::extend(method, &reader, bytes);
     pack.append::<ErrorCode>(Error::from(err));
@@ -29,7 +28,7 @@ fn resolve<'a>(
     reader: &MessageReader,
     key: &[u8; 16],
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let method = Method::CreatePermission(Kind::Response);
     let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<Software>(SOFTWARE);
@@ -80,7 +79,7 @@ pub async fn process<'a>(
     ctx: Context,
     reader: MessageReader<'_, '_>,
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let (username, key) = match verify_message(&ctx, &reader).await {
         None => return reject(ctx, reader, bytes, Unauthorized),
         Some(ret) => ret,

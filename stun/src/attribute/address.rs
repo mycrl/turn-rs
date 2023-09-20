@@ -1,8 +1,9 @@
-use anyhow::{anyhow, ensure, Result};
 use bytes::{BufMut, BytesMut};
 
 use std::convert::TryInto;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+
+use crate::StunError;
 
 pub const FAMILY_IPV4: u8 = 0x01;
 pub const FAMILY_IPV6: u8 = 0x02;
@@ -161,14 +162,16 @@ impl Addr {
     /// let addr = Addr::try_from(&addr_buf, &token, false).unwrap();
     /// assert_eq!(addr, source);
     /// ```
-    pub fn try_from(packet: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr> {
-        ensure!(packet.len() >= 4, "buf len < 4");
-        let port = u16::from_be_bytes([packet[2], packet[3]]);
+    pub fn try_from(packet: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr, StunError> {
+        if !(packet.len() >= 4) {
+            return Err(StunError::InvalidInput);
+        }
 
+        let port = u16::from_be_bytes([packet[2], packet[3]]);
         let ip_addr = match packet[1] {
             FAMILY_IPV4 => from_bytes_v4(packet)?,
             FAMILY_IPV6 => from_bytes_v6(packet)?,
-            _ => return Err(anyhow!("missing family!")),
+            _ => return Err(StunError::UnsupportedIpFamily),
         };
 
         let dyn_addr = SocketAddr::new(ip_addr, port);
@@ -193,9 +196,12 @@ impl Addr {
 /// let addr = from_bytes_v4(&buf).unwrap();
 /// assert_eq!(addr, source);
 /// ```
-pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr> {
-    ensure!(packet.len() == 8, "invalid ip addr!");
-    let buf: [u8; 4] = packet[4..8].try_into()?;
+pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, StunError> {
+    if !(packet.len() == 8) {
+        return Err(StunError::InvalidInput);
+    }
+
+    let buf: [u8; 4] = packet[4..8].try_into().map_err(|_| StunError::FatalError)?;
     Ok(IpAddr::V4(buf.into()))
 }
 
@@ -215,9 +221,14 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr> {
 /// let addr = from_bytes_v6(&buf).unwrap();
 /// assert_eq!(addr, source);
 /// ```
-pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr> {
-    ensure!(packet.len() == 20, "invalid ip addr!");
-    let buf: [u8; 16] = packet[4..20].try_into()?;
+pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr, StunError> {
+    if !(packet.len() == 20) {
+        return Err(StunError::InvalidInput);
+    }
+
+    let buf: [u8; 16] = packet[4..20]
+        .try_into()
+        .map_err(|_| StunError::FatalError)?;
     Ok(IpAddr::V6(buf.into()))
 }
 

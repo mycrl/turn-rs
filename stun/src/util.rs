@@ -1,7 +1,8 @@
-use anyhow::{anyhow, Result};
 use crc::{Crc, CRC_32_ISO_HDLC};
 use hmac::{digest::CtOutput, Hmac, Mac};
 use md5::{Digest, Md5};
+
+use crate::StunError;
 
 /// compute padding size.
 ///
@@ -73,9 +74,9 @@ pub fn long_key(username: &str, key: &str, realm: &str) -> [u8; 16] {
 ///     .into_bytes();
 /// assert_eq!(hmac_output.as_slice(), &sign);
 /// ```
-pub fn hmac_sha1(key: &[u8], source: Vec<&[u8]>) -> Result<CtOutput<Hmac<sha1::Sha1>>> {
+pub fn hmac_sha1(key: &[u8], source: Vec<&[u8]>) -> Result<CtOutput<Hmac<sha1::Sha1>>, StunError> {
     match Hmac::<sha1::Sha1>::new_from_slice(key) {
-        Err(_) => Err(anyhow!("new key failde")),
+        Err(_) => Err(StunError::ShaFailed),
         Ok(mut mac) => {
             for buf in source {
                 mac.update(buf);

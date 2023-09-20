@@ -3,10 +3,9 @@ use std::net::SocketAddr;
 use super::{ip_is_local, Context, Response};
 use crate::StunClass;
 
-use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::{Data, XorPeerAddress};
-use faster_stun::{MessageReader, MessageWriter, Method};
+use faster_stun::{MessageReader, MessageWriter, Method, StunError};
 
 /// process send indication request
 ///
@@ -56,7 +55,7 @@ pub async fn process<'a>(
     ctx: Context,
     reader: MessageReader<'_, '_>,
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let peer = match reader.get::<XorPeerAddress>() {
         None => return Ok(None),
         Some(x) => x,

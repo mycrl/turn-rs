@@ -1,14 +1,15 @@
 pub mod address;
 pub mod error;
 
-use crate::util;
-use bytes::{BufMut, BytesMut};
-use num_enum::TryFromPrimitive;
+use crate::{util, StunError};
 
 use std::{convert::TryFrom, net::SocketAddr};
 
 pub use address::Addr;
 pub use error::{Error, Kind as ErrKind};
+
+use bytes::{BufMut, BytesMut};
+use num_enum::TryFromPrimitive;
 
 #[repr(u8)]
 #[derive(TryFromPrimitive, PartialEq, Eq)]
@@ -142,7 +143,7 @@ pub trait Property<'a> {
 /// be compatible with [RFC5389].
 pub struct UserName;
 impl<'a> Property<'a> for UserName {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = &'a str;
 
     fn kind() -> AttrKind {
@@ -154,7 +155,7 @@ impl<'a> Property<'a> for UserName {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(std::str::from_utf8(buf)?)
+        Ok(std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)?)
     }
 }
 
@@ -166,7 +167,7 @@ impl<'a> Property<'a> for UserName {
 /// 4, then padding must be added after this attribute.
 pub struct Data;
 impl<'a> Property<'a> for Data {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = &'a [u8];
 
     fn kind() -> AttrKind {
@@ -202,7 +203,7 @@ impl<'a> Property<'a> for Data {
 /// long-term credential in that realm for authentication.
 pub struct Realm;
 impl<'a> Property<'a> for Realm {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = &'a str;
 
     fn kind() -> AttrKind {
@@ -214,7 +215,7 @@ impl<'a> Property<'a> for Realm {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(std::str::from_utf8(buf)?)
+        Ok(std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)?)
     }
 }
 
@@ -231,7 +232,7 @@ impl<'a> Property<'a> for Realm {
 /// a server.
 pub struct Nonce;
 impl<'a> Property<'a> for Nonce {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = &'a str;
 
     fn kind() -> AttrKind {
@@ -243,7 +244,7 @@ impl<'a> Property<'a> for Nonce {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(std::str::from_utf8(buf)?)
+        Ok(std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)?)
     }
 }
 
@@ -260,7 +261,7 @@ impl<'a> Property<'a> for Nonce {
 /// them).
 pub struct Software;
 impl<'a> Property<'a> for Software {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = &'a str;
 
     fn kind() -> AttrKind {
@@ -272,7 +273,7 @@ impl<'a> Property<'a> for Software {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(std::str::from_utf8(buf)?)
+        Ok(std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)?)
     }
 }
 
@@ -309,7 +310,7 @@ impl<'a> Property<'a> for Software {
 /// calculations.
 pub struct MessageIntegrity;
 impl<'a> Property<'a> for MessageIntegrity {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = &'a [u8];
 
     fn kind() -> AttrKind {
@@ -333,7 +334,7 @@ impl<'a> Property<'a> for MessageIntegrity {
 /// same way as XOR-MAPPED-ADDRESS [RFC5389].
 pub struct XorPeerAddress;
 impl<'a> Property<'a> for XorPeerAddress {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = SocketAddr;
 
     fn kind() -> AttrKind {
@@ -357,7 +358,7 @@ impl<'a> Property<'a> for XorPeerAddress {
 /// [RFC5389].
 pub struct XorRelayedAddress;
 impl<'a> Property<'a> for XorRelayedAddress {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = SocketAddr;
 
     fn kind() -> AttrKind {
@@ -420,7 +421,7 @@ impl<'a> Property<'a> for XorRelayedAddress {
 /// and also causes failure of STUN's message-integrity checking.
 pub struct XorMappedAddress;
 impl<'a> Property<'a> for XorMappedAddress {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = SocketAddr;
 
     fn kind() -> AttrKind {
@@ -472,7 +473,7 @@ impl<'a> Property<'a> for XorMappedAddress {
 /// compatibility with [RFC3489] clients.
 pub struct MappedAddress;
 impl<'a> Property<'a> for MappedAddress {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = SocketAddr;
 
     fn kind() -> AttrKind {
@@ -494,7 +495,7 @@ impl<'a> Property<'a> for MappedAddress {
 /// in Binding Responses.
 pub struct ResponseOrigin;
 impl<'a> Property<'a> for ResponseOrigin {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = SocketAddr;
 
     fn kind() -> AttrKind {
@@ -537,7 +538,7 @@ impl<'a> Property<'a> for ResponseOrigin {
 /// ```
 pub struct ErrorCode;
 impl<'a> Property<'a> for ErrorCode {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = Error<'a>;
 
     fn kind() -> AttrKind {
@@ -560,7 +561,7 @@ impl<'a> Property<'a> for ErrorCode {
 /// until expiration.
 pub struct Lifetime;
 impl<'a> Property<'a> for Lifetime {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = u32;
 
     fn kind() -> AttrKind {
@@ -598,7 +599,7 @@ impl<'a> Property<'a> for Lifetime {
 /// ignored on reception.  It is reserved for future uses.
 pub struct ReqeestedTransport;
 impl<'a> Property<'a> for ReqeestedTransport {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = Transport;
 
     fn kind() -> AttrKind {
@@ -610,7 +611,7 @@ impl<'a> Property<'a> for ReqeestedTransport {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(Transport::try_from(buf[0])?)
+        Ok(Transport::try_from(buf[0]).map_err(|_| StunError::InvalidInput)?)
     }
 }
 
@@ -649,7 +650,7 @@ impl<'a> Property<'a> for ReqeestedTransport {
 /// attributes as well.
 pub struct Fingerprint;
 impl<'a> Property<'a> for Fingerprint {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = u32;
 
     fn kind() -> AttrKind {
@@ -680,7 +681,7 @@ impl<'a> Property<'a> for Fingerprint {
 /// ```
 pub struct ChannelNumber;
 impl<'a> Property<'a> for ChannelNumber {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = u16;
 
     fn kind() -> AttrKind {
@@ -707,7 +708,7 @@ impl<'a> Property<'a> for ChannelNumber {
 /// The agent MAY change the number when an ICE restart occurs.
 pub struct IceControlling;
 impl<'a> Property<'a> for IceControlling {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = u64;
 
     fn kind() -> AttrKind {
@@ -729,7 +730,7 @@ impl<'a> Property<'a> for IceControlling {
 /// it serves as a flag.  It has an attribute value of 0x0025..
 pub struct UseCandidate;
 impl<'a> Property<'a> for UseCandidate {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = ();
 
     fn kind() -> AttrKind {
@@ -754,7 +755,7 @@ impl<'a> Property<'a> for UseCandidate {
 /// number. The agent MAY change the number when an ICE restart occurs.
 pub struct IceControlled;
 impl<'a> Property<'a> for IceControlled {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = u64;
 
     fn kind() -> AttrKind {
@@ -776,7 +777,7 @@ impl<'a> Property<'a> for IceControlled {
 /// value of 0x0024.
 pub struct Priority;
 impl<'a> Property<'a> for Priority {
-    type Error = anyhow::Error;
+    type Error = StunError;
     type Inner = u32;
 
     fn kind() -> AttrKind {

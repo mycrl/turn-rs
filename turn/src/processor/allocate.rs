@@ -3,7 +3,6 @@ use crate::{StunClass, SOFTWARE};
 
 use std::{net::SocketAddr, sync::Arc};
 
-use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::ErrKind::*;
 use faster_stun::attribute::*;
@@ -16,7 +15,7 @@ fn reject<'a>(
     reader: MessageReader,
     bytes: &'a mut BytesMut,
     err: ErrKind,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let method = Method::Allocate(Kind::Error);
     let nonce = ctx.env.router.get_nonce(&ctx.addr);
     let mut pack = MessageWriter::extend(method, &reader, bytes);
@@ -44,7 +43,7 @@ fn resolve<'a>(
     key: &[u8; 16],
     port: u16,
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let method = Method::Allocate(Kind::Response);
     let alloc_addr = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
     let mut pack = MessageWriter::extend(method, reader, bytes);
@@ -76,7 +75,7 @@ pub async fn process<'a>(
     ctx: Context,
     reader: MessageReader<'_, '_>,
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     if reader.get::<ReqeestedTransport>().is_none() {
         return reject(ctx, reader, bytes, ServerError);
     }

@@ -1,7 +1,6 @@
 use super::{Context, Response};
 use crate::{StunClass, SOFTWARE};
 
-use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::*;
 use faster_stun::*;
@@ -32,7 +31,7 @@ pub fn process<'a>(
     ctx: Context,
     payload: MessageReader,
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let method = Method::Binding(Kind::Response);
     let mut pack = MessageWriter::extend(method, &payload, bytes);
     pack.append::<XorMappedAddress>(ctx.addr);

@@ -1,7 +1,6 @@
 use super::{verify_message, Context, Response};
 use crate::StunClass;
 
-use anyhow::Result;
 use bytes::BytesMut;
 use faster_stun::attribute::ErrKind::*;
 use faster_stun::attribute::*;
@@ -13,7 +12,7 @@ fn reject<'a>(
     reader: MessageReader,
     bytes: &'a mut BytesMut,
     err: ErrKind,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let method = Method::Refresh(Kind::Error);
     let mut pack = MessageWriter::extend(method, &reader, bytes);
     pack.append::<ErrorCode>(Error::from(err));
@@ -28,7 +27,7 @@ pub fn resolve<'a>(
     lifetime: u32,
     key: &[u8; 16],
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let method = Method::Refresh(Kind::Response);
     let mut pack = MessageWriter::extend(method, reader, bytes);
     pack.append::<Lifetime>(lifetime);
@@ -79,7 +78,7 @@ pub async fn process<'a>(
     ctx: Context,
     reader: MessageReader<'_, '_>,
     bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>> {
+) -> Result<Option<Response<'a>>, StunError> {
     let (username, key) = match verify_message(&ctx, &reader).await {
         None => return reject(reader, bytes, Unauthorized),
         Some(ret) => ret,
