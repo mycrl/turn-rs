@@ -49,6 +49,8 @@ pub mod channel;
 pub mod message;
 pub mod util;
 
+use std::{error, fmt};
+
 pub use channel::ChannelData;
 pub use message::*;
 
@@ -63,6 +65,14 @@ pub enum StunError {
     UnknownMethod,
     FatalError,
     Utf8Error,
+}
+
+impl error::Error for StunError {}
+
+impl fmt::Display for StunError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
 }
 
 /// STUN Methods Registry
