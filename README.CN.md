@@ -40,7 +40,7 @@
 - 外部控制接口. <sup>([`controller-api`])</sup>
 - 配置文件中的静态身份认证.
 - 只允许长期身份认证.
-- 虚拟端口分配. <sup>(`并不会真正分配真实的端口`)</sup>
+- 虚拟端口分配.
 
 [`controller-api`]: https://github.com/mycrl/turn-rs/wiki/Controller-API-Reference
 [`hooks-api`]: https://github.com/mycrl/turn-rs/wiki/Hooks-API-Reference
