@@ -45,7 +45,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 - external controller api. <sup>([`controller-api`])</sup>
 - static identity in configuration file.
 - only long-term authentication is supported.
-- virtual port support. <sup>(`allocate request does not allocate real udp ports`)</sup>
+- virtual port support.
 
 [`controller-api`]: https://github.com/mycrl/turn-rs/wiki/Controller-API-Reference
 [`hooks-api`]: https://github.com/mycrl/turn-rs/wiki/Hooks-API-Reference
