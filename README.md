@@ -12,7 +12,7 @@
   <strong>TURN Server implemented by ❤️ Rust</strong>
 </div>
 <div align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/release.yml?branch=main"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/tests.yml?branch=main"/>
   <img src="https://img.shields.io/github/license/mycrl/turn-rs"/>
   <img src="https://img.shields.io/github/issues/mycrl/turn-rs"/>
   <img src="https://img.shields.io/github/stars/mycrl/turn-rs"/>
