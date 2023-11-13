@@ -1,4 +1,4 @@
-name: docker build and
+name: docker release
 on:
   workflow_dispatch:
     inputs:
