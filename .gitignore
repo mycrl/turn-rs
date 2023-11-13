@@ -2,7 +2,7 @@
 .vs
 .vscode
 *dist*
-Cargo.lock
+.idea
 *node_modules*
 *pcapng*
 *package-lock.json*
