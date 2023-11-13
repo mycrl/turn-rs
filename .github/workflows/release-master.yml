@@ -1,4 +1,4 @@
-name: release
+name: release master
 on:
   push:
     branches: [main]
@@ -33,8 +33,8 @@ jobs:
     - name: Rename release (Windows)
       if: runner.os == 'Windows'
       run: 
-        Remove-Item -Path "./target/release/turn-server-windows-x86_64.exe"
-        Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-windows-x86_64.exe"
+        Remove-Item -Path "./target/release/turn-server-windows-x86_64.exe";
+        Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-windows-x86_64.exe";
     - name: Upload artifact (Windows)
       if: runner.os == 'Windows'
       uses: actions/upload-artifact@v3
