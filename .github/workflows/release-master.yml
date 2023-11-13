@@ -9,7 +9,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: actions/cache@v3
       with:
         path: |
@@ -32,7 +32,9 @@ jobs:
         path: ./target/release/turn-server-linux-x86_64
     - name: Rename release (Windows)
       if: runner.os == 'Windows'
-      run: Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-windows-x86_64.exe"
+      run: 
+        Remove-Item -Path "./target/release/turn-server-windows-x86_64.exe"
+        Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-windows-x86_64.exe"
     - name: Upload artifact (Windows)
       if: runner.os == 'Windows'
       uses: actions/upload-artifact@v3
