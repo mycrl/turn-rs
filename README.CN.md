@@ -7,7 +7,7 @@
   <strong>一个纯 ❤️ Rust实现的TURN服务器</strong>
 </div>
 <div align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/cargo-test.yml?branch=main"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/tests.yml?branch=main"/>
   <img src="https://img.shields.io/github/license/mycrl/turn-rs"/>
   <img src="https://img.shields.io/github/issues/mycrl/turn-rs"/>
   <img src="https://img.shields.io/github/stars/mycrl/turn-rs"/>
