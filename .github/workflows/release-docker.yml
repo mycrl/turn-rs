@@ -1,12 +1,10 @@
-name: release version
+name: release docker
 on:
   workflow_dispatch:
     inputs:
       version:
         required: true
-        description: "docker version to release"
-env:
-  IMAGE_NAME: turn-server
+        description: "release version number"
 jobs:
   release-github:
     runs-on: ubuntu-latest
@@ -16,19 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build image
-        run: docker build . --file Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
+        run: docker build . --file Dockerfile --tag turn-server --label "runnumber=${GITHUB_RUN_ID}"
       - name: Log in to registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - name: Push image
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
-          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-          VERSION=${{github.event.inputs.version}}
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
-          docker tag $IMAGE_NAME $IMAGE_ID:latest
+          IMAGE_ID=$(echo "ghcr.io/${{ github.repository_owner }}/turn-server" | tr '[A-Z]' '[a-z]')
+          docker tag turn-server $IMAGE_ID:${{github.event.inputs.version}}
+          docker push $IMAGE_ID:${{github.event.inputs.version}}
+          docker tag turn-server $IMAGE_ID:latest
           docker push $IMAGE_ID:latest
   release-dockerhub:
     runs-on: ubuntu-latest
