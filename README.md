@@ -45,7 +45,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 - external controller api. <sup>([`controller-api`])</sup>
 - static identity in configuration file.
 - only long-term authentication is supported.
-- virtual port support.
+- only assign virtual ports.
 
 [`controller-api`]: https://github.com/mycrl/turn-rs/wiki/Controller-API-Reference
 [`hooks-api`]: https://github.com/mycrl/turn-rs/wiki/Hooks-API-Reference
@@ -71,7 +71,10 @@ Please check the example configuration file for details: [turn_server.toml](./tu
 #### Docker
 
 ```bash
+// docker hub
 docker pull quasipaa/turn-server
+// github packages
+docker pull ghcr.io/mycrl/turn-server
 ```
 The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
 
