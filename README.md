@@ -36,7 +36,7 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
   * [docker](#docker)  
   * [linux service](#linux-service)
 * [building](#building)
-* [benchmark](#benchmark)
+
 
 ## Features
 
@@ -107,23 +107,6 @@ cargo build --release
 ```
 
 After the compilation is complete, you can find the binary file in the "target/release" directory.
-
-
-## Benchmark
-
-* CPU: AMD Ryzen 9 7950X 16-Core Processor, RAM: Acer DDR5 5200MHZ 16G x 2, OS: Windows 11 Pro 22H2 - 22621.2428
-* turn_relay will use the real network to send from local udp to local udp.
-
-| name                                     | time                          | thrpt                                  |
-|------------------------------------------|-------------------------------|----------------------------------------|
-| stun_decoder/decoder_channel_bind        | 18.388 ns 18.413 ns 18.439 ns | 5.4549 GiB/s 5.4626 GiB/s 5.4702 GiB/s |
-| stun_decoder/decoder_binding             | 17.662 ns 17.672 ns 17.684 ns | 5.0559 GiB/s 5.0592 GiB/s 5.0622 GiB/s |
-| turn_router/local_indication_peer        | 35.293 ns 35.319 ns 35.346 ns | *                                      |
-| turn_router/peer_indication_local        | 35.384 ns 35.416 ns 35.453 ns | *                                      |
-| turn_router/local_channel_data_peer      | 24.644 ns 24.652 ns 24.662 ns | *                                      |
-| turn_router/peer_channel_data_local      | 24.622 ns 24.626 ns 24.631 ns | *                                      |
-| turn_relay/send_indication_local_to_peer | 42.958 µs 43.040 µs 43.121 µs | *                                      |
-| turn_relay/send_indication_peer_to_local | 35.293 ns 35.319 ns 35.346 ns | *                                      |
 
 
 ## License
