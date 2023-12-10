@@ -5,7 +5,7 @@
   <a href="./README.md">English</a>
 </div>
 <div align="center">
-  <h1>TURN-RS</h1>
+  <img src="./logo.svg" width="200px"/>
 </div>
 <br/>
 <div align="center">
