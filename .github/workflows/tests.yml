@@ -2,6 +2,12 @@ name: tests
 on:
   push:
     branches: [main]
+    paths:
+      - 'tests/**'
+      - 'stun/**'
+      - 'turn/**'
+      - 'turn-server/**'
+      - 'Cargo.toml'
   pull_request:
     branches: [main]
 jobs:
