@@ -17,6 +17,9 @@
   <img src="https://img.shields.io/github/issues/mycrl/turn-rs"/>
   <img src="https://img.shields.io/github/stars/mycrl/turn-rs"/>
 </div>
+<div align="center">
+  <sup>RFC: https://datatracker.ietf.org/doc/html/rfc8656</sup>
+</div>
 <br/>
 <br/>
 
