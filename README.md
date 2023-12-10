@@ -69,6 +69,7 @@ turn-server --config=/etc/turn_server/config.toml
 ```
 
 Please check the example configuration file for details: [turn_server.toml](./turn_server.toml)
+Please see the [wiki](https://github.com/mycrl/turn-rs/wiki/Configuration) for a description of the configuration file.
 
 
 #### Docker
