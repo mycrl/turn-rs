@@ -54,7 +54,8 @@ use std::{error, fmt};
 pub use channel::ChannelData;
 pub use message::*;
 
-#[derive(Debug)]
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub enum StunError {
     InvalidInput,
     UnsupportedIpFamily,

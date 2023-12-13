@@ -9,6 +9,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use async_trait::async_trait;
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StunClass {
     Msg,
