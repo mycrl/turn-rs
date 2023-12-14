@@ -11,4 +11,4 @@ faster-stun = { path = "../stun" }
 
 [lib]
 name = "libturn" 
-crate-type = ["staticlib"]
+crate-type = ["cdylib"]

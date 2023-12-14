@@ -242,17 +242,17 @@ public:
         drop_turn_service(_service);
     }
 
-    TurnProcessor GetProcessor(std::string& interface, std::string& external)
+    TurnProcessor* GetProcessor(std::string& interface, std::string& external)
     {
         Processor processor = get_processor(_service,
                                             const_cast<char*>(interface.c_str()),
                                             const_cast<char*>(external.c_str()));
         if (processor == nullptr)
         {
-            throw std::runtime_error("get turn processor is failed!");
+            return nullptr;
         }
 
-        return TurnProcessor(processor);
+        return new TurnProcessor(processor);
     }
 private:
     Service _service;

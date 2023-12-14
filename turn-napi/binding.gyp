@@ -13,7 +13,7 @@
                 "../turn-exports"
             ],
             "libraries": [
-                "../../target/debug/libturn"
+                "../../target/debug/libturn.dll.lib"
             ],
             "cflags_cc": [
                 "-std=c++17"
