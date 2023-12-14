@@ -43,9 +43,9 @@ A pure rust-implemented turn server, different from coturn, provides a more flex
 
 ## Features
 
-- The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces..
+- The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
 - You can use the WebHooks api, and the turn server can actively notify external services of some events and use external authentication mechanisms. <sup>([`hooks-api`])</sup>
-- External control API, external parties can actively control the turn server and manage sessions.. <sup>([`controller-api`])</sup>
+- External control API, external parties can actively control the turn server and manage sessions. <sup>([`controller-api`])</sup>
 - Static authentication lists can be used in configuration files.
 - Only long-term authentication mechanisms are supported.
 - Only virtual ports are always allocated and no real system ports are occupied.
