@@ -218,7 +218,7 @@ private:
 class TurnService
 {
 public:
-    TurnService(std::string& realm, std::vector<std::string&> externals, TurnObserver* observer)
+    TurnService(std::string& realm, std::vector<std::string> externals, TurnObserver* observer)
     {
         char* externals_[20];
         for (size_t i = 0; i < externals.size(); i++)

@@ -2,6 +2,9 @@
     "targets": [
         {
             "target_name": "turn",
+            "defines": [ 
+                "NAPI_DISABLE_CPP_EXCEPTIONS"
+            ],
             "sources": [
                 "src/turn.cpp"
             ],
@@ -10,10 +13,16 @@
                 "../turn-exports"
             ],
             "libraries": [
-                "../target/debug/libturn.lib"
+                "../../target/debug/libturn"
             ],
             "cflags_cc": [
-                "-std=c++20"
+                "-std=c++17"
+            ],
+            "cflags!": [
+                "-fno-exceptions"
+            ],
+            "cflags_cc!": [
+                "-fno-exceptions"
             ]
         }
     ]
