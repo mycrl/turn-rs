@@ -18,22 +18,34 @@ pub struct Observer {
     pub get_password: extern "C" fn(
         addr: *const c_char,
         name: *const c_char,
-        callback: extern "C" fn(ret: *const c_char, ctx: *const c_void),
+        callback: extern "C" fn(ret: *const c_char, call_ctx: *const c_void),
+        call_ctx: *const c_void,
         ctx: *const c_void,
     ),
-    pub allocated: extern "C" fn(addr: *const c_char, name: *const c_char, port: u16),
-    pub binding: extern "C" fn(addr: *const c_char),
-    pub channel_bind: extern "C" fn(addr: *const c_char, name: *const c_char, channel: u16),
-    pub create_permission:
-        extern "C" fn(addr: *const c_char, name: *const c_char, relay: *const c_char),
-    pub refresh: extern "C" fn(addr: *const c_char, name: *const c_char, time: u32),
-    pub abort: extern "C" fn(addr: *const c_char, name: *const c_char),
+    pub allocated:
+        extern "C" fn(addr: *const c_char, name: *const c_char, port: u16, ctx: *const c_void),
+    pub binding: extern "C" fn(addr: *const c_char, ctx: *const c_void),
+    pub channel_bind:
+        extern "C" fn(addr: *const c_char, name: *const c_char, channel: u16, ctx: *const c_void),
+    pub create_permission: extern "C" fn(
+        addr: *const c_char,
+        name: *const c_char,
+        relay: *const c_char,
+        ctx: *const c_void,
+    ),
+    pub refresh:
+        extern "C" fn(addr: *const c_char, name: *const c_char, time: u32, ctx: *const c_void),
+    pub abort: extern "C" fn(addr: *const c_char, name: *const c_char, ctx: *const c_void),
 }
 
 struct Delegationer {
+    ctx: *const c_void,
     observer: Observer,
     runtime: Arc<Runtime>,
 }
+
+unsafe impl Sync for Delegationer {}
+unsafe impl Send for Delegationer {}
 
 #[async_trait]
 impl turn_rs::Observer for Delegationer {
@@ -47,6 +59,7 @@ impl turn_rs::Observer for Delegationer {
             name,
             get_password_callback,
             Box::into_raw(Box::new(tx)) as *const c_void,
+            self.ctx,
         );
 
         drop_c_chars(&[addr, name]);
@@ -57,14 +70,14 @@ impl turn_rs::Observer for Delegationer {
         let addr = str_to_c_char(&addr.to_string());
         let name = str_to_c_char(name);
 
-        (self.observer.allocated)(addr, name, port);
+        (self.observer.allocated)(addr, name, port, self.ctx);
         drop_c_chars(&[addr, name]);
     }
 
     fn binding(&self, addr: &SocketAddr) {
         let addr = str_to_c_char(&addr.to_string());
 
-        (self.observer.binding)(addr);
+        (self.observer.binding)(addr, self.ctx);
         drop_c_char(addr);
     }
 
@@ -72,7 +85,7 @@ impl turn_rs::Observer for Delegationer {
         let addr = str_to_c_char(&addr.to_string());
         let name = str_to_c_char(name);
 
-        (self.observer.channel_bind)(addr, name, num);
+        (self.observer.channel_bind)(addr, name, num, self.ctx);
         drop_c_chars(&[addr, name]);
     }
 
@@ -81,7 +94,7 @@ impl turn_rs::Observer for Delegationer {
         let name = str_to_c_char(name);
         let relay = str_to_c_char(&relay.to_string());
 
-        (self.observer.create_permission)(addr, name, relay);
+        (self.observer.create_permission)(addr, name, relay, self.ctx);
         drop_c_chars(&[addr, name, relay]);
     }
 
@@ -89,7 +102,7 @@ impl turn_rs::Observer for Delegationer {
         let addr = str_to_c_char(&addr.to_string());
         let name = str_to_c_char(name);
 
-        (self.observer.refresh)(addr, name, time);
+        (self.observer.refresh)(addr, name, time, self.ctx);
         drop_c_chars(&[addr, name]);
     }
 
@@ -97,7 +110,7 @@ impl turn_rs::Observer for Delegationer {
         let addr = str_to_c_char(&addr.to_string());
         let name = str_to_c_char(name);
 
-        (self.observer.abort)(addr, name);
+        (self.observer.abort)(addr, name, self.ctx);
         drop_c_chars(&[addr, name]);
     }
 }
@@ -127,6 +140,7 @@ pub extern "C" fn crate_turn_service(
     externals_ptr: *const *const c_char,
     externals_len: usize,
     observer: Observer,
+    ctx: *const c_void,
 ) -> *const Service {
     option_to_ptr(|| {
         let realm = c_char_as_str(realm)?.to_string();
@@ -143,6 +157,7 @@ pub extern "C" fn crate_turn_service(
                 Delegationer {
                     runtime: runtime.clone(),
                     observer,
+                    ctx,
                 },
             ),
             runtime,

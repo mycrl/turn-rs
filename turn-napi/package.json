@@ -1,0 +1,22 @@
+{
+    "name": "turn",
+    "version": "0.0.1",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "build": "node-gyp rebuild"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mycrl/turn-rs.git"
+    },
+    "author": "Mr.Panda (xivistudios@gmail.com)",
+    "license": "GPL-3.0-or-later",
+    "bugs": {
+        "url": "https://github.com/mycrl/turn-rs/issues"
+    },
+    "homepage": "https://github.com/mycrl/turn-rs#readme",
+    "devDependencies": {
+        "node-addon-api": "^7.0.0"
+    }
+}
