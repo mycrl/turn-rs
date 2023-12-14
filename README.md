@@ -115,5 +115,5 @@ After the compilation is complete, you can find the binary file in the "target/r
 
 ## License
 
-[MIT](./LICENSE)
+[GPL3.0](./LICENSE)
 Copyright (c) 2022 Mr.Panda.
