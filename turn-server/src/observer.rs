@@ -216,7 +216,7 @@ impl TObserver for Observer {
         self.hooks.on_events(&Events::Refresh { addr, name, time });
     }
 
-    /// node exit
+    /// session abort
     ///
     /// Triggered when the node leaves from the turn. Possible reasons: the node
     /// life cycle has expired, external active deletion, or active exit of the

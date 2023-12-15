@@ -198,7 +198,7 @@ pub trait Observer: Send + Sync {
     #[allow(unused)]
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {}
 
-    /// node exit
+    /// session abort
     ///
     /// Triggered when the node leaves from the turn. Possible reasons: the node
     /// life cycle has expired, external active deletion, or active exit of the
