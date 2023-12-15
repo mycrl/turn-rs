@@ -9,6 +9,6 @@ members = [
     "tests",
     "turn",
     "stun",
-    "turn-server", 
-    "turn-exports"
+    "turn-lib",
+    "turn-server"
 ]
