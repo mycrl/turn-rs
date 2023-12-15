@@ -229,6 +229,7 @@ pub extern "C" fn process(
     callback: extern "C" fn(is_success: bool, ret: *const ProcessResult, ctx: *const c_void),
     ctx: *const c_void,
 ) {
+    println!("============================== 1111");
     assert!(!processor.is_null());
 
     let addr: SocketAddr = if let Some(Ok(addr)) = c_char_as_str(addr).map(|item| item.parse()) {
@@ -237,11 +238,14 @@ pub extern "C" fn process(
         return (callback)(false, null(), ctx);
     };
 
+    println!("============================== 222");
     let processor = unsafe { &mut (*processor) };
     let buf = unsafe { slice::from_raw_parts(buf, buf_len) };
     let ctx = ctx as usize;
 
+    println!("============================== 333");
     processor.runtime.clone().spawn(async move {
+        println!("============================== 444");
         match processor.processor.process(buf, addr).await {
             Err(e) => (callback)(false, &ProcessResult { error: e }, ctx as *const c_void),
             Ok(ret) => {

@@ -2,9 +2,9 @@
     "name": "turn",
     "version": "0.0.1",
     "description": "",
-    "main": "index.js",
+    "main": "src/index.js",
     "scripts": {
-        "build": "node-gyp rebuild"
+        "build": "node-gyp configure rebuild"
     },
     "repository": {
         "type": "git",

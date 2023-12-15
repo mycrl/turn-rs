@@ -13,7 +13,11 @@
                 "../turn-exports"
             ],
             "libraries": [
-                "../../target/debug/libturn.dll.lib"
+                "../../target/debug/libturn",
+                "ws2_32",
+                "Userenv",
+                "NtDll",
+                "Bcrypt"
             ],
             "cflags_cc": [
                 "-std=c++17"

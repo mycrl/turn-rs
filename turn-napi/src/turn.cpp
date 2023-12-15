@@ -53,7 +53,7 @@ class NapiTurnObserver : public TurnObserver
 public:
     NapiTurnObserver(Napi::ObjectReference observer)
     {
-        _observer = observer;
+        _observer.Reset(observer.Value());
     }
 
     ~NapiTurnObserver()
