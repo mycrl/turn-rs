@@ -180,6 +180,23 @@ impl Processor {
         })
     }
 
+    #[rustfmt::skip]
+    pub fn process_blocking<'c, 'a: 'c>(
+        &'a mut self,
+        b: &'a [u8],
+        addr: SocketAddr,
+    ) -> Result<Option<Response<'c>>, StunError> {
+        let ctx = Context {
+            env: self.env.clone(),
+            addr,
+        };
+
+        Ok(match self.decoder.decode(b)? {
+            Payload::ChannelData(x) => channel_data::process(ctx, x),
+            Payload::Message(x) => Self::message_process_blocking(ctx, x, &mut self.buf)?,
+        })
+    }
+
     /// process stun message
     ///
     /// TURN is an extension to STUN.  All TURN messages, with the exception
@@ -313,7 +330,25 @@ impl Processor {
             Method::CreatePermission(Kind::Request) => create_permission::process(ctx, m, w).await,
             Method::ChannelBind(Kind::Request) => channel_bind::process(ctx, m, w).await,
             Method::Refresh(Kind::Request) => refresh::process(ctx, m, w).await,
-            Method::SendIndication => indication::process(ctx, m, w).await,
+            Method::SendIndication => indication::process(ctx, m, w),
+            _ => Ok(None),
+        }
+    }
+
+    #[rustfmt::skip]
+    #[inline(always)]
+    fn message_process_blocking<'c>(
+        ctx: Context,
+        m: MessageReader<'_, '_>,
+        w: &'c mut BytesMut,
+    ) -> Result<Option<Response<'c>>, StunError> {
+        match m.method {
+            Method::Binding(Kind::Request) => binding::process(ctx, m, w),
+            Method::Allocate(Kind::Request) => allocate::process_blocking(ctx, m, w),
+            Method::CreatePermission(Kind::Request) => create_permission::process_blocking(ctx, m, w),
+            Method::ChannelBind(Kind::Request) => channel_bind::process_blocking(ctx, m, w),
+            Method::Refresh(Kind::Request) => refresh::process_blocking(ctx, m, w),
+            Method::SendIndication => indication::process(ctx, m, w),
             _ => Ok(None),
         }
     }
@@ -404,6 +439,23 @@ pub(crate) async fn verify_message<'a>(
         .router
         .get_key(&ctx.addr, &ctx.env.interface, &ctx.env.external, username)
         .await?;
+
+    reader.integrity(&key).ok()?;
+    Some((username, key))
+}
+
+#[inline(always)]
+pub(crate) fn verify_message_blocking<'a>(
+    ctx: &Context,
+    reader: &MessageReader<'a, '_>,
+) -> Option<(&'a str, Arc<[u8; 16]>)> {
+    let username = reader.get::<UserName>()?;
+    let key = ctx.env.router.get_key_blocking(
+        &ctx.addr,
+        &ctx.env.interface,
+        &ctx.env.external,
+        username,
+    )?;
 
     reader.integrity(&key).ok()?;
     Some((username, key))

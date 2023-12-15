@@ -19,8 +19,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     let local_interface: SocketAddr = "127.0.0.1:0".parse().unwrap();
     let peer_interface: SocketAddr = "127.0.0.2:0".parse().unwrap();
 
-    let _ = router.get_key_block(&local_addr, &local_interface, &local_interface, "test");
-    let _ = router.get_key_block(&peer_addr, &peer_interface, &peer_interface, "test");
+    let _ = router.get_key_blocking(&local_addr, &local_interface, &local_interface, "test");
+    let _ = router.get_key_blocking(&peer_addr, &peer_interface, &peer_interface, "test");
 
     let local_port = router.alloc_port(&local_addr).unwrap();
     let peer_port = router.alloc_port(&peer_addr).unwrap();

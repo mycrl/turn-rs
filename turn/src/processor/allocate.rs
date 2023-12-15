@@ -1,4 +1,4 @@
-use super::{verify_message, Context, Response};
+use super::{verify_message, verify_message_blocking, Context, Response};
 use crate::{StunClass, SOFTWARE};
 
 use std::{net::SocketAddr, sync::Arc};
@@ -81,6 +81,45 @@ pub async fn process<'a>(
     }
 
     let (username, key) = match verify_message(&ctx, &reader).await {
+        None => return reject(ctx, reader, bytes, Unauthorized),
+        Some(ret) => ret,
+    };
+
+    let port = match ctx.env.router.alloc_port(&ctx.addr) {
+        None => return reject(ctx, reader, bytes, Unauthorized),
+        Some(p) => p,
+    };
+
+    ctx.env.observer.allocated(&ctx.addr, username, port);
+    resolve(&ctx, &reader, &key, port, bytes)
+}
+
+/// process allocate request
+///
+/// [rfc8489](https://tools.ietf.org/html/rfc8489)
+///
+/// In all cases, the server SHOULD only allocate ports from the range
+/// 49152 - 65535 (the Dynamic and/or Private Port range [PORT-NUMBERS]),
+/// unless the TURN server application knows, through some means not
+/// specified here, that other applications running on the same host as
+/// the TURN server application will not be impacted by allocating ports
+/// outside this range.  This condition can often be satisfied by running
+/// the TURN server application on a dedicated machine and/or by
+/// arranging that any other applications on the machine allocate ports
+/// before the TURN server application starts.  In any case, the TURN
+/// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
+/// Known Port range) to discourage clients from using TURN to run
+/// standard services.
+pub fn process_blocking<'a>(
+    ctx: Context,
+    reader: MessageReader<'_, '_>,
+    bytes: &'a mut BytesMut,
+) -> Result<Option<Response<'a>>, StunError> {
+    if reader.get::<ReqeestedTransport>().is_none() {
+        return reject(ctx, reader, bytes, ServerError);
+    }
+
+    let (username, key) = match verify_message_blocking(&ctx, &reader) {
         None => return reject(ctx, reader, bytes, Unauthorized),
         Some(ret) => ret,
     };

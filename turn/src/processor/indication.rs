@@ -51,7 +51,7 @@ use faster_stun::{MessageReader, MessageWriter, Method, StunError};
 /// and [15](https://tools.ietf.org/html/rfc8656#section-15).
 ///
 /// The resulting UDP datagram is then sent to the peer.
-pub async fn process<'a>(
+pub fn process<'a>(
     ctx: Context,
     reader: MessageReader<'_, '_>,
     bytes: &'a mut BytesMut,
