@@ -8,5 +8,5 @@ turn-rs = { path = "../turn" }
 faster-stun = { path = "../stun" }
 
 [lib]
-name = "libturn" 
+name = "turn" 
 crate-type = ["staticlib"]

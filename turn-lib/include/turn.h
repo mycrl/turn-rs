@@ -1,13 +1,21 @@
+//
+//  turn.h
+//  turn-lib
+//
+//  Created by Mr.Panda on 2023/12/16.
+//
+
+#ifndef LIB_TURN__H
+#define LIB_TURN__H
+#pragma once
+
 #include <stdint.h>
 
 #ifdef __cplusplus
-
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
-#include <stdexcept>
-#include <functional>
-#include <optional>
-
 #endif
 
 typedef enum
@@ -42,14 +50,17 @@ typedef union
 {
     Response response;
     StunError error;
-} ProcessResult;
-
-typedef void (*GetPasswordCallback)(char* ret, void* call_ctx);
-typedef void (*ProcessCallback)(bool is_success, ProcessResult* ret, void* ctx);
+} Result;
 
 typedef struct
 {
-    void (*get_password)(char* addr, char* name, GetPasswordCallback callback, void* ctx, void* call_ctx);
+    bool is_success;
+    Result result;
+} ProcessRet;
+
+typedef struct
+{
+    char* (*get_password)(char* addr, char* name, void* ctx);
     void (*allocated)(char* addr, char* name, uint16_t port, void* ctx);
     void (*binding)(char* addr, void* ctx);
     void (*channel_bind)(char* addr, char* name, uint16_t channel, void* ctx);
@@ -61,27 +72,74 @@ typedef struct
 typedef void* Service;
 typedef void* Processor;
 
-extern "C" Service crate_turn_service(char* realm, char** externals, size_t externals_len, Observer observer, void* ctx);
+extern "C" Service crate_turn_service(char* realm,
+                                      char** externals,
+                                      size_t externals_len,
+                                      Observer observer,
+                                      void* ctx);
+
 extern "C" void drop_turn_service(Service service);
-extern "C" Processor get_processor(Service service, char* interface, char* external);
+
+extern "C" Processor get_processor(Service service,
+                                   char* interface,
+                                   char* external);
+
 extern "C" void drop_processor(Processor processor);
-extern "C" void process(Processor processor, uint8_t * buf, size_t buf_len, char* addr, ProcessCallback callback, void* ctx);
+
+extern "C" ProcessRet * process(Processor processor,
+                                uint8_t * buf,
+                                size_t buf_len,
+                                char* addr);
+
+extern "C" void drop_process_ret(ProcessRet * ret);
+
+extern "C" const char* stun_err_into_str(StunError kind)
+{
+    switch (kind)
+    {
+        case StunError::InvalidInput:
+            return ("InvalidInput");
+            break;
+        case StunError::UnsupportedIpFamily:
+            return ("UnsupportedIpFamily");
+            break;
+        case StunError::ShaFailed:
+            return ("ShaFailed");
+            break;
+        case StunError::NotIntegrity:
+            return ("NotIntegrity");
+            break;
+        case StunError::IntegrityFailed:
+            return ("IntegrityFailed");
+            break;
+        case StunError::NotCookie:
+            return ("NotCookie");
+            break;
+        case StunError::UnknownMethod:
+            return ("UnknownMethod");
+            break;
+        case StunError::FatalError:
+            return ("FatalError");
+            break;
+        case StunError::Utf8Error:
+            return ("Utf8Error");
+            break;
+        default:
+            break;
+    }
+}
 
 #ifdef __cplusplus
-
 class TurnObserver
 {
 public:
-    virtual void GetPassword(std::string& addr,
-                             std::string& name,
-                             std::function<void(std::optional<std::string>) > callback)
+    virtual std::optional<std::string> GetPassword(std::string& addr,
+                                                   std::string& name)
     {
-        callback(std::nullopt);
+        return (std::nullopt);
     }
 
-    virtual void Allocated(std::string& addr,
-                           std::string& name,
-                           uint16_t port)
+    virtual void Allocated(std::string& addr, std::string& name, uint16_t port)
     {
     }
 
@@ -101,31 +159,24 @@ public:
     {
     }
 
-    virtual void Refresh(std::string& addr,
-                         std::string& name,
-                         uint32_t time)
+    virtual void Refresh(std::string& addr, std::string& name, uint32_t time)
     {
     }
 
-    virtual void Abort(std::string& addr,
-                       std::string& name)
+    virtual void Abort(std::string& addr, std::string& name)
     {
     }
 };
 
-namespace ObserverClass
+namespace StaticObserver
 {
-    void get_password(char* addr, char* name, GetPasswordCallback callback, void* ctx, void* call_ctx)
+    char* get_password(char* addr, char* name, void* ctx)
     {
         auto observer = (TurnObserver*)ctx;
         auto addr_ = std::move(std::string(addr));
         auto name_ = std::move(std::string(name));
-        observer->GetPassword(addr_,
-                              name_,
-                              [&](std::optional<std::string> ret)
-                              {
-                                  callback(ret.has_value() ? const_cast<char*>(ret.value().c_str()) : nullptr, call_ctx);
-                              });
+        auto ret = observer->GetPassword(addr_, name_);
+        return (ret.has_value() ? const_cast<char*>(ret.value().c_str()) : nullptr);
     }
 
     void allocated(char* addr, char* name, uint16_t port, void* ctx)
@@ -176,20 +227,29 @@ namespace ObserverClass
         observer->Abort(addr_, name_);
     }
 
-    const Observer OBSERVER = Observer{
-        get_password,
-        allocated,
-        binding,
-        channel_bind,
-        create_permission,
-        refresh,
-        abort };
-};
+    static Observer Objects = { get_password, allocated, binding, channel_bind,
+                               create_permission, refresh, abort };
+} // namespace StaticObserver
 
 class TurnProcessor
 {
 public:
-    TurnProcessor(Processor processor) : _processor(process)
+    class Results
+    {
+    public:
+        ProcessRet* Ret;
+
+        Results(ProcessRet* ret) : Ret(ret)
+        {
+        }
+
+        ~Results()
+        {
+            drop_process_ret(Ret);
+        }
+    };
+
+    TurnProcessor(Processor processor) : _processor(processor)
     {
     }
 
@@ -198,27 +258,26 @@ public:
         drop_processor(_processor);
     }
 
-    void Process(uint8_t* buf,
-                 size_t buf_len,
-                 std::string& addr,
-                 std::function<void(bool is_success, ProcessResult* ret)> callback)
+    std::unique_ptr<Results> Process(uint8_t* buf,
+                                     size_t buf_len,
+                                     std::string& addr)
     {
-        process(_processor, buf, buf_len, const_cast<char*>(addr.c_str()), Callback, &callback);
+        ProcessRet* ret = process(_processor,
+                                  buf,
+                                  buf_len,
+                                  const_cast<char*>(addr.c_str()));
+        return (ret == nullptr ? nullptr : std::make_unique<Results>(ret));
     }
+
 private:
     Processor _processor;
-
-    static void Callback(bool is_success, ProcessResult* ret, void* ctx)
-    {
-        auto callback = (std::function<void(bool is_success, ProcessResult * ret)>*)ctx;
-        (*callback)(is_success, ret);
-    }
 };
 
 class TurnService
 {
 public:
-    TurnService(std::string& realm, std::vector<std::string> externals, TurnObserver* observer)
+    TurnService(std::string& realm, std::vector<std::string> externals,
+                TurnObserver* observer)
     {
         char* externals_[20];
         for (size_t i = 0; i < externals.size(); i++)
@@ -229,7 +288,7 @@ public:
         _service = crate_turn_service(const_cast<char*>(realm.c_str()),
                                       externals_,
                                       externals.size(),
-                                      ObserverClass::OBSERVER,
+                                      StaticObserver::Objects,
                                       observer);
         if (_service == nullptr)
         {
@@ -249,13 +308,15 @@ public:
                                             const_cast<char*>(external.c_str()));
         if (processor == nullptr)
         {
-            return nullptr;
+            return (nullptr);
         }
 
-        return new TurnProcessor(processor);
+        return (new TurnProcessor(processor));
     }
+
 private:
     Service _service;
 };
-
 #endif // __cplusplus
+
+#endif // LIB_TURN__H

@@ -354,6 +354,7 @@ impl Processor {
     }
 }
 
+#[derive(Debug)]
 pub struct Response<'a> {
     pub data: &'a [u8],
     pub kind: StunClass,

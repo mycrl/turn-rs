@@ -2,9 +2,10 @@
     "name": "turn",
     "version": "0.0.1",
     "description": "",
-    "main": "src/index.js",
+    "main": "index.js",
     "scripts": {
-        "build": "node-gyp configure rebuild"
+        "build": "node-gyp configure build",
+        "build-dev": "node-gyp --debug configure build"
     },
     "repository": {
         "type": "git",
@@ -17,6 +18,8 @@
     },
     "homepage": "https://github.com/mycrl/turn-rs#readme",
     "devDependencies": {
-        "node-addon-api": "^7.0.0"
+        "@types/node": "^20.10.4",
+        "node-addon-api": "^7.0.0",
+        "node-gyp": "^10.0.1"
     }
 }

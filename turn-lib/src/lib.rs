@@ -5,23 +5,35 @@ use std::{
     slice,
 };
 
+use faster_stun::StunError;
+
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Observer {
-    pub get_password: extern "C" fn(addr: *const c_char, name: *const c_char, ctx: *const c_void) -> *const c_char,
+    pub get_password: extern "C" fn(
+        addr: *const c_char,
+        name: *const c_char,
+        ctx: *const c_void,
+    ) -> *const c_char,
+
     pub allocated:
         extern "C" fn(addr: *const c_char, name: *const c_char, port: u16, ctx: *const c_void),
+
     pub binding: extern "C" fn(addr: *const c_char, ctx: *const c_void),
+
     pub channel_bind:
         extern "C" fn(addr: *const c_char, name: *const c_char, channel: u16, ctx: *const c_void),
+
     pub create_permission: extern "C" fn(
         addr: *const c_char,
         name: *const c_char,
         relay: *const c_char,
         ctx: *const c_void,
     ),
+
     pub refresh:
         extern "C" fn(addr: *const c_char, name: *const c_char, time: u32, ctx: *const c_void),
+
     pub abort: extern "C" fn(addr: *const c_char, name: *const c_char, ctx: *const c_void),
 }
 
@@ -58,7 +70,7 @@ impl turn_rs::Observer for Delegationer {
         drop_c_chars(&[addr, name]);
         c_char_as_str(ret).map(|item| item.to_string())
     }
-    
+
     /// binding request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -286,14 +298,7 @@ pub extern "C" fn crate_turn_service(
         }
 
         Some(Box::into_raw(Box::new(Service {
-            service: turn_rs::Service::new(
-                realm,
-                externals,
-                Delegationer {
-                    observer,
-                    ctx,
-                },
-            ),
+            service: turn_rs::Service::new(realm, externals, Delegationer { observer, ctx }),
         })))
     })
 }
@@ -346,9 +351,33 @@ pub struct Response {
 }
 
 #[repr(C)]
-pub union ProcessResult {
+pub union TResult {
     pub response: Response,
     pub error: faster_stun::StunError,
+}
+
+#[repr(C)]
+pub struct ProcessRet {
+    pub is_success: bool,
+    pub result: TResult,
+}
+
+impl ProcessRet {
+    fn into_ptr(self) -> *const Self {
+        Box::into_raw(Box::new(self))
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn drop_process_ret(ret: *const ProcessRet) {
+    assert!(!ret.is_null());
+
+    let ret = unsafe { Box::from_raw(ret as *mut ProcessRet) };
+    if ret.is_success {
+        drop_c_chars(&[unsafe { ret.result.response.relay }, unsafe {
+            ret.result.response.interface
+        }])
+    }
 }
 
 #[no_mangle]
@@ -357,22 +386,29 @@ pub extern "C" fn process(
     buf: *const u8,
     buf_len: usize,
     addr: *const c_char,
-    ctx: *const c_void,
-) {
+) -> *const ProcessRet {
     assert!(!processor.is_null());
 
     let addr: SocketAddr = if let Some(Ok(addr)) = c_char_as_str(addr).map(|item| item.parse()) {
         addr
     } else {
-        return (callback)(false, null(), ctx);
+        return ProcessRet {
+            is_success: false,
+            result: TResult {
+                error: StunError::InvalidInput,
+            },
+        }
+        .into_ptr();
     };
 
     let processor = unsafe { &mut (*processor) };
     let buf = unsafe { slice::from_raw_parts(buf, buf_len) };
-    let ctx = ctx as usize;
-
     match processor.processor.process_blocking(buf, addr) {
-        Err(e) => (callback)(false, &ProcessResult { error: e }, ctx as *const c_void),
+        Err(error) => ProcessRet {
+            is_success: false,
+            result: TResult { error },
+        }
+        .into_ptr(),
         Ok(ret) => {
             if let Some(ret) = ret {
                 let relay = ret
@@ -384,9 +420,9 @@ pub extern "C" fn process(
                     .map(|item| str_to_c_char(&item.to_string()))
                     .unwrap_or_else(|| null());
 
-                (callback)(
-                    true,
-                    &ProcessResult {
+                ProcessRet {
+                    is_success: true,
+                    result: TResult {
                         response: Response {
                             kind: ret.kind,
                             data: ret.data.as_ptr(),
@@ -395,12 +431,10 @@ pub extern "C" fn process(
                             relay,
                         },
                     },
-                    ctx as *const c_void,
-                );
-
-                drop_c_chars(&[relay, interface]);
+                }
+                .into_ptr()
             } else {
-                (callback)(false, null(), ctx as *const c_void)
+                null()
             }
         }
     }
