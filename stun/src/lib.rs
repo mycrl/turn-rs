@@ -71,7 +71,17 @@ impl error::Error for StunError {}
 
 impl fmt::Display for StunError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{}", match self {
+            Self::InvalidInput => "InvalidInput",
+            Self::UnsupportedIpFamily => "UnsupportedIpFamily",
+            Self::ShaFailed => "ShaFailed",
+            Self::NotIntegrity => "NotIntegrity",
+            Self::IntegrityFailed => "IntegrityFailed",
+            Self::NotCookie => "NotCookie",
+            Self::UnknownMethod => "UnknownMethod",
+            Self::FatalError => "FatalError",
+            Self::Utf8Error => "Utf8Error",
+        })
     }
 }
 
