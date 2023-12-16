@@ -5,8 +5,10 @@
 //  Created by Mr.Panda on 2023/12/16.
 //
 
-#include "exports.h"
+#include <condition_variable>
 #include <future>
+
+#include "exports.h"
 
 void run_promise(Napi::Function& async_func,
                  const std::vector<Napi::Value>& args,
@@ -50,11 +52,11 @@ bool args_checker(const Napi::CallbackInfo& info, std::vector<JsTypes> types)
         for (int i = 0; i < size; i++)
         {
             IF_TYPE(String)
-                IF_TYPE(Number)
-                IF_TYPE(Boolean)
-                IF_TYPE(Object)
-                IF_TYPE(Array)
-                IF_TYPE(Buffer)
+            IF_TYPE(Number)
+            IF_TYPE(Boolean)
+            IF_TYPE(Object)
+            IF_TYPE(Array)
+            IF_TYPE(Buffer)
         }
 
         return true;
@@ -82,15 +84,15 @@ void NapiTurnObserver::GetPassword(std::string& addr,
 {
     Napi::Env env = _observer.Env();
     Napi::Function func = _observer.Get("get_password").As<Napi::Function>();
-    run_promise(func, 
+    run_promise(func,
                 { Napi::String::New(env, addr), Napi::String::New(env, name) },
-                [&](const Napi::Value& value)
+                [=](const Napi::Value& value)
                 {
                     callback(value.IsNull()
                              ? std::nullopt
                              : std::optional(value.As<Napi::String>().Utf8Value()));
                 },
-                [&](const Napi::Error& _error)
+                [=](const Napi::Error& _error)
                 {
                     callback(std::nullopt);
                 });
@@ -123,15 +125,8 @@ void NapiTurnProcesser::ProcessAsyncWorker::Execute()
                             promise.set_value(ret);
                         });
 
-    future.wait();
     _result = future.get();
-
-    if (_result == nullptr)
-    {
-        return;
-    }
-
-    if (_result->Ret->is_success)
+    if (_result == nullptr || _result->Ret->is_success)
     {
         return;
     }
@@ -146,7 +141,8 @@ Napi::Promise NapiTurnProcesser::ProcessAsyncWorker::GetPromise()
 
 void NapiTurnProcesser::ProcessAsyncWorker::OnOK()
 {
-    auto env = Env();
+    Napi::Env env = Env();
+
     if (_result == nullptr)
     {
         _deferred.Resolve(env.Null());
@@ -157,7 +153,7 @@ void NapiTurnProcesser::ProcessAsyncWorker::OnOK()
     auto tresponse = _result->Ret->result.response;
 
     response.Set("data", Napi::Buffer<uint8_t>::NewOrCopy(env, tresponse.data, tresponse.data_len));
-    response.Set("kind", Napi::String::New(env, tresponse.kind == StunClass::Msg ? "msg" : "channel"));
+    response.Set("kind", Napi::String::New(env, stun_class_into_str(tresponse.kind)));
     response.Set("interface", Napi::String::New(env, tresponse.interface));
     response.Set("relay", Napi::String::New(env, tresponse.relay));
     _deferred.Resolve(response);

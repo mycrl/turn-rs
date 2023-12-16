@@ -3,8 +3,8 @@ export declare class TurnObserver {
 }
 
 export enum StunClass {
-    Msg = 'msg',
-    Channel = 'channel',
+    Msg = 'Msg',
+    Channel = 'Channel',
 }
 
 export interface Ret {

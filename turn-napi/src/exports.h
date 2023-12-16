@@ -27,6 +27,10 @@ enum JsTypes
 
 bool args_checker(const Napi::CallbackInfo& info, std::vector<JsTypes> types);
 void throw_as_javascript_exception(Napi::Env& env, std::string message);
+void run_promise(Napi::Function& async_func,
+                 const std::vector<Napi::Value>& args,
+                 std::function<void(const Napi::Value&)> resolve,
+                 std::function<void(const Napi::Error&)> reject);
 
 class NapiTurnObserver : public TurnObserver
 {

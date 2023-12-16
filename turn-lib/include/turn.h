@@ -12,10 +12,14 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-#include <optional>
-#include <stdexcept>
+
+#include <memory>
 #include <string>
 #include <vector>
+#include <optional>
+#include <stdexcept>
+#include <functional>
+
 #endif
 
 typedef enum
@@ -84,7 +88,7 @@ typedef struct
                          GetPasswordCallback callback,
                          void* callback_ctx,
                          void* ctx);
-    
+
     /// binding request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -108,7 +112,7 @@ typedef struct
     /// In this way, the client can learn its reflexive transport address
     /// allocated by the outermost NAT with respect to the STUN server.
     void (*allocated)(char* addr, char* name, uint16_t port, void* ctx);
-    
+
     /// binding request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -132,7 +136,7 @@ typedef struct
     /// In this way, the client can learn its reflexive transport address
     /// allocated by the outermost NAT with respect to the STUN server.
     void (*binding)(char* addr, void* ctx);
-    
+
     /// channel binding request
     ///
     /// The server MAY impose restrictions on the IP address and port values
@@ -164,7 +168,7 @@ typedef struct
     /// transaction would initially fail but succeed on a
     /// retransmission.
     void (*channel_bind)(char* addr, char* name, uint16_t channel, void* ctx);
-    
+
     /// create permission request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -205,7 +209,7 @@ typedef struct
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
     void (*create_permission)(char* addr, char* name, char* relay, void* ctx);
-    
+
     /// refresh request
     ///
     /// If the server receives a Refresh Request with a REQUESTED-ADDRESS-
@@ -246,7 +250,7 @@ typedef struct
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     void (*refresh)(char* addr, char* name, uint32_t time, void* ctx);
-    
+
     /// session abort
     ///
     /// Triggered when the node leaves from the turn. Possible reasons: the node
@@ -283,41 +287,58 @@ extern "C" void drop_process_ret(ProcessRet * ret);
 
 extern "C" const char* stun_err_into_str(StunError kind)
 {
-    switch (kind)
+    if (kind == StunError::InvalidInput)
     {
-        case StunError::InvalidInput:
-            return ("InvalidInput");
-            break;
-        case StunError::UnsupportedIpFamily:
-            return ("UnsupportedIpFamily");
-            break;
-        case StunError::ShaFailed:
-            return ("ShaFailed");
-            break;
-        case StunError::NotIntegrity:
-            return ("NotIntegrity");
-            break;
-        case StunError::IntegrityFailed:
-            return ("IntegrityFailed");
-            break;
-        case StunError::NotCookie:
-            return ("NotCookie");
-            break;
-        case StunError::UnknownMethod:
-            return ("UnknownMethod");
-            break;
-        case StunError::FatalError:
-            return ("FatalError");
-            break;
-        case StunError::Utf8Error:
-            return ("Utf8Error");
-            break;
-        default:
-            break;
+        return "InvalidInput";
+    }
+    else if (kind == StunError::UnsupportedIpFamily)
+    {
+        return "UnsupportedIpFamily";
+    }
+    else if (kind == StunError::ShaFailed)
+    {
+        return "ShaFailed";
+    }
+    else if (kind == StunError::NotIntegrity)
+    {
+        return "NotIntegrity";
+    }
+    else if (kind == StunError::IntegrityFailed)
+    {
+        return "IntegrityFailed";
+    }
+    else if (kind == StunError::NotCookie)
+    {
+        return "NotCookie";
+    }
+    else if (kind == StunError::UnknownMethod)
+    {
+        return "UnknownMethod";
+    }
+    else if (kind == StunError::FatalError)
+    {
+        return "FatalError";
+    }
+    else if (kind == StunError::Utf8Error)
+    {
+        return "Utf8Error";
+    }
+}
+
+extern "C" const char* stun_class_into_str(StunClass kind)
+{
+    if (kind == StunClass::Msg)
+    {
+        return "Msg";
+    }
+    else if (kind == StunClass::Channel)
+    {
+        return "Channel";
     }
 }
 
 #ifdef __cplusplus
+
 class TurnObserver
 {
 public:
@@ -368,12 +389,12 @@ namespace StaticObserver
         auto observer = (TurnObserver*)ctx;
         auto addr_ = std::move(std::string(addr));
         auto name_ = std::move(std::string(name));
-        observer->GetPassword(addr_, name_, [&](std::optional<std::string> ret)
+        observer->GetPassword(addr_, name_, [=](std::optional<std::string> ret)
                               {
-                                  callback(callback_ctx, 
-                                           ret.has_value()
-                                            ? const_cast<char*>(ret.value().c_str())
-                                            : nullptr);
+                                  callback(callback_ctx,
+                                  ret.has_value()
+                                  ? const_cast<char*>(ret.value().c_str())
+                                           : nullptr);
                               });
     }
 
@@ -470,16 +491,22 @@ public:
                 buf_len,
                 const_cast<char*>(addr.c_str()),
                 ProcessCallback,
-                &callback);
+                new ProcessCallbacker{ callback });
     }
 
 private:
     Processor _processor;
 
+    struct ProcessCallbacker
+    {
+        std::function<void(std::shared_ptr<Results>)> callback;
+    };
+
     static void ProcessCallback(void* ctx, ProcessRet* ret)
     {
-        auto callback = (std::function<void(std::shared_ptr<Results>)>*)ctx;
-        (*callback)(ret == nullptr ? nullptr : std::make_shared<Results>(ret));
+        ProcessCallbacker* context = (ProcessCallbacker*)ctx;
+        context->callback(ret == nullptr ? nullptr : std::make_shared<Results>(ret));
+        delete context;
     }
 };
 
@@ -527,6 +554,7 @@ public:
 private:
     Service _service;
 };
+
 #endif // __cplusplus
 
 #endif // LIB_TURN__H
