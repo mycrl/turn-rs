@@ -3,9 +3,15 @@ use std::{
     net::SocketAddr,
     ptr::null,
     slice,
+    sync::Arc,
 };
 
+use async_trait::async_trait;
 use faster_stun::StunError;
+use futures::{
+    channel::oneshot::{self, Sender},
+    executor::ThreadPool,
+};
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -13,8 +19,10 @@ pub struct Observer {
     pub get_password: extern "C" fn(
         addr: *const c_char,
         name: *const c_char,
+        callback: extern "C" fn(*const c_void, *const c_char),
+        callback_ctx: *const c_void,
         ctx: *const c_void,
-    ) -> *const c_char,
+    ),
 
     pub allocated:
         extern "C" fn(addr: *const c_char, name: *const c_char, port: u16, ctx: *const c_void),
@@ -45,6 +53,7 @@ struct Delegationer {
 unsafe impl Sync for Delegationer {}
 unsafe impl Send for Delegationer {}
 
+#[async_trait]
 impl turn_rs::Observer for Delegationer {
     /// allocate request
     ///
@@ -62,13 +71,21 @@ impl turn_rs::Observer for Delegationer {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    fn get_password_blocking(&self, addr: &SocketAddr, name: &str) -> Option<String> {
+    async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
         let addr = str_to_c_char(&addr.to_string());
         let name = str_to_c_char(name);
 
-        let ret = (self.observer.get_password)(addr, name, self.ctx);
+        let (tx, rx) = oneshot::channel::<Option<String>>();
+        (self.observer.get_password)(
+            addr,
+            name,
+            get_password_callback,
+            Box::into_raw(Box::new(tx)) as *const _,
+            self.ctx,
+        );
+
         drop_c_chars(&[addr, name]);
-        c_char_as_str(ret).map(|item| item.to_string())
+        rx.await.ok().flatten()
     }
 
     /// binding request
@@ -280,6 +297,7 @@ impl turn_rs::Observer for Delegationer {
 #[repr(C)]
 pub struct Service {
     service: turn_rs::Service,
+    pool: Arc<ThreadPool>,
 }
 
 /// # Safety
@@ -300,6 +318,7 @@ pub unsafe extern "C" fn crate_turn_service(
 
         Some(Box::into_raw(Box::new(Service {
             service: turn_rs::Service::new(realm, externals, Delegationer { observer, ctx }),
+            pool: Arc::new(ThreadPool::new().ok()?),
         })))
     })
 }
@@ -314,6 +333,7 @@ pub extern "C" fn drop_turn_service(service: *const Service) {
 #[repr(C)]
 pub struct Processor {
     processor: turn_rs::Processor,
+    pool: Arc<ThreadPool>,
 }
 
 /// # Safety
@@ -327,6 +347,7 @@ pub unsafe extern "C" fn get_processor(
 
     option_to_ptr(|| {
         Some(Box::into_raw(Box::new(Processor {
+            pool: unsafe { &(*service) }.pool.clone(),
             processor: unsafe { &(*service) }.service.get_processor(
                 c_char_as_str(interface)?.parse().ok()?,
                 c_char_as_str(external)?.parse().ok()?,
@@ -390,58 +411,69 @@ pub unsafe extern "C" fn process(
     buf: *const u8,
     buf_len: usize,
     addr: *const c_char,
-) -> *const ProcessRet {
+    callback: extern "C" fn(usize, *const ProcessRet),
+    ctx: usize, // todo: *const c_void
+) {
     assert!(!processor.is_null());
 
     let addr: SocketAddr = if let Some(Ok(addr)) = c_char_as_str(addr).map(|item| item.parse()) {
         addr
     } else {
-        return ProcessRet {
-            is_success: false,
-            result: TResult {
-                error: StunError::InvalidInput,
-            },
-        }
-        .into_ptr();
+        return callback(
+            ctx,
+            ProcessRet {
+                is_success: false,
+                result: TResult {
+                    error: StunError::InvalidInput,
+                },
+            }
+            .into_ptr(),
+        );
     };
 
     let processor = unsafe { &mut (*processor) };
     let buf = unsafe { slice::from_raw_parts(buf, buf_len) };
-    match processor.processor.process_blocking(buf, addr) {
-        Err(error) => ProcessRet {
-            is_success: false,
-            result: TResult { error },
-        }
-        .into_ptr(),
-        Ok(ret) => {
-            if let Some(ret) = ret {
-                let relay = ret
-                    .relay
-                    .map(|item| str_to_c_char(&item.to_string()))
-                    .unwrap_or_else(null);
-                let interface = ret
-                    .interface
-                    .map(|item| str_to_c_char(&item.to_string()))
-                    .unwrap_or_else(null);
 
-                ProcessRet {
-                    is_success: true,
-                    result: TResult {
-                        response: Response {
-                            kind: ret.kind,
-                            data: ret.data.as_ptr(),
-                            data_len: ret.data.len(),
-                            interface,
-                            relay,
-                        },
-                    },
+    processor.pool.clone().spawn_ok(async move {
+        callback(
+            ctx,
+            match processor.processor.process(buf, addr).await {
+                Err(error) => ProcessRet {
+                    is_success: false,
+                    result: TResult { error },
                 }
-                .into_ptr()
-            } else {
-                null()
-            }
-        }
-    }
+                .into_ptr(),
+                Ok(ret) => {
+                    if let Some(ret) = ret {
+                        let relay = ret
+                            .relay
+                            .map(|item| str_to_c_char(&item.to_string()))
+                            .unwrap_or_else(null);
+                        let interface = ret
+                            .interface
+                            .map(|item| str_to_c_char(&item.to_string()))
+                            .unwrap_or_else(null);
+
+                        ProcessRet {
+                            is_success: true,
+                            result: TResult {
+                                response: Response {
+                                    kind: ret.kind,
+                                    data: ret.data.as_ptr(),
+                                    data_len: ret.data.len(),
+                                    interface,
+                                    relay,
+                                },
+                            },
+                        }
+                        .into_ptr()
+                    } else {
+                        null()
+                    }
+                }
+            },
+        )
+    });
 }
 
 fn c_char_as_str(input: *const c_char) -> Option<&'static str> {
@@ -476,4 +508,10 @@ where
         None => null(),
         Some(ptr) => ptr,
     }
+}
+
+#[no_mangle]
+extern "C" fn get_password_callback(ctx: *const c_void, password: *const c_char) {
+    let tx = unsafe { Box::from_raw(ctx as *mut Sender<Option<String>>) };
+    let _ = tx.send(c_char_as_str(password).map(|item| item.to_string()));
 }

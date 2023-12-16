@@ -6,8 +6,8 @@
                 "NAPI_DISABLE_CPP_EXCEPTIONS"
             ], 
             "sources": [
-                "src/turn-napi.cpp",
-                "src/turn-napi.h"
+                "src/exports.cpp",
+                "src/exports.h"
             ], 
             "include_dirs": [
                 "<!@(node -p \"require('node-addon-api').include\")", 

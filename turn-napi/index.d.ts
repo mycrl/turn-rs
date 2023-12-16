@@ -1,5 +1,5 @@
 export declare class TurnObserver {
-    public get_password(addr: string, name: string): string | null;
+    public async get_password(addr: string, name: string): Promise<string | null>;
 }
 
 export enum StunClass {
@@ -15,7 +15,7 @@ export interface Ret {
 }
 
 export declare class TurnProcesser {
-    public process(buf: Buffer, addr: string): Promise<Ret> | null;
+    public async process(buf: Buffer, addr: string): Promise<Ret | null>;
 }
 
 export declare class TurnService<T extends TurnObserver> {

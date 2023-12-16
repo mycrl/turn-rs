@@ -118,12 +118,7 @@ impl Nonces {
             }
         }
 
-        self.map
-            .write()
-            .unwrap()
-            .entry(*a)
-            .or_default()
-            .unwind()
+        self.map.write().unwrap().entry(*a).or_default().unwind()
     }
 
     /// remove session nonce string.

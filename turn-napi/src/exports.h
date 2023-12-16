@@ -34,7 +34,9 @@ public:
     NapiTurnObserver(Napi::ObjectReference observer);
     ~NapiTurnObserver();
 
-    std::optional<std::string> GetPassword(std::string& addr, std::string& name) override;
+    void GetPassword(std::string& addr,
+                     std::string& name,
+                     std::function<void(std::optional<std::string>)> callback) override;
 private:
     Napi::ObjectReference _observer;
 };
@@ -56,7 +58,7 @@ public:
         void OnError(const Napi::Error& err) override;
         Napi::Promise GetPromise();
     private:
-        std::unique_ptr<TurnProcessor::Results> _result = nullptr;
+        std::shared_ptr<TurnProcessor::Results> _result = nullptr;
         TurnProcessor* _processer = nullptr;
         Napi::Promise::Deferred _deferred;
         std::string _addr;

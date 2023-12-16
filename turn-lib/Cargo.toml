@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 turn-rs = { path = "../turn" }
 faster-stun = { path = "../stun" }
+async-trait = "0.1.74"
+futures = { version = "0.3.29", features = ["executor", "thread-pool"] }
 
 [lib]
 name = "turn" 

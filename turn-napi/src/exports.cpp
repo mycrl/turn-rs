@@ -5,15 +5,39 @@
 //  Created by Mr.Panda on 2023/12/16.
 //
 
-#include "turn-napi.h"
+#include "exports.h"
+#include <future>
+
+void run_promise(Napi::Function& async_func,
+                 const std::vector<Napi::Value>& args,
+                 std::function<void(const Napi::Value&)> resolve,
+                 std::function<void(const Napi::Error&)> reject)
+{
+    auto env = async_func.Env();
+    Napi::Object promise = async_func.Call(args).As<Napi::Object>();
+    Napi::Function then_func = promise.Get("then").As<Napi::Function>();
+    Napi::Function catch_func = promise.Get("catch").As<Napi::Function>();
+
+    then_func.Call(promise, { Napi::Function::New(env,
+                                                  [=](const Napi::CallbackInfo& info)
+                                                  {
+                                                      resolve(info[0].As<Napi::Value>());
+                                                  }) });
+
+    catch_func.Call(promise, { Napi::Function::New(env,
+                                                   [=](const Napi::CallbackInfo& info)
+                                                   {
+                                                       reject(info[0].As<Napi::Error>());
+                                                   }) });
+}
 
 bool args_checker(const Napi::CallbackInfo& info, std::vector<JsTypes> types)
 {
-#define IF_TYPE(TYPE)                                                          \
-    if (types[i] == JsTypes::TYPE) {                                           \
-        if (!info[i].Is##TYPE()) {                                             \
-            return false;                                                      \
-        }                                                                      \
+#define IF_TYPE(TYPE) \
+    if (types[i] == JsTypes::TYPE) { \
+        if (!info[i].Is##TYPE()) { \
+            return false; \
+        } \
     }
 
     auto size = info.Length();
@@ -52,12 +76,24 @@ NapiTurnObserver::~NapiTurnObserver()
     _observer.Unref();
 }
 
-std::optional<std::string> NapiTurnObserver::GetPassword(std::string& addr, std::string& name)
+void NapiTurnObserver::GetPassword(std::string& addr,
+                                   std::string& name,
+                                   std::function<void(std::optional<std::string>)> callback)
 {
     Napi::Env env = _observer.Env();
     Napi::Function func = _observer.Get("get_password").As<Napi::Function>();
-    Napi::Value ret = func.Call({ Napi::String::New(env, addr), Napi::String::New(env, name) });
-    return ret.IsNull() ? std::nullopt : std::optional(ret.As<Napi::String>().Utf8Value());
+    run_promise(func, 
+                { Napi::String::New(env, addr), Napi::String::New(env, name) },
+                [&](const Napi::Value& value)
+                {
+                    callback(value.IsNull()
+                             ? std::nullopt
+                             : std::optional(value.As<Napi::String>().Utf8Value()));
+                },
+                [&](const Napi::Error& _error)
+                {
+                    callback(std::nullopt);
+                });
 }
 
 NapiTurnProcesser::ProcessAsyncWorker::ProcessAsyncWorker(const Napi::Env& env,
@@ -76,7 +112,20 @@ NapiTurnProcesser::ProcessAsyncWorker::ProcessAsyncWorker(const Napi::Env& env,
 
 void NapiTurnProcesser::ProcessAsyncWorker::Execute()
 {
-    _result = _processer->Process(_buf, _buf_size, _addr);
+    std::promise<std::shared_ptr<TurnProcessor::Results>> promise;
+    auto future = promise.get_future();
+
+    _processer->Process(_buf,
+                        _buf_size,
+                        _addr,
+                        [&](std::shared_ptr<TurnProcessor::Results> ret)
+                        {
+                            promise.set_value(ret);
+                        });
+
+    future.wait();
+    _result = future.get();
+
     if (_result == nullptr)
     {
         return;
@@ -86,7 +135,7 @@ void NapiTurnProcesser::ProcessAsyncWorker::Execute()
     {
         return;
     }
-    
+
     SetError(stun_err_into_str(_result->Ret->result.error));
 }
 
