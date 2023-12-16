@@ -91,6 +91,6 @@ pub fn process<'a>(
     pack.append::<Data>(data);
     pack.flush(None)?;
 
-    let to = (&ctx.env.interface != &interface.addr).then(|| interface.addr);
+    let to = (ctx.env.interface != interface.addr).then(|| interface.addr);
     Ok(Some(Response::new(bytes, StunClass::Msg, Some(addr), to)))
 }

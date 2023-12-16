@@ -122,7 +122,7 @@ impl Nonces {
             .write()
             .unwrap()
             .entry(*a)
-            .or_insert_with(Nonce::new)
+            .or_default()
             .unwind()
     }
 

@@ -163,7 +163,7 @@ impl Addr {
     /// assert_eq!(addr, source);
     /// ```
     pub fn try_from(packet: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr, StunError> {
-        if !(packet.len() >= 4) {
+        if packet.len() < 4 {
             return Err(StunError::InvalidInput);
         }
 
@@ -197,7 +197,7 @@ impl Addr {
 /// assert_eq!(addr, source);
 /// ```
 pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, StunError> {
-    if !(packet.len() == 8) {
+    if packet.len() != 8 {
         return Err(StunError::InvalidInput);
     }
 
@@ -222,7 +222,7 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, StunError> {
 /// assert_eq!(addr, source);
 /// ```
 pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr, StunError> {
-    if !(packet.len() == 20) {
+    if packet.len() != 20 {
         return Err(StunError::InvalidInput);
     }
 

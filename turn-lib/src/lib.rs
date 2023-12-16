@@ -282,8 +282,9 @@ pub struct Service {
     service: turn_rs::Service,
 }
 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn crate_turn_service(
+pub unsafe extern "C" fn crate_turn_service(
     realm: *const c_char,
     externals_ptr: *const *const c_char,
     externals_len: usize,
@@ -315,8 +316,9 @@ pub struct Processor {
     processor: turn_rs::Processor,
 }
 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn get_processor(
+pub unsafe extern "C" fn get_processor(
     service: *const Service,
     interface: *const c_char,
     external: *const c_char,
@@ -333,8 +335,9 @@ pub extern "C" fn get_processor(
     }) as *mut _
 }
 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn drop_processor(processor: *mut Processor) {
+pub unsafe extern "C" fn drop_processor(processor: *mut Processor) {
     assert!(!processor.is_null());
 
     drop(unsafe { Box::from_raw(processor) })
@@ -380,8 +383,9 @@ pub extern "C" fn drop_process_ret(ret: *const ProcessRet) {
     }
 }
 
+/// # Safety
 #[no_mangle]
-pub extern "C" fn process(
+pub unsafe extern "C" fn process(
     processor: *mut Processor,
     buf: *const u8,
     buf_len: usize,
@@ -414,11 +418,11 @@ pub extern "C" fn process(
                 let relay = ret
                     .relay
                     .map(|item| str_to_c_char(&item.to_string()))
-                    .unwrap_or_else(|| null());
+                    .unwrap_or_else(null);
                 let interface = ret
                     .interface
                     .map(|item| str_to_c_char(&item.to_string()))
-                    .unwrap_or_else(|| null());
+                    .unwrap_or_else(null);
 
                 ProcessRet {
                     is_success: true,

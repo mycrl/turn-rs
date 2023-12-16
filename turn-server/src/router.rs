@@ -78,7 +78,7 @@ impl Router {
         let mut is_destroy = false;
 
         {
-            if let Some(sender) = self.senders.read().unwrap().get(&interface) {
+            if let Some(sender) = self.senders.read().unwrap().get(interface) {
                 if sender.send((data.to_vec(), class, *addr)).is_err() {
                     is_destroy = true;
                 }
@@ -116,6 +116,6 @@ impl Router {
     /// }
     /// ```
     pub fn remove(&self, interface: &SocketAddr) {
-        drop(self.senders.write().unwrap().remove(&interface))
+        drop(self.senders.write().unwrap().remove(interface))
     }
 }
