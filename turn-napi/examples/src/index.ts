@@ -37,6 +37,7 @@ class Args<T extends Object> {
             [k: string]: string | Array<string> | { [k: string]: string } 
         } = {}
 
+        console.log(process.argv)
         for (const item of process.argv.slice(2)) {
             if (item.startsWith('--')) {
                 key = item.replace('--', '')
@@ -82,17 +83,9 @@ interface Options {
 
 const args = new Args<Options>()
 const socket = dgram.createSocket('udp4')
-
-const service = new TurnService(
-    args.objects.realm, 
-    [args.objects.external], 
-    new Observer(args),
-)
-
-const processer = service.get_processer(
-    SocketAddr.from(args.objects.external, args.objects.port).source, 
-    args.objects.external,
-)
+const addr = SocketAddr.from(args.objects.external, args.objects.port)
+const service = new TurnService(args.objects.realm, [addr.source], new Observer(args))
+const processer = service.get_processer(addr.source, args.objects.external)
 
 socket.bind(Number(args.objects.port), () => {
     socket.on('message', async (buf, info) => {

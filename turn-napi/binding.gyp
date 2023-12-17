@@ -29,7 +29,7 @@
             ], 
             "cflags_cc!": [
                 "-fno-exceptions"
-            ], 
+            ],
             "conditions": [
                 [
                     "OS=='linux'", 

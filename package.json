@@ -1,0 +1,12 @@
+{
+    "name": "turn-rs",
+    "workspaces": [
+        "./turn-napi",
+        "./turn-napi/examples"
+    ],
+    "scripts": {
+        "build": "npm run build --workspace=turn",
+        "build-dev": "npm run build-dev --workspace=turn",
+        "example": "npm run example --workspace=examples"
+    }
+}
