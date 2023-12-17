@@ -152,10 +152,10 @@ void NapiTurnProcesser::ProcessAsyncWorker::OnOK()
     Napi::Object response = Napi::Object::New(env);
     auto tresponse = _result->Ret->result.response;
 
+    response.Set("interface", tresponse.interface == nullptr ? env.Null() : Napi::String::New(env, tresponse.interface));
+    response.Set("relay", tresponse.relay == nullptr ? env.Null() : Napi::String::New(env, tresponse.relay));
     response.Set("data", Napi::Buffer<uint8_t>::NewOrCopy(env, tresponse.data, tresponse.data_len));
     response.Set("kind", Napi::String::New(env, stun_class_into_str(tresponse.kind)));
-    response.Set("interface", Napi::String::New(env, tresponse.interface));
-    response.Set("relay", Napi::String::New(env, tresponse.relay));
     _deferred.Resolve(response);
 }
 

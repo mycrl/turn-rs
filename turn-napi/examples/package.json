@@ -1,0 +1,26 @@
+{
+    "name": "examples",
+    "version": "1.0.0",
+    "description": "",
+    "main": "dist/index.js",
+    "scripts": {
+        "example": "tsc && node ./"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mycrl/turn-rs.git"
+    },
+    "author": "Mr.Panda (xivistudios@gmail.com)",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/mycrl/turn-rs/issues"
+    },
+    "homepage": "https://github.com/mycrl/turn-rs#readme",
+    "dependencies": {
+        "turn": "file:../"  
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.4",
+        "typescript": "^5.3.3"
+    }
+}
