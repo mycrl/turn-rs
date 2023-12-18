@@ -7,6 +7,6 @@
     "scripts": {
         "build": "npm run build --workspace=turn",
         "build-dev": "npm run build-dev --workspace=turn",
-        "example": "npm run example --workspace=examples"
+        "example": "npm run example --workspace=examples --"
     }
 }

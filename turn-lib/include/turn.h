@@ -513,7 +513,8 @@ private:
 class TurnService
 {
 public:
-    TurnService(std::string& realm, std::vector<std::string> externals,
+    TurnService(std::string& realm, 
+                std::vector<std::string> externals,
                 TurnObserver* observer)
     {
         char* externals_[20];
@@ -545,10 +546,10 @@ public:
                                             const_cast<char*>(external.c_str()));
         if (processor == nullptr)
         {
-            return (nullptr);
+            return nullptr;
         }
 
-        return (new TurnProcessor(processor));
+        return new TurnProcessor(processor);
     }
 
 private:

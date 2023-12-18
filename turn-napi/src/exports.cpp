@@ -71,6 +71,7 @@ void throw_as_javascript_exception(Napi::Env& env, std::string message)
 NapiTurnObserver::NapiTurnObserver(Napi::ObjectReference observer)
 {
     _observer.Reset(observer.Value());
+    _observer.Ref();
 }
 
 NapiTurnObserver::~NapiTurnObserver()
@@ -209,11 +210,16 @@ Napi::Value NapiTurnProcesser::Process(const Napi::CallbackInfo& info)
         return env.Null();
     }
 
+    if (_processer == nullptr)
+    {
+        return env.Null();
+    }
+
     Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
     std::string addr = info[1].As<Napi::String>().Utf8Value();
     ProcessAsyncWorker* worker = new ProcessAsyncWorker(env,
                                                         _processer,
-                                                        addr,
+                                                        std::move(addr),
                                                         buffer.Data(),
                                                         buffer.Length());
     worker->Queue();
@@ -244,7 +250,7 @@ NapiTurnService::NapiTurnService(const Napi::CallbackInfo& info) : Napi::ObjectW
 
     std::string realm = info[0].As<Napi::String>().Utf8Value();
     Napi::Array externals = info[1].As<Napi::Array>();
-    Napi::ObjectReference observer = Napi::ObjectReference::New(info[2].As<Napi::Object>(), 1);
+    Napi::ObjectReference observer = Napi::Persistent(info[2].As<Napi::Object>());
 
     std::vector<std::string> externals_;
     for (size_t i = 0; i < externals.Length(); i++)
@@ -276,7 +282,7 @@ Napi::Value NapiTurnService::GetProcesser(const Napi::CallbackInfo& info)
     std::string interface = info[0].As<Napi::String>().Utf8Value();
     std::string external = info[1].As<Napi::String>().Utf8Value();
     TurnProcessor* processer = _servive->GetProcessor(interface, external);
-    if (process == nullptr)
+    if (processer == nullptr)
     {
         throw_as_javascript_exception(env, "Failed to get turn processer");
         return env.Null();

@@ -37,7 +37,6 @@ class Args<T extends Object> {
             [k: string]: string | Array<string> | { [k: string]: string } 
         } = {}
 
-        console.log(process.argv)
         for (const item of process.argv.slice(2)) {
             if (item.startsWith('--')) {
                 key = item.replace('--', '')
@@ -85,7 +84,7 @@ const args = new Args<Options>()
 const socket = dgram.createSocket('udp4')
 const addr = SocketAddr.from(args.objects.external, args.objects.port)
 const service = new TurnService(args.objects.realm, [addr.source], new Observer(args))
-const processer = service.get_processer(addr.source, args.objects.external)
+const processer = service.get_processer(addr.source, addr.source)
 
 socket.bind(Number(args.objects.port), () => {
     socket.on('message', async (buf, info) => {
@@ -94,21 +93,22 @@ socket.bind(Number(args.objects.port), () => {
             info,
         )
 
-        try {
-            const ret = await processer.process(
-                buf.subarray(0, info.size), 
-                SocketAddr.from(info.address, info.port).source,
-            )
+         try {
+             const ret = await processer.process(
+                 buf.subarray(0, info.size), 
+                 SocketAddr.from(info.address, info.port).source,
+             )
 
-            if (ret != null && ret.relay) {
-                const addr = new SocketAddr(ret.relay)
-                socket.send(ret.data, addr.port, addr.address)
-            }
-        } catch {
-            console.warn(
-                'failed to udp message parse',
-                info,
-            )
-        }
+             console.log(ret)
+             if (ret != null && ret.relay) {
+                 const addr = new SocketAddr(ret.relay)
+                 socket.send(ret.data, addr.port, addr.address)
+             }
+         } catch {
+             console.warn(
+                 'failed to udp message parse',
+                 info,
+             )
+         }
     })
 })
