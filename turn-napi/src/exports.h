@@ -83,11 +83,12 @@ class NapiTurnService : public Napi::ObjectWrap<NapiTurnService>
 {
 public:
     NapiTurnService(const Napi::CallbackInfo& info);
+    ~NapiTurnService();
 
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
     Napi::Value GetProcesser(const Napi::CallbackInfo& info);
 private:
-    std::unique_ptr<NapiTurnObserver> _observer;
+    NapiTurnObserver* _observer;
     std::unique_ptr<TurnService> _servive;
 };
 

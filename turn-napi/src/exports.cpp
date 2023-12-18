@@ -260,12 +260,20 @@ NapiTurnService::NapiTurnService(const Napi::CallbackInfo& info) : Napi::ObjectW
 
     try
     {
-        _observer = std::make_unique<NapiTurnObserver>(std::move(observer));
-        _servive = std::make_unique<TurnService>(realm, externals_, _observer.get());
+        _observer = new NapiTurnObserver(std::move(observer));
+        _servive = std::make_unique<TurnService>(realm, externals_, _observer);
     }
     catch (...)
     {
         throw_as_javascript_exception(env, "Failed to create turn service");
+    }
+}
+
+NapiTurnService::~NapiTurnService()
+{
+    if (_observer != nullptr)
+    {
+        delete _observer;
     }
 }
 
