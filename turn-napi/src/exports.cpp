@@ -52,11 +52,11 @@ bool args_checker(const Napi::CallbackInfo& info, std::vector<JsTypes> types)
         for (int i = 0; i < size; i++)
         {
             IF_TYPE(String)
-            IF_TYPE(Number)
-            IF_TYPE(Boolean)
-            IF_TYPE(Object)
-            IF_TYPE(Array)
-            IF_TYPE(Buffer)
+                IF_TYPE(Number)
+                IF_TYPE(Boolean)
+                IF_TYPE(Object)
+                IF_TYPE(Array)
+                IF_TYPE(Buffer)
         }
 
         return true;
@@ -67,6 +67,8 @@ void throw_as_javascript_exception(Napi::Env& env, std::string message)
 {
     Napi::TypeError::New(env, message).ThrowAsJavaScriptException();
 }
+
+/* NapiTurnObserver */
 
 NapiTurnObserver::NapiTurnObserver(Napi::ObjectReference observer)
 {
@@ -81,7 +83,7 @@ NapiTurnObserver::~NapiTurnObserver()
 
 void NapiTurnObserver::GetPassword(std::string& addr,
                                    std::string& name,
-                                   std::function<void(std::optional<std::string>)> callback)
+                                   std::function<void(std::optional<std::string>)> callback) const
 {
     Napi::Env env = _observer.Env();
     Napi::Function func = _observer.Get("get_password").As<Napi::Function>();
@@ -98,6 +100,8 @@ void NapiTurnObserver::GetPassword(std::string& addr,
                     callback(std::nullopt);
                 });
 }
+
+/* NapiTurnProcesser::ProcessAsyncWorker */
 
 NapiTurnProcesser::ProcessAsyncWorker::ProcessAsyncWorker(const Napi::Env& env,
                                                           TurnProcessor* processer,
@@ -165,7 +169,9 @@ void NapiTurnProcesser::ProcessAsyncWorker::OnError(const Napi::Error& err)
     _deferred.Reject(err.Value());
 }
 
-Napi::Object NapiTurnProcesser::CreateInstance(Napi::Env env, TurnProcessor* processer)
+/* NapiTurnProcesser */
+
+Napi::Object NapiTurnProcesser::CreateInstance(Napi::Env env, TurnProcessor* processor)
 {
     Napi::Function func = DefineClass(env,
                                       "TurnProcesser",
@@ -174,7 +180,7 @@ Napi::Object NapiTurnProcesser::CreateInstance(Napi::Env env, TurnProcessor* pro
     *constructor = Napi::Persistent(func);
     env.SetInstanceData(constructor);
 
-    Napi::External<TurnProcessor> processer_ = Napi::External<TurnProcessor>::New(env, processer);
+    Napi::External<TurnProcessor> processer_ = Napi::External<TurnProcessor>::New(env, processor);
     return constructor->New({ processer_ });
 }
 
@@ -189,14 +195,14 @@ NapiTurnProcesser::NapiTurnProcesser(const Napi::CallbackInfo& info) : Napi::Obj
     }
 
     Napi::External<TurnProcessor> external = info[0].As<Napi::External<TurnProcessor>>();
-    _processer = external.Data();
+    _processor = external.Data();
 }
 
 NapiTurnProcesser::~NapiTurnProcesser()
 {
-    if (_processer != nullptr)
+    if (_processor != nullptr)
     {
-        delete _processer;
+        delete _processor;
     }
 }
 
@@ -210,7 +216,7 @@ Napi::Value NapiTurnProcesser::Process(const Napi::CallbackInfo& info)
         return env.Null();
     }
 
-    if (_processer == nullptr)
+    if (_processor == nullptr)
     {
         return env.Null();
     }
@@ -218,13 +224,15 @@ Napi::Value NapiTurnProcesser::Process(const Napi::CallbackInfo& info)
     Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
     std::string addr = info[1].As<Napi::String>().Utf8Value();
     ProcessAsyncWorker* worker = new ProcessAsyncWorker(env,
-                                                        _processer,
+                                                        _processor,
                                                         std::move(addr),
                                                         buffer.Data(),
                                                         buffer.Length());
     worker->Queue();
     return worker->GetPromise();
 }
+
+/* NapiTurnService */
 
 Napi::Object NapiTurnService::Init(Napi::Env env, Napi::Object exports)
 {
@@ -258,22 +266,11 @@ NapiTurnService::NapiTurnService(const Napi::CallbackInfo& info) : Napi::ObjectW
         externals_.push_back(externals.Get(i).As<Napi::String>().Utf8Value());
     }
 
-    try
-    {
-        _observer = new NapiTurnObserver(std::move(observer));
-        _servive = std::make_unique<TurnService>(realm, externals_, _observer);
-    }
-    catch (...)
+    _observer = std::make_shared<NapiTurnObserver>(std::move(observer));
+    _servive = TurnService::Create(realm, externals_, _observer.get());
+    if (_servive == nullptr)
     {
         throw_as_javascript_exception(env, "Failed to create turn service");
-    }
-}
-
-NapiTurnService::~NapiTurnService()
-{
-    if (_observer != nullptr)
-    {
-        delete _observer;
     }
 }
 
@@ -289,16 +286,14 @@ Napi::Value NapiTurnService::GetProcesser(const Napi::CallbackInfo& info)
 
     std::string interface = info[0].As<Napi::String>().Utf8Value();
     std::string external = info[1].As<Napi::String>().Utf8Value();
-    TurnProcessor* processer = _servive->GetProcessor(interface, external);
-    if (processer == nullptr)
+    TurnProcessor* processor = _servive->GetProcessor(interface, external);
+    if (processor == nullptr)
     {
         throw_as_javascript_exception(env, "Failed to get turn processer");
         return env.Null();
     }
-    else
-    {
-        return NapiTurnProcesser::CreateInstance(info.Env(), processer);
-    }
+
+    return NapiTurnProcesser::CreateInstance(info.Env(), processor);
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)

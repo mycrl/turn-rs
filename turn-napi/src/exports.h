@@ -40,7 +40,7 @@ public:
 
     void GetPassword(std::string& addr,
                      std::string& name,
-                     std::function<void(std::optional<std::string>)> callback) override;
+                     std::function<void(std::optional<std::string>)> callback) const override;
 private:
     Napi::ObjectReference _observer;
 };
@@ -65,31 +65,30 @@ public:
         std::shared_ptr<TurnProcessor::Results> _result = nullptr;
         TurnProcessor* _processer = nullptr;
         Napi::Promise::Deferred _deferred;
-        std::string _addr;
-        uint8_t* _buf;
+        uint8_t* _buf = nullptr;
         size_t _buf_size;
+        std::string _addr;
     };
 
     NapiTurnProcesser(const Napi::CallbackInfo& info);
     ~NapiTurnProcesser();
 
-    static Napi::Object CreateInstance(Napi::Env env, TurnProcessor* processer);
+    static Napi::Object CreateInstance(Napi::Env env, TurnProcessor* processor);
     Napi::Value Process(const Napi::CallbackInfo& info);
 private:
-    TurnProcessor* _processer = nullptr;
+    TurnProcessor* _processor = nullptr;
 };
 
 class NapiTurnService : public Napi::ObjectWrap<NapiTurnService>
 {
 public:
     NapiTurnService(const Napi::CallbackInfo& info);
-    ~NapiTurnService();
 
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
     Napi::Value GetProcesser(const Napi::CallbackInfo& info);
 private:
-    NapiTurnObserver* _observer;
-    std::unique_ptr<TurnService> _servive;
+    std::shared_ptr<NapiTurnObserver> _observer = nullptr;
+    std::shared_ptr<TurnService> _servive = nullptr;
 };
 
 #endif // TURN_NAPI_H

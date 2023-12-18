@@ -17,7 +17,6 @@
 #include <string>
 #include <vector>
 #include <optional>
-#include <stdexcept>
 #include <functional>
 
 #endif
@@ -344,36 +343,36 @@ class TurnObserver
 public:
     virtual void GetPassword(std::string& addr,
                              std::string& name,
-                             std::function<void(std::optional<std::string>)> callback)
+                             std::function<void(std::optional<std::string>)> callback) const
     {
         callback(std::nullopt);
     }
 
-    virtual void Allocated(std::string& addr, std::string& name, uint16_t port)
+    virtual void Allocated(std::string& addr, std::string& name, uint16_t port) const
     {
     }
 
-    virtual void Binding(std::string& addr)
+    virtual void Binding(std::string& addr) const
     {
     }
 
     virtual void ChannelBind(std::string& addr,
                              std::string& name,
-                             uint16_t channel)
+                             uint16_t channel) const
     {
     }
 
     virtual void CreatePermission(std::string& addr,
                                   std::string& name,
-                                  std::string& relay)
+                                  std::string& relay) const
     {
     }
 
-    virtual void Refresh(std::string& addr, std::string& name, uint32_t time)
+    virtual void Refresh(std::string& addr, std::string& name, uint32_t time) const
     {
     }
 
-    virtual void Abort(std::string& addr, std::string& name)
+    virtual void Abort(std::string& addr, std::string& name) const
     {
     }
 };
@@ -400,50 +399,50 @@ namespace StaticObserver
 
     void allocated(char* addr, char* name, uint16_t port, void* ctx)
     {
-        auto observer = (TurnObserver*)ctx;
-        auto addr_ = std::move(std::string(addr));
-        auto name_ = std::move(std::string(name));
-        observer->Allocated(addr_, name_, port);
+//        auto observer = (TurnObserver*)ctx;
+//        auto addr_ = std::move(std::string(addr));
+//        auto name_ = std::move(std::string(name));
+//        observer->Allocated(addr_, name_, port);
     }
 
     void binding(char* addr, void* ctx)
     {
-        auto observer = (TurnObserver*)ctx;
-        auto addr_ = std::move(std::string(addr));
-        observer->Binding(addr_);
+//        auto observer = (TurnObserver*)ctx;
+//        auto addr_ = std::move(std::string(addr));
+//        observer->Binding(addr_);
     }
 
     void channel_bind(char* addr, char* name, uint16_t channel, void* ctx)
     {
-        auto observer = (TurnObserver*)ctx;
-        auto addr_ = std::move(std::string(addr));
-        auto name_ = std::move(std::string(name));
-        observer->ChannelBind(addr_, name_, channel);
+//        auto observer = (TurnObserver*)ctx;
+//        auto addr_ = std::move(std::string(addr));
+//        auto name_ = std::move(std::string(name));
+//        observer->ChannelBind(addr_, name_, channel);
     }
 
     void create_permission(char* addr, char* name, char* relay, void* ctx)
     {
-        auto observer = (TurnObserver*)ctx;
-        auto addr_ = std::move(std::string(addr));
-        auto name_ = std::move(std::string(name));
-        auto relay_ = std::move(std::string(relay));
-        observer->CreatePermission(addr_, name_, relay_);
+//        auto observer = (TurnObserver*)ctx;
+//        auto addr_ = std::move(std::string(addr));
+//        auto name_ = std::move(std::string(name));
+//        auto relay_ = std::move(std::string(relay));
+//        observer->CreatePermission(addr_, name_, relay_);
     }
 
     void refresh(char* addr, char* name, uint32_t time, void* ctx)
     {
-        auto observer = (TurnObserver*)ctx;
-        auto addr_ = std::move(std::string(addr));
-        auto name_ = std::move(std::string(name));
-        observer->Refresh(addr_, name_, time);
+//        auto observer = (TurnObserver*)ctx;
+//        auto addr_ = std::move(std::string(addr));
+//        auto name_ = std::move(std::string(name));
+//        observer->Refresh(addr_, name_, time);
     }
 
     void abort(char* addr, char* name, void* ctx)
     {
-        auto observer = (TurnObserver*)ctx;
-        auto addr_ = std::move(std::string(addr));
-        auto name_ = std::move(std::string(name));
-        observer->Abort(addr_, name_);
+//        auto observer = (TurnObserver*)ctx;
+//        auto addr_ = std::move(std::string(addr));
+//        auto name_ = std::move(std::string(name));
+//        observer->Abort(addr_, name_);
     }
 
     static Observer Objects = { get_password, allocated, binding, channel_bind,
@@ -467,7 +466,6 @@ public:
             if (Ret != nullptr)
             {
                 drop_process_ret(Ret);
-                Ret = nullptr;
             }
         }
     };
@@ -513,9 +511,21 @@ private:
 class TurnService
 {
 public:
-    TurnService(std::string& realm, 
-                std::vector<std::string> externals,
-                TurnObserver* observer)
+    TurnService(Service service) : _service(service)
+    {
+    }
+
+    ~TurnService()
+    {
+        if (_service != nullptr)
+        {
+            drop_turn_service(_service);
+        }
+    }
+
+    static std::shared_ptr<TurnService> Create(std::string& realm,
+                                               std::vector<std::string> externals,
+                                               TurnObserver* observer)
     {
         char* externals_[20];
         for (size_t i = 0; i < externals.size(); i++)
@@ -523,20 +533,17 @@ public:
             externals_[i] = const_cast<char*>(externals[i].c_str());
         }
 
-        _service = crate_turn_service(const_cast<char*>(realm.c_str()),
-                                      externals_,
-                                      externals.size(),
-                                      StaticObserver::Objects,
-                                      observer);
-        if (_service == nullptr)
+        Service service = crate_turn_service(const_cast<char*>(realm.c_str()),
+                                             externals_,
+                                             externals.size(),
+                                             StaticObserver::Objects,
+                                             observer);
+        if (service == nullptr)
         {
-            throw std::runtime_error("crate turn service is failed!");
+            return nullptr;
         }
-    }
 
-    ~TurnService()
-    {
-        drop_turn_service(_service);
+        return std::make_shared<TurnService>(service);
     }
 
     TurnProcessor* GetProcessor(std::string& interface, std::string& external)

@@ -93,16 +93,17 @@ socket.bind(Number(args.objects.port), () => {
             info,
         )
 
+        const addr = SocketAddr.from(info.address, info.port)
          try {
              const ret = await processer.process(
                  buf.subarray(0, info.size), 
-                 SocketAddr.from(info.address, info.port).source,
+                 addr.source
              )
-
+             
              console.log(ret)
-             if (ret != null && ret.relay) {
-                 const addr = new SocketAddr(ret.relay)
-                 socket.send(ret.data, addr.port, addr.address)
+             if (ret != null) {
+                 const target = new SocketAddr(ret.relay || addr.source)
+                 socket.send(ret.data, target.port, target.address)
              }
          } catch {
              console.warn(
