@@ -11,6 +11,7 @@ use napi::threadsafe_function::ThreadsafeFunction;
 use napi::tokio::sync::Mutex;
 use napi::{Error, Result, Status};
 use turn_rs::{Observer, Processor, Service, StunClass};
+
 struct TurnObserver(Object);
 
 unsafe impl Send for TurnObserver {}
