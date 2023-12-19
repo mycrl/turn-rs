@@ -12,17 +12,23 @@ use napi::tokio::sync::Mutex;
 use napi::{Error, Result, Status};
 use turn_rs::{Observer, Processor, Service, StunClass};
 
-struct TurnObserver(Object);
+struct TurnObserver {
+    get_password: Option<ThreadsafeFunction<(String, String)>>,
+}
 
-unsafe impl Send for TurnObserver {}
-unsafe impl Sync for TurnObserver {}
+impl TurnObserver {
+    fn new(observer: &Object) -> Result<Self> {
+        Ok(Self {
+            get_password: observer.get::<_, ThreadsafeFunction<(String, String)>>("get_password")?,
+        })
+    }
+}
 
 #[async_trait]
 impl Observer for TurnObserver {
     async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        self.0
-            .get::<_, ThreadsafeFunction<(String, String)>>("get_password")
-            .ok()??
+        self.get_password
+            .as_ref()?
             .call_async::<Option<String>>(Ok((addr.to_string(), name.to_string())))
             .await
             .ok()?
@@ -44,7 +50,7 @@ impl TurnService {
         Ok(Self(Service::new(
             realm,
             externals_,
-            TurnObserver(observer),
+            TurnObserver::new(&observer)?,
         )))
     }
 
