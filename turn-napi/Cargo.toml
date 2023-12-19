@@ -1,0 +1,24 @@
+[package]
+edition = "2021"
+name = "turn-napi"
+version = "0.0.1"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+turn-rs = { path = "../turn" }
+faster-stun = { path = "../stun" }
+napi-derive = "2.12.2"
+async-trait = "0.1.74"
+
+[dependencies.napi]
+version = "2.12.2"
+default-features = false
+features = ["napi9", "tokio_rt"]
+
+[build-dependencies]
+napi-build = "2.0.1"
+
+[profile.release]
+lto = true

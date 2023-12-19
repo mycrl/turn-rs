@@ -1,25 +1,40 @@
 {
-    "name": "turn",
+    "name": "turn-napi",
     "version": "0.0.1",
-    "description": "",
     "main": "index.js",
-    "scripts": {
-        "build": "node-gyp configure build",
-        "build-dev": "node-gyp --debug configure build"
+    "types": "index.d.ts",
+    "napi": {
+        "name": "turn-napi",
+        "triples": {
+            "additional": [
+                "aarch64-apple-darwin",
+                "aarch64-linux-android",
+                "aarch64-unknown-linux-gnu",
+                "aarch64-unknown-linux-musl",
+                "aarch64-pc-windows-msvc",
+                "armv7-unknown-linux-gnueabihf",
+                "x86_64-unknown-linux-musl",
+                "x86_64-unknown-freebsd",
+                "i686-pc-windows-msvc",
+                "armv7-linux-androideabi",
+                "universal-apple-darwin",
+                "riscv64gc-unknown-linux-gnu"
+            ]
+        }
     },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/mycrl/turn-rs.git"
-    },
-    "author": "Mr.Panda (xivistudios@gmail.com)",
-    "license": "GPL-3.0-or-later",
-    "bugs": {
-        "url": "https://github.com/mycrl/turn-rs/issues"
-    },
-    "homepage": "https://github.com/mycrl/turn-rs#readme",
+    "license": "MIT",
     "devDependencies": {
-        "@types/node": "^20.10.4",
-        "node-addon-api": "^7.0.0",
-        "node-gyp": "^10.0.1"
+        "@napi-rs/cli": "^2.17.0"
+    },
+    "engines": {
+        "node": ">= 10"
+    },
+    "scripts": {
+        "artifacts": "napi artifacts",
+        "build": "napi build --release",
+        "build:debug": "napi build --platform",
+        "prepublishOnly": "napi prepublish -t npm",
+        "universal": "napi universal",
+        "version": "napi version"
     }
 }
