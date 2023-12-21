@@ -7,7 +7,7 @@ debug = false
 resolver = "2"
 members = [
     "tests",
-    "turn",
-    "stun",
+    "crates/turn",
+    "crates/stun",
     "turn-server"
 ]
