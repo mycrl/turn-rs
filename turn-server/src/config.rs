@@ -112,7 +112,7 @@ impl Default for Controller {
 
 #[derive(Deserialize, Debug)]
 pub struct Hooks {
-    /// hooks bind uri
+    /// hooks uri
     ///
     /// This option is used to specify the http address of the hooks service.
     ///
@@ -120,18 +120,18 @@ pub struct Hooks {
     /// and sensitive information and dangerous operations can be obtained
     /// through this service, please do not expose it directly to an unsafe
     /// environment.
-    pub bind: Option<String>,
+    pub uri: Option<String>,
 
     /// list of events followed by hooks
     ///
     /// event list: "allocated", "binding", "channel_bind",
     /// "create_permission", "refresh", "abort".
-    #[serde(default = "Hooks::sub_events")]
-    pub sub_events: Vec<String>,
+    #[serde(default = "Hooks::events")]
+    pub events: Vec<String>,
 }
 
 impl Hooks {
-    fn sub_events() -> Vec<String> {
+    fn events() -> Vec<String> {
         vec![]
     }
 }
@@ -139,8 +139,8 @@ impl Hooks {
 impl Default for Hooks {
     fn default() -> Self {
         Self {
-            bind: None,
-            sub_events: Self::sub_events(),
+            uri: None,
+            events: Self::events(),
         }
     }
 }

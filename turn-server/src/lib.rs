@@ -1,4 +1,4 @@
-pub mod api;
+pub mod rpc;
 pub mod config;
 pub mod monitor;
 pub mod observer;
@@ -7,7 +7,7 @@ pub mod server;
 
 use std::sync::Arc;
 
-use api::controller::Controller;
+use rpc::controller::Controller;
 use config::Config;
 use monitor::Monitor;
 use observer::Observer;
@@ -24,6 +24,6 @@ pub async fn server_main(config: Arc<Config>) -> anyhow::Result<()> {
     server::run(config.clone(), monitor.clone(), &service).await?;
 
     let ctr = Controller::new(config.clone(), monitor, service);
-    api::start_controller_service(&config, &ctr).await?;
+    rpc::start_controller_service(&config, &ctr).await?;
     Ok(())
 }

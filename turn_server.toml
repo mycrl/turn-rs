@@ -47,7 +47,7 @@ listen = "127.0.0.1:3000"
 allow_origin = "*"
 
 [hooks]
-# hooks bind uri
+# hooks uri
 #
 # This option is used to specify the http address of the hooks service.
 #
@@ -55,10 +55,10 @@ allow_origin = "*"
 # and sensitive information and dangerous operations can be obtained
 # through this service, please do not expose it directly to an unsafe
 # environment.
-bind = "http://127.0.0.1:8080"
+uri = "http://127.0.0.1:8080"
 
 # list of events followed by hooks
-sub_events = [
+events = [
     "allocated",
     "binding",
     "channel_bind",

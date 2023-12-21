@@ -41,7 +41,7 @@ impl Hooks {
 
         let res = self
             .client
-            .get(match &self.config.hooks.bind {
+            .get(match &self.config.hooks.uri {
                 Some(h) => format!("{}/password?addr={}&name={}", h, addr, name),
                 None => return Err(anyhow!("auth failed!")),
             })
@@ -66,13 +66,13 @@ impl Hooks {
         if self
             .config
             .hooks
-            .sub_events
+            .events
             .iter()
             .any(|k| k == event.kind_name())
         {
             drop(
                 self.client
-                    .put(match &self.config.hooks.bind {
+                    .put(match &self.config.hooks.uri {
                         Some(h) => format!("{}/events?kind={}", h, event.kind_name()),
                         None => return,
                     })

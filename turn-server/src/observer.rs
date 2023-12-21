@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::api::{hooks::Hooks, payload::Events};
+use crate::rpc::{hooks::Hooks, payload::Events};
 use crate::config::Config;
 use crate::monitor::Monitor;
 
