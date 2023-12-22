@@ -110,7 +110,7 @@ cd turn-rs
 cargo build --release
 ```
 
-After the compilation is complete, you can find the binary file in the "target/release" directory.
+After the compilation is complete, you can find the binary file in the `"target/release"` directory.
 
 
 ## License
