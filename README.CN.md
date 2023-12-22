@@ -107,5 +107,5 @@ cargo build --release
 
 ## License
 
-[MIT](./LICENSE)
+[GPL](./LICENSE)
 Copyright (c) 2022 Mr.Panda.
