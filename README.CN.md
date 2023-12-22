@@ -15,12 +15,12 @@
 <br/>
 <br/>
 
-一个完全由Rust实现的STUN/TURN服务器, 跟现在广泛使用的coturn项目不同的是, 这个项目提供了更灵活的外部接口并提供与coturn相同的性能和资源开销（也许更好）, 非常适合在WebRTC项目中需要转发的场景下使用.
+纯rust实现的turn服务器, 与coturn相比, 优点是提供更好的性能. 单线程解码速度可达5Gib/s, 转发时延小于35微秒. 但是它并没有提供像coturn一样丰富的功能支持, 这个项目最适合webrtc中使用stun/turn服务器的场景. 
 
 
 ## 谁在使用它?
 
-* [`Psyai`](https://psyai.com)
+* [`Psyai`](https://psyai.com) <sup>(turn-rs已使用一年多, 没有任何故障或停机.)</sup>
 * [`Faszialespecialist`](https://faszialespecialist.com/)
 
 
@@ -35,12 +35,12 @@
 
 ## 特性
 
-- 支持UDP和TCP传输层.
-- 外部钩子接口. <sup>([`hooks-api`])</sup>
-- 外部控制接口. <sup>([`controller-api`])</sup>
-- 配置文件中的静态身份认证.
-- 只允许长期身份认证.
-- 虚拟端口分配.
+- 传输层支持tcp和udp协议, 支持绑定多个网卡或接口. 
+- 可以使用WebHooks api, turn服务器可以主动通知外部服务一些事件并使用外部认证机制.  <sup>([`hooks-api`])</sup>
+- 外部控制API, 外部各方可以主动控制turn服务器并管理会话. <sup>([`controller-api`])</sup>
+- 静态认证列表可以在配置文件中使用. 
+- 仅支持长期身份验证机制. 
+- 始终只分配虚拟端口, 不占用实际系统端口. 
 
 [`controller-api`]: https://github.com/mycrl/turn-rs/wiki/Controller-API-Reference
 [`hooks-api`]: https://github.com/mycrl/turn-rs/wiki/Hooks-API-Reference
@@ -48,7 +48,7 @@
 
 ## 使用
 
-> docker和crates.io上的版本可能非常落后, 推荐从源代码编译.
+> docker和crates.io上的版本可能非常落后,  推荐从源代码编译.
 
 ```bash
 cargo install turn-server
@@ -61,12 +61,16 @@ turn-server --config=/etc/turn_server/config.toml
 ```
 
 详细配置项请查看示例配置文件: [turn_server.toml](./turn_server.toml)
+请参阅[wiki](https://github.com/mycrl/turn-rs/wiki/Configuration)以获取配置文件的说明. 
 
 
 #### Docker
 
 ```bash
+// docker hub
 docker pull quasipaa/turn-server
+// github packages
+docker pull ghcr.io/mycrl/turn-server
 ```
 自定义配置文件`/etc/turn-server/config.toml`通过`-v`覆盖镜像内的路径.
 
@@ -83,7 +87,7 @@ docker pull quasipaa/turn-server
 
 #### 依赖项
 
-你需要先安装[Rust](https://www.rust-lang.org/tools/install), 如果已经安装了可以跳过, 然后获取源代码:
+你需要先安装[Rust](https://www.rust-lang.org/tools/install),  如果已经安装了可以跳过,  然后获取源代码:
 
 ```bash
 git clone https://github.com/mycrl/turn-rs
@@ -98,10 +102,10 @@ cd turn-rs
 cargo build --release
 ```
 
-编译完成后, 可以在`"target/release"`目录下找到二进制文件.
+编译完成后,  可以在`"target/release"`目录下找到二进制文件.
 
 
 ## License
 
-[MIT](./LICENSE)
+[GPL](./LICENSE)
 Copyright (c) 2022 Mr.Panda.

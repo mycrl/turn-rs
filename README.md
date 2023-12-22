@@ -23,7 +23,7 @@
 <br/>
 <br/>
 
-A pure rust-implemented turn server, different from coturn, provides a more flexible external control API and provides the same performance and memory footprint, this project is most compatible with the scenario of using stun/turn server in webrtc.
+A turn server implemented pure in rust. Compared with coturn, the advantage is that it provides better performance. It can reach a decoding speed of 5Gib/s in a single thread, and the forwarding delay is less than 35 microseconds. However, it does not provide the same With rich functional support like coturn, this project is most suitable for scenarios where stun/turn servers are used in webrtc.
 
 
 ## Who uses it?
@@ -110,7 +110,7 @@ cd turn-rs
 cargo build --release
 ```
 
-After the compilation is complete, you can find the binary file in the "target/release" directory.
+After the compilation is complete, you can find the binary file in the `"target/release"` directory.
 
 
 ## License
