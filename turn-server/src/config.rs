@@ -80,8 +80,8 @@ pub struct Controller {
     /// and sensitive information and dangerous operations can be obtained
     /// through this service, please do not expose it directly to an unsafe
     /// environment.
-    #[serde(default = "Controller::listen")]
-    pub listen: SocketAddr,
+    #[serde(default = "Controller::bind")]
+    pub bind: SocketAddr,
 
     /// Set the value of the Access-Control-Allow-Origin header.
     ///
@@ -92,7 +92,7 @@ pub struct Controller {
 }
 
 impl Controller {
-    fn listen() -> SocketAddr {
+    fn bind() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
     }
 
@@ -104,7 +104,7 @@ impl Controller {
 impl Default for Controller {
     fn default() -> Self {
         Self {
-            listen: Self::listen(),
+            bind: Self::bind(),
             allow_origin: Self::allow_origin(),
         }
     }
@@ -112,7 +112,7 @@ impl Default for Controller {
 
 #[derive(Deserialize, Debug)]
 pub struct Hooks {
-    /// hooks uri
+    /// hooks bind
     ///
     /// This option is used to specify the http address of the hooks service.
     ///
@@ -120,7 +120,7 @@ pub struct Hooks {
     /// and sensitive information and dangerous operations can be obtained
     /// through this service, please do not expose it directly to an unsafe
     /// environment.
-    pub uri: Option<String>,
+    pub bind: Option<String>,
 
     /// list of events followed by hooks
     ///
@@ -139,7 +139,7 @@ impl Hooks {
 impl Default for Hooks {
     fn default() -> Self {
         Self {
-            uri: None,
+            bind: None,
             events: Self::events(),
         }
     }

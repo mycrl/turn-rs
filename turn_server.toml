@@ -38,7 +38,7 @@ external = "127.0.0.1:3478"
 # and sensitive information and dangerous operations can be obtained
 # through this service, please do not expose it directly to an unsafe
 # environment.
-listen = "127.0.0.1:3000"
+bind = "127.0.0.1:3000"
 
 # Set the value of the Access-Control-Allow-Origin header.
 #
@@ -55,7 +55,7 @@ allow_origin = "*"
 # and sensitive information and dangerous operations can be obtained
 # through this service, please do not expose it directly to an unsafe
 # environment.
-uri = "http://127.0.0.1:8080"
+bind = "http://127.0.0.1:8080"
 
 # list of events followed by hooks
 events = [

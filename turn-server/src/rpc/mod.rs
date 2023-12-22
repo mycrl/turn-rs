@@ -95,10 +95,10 @@ pub async fn start_controller_service(cfg: &Config, ctr: &Controller) -> anyhow:
 
     log::info!(
         "controller server listening: addr={:?}",
-        &cfg.controller.listen
+        &cfg.controller.bind
     );
 
-    axum::Server::bind(&cfg.controller.listen)
+    axum::Server::bind(&cfg.controller.bind)
         .serve(app.into_make_service())
         .await?;
     Ok(())
