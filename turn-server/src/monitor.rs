@@ -76,8 +76,8 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
+    /// use turn_server::monitor::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -97,8 +97,8 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
+    /// use turn_server::monitor::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -120,8 +120,8 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
+    /// use turn_server::monitor::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -149,8 +149,8 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
+    /// use turn_server::monitor::*;
     ///
     /// #[tokio::main]
     /// async fn main() {

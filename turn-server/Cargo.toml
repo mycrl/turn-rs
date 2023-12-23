@@ -40,6 +40,11 @@ axum = "0.6"
 toml = "0.7"
 tower = "0.4"
 http = "0.2"
+tonic = { version = "0.10", features = ["prost", "gzip", "tls"] }
+prost = "0.12"
+
+[build-dependencies]
+tonic-build = "0.10"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 jemallocator = "0.5.4"

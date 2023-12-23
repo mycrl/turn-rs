@@ -3,11 +3,12 @@ use std::{collections::HashMap, fs::read_to_string, net::SocketAddr};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[repr(C)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum Transport {
-    TCP,
-    UDP,
+    TCP = 0,
+    UDP = 1,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -82,31 +83,17 @@ pub struct Controller {
     /// environment.
     #[serde(default = "Controller::bind")]
     pub bind: SocketAddr,
-
-    /// Set the value of the Access-Control-Allow-Origin header.
-    ///
-    /// Access-Control-Allow-Origin is a header request that states whether the
-    /// response is shared with requesting code.
-    #[serde(default = "Controller::allow_origin")]
-    pub allow_origin: String,
 }
 
 impl Controller {
     fn bind() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
     }
-
-    fn allow_origin() -> String {
-        "*".to_string()
-    }
 }
 
 impl Default for Controller {
     fn default() -> Self {
-        Self {
-            bind: Self::bind(),
-            allow_origin: Self::allow_origin(),
-        }
+        Self { bind: Self::bind() }
     }
 }
 

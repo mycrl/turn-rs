@@ -81,8 +81,8 @@ impl Interfaces {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::interfaces::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -103,8 +103,8 @@ impl Interfaces {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::interfaces::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();

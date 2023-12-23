@@ -1,9 +1,10 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::rpc::{hooks::Hooks, payload::Events};
 use crate::config::Config;
 use crate::monitor::Monitor;
+use crate::rpc::{create_hooks, Hooks};
 
+use anyhow::Result;
 use async_trait::async_trait;
 use turn_rs::Observer as TObserver;
 
@@ -13,18 +14,18 @@ pub struct Observer {
 }
 
 impl Observer {
-    pub fn new(cfg: Arc<Config>, monitor: Monitor) -> Self {
-        Self {
-            hooks: Hooks::new(cfg),
+    pub async fn new(cfg: Arc<Config>, monitor: Monitor) -> Result<Self> {
+        Ok(Self {
+            hooks: create_hooks(cfg).await?,
             monitor,
-        }
+        })
     }
 }
 
 #[async_trait]
 impl TObserver for Observer {
     async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        let pwd = self.hooks.get_password(addr, name).await.ok();
+        let pwd = self.hooks.get_password(addr, name).await;
         log::info!("auth: addr={:?}, name={:?}, pwd={:?}", addr, name, pwd);
         pwd
     }
@@ -47,9 +48,8 @@ impl TObserver for Observer {
     /// standard services.
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
+        let _ = self.hooks.allocated(addr, name, port);
         self.monitor.set(*addr);
-        self.hooks
-            .on_events(&Events::Allocated { addr, name, port });
     }
 
     /// binding request
@@ -76,7 +76,7 @@ impl TObserver for Observer {
     /// allocated by the outermost NAT with respect to the STUN server.
     fn binding(&self, addr: &SocketAddr) {
         log::info!("binding: addr={:?}", addr);
-        self.hooks.on_events(&Events::Binding { addr });
+        let _ = self.hooks.binding(addr);
     }
 
     /// channel binding request
@@ -117,8 +117,7 @@ impl TObserver for Observer {
             number
         );
 
-        self.hooks
-            .on_events(&Events::ChannelBind { addr, name, number });
+        let _ = self.hooks.channel_bind(addr, name, number);
     }
 
     /// create permission request
@@ -168,8 +167,7 @@ impl TObserver for Observer {
             relay
         );
 
-        self.hooks
-            .on_events(&Events::CreatePermission { addr, name, relay });
+        let _ = self.hooks.create_permission(addr, name, relay);
     }
 
     /// refresh request
@@ -213,7 +211,7 @@ impl TObserver for Observer {
     /// this as equivalent to a success response (see below).
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
         log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
-        self.hooks.on_events(&Events::Refresh { addr, name, time });
+        let _ = self.hooks.refresh(addr, name, time);
     }
 
     /// node exit
@@ -223,7 +221,7 @@ impl TObserver for Observer {
     /// node.
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
+        let _ = self.hooks.abort(addr, name);
         self.monitor.delete(addr);
-        self.hooks.on_events(&Events::Abort { addr, name });
     }
 }

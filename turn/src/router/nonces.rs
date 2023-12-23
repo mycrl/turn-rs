@@ -103,8 +103,8 @@ impl Nonces {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nonces::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nonces::*;
     ///
     /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();
     /// let nonce_table = Nonces::new();
@@ -131,8 +131,8 @@ impl Nonces {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nonces::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nonces::*;
     ///
     /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();
     /// let nonce_table = Nonces::new();

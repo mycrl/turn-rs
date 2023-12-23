@@ -141,22 +141,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -176,22 +181,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -211,22 +221,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -250,22 +265,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -285,22 +305,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -322,22 +347,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -390,22 +420,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -427,22 +462,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -463,15 +503,19 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
@@ -479,7 +523,8 @@ impl Router {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -540,22 +585,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -580,22 +630,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -625,22 +680,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -695,22 +755,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -734,22 +799,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
@@ -777,22 +847,27 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
     /// use turn_rs::router::*;
     /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(&self, _: &SocketAddr, _: &str) -> Option<String> {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
     ///         Some("test".to_string())
     ///     }
     /// }
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239,
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
     /// ];
     ///
     /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));

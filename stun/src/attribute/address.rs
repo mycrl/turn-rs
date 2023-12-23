@@ -98,10 +98,11 @@ impl Addr {
     /// # Unit Test
     ///
     /// ```
-    /// use faster_stun::attribute::*;
     /// use bytes::BytesMut;
+    /// use faster_stun::attribute::*;
     ///
-    /// let xor_addr_buf: [u8; 8] = [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
+    /// let xor_addr_buf: [u8; 8] =
+    ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
     ///
     /// let addr_buf: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
     ///
@@ -146,7 +147,8 @@ impl Addr {
     /// ```
     /// use faster_stun::attribute::*;
     ///
-    /// let xor_addr_buf: [u8; 8] = [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
+    /// let xor_addr_buf: [u8; 8] =
+    ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
     ///
     /// let addr_buf: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
     ///
@@ -212,8 +214,8 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, StunError> {
 /// use std::net::IpAddr;
 ///
 /// let buf: [u8; 20] = [
-///     0x00, 0x01, 0xdd, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF,
-///     0xFF, 0xC0, 0x0A, 0x2F, 0x0F,
+///     0x00, 0x01, 0xdd, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+///     0x00, 0x00, 0xFF, 0xFF, 0xC0, 0x0A, 0x2F, 0x0F,
 /// ];
 ///
 /// let source: IpAddr = "::ffff:192.10.47.15".parse().unwrap();
@@ -263,10 +265,7 @@ pub fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
 ///
 /// ```
 /// use faster_stun::attribute::address::*;
-/// use std::net::{
-///     Ipv4Addr,
-///     IpAddr,
-/// };
+/// use std::net::{IpAddr, Ipv4Addr};
 ///
 /// let source: Ipv4Addr = "192.168.0.107".parse().unwrap();
 ///
@@ -288,14 +287,12 @@ pub fn xor_v4(addr: Ipv4Addr) -> IpAddr {
 ///
 /// ```
 /// use faster_stun::attribute::address::*;
-/// use std::net::{
-///     Ipv6Addr,
-///     IpAddr,
-/// };
+/// use std::net::{IpAddr, Ipv6Addr};
 ///
 /// let source: Ipv6Addr = "::ffff:192.10.47.15".parse().unwrap();
 ///
-/// let xor: IpAddr = "2112:a442:6c46:6254:754b:bbae:8642:637e".parse().unwrap();
+/// let xor: IpAddr =
+///     "2112:a442:6c46:6254:754b:bbae:8642:637e".parse().unwrap();
 ///
 /// let token: [u8; 12] = [
 ///     0x6c, 0x46, 0x62, 0x54, 0x75, 0x4b, 0x44, 0x51, 0x46, 0x48, 0x4c, 0x71,

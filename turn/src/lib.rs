@@ -252,8 +252,8 @@ impl Service {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///

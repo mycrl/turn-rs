@@ -89,7 +89,13 @@ impl Node {
     ///
     /// let mut node = Node::new("test", "test", "test");
     /// let secret = node.get_secret();
-    /// assert_eq!(secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
+    /// assert_eq!(
+    ///     secret.as_slice(),
+    ///     &[
+    ///         174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16,
+    ///         224, 239
+    ///     ]
+    /// );
     /// ```
     pub fn get_secret(&self) -> Arc<[u8; 16]> {
         self.secret.clone()
@@ -178,8 +184,8 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -189,7 +195,13 @@ impl Nodes {
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
+    /// assert_eq!(
+    ///     node.secret.as_slice(),
+    ///     &[
+    ///         174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16,
+    ///         224, 239
+    ///     ]
+    /// );
     /// assert_eq!(node.channels.len(), 0);
     /// assert_eq!(node.ports.len(), 0);
     /// ```
@@ -202,8 +214,8 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -211,7 +223,13 @@ impl Nodes {
     /// nodes.insert(&addr, "test", "test", "test");
     ///
     /// let secret = nodes.get_secret(&addr).unwrap();
-    /// assert_eq!(secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
+    /// assert_eq!(
+    ///     secret.as_slice(),
+    ///     &[
+    ///         174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16,
+    ///         224, 239
+    ///     ]
+    /// );
     /// ```
     pub fn get_secret(&self, a: &SocketAddr) -> Option<Arc<[u8; 16]>> {
         self.map.read().unwrap().get(a).map(|n| n.get_secret())
@@ -222,8 +240,8 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -233,7 +251,13 @@ impl Nodes {
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
+    /// assert_eq!(
+    ///     node.secret.as_slice(),
+    ///     &[
+    ///         174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16,
+    ///         224, 239
+    ///     ]
+    /// );
     /// assert_eq!(node.channels.len(), 0);
     /// assert_eq!(node.ports.len(), 0);
     /// ```
@@ -261,8 +285,8 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -274,7 +298,13 @@ impl Nodes {
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
+    /// assert_eq!(
+    ///     node.secret.as_slice(),
+    ///     &[
+    ///         174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16,
+    ///         224, 239
+    ///     ]
+    /// );
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![60000]);
     /// ```
@@ -288,8 +318,8 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -301,7 +331,13 @@ impl Nodes {
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
+    /// assert_eq!(
+    ///     node.secret.as_slice(),
+    ///     &[
+    ///         174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16,
+    ///         224, 239
+    ///     ]
+    /// );
     /// assert_eq!(node.channels, vec![0x4000]);
     /// assert_eq!(node.ports, vec![]);
     /// ```
@@ -315,8 +351,8 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -328,7 +364,13 @@ impl Nodes {
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
+    /// assert_eq!(
+    ///     node.secret.as_slice(),
+    ///     &[
+    ///         174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16,
+    ///         224, 239
+    ///     ]
+    /// );
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
     /// assert!(!node.is_death());
@@ -338,7 +380,13 @@ impl Nodes {
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
+    /// assert_eq!(
+    ///     node.secret.as_slice(),
+    ///     &[
+    ///         174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16,
+    ///         224, 239
+    ///     ]
+    /// );
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
     /// assert!(node.is_death());
@@ -353,8 +401,8 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -364,7 +412,13 @@ impl Nodes {
     /// let node = nodes.get_node(&addr).unwrap();
     /// assert_eq!(node.username.as_str(), "test");
     /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &[174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224, 239]);
+    /// assert_eq!(
+    ///     node.secret.as_slice(),
+    ///     &[
+    ///         174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16,
+    ///         224, 239
+    ///     ]
+    /// );
     /// assert_eq!(node.channels, vec![]);
     /// assert_eq!(node.ports, vec![]);
     ///
@@ -389,8 +443,8 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -421,8 +475,8 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();

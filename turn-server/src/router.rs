@@ -21,9 +21,9 @@ impl Router {
     /// # Example
     ///
     /// ```
-    /// use turn_server::router::*;
-    /// use turn_rs::StunClass;
     /// use std::net::SocketAddr;
+    /// use turn_rs::StunClass;
+    /// use turn_server::router::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -57,9 +57,9 @@ impl Router {
     /// # Example
     ///
     /// ```
-    /// use turn_server::router::*;
-    /// use turn_rs::StunClass;
     /// use std::net::SocketAddr;
+    /// use turn_rs::StunClass;
+    /// use turn_server::router::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -95,9 +95,9 @@ impl Router {
     /// # Example
     ///
     /// ```
-    /// use turn_server::router::*;
-    /// use turn_rs::StunClass;
     /// use std::net::SocketAddr;
+    /// use turn_rs::StunClass;
+    /// use turn_server::router::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
