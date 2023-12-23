@@ -25,4 +25,4 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Run tests
-      run: apt-get install protobuf-compiler && cargo test
+      run: sudo apt-get install protobuf-compiler && cargo test
