@@ -18,7 +18,7 @@ pub enum StunClass {
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
     env!("CARGO_PKG_NAME"), 
-    "-",
+    "-", 
     env!("CARGO_PKG_VERSION")
 );
 
@@ -252,8 +252,8 @@ impl Service {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::*;
     ///
     /// struct ObserverTest;
     ///

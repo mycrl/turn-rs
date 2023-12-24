@@ -43,16 +43,15 @@ A turn server implemented pure in rust. Compared with coturn, the advantage is t
 
 ## Features
 
-- The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
-- You can use the WebHooks api, and the turn server can actively notify external services of some events and use external authentication mechanisms. <sup>([`hooks-api`])</sup>
-- External control API, external parties can actively control the turn server and manage sessions. <sup>([`controller-api`])</sup>
-- Static authentication lists can be used in configuration files.
 - Only long-term authentication mechanisms are supported.
+- Static authentication lists can be used in configuration files.
 - Only virtual ports are always allocated and no real system ports are occupied.
+- The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
+- Provides a simple command line tool to manage and monitor the turn server through the command line tool graphical interface. <sup>([`turn-cli`])</sup>
+- The GRPC interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session. <sup>([`proto`])</sup>
 
-[`controller-api`]: https://github.com/mycrl/turn-rs/wiki/Controller-API-Reference
-[`hooks-api`]: https://github.com/mycrl/turn-rs/wiki/Hooks-API-Reference
-
+[`turn-cli`]: ./cli
+[`proto`]: ./protos
 
 ## Usage
 
@@ -68,8 +67,7 @@ Start with configuration file:
 turn-server --config=/etc/turn_server/config.toml
 ```
 
-Please check the example configuration file for details: [turn_server.toml](./turn_server.toml)  
-Please see the [wiki](https://github.com/mycrl/turn-rs/wiki/Configuration) for a description of the configuration file.
+Please check the example configuration file for details: [turn_server.toml](./turn_server.toml)
 
 
 #### Docker

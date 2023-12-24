@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeSet,
     net::SocketAddr,
     sync::{
         atomic::{AtomicUsize, Ordering},
@@ -62,10 +61,7 @@ impl Counts {
 
 /// worker cluster monitor
 #[derive(Clone, Default)]
-pub struct Monitor {
-    links: Arc<RwLock<BTreeSet<SocketAddr>>>,
-    nodes: Arc<RwLock<AHashMap<SocketAddr, Counts>>>,
-}
+pub struct Monitor(Arc<RwLock<AHashMap<SocketAddr, Counts>>>);
 
 impl Monitor {
     /// get signal sender
@@ -76,8 +72,8 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
+    /// use turn_server::monitor::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -89,7 +85,7 @@ impl Monitor {
     /// }
     /// ```
     pub fn get_actor(&self) -> MonitorActor {
-        MonitorActor(self.nodes.clone())
+        MonitorActor(self.0.clone())
     }
 
     /// Add an address to the watch list
@@ -97,8 +93,8 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
+    /// use turn_server::monitor::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -106,13 +102,11 @@ impl Monitor {
     ///     let monitor = Monitor::default();
     ///
     ///     monitor.set(addr.clone());
-    ///     let nodes = monitor.get_nodes(0, 10);
-    ///     assert_eq!(nodes.len(), 1);
+    ///     assert_eq!(monitor.get(&addr).is_some(), true);
     /// }
     /// ```
     pub fn set(&self, addr: SocketAddr) {
-        self.nodes.write().unwrap().insert(addr, Counts::default());
-        self.links.write().unwrap().insert(addr);
+        self.0.write().unwrap().insert(addr, Counts::default());
     }
 
     /// Remove an address from the watch list
@@ -120,8 +114,8 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
+    /// use turn_server::monitor::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -129,17 +123,14 @@ impl Monitor {
     ///     let monitor = Monitor::default();
     ///
     ///     monitor.set(addr.clone());
-    ///     let nodes = monitor.get_nodes(0, 10);
-    ///     assert_eq!(nodes.len(), 1);
+    ///     assert_eq!(monitor.get(&addr).is_some(), true);
     ///
     ///     monitor.delete(&addr);
-    ///     let nodes = monitor.get_nodes(0, 10);
-    ///     assert_eq!(nodes.len(), 0);
+    ///     assert_eq!(monitor.get(&addr).is_some(), false);
     /// }
     /// ```
     pub fn delete(&self, addr: &SocketAddr) {
-        self.nodes.write().unwrap().remove(addr);
-        self.links.write().unwrap().remove(addr);
+        self.0.write().unwrap().remove(addr);
     }
 
     /// Obtain a list of statistics from monitoring
@@ -149,8 +140,8 @@ impl Monitor {
     /// # Example
     ///
     /// ```
-    /// use turn_server::monitor::*;
     /// use std::net::SocketAddr;
+    /// use turn_server::monitor::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -158,30 +149,16 @@ impl Monitor {
     ///     let monitor = Monitor::default();
     ///
     ///     monitor.set(addr.clone());
-    ///     let nodes = monitor.get_nodes(0, 10);
-    ///     assert_eq!(nodes.len(), 1);
+    ///     assert_eq!(monitor.get(&addr).is_some(), true);
     /// }
     /// ```
-    pub fn get_nodes(&self, skip: usize, limit: usize) -> Vec<(SocketAddr, NodeCounts)> {
-        let links = self.links.read().unwrap();
-        let nodes = self.nodes.read().unwrap();
-
-        let mut ret = Vec::with_capacity(limit);
-        for addr in links.iter().skip(skip).take(limit) {
-            if let Some(counts) = nodes.get(addr) {
-                ret.push((
-                    *addr,
-                    NodeCounts {
-                        received_bytes: counts.received_bytes.get(),
-                        received_pkts: counts.received_pkts.get(),
-                        send_bytes: counts.send_bytes.get(),
-                        send_pkts: counts.send_pkts.get(),
-                    },
-                ));
-            }
-        }
-
-        ret
+    pub fn get(&self, addr: &SocketAddr) -> Option<NodeCounts> {
+        self.0.read().unwrap().get(addr).map(|counts| NodeCounts {
+            received_bytes: counts.received_bytes.get(),
+            received_pkts: counts.received_pkts.get(),
+            send_bytes: counts.send_bytes.get(),
+            send_pkts: counts.send_pkts.get(),
+        })
     }
 }
 

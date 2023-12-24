@@ -1,0 +1,159 @@
+syntax = "proto3";
+package turn;
+
+import "google/protobuf/empty.proto";
+
+message GetPasswordRequest {
+    string addr = 1;
+    string name = 2;
+}
+
+message GetPasswordReply {
+    string password = 1;
+}
+
+message AllocatedRequest {
+    string addr = 1;
+    string name = 2;
+    uint32 port = 3;
+}
+
+message BindingRequest {
+    string addr = 1;
+}
+
+message ChannelBindRequest {
+    string addr = 1;
+    string name = 2;
+    uint32 number = 3;
+}
+
+message CreatePermissionRequest {
+    string addr = 1;
+    string name = 2;
+    string relay = 3;
+}
+
+message RefreshRequest {
+    string addr = 1;
+    string name = 2;
+    uint32 time = 3;
+}
+
+message AbortRequest {
+    string addr = 1;
+    string name = 2;
+}
+
+service Hooks {
+    // get password by username.
+    //
+    // It should be noted that by default, it will first check whether
+    // the current user's authentication information has been included in
+    // the static authentication list. If it has been included, it will
+    // directly return the key in the static authentication information.
+    // If it is not included, it will request an external service to
+    // obtain the key.
+    rpc GetPassword (GetPasswordRequest) returns (GetPasswordReply);
+
+    // Request Port Assignment event.
+    rpc Allocated (AllocatedRequest) returns (google.protobuf.Empty);
+
+    // Binding request event.
+    rpc Binding (BindingRequest) returns (google.protobuf.Empty);
+
+    // Request Binding Channel event.
+    rpc ChannelBind (ChannelBindRequest) returns (google.protobuf.Empty);
+
+    // Creating Permission event.
+    rpc CreatePermission (CreatePermissionRequest) returns (google.protobuf.Empty);
+
+    // Refresh Lifecycle event.
+    rpc Refresh (RefreshRequest) returns (google.protobuf.Empty);
+
+    // end-of-session event.
+    rpc Abort (AbortRequest) returns (google.protobuf.Empty);
+}
+
+enum Transport {
+    TCP = 0;
+    UDP = 1;
+}
+
+message QueryFilter {
+    optional uint32 skip = 1;
+    optional uint32 limit = 2;
+}
+
+message AddrParams {
+    string addr = 1;
+}
+
+message Interface {
+    Transport transport = 1;
+    string bind = 2;
+    string external = 3;
+}
+
+message Stats {
+    string software = 1;
+    uint64 uptime = 3;
+    uint32 port_capacity = 4;
+    uint32 port_allocated = 5;
+    string realm = 6;
+    repeated Interface interfaces = 2;
+}
+
+message Report {
+    string addr = 1;
+    uint64 received_bytes = 2;
+    uint64 send_bytes = 3;
+    uint64 received_pkts = 4;
+    uint64 send_pkts = 5;
+}
+
+message User {
+    string name = 1;
+    repeated Report reports = 2;
+}
+
+message GetUsersReply {
+    repeated User users = 1;
+}
+
+message Session {
+    string username = 1;
+    string password = 2;
+    uint64 lifetime = 3;
+    uint64 timer = 4;
+    repeated uint32 channels = 5;
+    repeated uint32 ports = 6;
+}
+
+message GetSessionReply {
+    optional Session session = 1;
+}
+
+service Controller {
+    // Gets status information about the current turn server, including
+    // version, startup duration, domain, assigned ports, total port capacity,
+    // and list of bound interfaces.
+    rpc GetStats (google.protobuf.Empty) returns (Stats);
+
+    // Get the list of connected users on the turn server and all the network
+    // addresses used by the current user. Note that a user can use more than
+    // one network address to communicate with the turn server at the same
+    // time, so the network addresses are a list.
+    rpc GetUsers (QueryFilter) returns (GetUsersReply);
+
+    // Get session information for a particular user, including a list of
+    // assigned channel numbers, a list of assigned port numbers, time alive,
+    // time consumed, username password, and so on.
+    rpc GetSession (AddrParams) returns (GetSessionReply);
+
+    // Delete a user's session, it should be noted that deleting the session
+    // will cause the current user to disconnect directly, and the other end
+    // will also disconnect, but both sides can still apply for a session
+    // again, deletion does not mean blackout.
+    rpc RemoveSession (AddrParams) returns (google.protobuf.Empty);
+}

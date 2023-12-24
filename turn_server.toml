@@ -38,16 +38,10 @@ external = "127.0.0.1:3478"
 # and sensitive information and dangerous operations can be obtained
 # through this service, please do not expose it directly to an unsafe
 # environment.
-listen = "127.0.0.1:3000"
-
-# Set the value of the Access-Control-Allow-Origin header.
-#
-# Access-Control-Allow-Origin is a header request that states whether the
-# response is shared with requesting code.
-allow_origin = "*"
+bind = "127.0.0.1:3000"
 
 [hooks]
-# hooks bind uri
+# hooks uri
 #
 # This option is used to specify the http address of the hooks service.
 #
@@ -58,7 +52,7 @@ allow_origin = "*"
 bind = "http://127.0.0.1:8080"
 
 # list of events followed by hooks
-sub_events = [
+events = [
     "allocated",
     "binding",
     "channel_bind",

@@ -3,11 +3,12 @@ use std::{collections::HashMap, fs::read_to_string, net::SocketAddr};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[repr(C)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum Transport {
-    TCP,
-    UDP,
+    TCP = 0,
+    UDP = 1,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -80,39 +81,25 @@ pub struct Controller {
     /// and sensitive information and dangerous operations can be obtained
     /// through this service, please do not expose it directly to an unsafe
     /// environment.
-    #[serde(default = "Controller::listen")]
-    pub listen: SocketAddr,
-
-    /// Set the value of the Access-Control-Allow-Origin header.
-    ///
-    /// Access-Control-Allow-Origin is a header request that states whether the
-    /// response is shared with requesting code.
-    #[serde(default = "Controller::allow_origin")]
-    pub allow_origin: String,
+    #[serde(default = "Controller::bind")]
+    pub bind: SocketAddr,
 }
 
 impl Controller {
-    fn listen() -> SocketAddr {
+    fn bind() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
-    }
-
-    fn allow_origin() -> String {
-        "*".to_string()
     }
 }
 
 impl Default for Controller {
     fn default() -> Self {
-        Self {
-            listen: Self::listen(),
-            allow_origin: Self::allow_origin(),
-        }
+        Self { bind: Self::bind() }
     }
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Hooks {
-    /// hooks bind uri
+    /// hooks bind
     ///
     /// This option is used to specify the http address of the hooks service.
     ///
@@ -126,12 +113,12 @@ pub struct Hooks {
     ///
     /// event list: "allocated", "binding", "channel_bind",
     /// "create_permission", "refresh", "abort".
-    #[serde(default = "Hooks::sub_events")]
-    pub sub_events: Vec<String>,
+    #[serde(default = "Hooks::events")]
+    pub events: Vec<String>,
 }
 
 impl Hooks {
-    fn sub_events() -> Vec<String> {
+    fn events() -> Vec<String> {
         vec![]
     }
 }
@@ -140,7 +127,7 @@ impl Default for Hooks {
     fn default() -> Self {
         Self {
             bind: None,
-            sub_events: Self::sub_events(),
+            events: Self::events(),
         }
     }
 }

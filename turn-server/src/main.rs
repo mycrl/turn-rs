@@ -1,9 +1,9 @@
 #[global_allocator]
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", not(feature = "system_allocator")))]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[global_allocator]
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), not(feature = "system_allocator")))]
 static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 use std::sync::Arc;

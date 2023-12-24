@@ -69,8 +69,8 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::PortPools;
     /// use turn_rs::router::ports::Bit;
+    /// use turn_rs::router::ports::PortPools;
     ///
     /// let pools = PortPools::new();
     /// assert_eq!(pools.capacity(), 65535 - 49152);
@@ -194,8 +194,8 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::PortPools;
     /// use turn_rs::router::ports::Bit;
+    /// use turn_rs::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -227,8 +227,8 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::PortPools;
     /// use turn_rs::router::ports::Bit;
+    /// use turn_rs::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -378,8 +378,8 @@ impl Ports {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::ports::*;
     ///
     /// let ports = Ports::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -396,8 +396,8 @@ impl Ports {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::ports::*;
     ///
     /// let local = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -419,8 +419,8 @@ impl Ports {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::ports::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
@@ -438,8 +438,8 @@ impl Ports {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::ports::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
@@ -465,8 +465,8 @@ impl Ports {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::*;
     /// use std::net::SocketAddr;
+    /// use turn_rs::router::ports::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///

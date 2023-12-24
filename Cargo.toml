@@ -1,11 +1,14 @@
 [profile.release]
 overflow-checks = false
+strip = "debuginfo"
 panic = "abort"
 debug = false
+lto = true
 
 [workspace]
 resolver = "2"
 members = [
+    "cli",
     "tests",
     "turn",
     "stun",
