@@ -57,10 +57,6 @@ A turn server implemented pure in rust. Compared with coturn, the advantage is t
 
 > The version on crates.io can be very outdated. It is recommended to compile directly from the github source or download the compiled binary from the [release](https://github.com/mycrl/turn-rs/releases).
 
-```bash
-cargo install turn-server
-```
-
 Start with configuration file:
 
 ```bash
