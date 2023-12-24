@@ -1,6 +1,6 @@
 [package]
 name = "turn-rs"
-version = "1.2.1"
+version = "1.2.2"
 edition = "2021"
 authors = ["Mr.Panda <xivistudios@gmail.com>"]
 description = "A library for handling round sessions."
