@@ -1,33 +1,38 @@
 name: tests
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'cli/**'
-      - 'tests/**'
-      - 'stun/**'
-      - 'turn/**'
-      - 'turn-server/**'
-      - 'Cargo.toml'
-      - 'protos/**'
-  pull_request:
-    branches: [main]
+    push:
+        branches:
+            - main
+        paths:
+            - cli/**
+            - tests/**
+            - stun/**
+            - turn/**
+            - turn-server/**
+            - Cargo.toml
+            - protos/**
+    pull_request:
+        branches:
+            - main
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - name: Run tests
-      run: |
-        sudo apt update
-        sudo apt install -y protobuf-compiler libprotobuf-dev
-        cargo test
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            -
+                uses: actions/checkout@v4
+            -
+                uses: actions/cache@v3
+                with:
+                    path: |
+                        ~/.cargo/bin/
+                        ~/.cargo/registry/index/
+                        ~/.cargo/registry/cache/
+                        ~/.cargo/git/db/
+                        target/
+                    key: '${{ runner.os }}-cargo-${{ hashFiles(''**/Cargo.lock'') }}'
+            -
+                name: Run tests
+                run: |
+                    sudo apt update
+                    sudo apt install -y protobuf-compiler libprotobuf-dev
+                    cargo test
