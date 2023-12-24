@@ -23,8 +23,17 @@
 <br/>
 <br/>
 
-A turn server implemented pure in rust. Compared with coturn, the advantage is that it provides better performance. It can reach a decoding speed of 5Gib/s in a single thread, and the forwarding delay is less than 35 microseconds. However, it does not provide the same With rich functional support like coturn, this project is most suitable for scenarios where stun/turn servers are used in webrtc.
+A pure Rust implementation of the Turn server. Compared with coturn, the advantage is to provide better performance. Single-threaded decoding speed up to 5Gib/s, forwarding delay is less than 35 microseconds. However, it does not provide as rich as coturn feature support, this project is more focused on the core business, do not need to touch the complex configuration items, almost out of the box.
 
+## How do I choose?
+
+#### turn-rs
+
+If you are not familiar with coturn configuration items and are annoyed by the complexity of coturn configuration items, then you should use this project, and similarly, if you want better performance performance and lower memory footprint, you can also use this project. turn-rs configuration is easy, and the external api is very simple, and is good enough for core business support.
+
+#### coturn
+
+If you have extensive standard support requirements for turn servers and need more integrated services and ecological support, then you should choose coturn.
 
 ## Who uses it?
 
@@ -55,11 +64,7 @@ A turn server implemented pure in rust. Compared with coturn, the advantage is t
 
 ## Usage
 
-> The versions on crates.io and docker may be very outdated. It is recommended to compile directly from the github source code.
-
-```bash
-cargo install turn-server
-```
+> The version on crates.io can be very outdated. It is recommended to compile directly from the github source or download the compiled binary from the [release](https://github.com/mycrl/turn-rs/releases).
 
 Start with configuration file:
 
