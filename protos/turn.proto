@@ -80,6 +80,15 @@ enum Transport {
     UDP = 1;
 }
 
+message QueryFilter {
+    optional uint32 skip = 1;
+    optional uint32 limit = 2;
+}
+
+message AddrParams {
+    string addr = 1;
+}
+
 message Interface {
     Transport transport = 1;
     string bind = 2;
@@ -103,26 +112,13 @@ message Report {
     uint64 send_pkts = 5;
 }
 
-message GetReportReply {
-    repeated Report reports = 1;
-}
-
-message QueryFilter {
-    optional uint32 skip = 1;
-    optional uint32 limit = 2;
-}
-
 message User {
     string name = 1;
-    repeated string addrs = 2;
+    repeated Report reports = 2;
 }
 
 message GetUsersReply {
     repeated User users = 1;
-}
-
-message AddrParams {
-    string addr = 1;
 }
 
 message Session {
@@ -143,13 +139,6 @@ service Controller {
     // version, startup duration, domain, assigned ports, total port capacity,
     // and list of bound interfaces.
     rpc GetStats (google.protobuf.Empty) returns (Stats);
-
-    // Get the traffic statistics of each session of the turn server, such as
-    // how much data received, how much data sent, how many stun packets
-    // received, how many stun packets sent, please note that this data is
-    // cumulative and the maximum is u64::MAX, if exceeded it will be
-    // automatically cleared and recounted.
-    rpc GetReport (QueryFilter) returns (GetReportReply);
 
     // Get the list of connected users on the turn server and all the network
     // addresses used by the current user. Note that a user can use more than

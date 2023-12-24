@@ -6,9 +6,9 @@ debug = false
 [workspace]
 resolver = "2"
 members = [
+    "cli",
     "tests",
     "turn",
     "stun",
-    "turn-server", 
-    "tui"
+    "turn-server"
 ]

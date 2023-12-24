@@ -1,7 +1,7 @@
 use super::{
     proto::{
-        controller_server::Controller, AddrParams, GetReportReply, GetSessionReply, GetUsersReply,
-        Interface, QueryFilter, Report, Session, Stats, User,
+        controller_server::Controller, AddrParams, GetSessionReply, GetUsersReply, Interface,
+        QueryFilter, Report, Session, Stats, User,
     },
     SOFTWARE,
 };
@@ -76,61 +76,6 @@ impl Controller for ControllerService {
         }))
     }
 
-    /// Get the traffic statistics of each session of the turn server, such as
-    /// how much data received, how much data sent, how many stun packets
-    /// received, how many stun packets sent, please note that this data is
-    /// cumulative and the maximum is u64::MAX, if exceeded it will be
-    /// automatically cleared and recounted.
-    ///
-    /// WARNING: It is important to note that the returned results of this
-    /// interface will contain private information, so please protect the data
-    /// primarily from disclosure to external networks.
-    ///
-    /// # Proto
-    ///
-    /// ```proto
-    /// message QueryFilter {
-    ///     optional uint32 skip = 1;
-    ///     optional uint32 limit = 2;
-    /// }
-    ///
-    /// message Report {
-    ///     string addr = 1;
-    ///     uint64 received_bytes = 2;
-    ///     uint64 send_bytes = 3;
-    ///     uint64 received_pkts = 4;
-    ///     uint64 send_pkts = 5;
-    /// }
-    ///
-    /// message GetReportReply {
-    ///     repeated Report reports = 1;
-    /// }
-    ///
-    /// rpc GetReport (QueryFilter) returns (GetReportReply);
-    /// ```
-    async fn get_report(
-        &self,
-        request: Request<QueryFilter>,
-    ) -> Result<Response<GetReportReply>, Status> {
-        Ok(Response::new(GetReportReply {
-            reports: self
-                .monitor
-                .get_nodes(
-                    request.get_ref().skip.unwrap_or(0) as usize,
-                    request.get_ref().limit.unwrap_or(20) as usize,
-                )
-                .into_iter()
-                .map(|(addr, item)| Report {
-                    addr: addr.to_string(),
-                    received_bytes: item.received_bytes as u64,
-                    received_pkts: item.received_pkts as u64,
-                    send_bytes: item.send_bytes as u64,
-                    send_pkts: item.send_pkts as u64,
-                })
-                .collect(),
-        }))
-    }
-
     /// Get the list of connected users on the turn server and all the network
     /// addresses used by the current user. Note that a user can use more than
     /// one network address to communicate with the turn server at the same
@@ -174,7 +119,27 @@ impl Controller for ControllerService {
                 .into_iter()
                 .map(|(name, addrs)| User {
                     name: name.to_string(),
-                    addrs: addrs.into_iter().map(|addr| addr.to_string()).collect(),
+                    reports: addrs
+                        .into_iter()
+                        .map(|addr| {
+                            self.monitor
+                                .get(&addr)
+                                .map(|item| Report {
+                                    addr: addr.to_string(),
+                                    received_bytes: item.received_bytes as u64,
+                                    received_pkts: item.received_pkts as u64,
+                                    send_bytes: item.send_bytes as u64,
+                                    send_pkts: item.send_pkts as u64,
+                                })
+                                .unwrap_or_else(|| Report {
+                                    addr: addr.to_string(),
+                                    received_bytes: 0,
+                                    received_pkts: 0,
+                                    send_bytes: 0,
+                                    send_pkts: 0,
+                                })
+                        })
+                        .collect(),
                 })
                 .collect(),
         }))

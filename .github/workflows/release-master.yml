@@ -3,10 +3,13 @@ on:
   push:
     branches: [main]
     paths:
+      - 'cli/**'
+      - 'tests/**'
       - 'stun/**'
       - 'turn/**'
       - 'turn-server/**'
       - 'Cargo.toml'
+      - 'protos/**'
 jobs:
   build:
     runs-on: ${{ matrix.os }}

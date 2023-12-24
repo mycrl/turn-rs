@@ -1,10 +1,10 @@
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Events {
-    StartGetReport,
-    StopGetReport,
-    GetReport(u32),
+    GetUsers(u32),
+    GetSession(String),
+    ClearSession,
 }
 
 #[derive(Clone)]

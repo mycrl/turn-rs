@@ -3,11 +3,13 @@ on:
   push:
     branches: [main]
     paths:
+      - 'cli/**'
       - 'tests/**'
       - 'stun/**'
       - 'turn/**'
       - 'turn-server/**'
       - 'Cargo.toml'
+      - 'protos/**'
   pull_request:
     branches: [main]
 jobs:
@@ -25,4 +27,7 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Run tests
-      run: sudo apt-get install protobuf-compiler && cargo test
+      run: |
+        sudo apt update
+        sudo apt install -y protobuf-compiler libprotobuf-dev
+        cargo test
