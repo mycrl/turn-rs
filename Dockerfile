@@ -1,8 +1,8 @@
 FROM rust:latest as builder
 WORKDIR /app
 COPY . .
-RUN sudo apt update && \
-    sudo apt install -y protobuf-compiler libprotobuf-dev && \
+RUN apt update && \
+    apt install -y protobuf-compiler libprotobuf-dev && \
     cargo build --release
 
 FROM debian:buster-slim
