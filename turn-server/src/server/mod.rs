@@ -21,7 +21,7 @@ pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> an
             Transport::UDP => {
                 tokio::spawn(transport::udp_processor(
                     UdpSocket::bind(i.bind).await?,
-                    i.external.clone(),
+                    i.external,
                     service.clone(),
                     router.clone(),
                     monitor.clone(),
@@ -30,7 +30,7 @@ pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> an
             Transport::TCP => {
                 tokio::spawn(transport::tcp_processor(
                     TcpListener::bind(i.bind).await?,
-                    i.external.clone(),
+                    i.external,
                     service.clone(),
                     router.clone(),
                     monitor.clone(),

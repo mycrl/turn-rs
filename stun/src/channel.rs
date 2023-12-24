@@ -55,7 +55,7 @@ impl ChannelData<'_> {
     /// assert_eq!(size, 68);
     /// ```
     pub fn message_size(buf: &[u8], is_tcp: bool) -> Result<usize, StunError> {
-        if !(buf.len() >= 4) {
+        if buf.len() < 4 {
             return Err(StunError::InvalidInput);
         }
 
@@ -87,7 +87,7 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     /// assert_eq!(data.number, 16384);
     /// ```
     fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
-        if !(buf.len() >= 4) {
+        if buf.len() < 4 {
             return Err(StunError::InvalidInput);
         }
 
@@ -97,7 +97,7 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
         }
 
         let size = util::as_u16(&buf[2..4]) as usize;
-        if !(size <= buf.len() - 4) {
+        if size > buf.len() - 4 {
             return Err(StunError::InvalidInput);
         }
 

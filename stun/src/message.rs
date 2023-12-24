@@ -313,7 +313,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// assert!(result);
     /// ```
     pub fn integrity(&self, auth: &Auth) -> Result<(), StunError> {
-        if self.buf.is_empty() || !(self.valid_offset >= 20) {
+        if self.buf.is_empty() || self.valid_offset < 20 {
             return Err(StunError::InvalidInput);
         }
 
@@ -321,7 +321,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         // an error occurs if not found.
         let integrity = self
             .get::<MessageIntegrity>()
-            .ok_or_else(|| StunError::NotIntegrity)?;
+            .ok_or(StunError::NotIntegrity)?;
 
         // create multiple submit.
         let size_buf = (self.valid_offset + 4).to_be_bytes();
@@ -365,7 +365,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         buf: &'a [u8],
         attributes: &'b mut Vec<(AttrKind, &'a [u8])>,
     ) -> Result<MessageReader<'a, 'b>, StunError> {
-        if !(buf.len() >= 20) {
+        if buf.len() < 20 {
             return Err(StunError::InvalidInput)
         }
 
@@ -379,11 +379,11 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         // check if the message size is overflow
         let method = Method::try_from(util::as_u16(&buf[..2]))?;
         let size = util::as_u16(&buf[2..4]) as usize + 20;
-        if !(buf[4..8] == COOKIE[..]) {
+        if buf[4..8] != COOKIE[..] {
             return Err(StunError::NotCookie)
         }
 
-        if !(count_size >= size) {
+        if count_size < size {
             return Err(StunError::InvalidInput)
         }
 
@@ -468,7 +468,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// assert_eq!(size, 20);
     /// ```
     pub fn message_size(buf: &[u8]) -> Result<usize, StunError> {
-        if !(buf[0] >> 6 == 0) || !(buf.len() >= 20) {
+        if buf[0] >> 6 != 0 || buf.len() < 20 {
             return Err(StunError::InvalidInput);
         }
 

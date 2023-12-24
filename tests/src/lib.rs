@@ -21,9 +21,9 @@ use std::sync::Arc;
 
 pub const BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 pub const BIND_ADDR: SocketAddr = SocketAddr::new(BIND_IP, 3478);
-pub const USERNAME: &'static str = "user1";
-pub const PASSWORD: &'static str = "test";
-pub const REALM: &'static str = "localhost";
+pub const USERNAME: &str = "user1";
+pub const PASSWORD: &str = "test";
+pub const REALM: &str = "localhost";
 
 static mut RECV_BUF: [u8; 1500] = [0u8; 1500];
 static mut SEND_BUF: Lazy<BytesMut> = Lazy::new(|| BytesMut::with_capacity(2048));
@@ -36,7 +36,7 @@ static TOKEN_BUF: Lazy<[u8; 12]> = Lazy::new(|| {
 
 static KEY_BUF: Lazy<[u8; 16]> =
     Lazy::new(|| faster_stun::util::long_key(USERNAME, PASSWORD, REALM));
-static mut DECODER: Lazy<Decoder> = Lazy::new(|| Decoder::new());
+static mut DECODER: Lazy<Decoder> = Lazy::new(Decoder::new);
 
 /// global static var end
 

@@ -33,6 +33,6 @@ use faster_stun::ChannelData;
 pub fn process(ctx: Context, data: ChannelData<'_>) -> Option<Response<'_>> {
     let addr = ctx.env.router.get_channel_bound(&ctx.addr, data.number)?;
     let interface = ctx.env.router.get_interface(&addr)?;
-    let to = (&ctx.env.interface != &interface.addr).then(|| interface.addr);
+    let to = (ctx.env.interface != interface.addr).then(|| interface.addr);
     Some(Response::new(data.buf, StunClass::Channel, Some(addr), to))
 }

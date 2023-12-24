@@ -170,11 +170,11 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     /// assert_eq!(error.message, "Try Alternate");
     /// ```
     fn try_from(packet: &'a [u8]) -> Result<Self, Self::Error> {
-        if !(packet.len() >= 4) {
+        if packet.len() < 4 {
             return Err(StunError::InvalidInput);
         }
 
-        if !(util::as_u16(&packet[..2]) == 0x0000) {
+        if util::as_u16(&packet[..2]) != 0x0000 {
             return Err(StunError::InvalidInput);
         }
 

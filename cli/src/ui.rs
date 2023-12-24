@@ -229,14 +229,12 @@ impl StatsWidget {
             if time < 60.0 {
                 date.2 = time;
                 break;
+            } else if time < 3600.0 {
+                date.1 = (time / 60.0).floor();
+                time -= date.1 * 60.0;
             } else {
-                if time < 3600.0 {
-                    date.1 = (time / 60.0).floor();
-                    time -= date.1 * 60.0;
-                } else {
-                    date.0 = (time / 3600.0).floor();
-                    time -= date.0 * 3600.0;
-                }
+                date.0 = (time / 3600.0).floor();
+                time -= date.0 * 3600.0;
             }
         }
 
@@ -307,8 +305,7 @@ impl TablesWidget {
                 let previous_ = previous
                     .iter()
                     .find(|item| item.name == user.name)
-                    .map(|item| item.reports.iter().find(|item| item.addr == report.addr))
-                    .flatten()
+                    .and_then(|item| item.reports.iter().find(|item| item.addr == report.addr))
                     .cloned()
                     .unwrap_or_else(|| Report {
                         addr: report.addr.clone(),

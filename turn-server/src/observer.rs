@@ -46,6 +46,7 @@ impl TObserver for Observer {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
+    #[allow(clippy::let_underscore_future)]
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
         let _ = self.hooks.allocated(addr, name, port);
@@ -74,6 +75,7 @@ impl TObserver for Observer {
     /// attribute within the body of the STUN response will remain untouched.
     /// In this way, the client can learn its reflexive transport address
     /// allocated by the outermost NAT with respect to the STUN server.
+    #[allow(clippy::let_underscore_future)]
     fn binding(&self, addr: &SocketAddr) {
         log::info!("binding: addr={:?}", addr);
         let _ = self.hooks.binding(addr);
@@ -109,6 +111,7 @@ impl TObserver for Observer {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
+    #[allow(clippy::let_underscore_future)]
     fn channel_bind(&self, addr: &SocketAddr, name: &str, number: u16) {
         log::info!(
             "channel bind: addr={:?}, name={:?}, number={}",
@@ -159,6 +162,7 @@ impl TObserver for Observer {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
+    #[allow(clippy::let_underscore_future)]
     fn create_permission(&self, addr: &SocketAddr, name: &str, relay: &SocketAddr) {
         log::info!(
             "create permission: addr={:?}, name={:?}, realy={:?}",
@@ -209,6 +213,7 @@ impl TObserver for Observer {
     /// will cause a 437 (Allocation Mismatch) response if the
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
+    #[allow(clippy::let_underscore_future)]
     fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
         log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
         let _ = self.hooks.refresh(addr, name, time);
@@ -219,6 +224,7 @@ impl TObserver for Observer {
     /// Triggered when the node leaves from the turn. Possible reasons: the node
     /// life cycle has expired, external active deletion, or active exit of the
     /// node.
+    #[allow(clippy::let_underscore_future)]
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
         let _ = self.hooks.abort(addr, name);

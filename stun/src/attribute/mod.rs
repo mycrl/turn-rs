@@ -155,7 +155,7 @@ impl<'a> Property<'a> for UserName {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)?)
+        std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)
     }
 }
 
@@ -215,7 +215,7 @@ impl<'a> Property<'a> for Realm {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)?)
+        std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)
     }
 }
 
@@ -244,7 +244,7 @@ impl<'a> Property<'a> for Nonce {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)?)
+        std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)
     }
 }
 
@@ -273,7 +273,7 @@ impl<'a> Property<'a> for Software {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)?)
+        std::str::from_utf8(buf).map_err(|_| StunError::Utf8Error)
     }
 }
 
@@ -611,7 +611,7 @@ impl<'a> Property<'a> for ReqeestedTransport {
     }
 
     fn try_from(buf: &'a [u8], _: &'a [u8]) -> Result<Self::Inner, Self::Error> {
-        Ok(Transport::try_from(buf[0]).map_err(|_| StunError::InvalidInput)?)
+        Transport::try_from(buf[0]).map_err(|_| StunError::InvalidInput)
     }
 }
 
