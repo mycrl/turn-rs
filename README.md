@@ -47,8 +47,8 @@ A turn server implemented pure in rust. Compared with coturn, the advantage is t
 - Static authentication lists can be used in configuration files.
 - Only virtual ports are always allocated and no real system ports are occupied.
 - The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
-- The GRPC interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
 - Provides a simple command line tool to manage and monitor the turn server through the command line tool graphical interface.
+- The GRPC interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
 
 ![turn cli screenshot](./cli/screenshot.png)
 
