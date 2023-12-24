@@ -50,6 +50,7 @@ A turn server implemented pure in rust. Compared with coturn, the advantage is t
 - The GRPC interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
 - Provides a simple command line tool to manage and monitor the turn server through the command line tool graphical interface.
 
+![turn cli screenshot](./cli/screenshot.png)
 
 ## Usage
 
