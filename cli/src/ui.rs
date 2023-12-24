@@ -51,6 +51,18 @@ impl Ui {
             KeyCode::Esc => {
                 self.eventer.send(Events::ClearSession);
             }
+            KeyCode::Delete => {
+                if let Some(addr) = self
+                    .ctx
+                    .addrs
+                    .read()
+                    .unwrap()
+                    .get(self.ctx.index.get())
+                    .cloned()
+                {
+                    self.eventer.send(Events::RemoveSession(addr));
+                }
+            }
             KeyCode::Enter => {
                 if let Some(addr) = self
                     .ctx
@@ -64,16 +76,20 @@ impl Ui {
                 }
             }
             KeyCode::Down => {
-                let size = self.state.get_users().len();
-                let index = self.ctx.index.get();
-                if index + 1 < size {
-                    self.ctx.index.set(index + 1);
+                if self.state.get_session().is_none() {
+                    let size = self.state.get_users().len();
+                    let index = self.ctx.index.get();
+                    if index + 1 < size {
+                        self.ctx.index.set(index + 1);
+                    }
                 }
             }
             KeyCode::Up => {
-                let index = self.ctx.index.get();
-                if index > 0 {
-                    self.ctx.index.set(index - 1);
+                if self.state.get_session().is_none() {
+                    let index = self.ctx.index.get();
+                    if index > 0 {
+                        self.ctx.index.set(index - 1);
+                    }
                 }
             }
             KeyCode::Char('n') => {
@@ -117,8 +133,11 @@ impl ContentWidget {
         self.body.draw(frame, rects[0]);
 
         frame.render_widget(
-            Paragraph::new("Help: Q - exit, ↑|←|↓|→ - select, P - previous page, N - next page, Enter - selected, Esc - go back")
-                .alignment(Alignment::Left),
+            Paragraph::new(
+                "Help: Q - exit, ↑|←|↓|→ - select, P - previous page, N - next page, \
+                Enter - selected, Esc - go back, Delete - remove session.",
+            )
+            .alignment(Alignment::Left),
             rects[1],
         );
     }
@@ -188,7 +207,7 @@ impl StatsWidget {
                 [
                     ("software", stats.software.clone()),
                     ("realm", stats.realm.clone()),
-                    ("uptime", format!("{} - minute", stats.uptime / 60)),
+                    ("uptime", Self::time_str(stats.uptime)),
                     ("capacity", stats.port_capacity.to_string()),
                     ("allocated", stats.port_allocated.to_string()),
                 ]
@@ -200,6 +219,28 @@ impl StatsWidget {
             .alignment(Alignment::Left),
             area,
         );
+    }
+
+    fn time_str(seconds: u64) -> String {
+        let mut time = seconds as f64;
+        let mut date = (0.0, 0.0, 0.0);
+
+        loop {
+            if time < 60.0 {
+                date.2 = time;
+                break;
+            } else {
+                if time < 3600.0 {
+                    date.1 = (time / 60.0).floor();
+                    time -= date.1 * 60.0;
+                } else {
+                    date.0 = (time / 3600.0).floor();
+                    time -= date.0 * 3600.0;
+                }
+            }
+        }
+
+        format!("{:02}:{:02}:{:02}", date.0, date.1, date.2)
     }
 }
 
@@ -387,7 +428,7 @@ impl PopupWidget {
                         .padding(Padding::uniform(1)),
                 )
                 .alignment(Alignment::Left),
-                Self::centered_rect(area, 30, 30),
+                Self::centered_rect(area, 30, 10),
             );
         }
     }
@@ -404,9 +445,9 @@ impl PopupWidget {
                 Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Percentage((100 - y) / 2),
-                        Constraint::Percentage(y),
-                        Constraint::Percentage((100 - y) / 2),
+                        Constraint::Length(10),
+                        Constraint::Length(y),
+                        Constraint::Percentage(50),
                     ])
                     .split(r)[1],
             )[1]

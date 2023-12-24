@@ -69,6 +69,9 @@ pub async fn create_state(rpc: Arc<Rpc>, mut receiver: UnboundedReceiver<Events>
                 Events::ClearSession => {
                     *state_.session.write().unwrap() = Arc::new(None);
                 }
+                Events::RemoveSession(addr) => {
+                    rpc_.remove_session(addr).await?;
+                }
             }
         }
 

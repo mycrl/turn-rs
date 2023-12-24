@@ -5,6 +5,7 @@ pub enum Events {
     GetUsers(u32),
     GetSession(String),
     ClearSession,
+    RemoveSession(String),
 }
 
 #[derive(Clone)]

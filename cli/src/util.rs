@@ -15,7 +15,11 @@ pub static SOFTWARE: &str = concat!(
     author = env!("CARGO_PKG_AUTHORS"),
 )]
 pub struct Opts {
-    #[arg(long)]
+    /// Connects to the grpc server of the turn server via the specified url, 
+    /// the default value is `http://localhost:3000`, the default value is 
+    /// provided so that the connection process can be simplified when 
+    /// connecting locally.
+    #[arg(short, long, default_value = "http://localhost:3000")]
     pub uri: String,
 }
 
