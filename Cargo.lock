@@ -2003,6 +2003,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "turn-balance"
+version = "0.1.0"
+
+[[package]]
+name = "turn-balance-plugin"
+version = "0.1.0"
+
+[[package]]
+name = "turn-balance-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "prost",
+ "prost-build",
+ "tokio",
+]
+
+[[package]]
 name = "turn-cli"
 version = "0.0.1"
 dependencies = [

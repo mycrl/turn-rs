@@ -1,0 +1,12 @@
+[package]
+name = "turn-balance-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.76"
+tokio = { version = "1.35.1", features = ["full"]}
+prost = "0.12"
+
+[build-dependencies]
+prost-build = "0.12"
