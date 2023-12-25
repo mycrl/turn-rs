@@ -2007,17 +2007,18 @@ name = "turn-balance"
 version = "0.1.0"
 
 [[package]]
-name = "turn-balance-plugin"
-version = "0.1.0"
-
-[[package]]
 name = "turn-balance-server"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "anyhow",
+ "bytes",
+ "clap",
  "prost",
  "prost-build",
+ "serde",
  "tokio",
+ "toml",
 ]
 
 [[package]]

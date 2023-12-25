@@ -14,6 +14,5 @@ members = [
     "stun",
     "turn-server",
     "turn-balance/server",
-    "turn-balance/plugin",
     "turn-balance/client/rust"
 ]

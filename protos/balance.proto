@@ -5,27 +5,30 @@ import "google/protobuf/empty.proto";
 
 message Host {
     string ip = 1;
-    string port = 2;
+    uint32 port = 2;
 }
 
 message GetCandidateReply {
-    repeated Host host = 1;
-}
-
-enum BalanceRequestType {
-    GetCandidates = 0;
-    Ping = 1;
+    repeated Host hosts = 1;
 }
 
 message BalanceRequest {
     uint32 id = 1;
-    BalanceRequestType type = 2;
+    oneof payload {
+        google.protobuf.Empty candidates = 2;
+        google.protobuf.Empty probe = 3;
+        google.protobuf.Empty ping = 4;
+    }
+}
+
+message ProbeReply {
+    repeated Host hosts = 1; 
 }
 
 message BalanceResponse {
     uint32 id = 1;
     oneof reply {
         GetCandidateReply candidate = 2;
-        google.protobuf.Empty ping = 3;
+        ProbeReply probe = 3;
     }
 }
