@@ -23,7 +23,20 @@ This is a simple distributed load balancing suite that contains both clients and
 
 ## Toppology
 
-![topoloy](./topology.webp)
+```mermaid
+flowchart TD
+    %%{ init: { 'flowchart': { 'curve': 'step' } } }%%
+    A(client) --- B(master balance server)
+    B --- D(region A balance server)
+    B --- E(region B balance server)
+    B --- F(region C balance server)
+    D --- G(node A balance server)
+    D --- H(node B balance server)
+    E --- I(node A balance server)
+    E --- J(node B balance server)
+    F --- L(node A balance server)
+    F --- M(node B balance server)
+```
 
 > Note that the communication protocol between balances uses udp and does not retransmit, if a packet is lost the current node will never enter the candidate again.
 
@@ -47,7 +60,7 @@ Start with configuration file:
 turn-balance-server --config=/etc/turn-server/balance.toml
 ```
 
-Please check the example configuration file for details: [turn-balance.toml](../turn-balance.toml)
+Please check the example configuration file for details: [turn-balance.toml](./turn-balance.toml)
 
 #### Client example
 
