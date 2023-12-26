@@ -122,7 +122,7 @@ cargo build --release
 ```
 
 After the compilation is complete, you can find the binary file in the `"target/release"` directory.  
-turn server uses mimalloc memory allocator on windows by default, while other platforms use jemallocator by default, and the third party memory allocator is not very friendly in terms of memory reclaim speed and memory usage for performance consideration, if you feel mindful of this, you can use `--features system_allocator` option to switch to the platform's default memory allocator at compile time.
+> turn server uses mimalloc memory allocator on windows by default, while other platforms use jemallocator by default, and the third party memory allocator is not very friendly in terms of memory reclaim speed and memory usage for performance consideration, if you feel mindful of this, you can use `--features system_allocator` option to switch to the platform's default memory allocator at compile time.
 
 ## License
 
