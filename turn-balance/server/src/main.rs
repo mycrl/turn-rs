@@ -105,26 +105,23 @@ async fn main() -> anyhow::Result<()> {
     // Enable timed pings if a superior balance server exists, for the purpose of
     // letting the superior know that I'm still alive.
     if let Some(superiors) = cfg.cluster.superiors {
-        let socket = socket.clone();
-        tokio::spawn(async move {
-            let mut ping_buf = BytesMut::new();
-            let _ = BalanceRequest {
-                id: 0,
-                payload: Some(Payload::Ping(())),
-            }
-            .encode(&mut ping_buf);
+        let mut ping_buf = BytesMut::new();
+        let _ = BalanceRequest {
+            id: 0,
+            payload: Some(Payload::Ping(())),
+        }
+        .encode(&mut ping_buf);
 
-            loop {
-                // Sent every 10 seconds, too many packets can cause unnecessary overhead by the
-                // parent.
-                sleep(Duration::from_secs(10)).await;
-                if let Err(e) = socket.send_to(&ping_buf, superiors).await {
-                    if e.kind() != ConnectionReset {
-                        break;
-                    }
+        loop {
+            // Sent every 10 seconds, too many packets can cause unnecessary overhead by the
+            // parent.
+            sleep(Duration::from_secs(10)).await;
+            if let Err(e) = socket.send_to(&ping_buf, superiors).await {
+                if e.kind() != ConnectionReset {
+                    break;
                 }
             }
-        });
+        }
     }
 
     Ok(())
