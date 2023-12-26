@@ -58,8 +58,10 @@ If you have extensive standard support requirements for turn servers and need mo
 - Only virtual ports are always allocated and no real system ports are occupied.
 - The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
 - Provides a simple command line tool to manage and monitor the turn server through the command line tool graphical interface. <sup>([`turn-cli`])</sup>
-- The GRPC interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session. <sup>([`proto`])</sup>
+- With a load balanced server, you can allow users to reach your turn server quickly with the best line. <sup>([`turn-balance`])</sup>
+- The grpc interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session. <sup>([`proto`])</sup>
 
+[`turn-balance`]: ./turn-balance
 [`turn-cli`]: ./cli
 [`proto`]: ./protos
 
