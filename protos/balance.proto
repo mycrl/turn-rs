@@ -17,7 +17,8 @@ message BalanceRequest {
 }
 
 message ProbeReply {
-    repeated Host hosts = 1; 
+    repeated Host hosts = 1;
+    optional Host turn = 2;
 }
 
 message BalanceResponse {

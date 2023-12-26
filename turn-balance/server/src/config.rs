@@ -80,6 +80,12 @@ pub struct Log {
     pub level: LogLevel,
 }
 
+#[derive(Deserialize, Debug, Default)]
+pub struct Turn {
+    #[serde(default)]
+    pub bind: Option<SocketAddr>,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Config {
     #[serde(default)]
@@ -88,6 +94,8 @@ pub struct Config {
     pub cluster: Cluster,
     #[serde(default)]
     pub log: Log,
+    #[serde(default)]
+    pub turn: Turn,
 }
 
 #[derive(Parser)]

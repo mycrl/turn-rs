@@ -3,9 +3,16 @@ name = "turn-balance-client"
 version = "0.1.0"
 edition = "2021"
 
+[[example]]
+name = "simple"
+
 [dependencies]
 tokio = { version = "1.35.1", features = ["net"]}
 prost = "0.12"
 
 [build-dependencies]
 prost-build = "0.12"
+
+[dev-dependencies]
+anyhow = "1.0"
+tokio = {version = "1", features = ["full"]}

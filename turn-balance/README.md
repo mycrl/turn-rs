@@ -61,7 +61,7 @@ async fn main() {
     let server = "127.0.0.1:3001".parse::<SocketAddr>().unwrap();
     let balance = Balance::new(server).await.unwrap();
     
-    if let Ok(node) = balance.probe().await {
+    if let Ok(node) = balance.probe(10).await {
         // node is a socket addr.
     }
 }

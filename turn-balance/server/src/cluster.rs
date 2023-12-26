@@ -35,7 +35,7 @@ impl Cluster {
             loop {
                 sleep(Duration::from_secs(10)).await;
                 for (addr, item) in this_.0.lock().unwrap().iter_mut() {
-                    if item.timer.elapsed().as_secs() >= 15 {
+                    if item.online && item.timer.elapsed().as_secs() >= 15 {
                         log::info!("node offline: addr={}", addr);
                         item.online = false;
                     }

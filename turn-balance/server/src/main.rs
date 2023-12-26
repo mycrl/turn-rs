@@ -60,11 +60,20 @@ async fn main() -> anyhow::Result<()> {
                     }
                     Payload::Probe(_) => {
                         send_buf.clear();
+
+                        let onlines = cluster.get_onlines();
                         BalanceResponse {
                             id: req.id,
                             reply: Some(Reply::Probe(ProbeReply {
-                                hosts: cluster
-                                    .get_onlines()
+                                turn: if onlines.is_empty() {
+                                    cfg.turn.bind.map(|v| Host {
+                                        ip: v.ip().to_string(),
+                                        port: v.port() as u32,
+                                    })
+                                } else {
+                                    None
+                                },
+                                hosts: onlines
                                     .iter()
                                     .map(|v| Host {
                                         ip: v.ip().to_string(),

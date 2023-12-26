@@ -76,10 +76,10 @@ impl Balance {
             let mut buf = [0u8; 40960];
             loop {
                 if let Some(this) = this_.upgrade() {
-                    if let Ok((size, addr)) = this.socket.recv_from(&mut buf).await {
+                    if let Ok(size) = this.socket.recv(&mut buf).await {
                         if let Ok(res) = BalanceResponse::decode(&buf[..size]) {
                             if let Some(Reply::Probe(probe)) = res.reply {
-                                this.handle_canidates(res.id, addr, probe.hosts).await;
+                                this.handle_canidates(res.id, probe.hosts, probe.turn).await;
                             }
                         }
                     } else {
@@ -94,7 +94,7 @@ impl Balance {
         Ok(this)
     }
 
-    pub async fn probe(&self) -> Result<SocketAddr, BalanceError> {
+    pub async fn probe(&self, timeout_cut: u8) -> Result<SocketAddr, BalanceError> {
         let id = self.id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = oneshot::channel();
 
@@ -109,7 +109,7 @@ impl Balance {
         self.send(id, &self.server)
             .await
             .map_err(|_| BalanceError::NetError)?;
-        timeout(Duration::from_secs(5), rx)
+        timeout(Duration::from_secs(timeout_cut as u64), rx)
             .await
             .map_err(|_| BalanceError::Timeout)?
             .map_err(|_| BalanceError::NotRecver)?
@@ -147,7 +147,7 @@ impl Balance {
         Ok(())
     }
 
-    async fn handle_canidates(&self, id: u32, addr: SocketAddr, hosts: Vec<Host>) {
+    async fn handle_canidates(&self, id: u32, hosts: Vec<Host>, turn: Option<Host>) {
         let mut received = self.received.lock().await;
         match received.get_mut(&id) {
             Some(item) if *item == false => {
@@ -158,12 +158,19 @@ impl Balance {
 
         if hosts.is_empty() {
             if let Some(sender) = self.sender.lock().await.take() {
-                let _ = sender.send(Ok(addr));
+                if let Some((Ok(ip), port)) =
+                    turn.map(|turn| (turn.ip.parse::<IpAddr>(), turn.port as u16))
+                {
+                    let _ = sender.send(Ok(SocketAddr::new(ip, port)));
+                }
             }
         } else {
+            let id = self.id.fetch_add(1, Ordering::Relaxed);
+            received.insert(id, false);
+
             if self
                 .lookup(
-                    self.id.fetch_add(1, Ordering::Relaxed),
+                    id,
                     hosts
                         .into_iter()
                         .map(|host| (host.ip.parse::<IpAddr>(), host.port as u16))
