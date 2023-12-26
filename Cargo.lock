@@ -2021,6 +2021,7 @@ dependencies = [
  "bytes",
  "clap",
  "log",
+ "num_cpus",
  "prost",
  "prost-build",
  "serde",
