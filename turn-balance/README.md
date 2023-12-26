@@ -47,7 +47,7 @@ Start with configuration file:
 turn-balance-server --config=/etc/turn-server/balance.toml
 ```
 
-Please check the example configuration file for details: [turn-balance.toml](./turn-balance.toml)
+Please check the example configuration file for details: [turn-balance.toml](../turn-balance.toml)
 
 #### Client example
 

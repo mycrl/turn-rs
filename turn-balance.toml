@@ -1,0 +1,35 @@
+[net]
+# turn The address on which the balance server listens, for example
+# `127.0.0.1:3001` or `0.0.0.0:3001` listens on all interfaces.
+bind = "127.0.0.1:3001"
+
+[cluster]
+# In the network topology, if there is a superior turn balance server, it
+# needs to be specified here because the superior server needs to know if
+# the current server is online, which needs to be realized by the current
+# server actively sending udp heartbeat packets.
+#
+# superiors = "127.0.0.1:3002"
+
+# The subordinate nodes of the current turn balance server, either turn
+# server or the same turn balance server, please note that this is a list
+# of nodes and you can specify more than one server at the same time.
+#
+nodes = [
+#    "127.0.0.1:3002"
+]
+
+[turn]
+# How turn balance server and turn server belong to the same node and you
+# deploy turn balance and turn server separately and individually, here
+# you need to specify the turn server listening address that you expect to
+# report to the client, which allows the client to connect to the turn
+# server.
+#
+# bind = "127.0.0.1:3478"
+
+[log]
+# log level
+#
+# An enum representing the available verbosity levels of the logger.
+level = "info"
