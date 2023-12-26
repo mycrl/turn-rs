@@ -1,0 +1,19 @@
+[package]
+name = "turn-balance-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ahash = "0.8.3"
+anyhow = "1.0.76"
+clap = { version = "4", features = ["derive", "env"] }
+tokio = { version = "1.35.1", features = ["full"]}
+prost = "0.12"
+toml = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+bytes = "1.5.0"
+log = "0.4.20"
+simple_logger = "4.3.0"
+
+[build-dependencies]
+prost-build = "0.12"

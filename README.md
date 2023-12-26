@@ -44,6 +44,7 @@ If you have extensive standard support requirements for turn servers and need mo
 ## Table of contents
 
 * [features](#features)
+* [components](#components)
 * [usage](#usage)
   * [docker](#docker)  
   * [linux service](#linux-service)
@@ -62,6 +63,14 @@ If you have extensive standard support requirements for turn servers and need mo
 [`turn-cli`]: ./cli
 [`proto`]: ./protos
 
+
+## Components
+
+* [turn server](./turn-server) - A pure Rust implementation of the turn server.
+* [turn balance](./turn-balance) - A simple distributed load balancing service.
+* [turn cli](./cli) - A simple turn server command line monitoring tool.
+
+
 ## Usage
 
 > The version on crates.io can be very outdated. It is recommended to compile directly from the github source or download the compiled binary from the [release](https://github.com/mycrl/turn-rs/releases).
@@ -69,10 +78,10 @@ If you have extensive standard support requirements for turn servers and need mo
 Start with configuration file:
 
 ```bash
-turn-server --config=/etc/turn_server/config.toml
+turn-server --config=/etc/turn-server/config.toml
 ```
 
-Please check the example configuration file for details: [turn_server.toml](./turn_server.toml)
+Please check the example configuration file for details: [turn-server.toml](./turn-server.toml)
 
 
 #### Docker

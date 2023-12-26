@@ -1,1 +1,1 @@
-![turn cli screenshot](./screenshot.png)
+![turn cli screenshot](./screenshot.webp)

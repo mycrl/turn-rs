@@ -45,6 +45,7 @@ jobs:
                 name: Rename release (Linux)
                 if: runner.os == 'Linux'
                 run: |
+                    mv ./target/release/turn-balance-server ./target/release/turn-balance-server-linux-x86_64
                     mv ./target/release/turn-server ./target/release/turn-server-linux-x86_64
                     mv ./target/release/turn-cli ./target/release/turn-cli-linux-x86_64
             -
@@ -54,14 +55,17 @@ jobs:
                 with:
                     name: linux-x86_64
                     path: |
+                        ./target/release/turn-balance-server-linux-x86_64
                         ./target/release/turn-server-linux-x86_64
                         ./target/release/turn-cli-linux-x86_64
             -
                 name: Rename release (Windows)
                 if: runner.os == 'Windows'
                 run: |
+                    Remove-Item -Path "./target/release/turn-balance-server-windows-x86_64.exe" -ErrorAction SilentlyContinue; 
                     Remove-Item -Path "./target/release/turn-server-windows-x86_64.exe" -ErrorAction SilentlyContinue; 
                     Remove-Item -Path "./target/release/turn-cli-windows-x86_64.exe" -ErrorAction SilentlyContinue; 
+                    Rename-Item -Path "./target/release/turn-balance-server.exe" -NewName "turn-balance-server-windows-x86_64.exe";
                     Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-windows-x86_64.exe";
                     Rename-Item -Path "./target/release/turn-cli.exe" -NewName "turn-cli-windows-x86_64.exe";
             -
@@ -71,6 +75,7 @@ jobs:
                 with:
                     name: windows-x86_64
                     path: |
+                        ./target/release/turn-balance-server-windows-x86_64.exe
                         ./target/release/turn-server-windows-x86_64.exe
                         ./target/release/turn-cli-windows-x86_64.exe
     deploy:
