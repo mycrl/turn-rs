@@ -89,9 +89,6 @@ Please check the example configuration file for details: [turn-server.toml](./tu
 #### Docker
 
 ```bash
-// docker hub
-docker pull quasipaa/turn-server
-// github packages
 docker pull ghcr.io/mycrl/turn-server
 ```
 The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
