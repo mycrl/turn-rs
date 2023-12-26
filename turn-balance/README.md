@@ -123,7 +123,7 @@ superiors = "192.168.1.1:3001"
 
 [turn]
 # Same for other nodes.
-bind = "192.168.1.1:3478"
+bind = "192.168.1.2:3478"
 ```
 
 If you have multiple turn servers, then you can use a distributed deployment scheme, where each node where the turn server is located deploys a turn balance server and externally deploys a master balance server, which is requested by the client, so that the nearest node to the user will be automatically filtered.  
