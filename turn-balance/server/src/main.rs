@@ -14,15 +14,18 @@ mod proto {
 }
 
 use self::proto::{
-    balance_request::Payload, balance_response::Reply, BalanceRequest, BalanceResponse,
-    GetCandidateReply, Host,
+    balance_request::Payload, balance_response::Reply, BalanceRequest, BalanceResponse, Host,
 };
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cfg = Arc::new(Config::load()?);
+    simple_logger::init_with_level(cfg.log.level.as_level())?;
+
     let cluster = Cluster::new(cfg.clone());
     let socket = Arc::new(UdpSocket::bind(cfg.net.bind).await?);
+
+    log::info!("balance server listening: addr={}", cfg.net.bind);
 
     if let Some(superiors) = cfg.cluster.superiors {
         let socket = socket.clone();
@@ -52,28 +55,6 @@ async fn main() -> anyhow::Result<()> {
         if let Ok(req) = BalanceRequest::decode(&buf[..size]) {
             if let Some(payload) = req.payload {
                 match payload {
-                    Payload::Candidates(_) => {
-                        send_buf.clear();
-                        BalanceResponse {
-                            id: req.id,
-                            reply: Some(Reply::Candidate(GetCandidateReply {
-                                hosts: cluster
-                                    .get_onlines()
-                                    .iter()
-                                    .map(|v| Host {
-                                        ip: v.ip().to_string(),
-                                        port: v.port() as u32,
-                                    })
-                                    .collect(),
-                            })),
-                        }
-                        .encode(&mut send_buf)?;
-                        if let Err(e) = socket.send_to(&send_buf, addr).await {
-                            if e.kind() != ConnectionReset {
-                                break;
-                            }
-                        }
-                    }
                     Payload::Ping(_) => {
                         cluster.update(&addr);
                     }
@@ -82,9 +63,8 @@ async fn main() -> anyhow::Result<()> {
                         BalanceResponse {
                             id: req.id,
                             reply: Some(Reply::Probe(ProbeReply {
-                                hosts: cfg
-                                    .cluster
-                                    .nodes
+                                hosts: cluster
+                                    .get_onlines()
                                     .iter()
                                     .map(|v| Host {
                                         ip: v.ip().to_string(),

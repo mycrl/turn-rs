@@ -8,16 +8,11 @@ message Host {
     uint32 port = 2;
 }
 
-message GetCandidateReply {
-    repeated Host hosts = 1;
-}
-
 message BalanceRequest {
     uint32 id = 1;
     oneof payload {
-        google.protobuf.Empty candidates = 2;
-        google.protobuf.Empty probe = 3;
-        google.protobuf.Empty ping = 4;
+        google.protobuf.Empty probe = 2;
+        google.protobuf.Empty ping = 3;
     }
 }
 
@@ -28,7 +23,6 @@ message ProbeReply {
 message BalanceResponse {
     uint32 id = 1;
     oneof reply {
-        GetCandidateReply candidate = 2;
-        ProbeReply probe = 3;
+        ProbeReply probe = 2;
     }
 }

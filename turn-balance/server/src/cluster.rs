@@ -34,8 +34,9 @@ impl Cluster {
         tokio::spawn(async move {
             loop {
                 sleep(Duration::from_secs(10)).await;
-                for item in this_.0.lock().unwrap().values_mut() {
+                for (addr, item) in this_.0.lock().unwrap().iter_mut() {
                     if item.timer.elapsed().as_secs() >= 15 {
+                        log::info!("node offline: addr={}", addr);
                         item.online = false;
                     }
                 }
@@ -58,6 +59,11 @@ impl Cluster {
     pub fn update(&self, addr: &SocketAddr) {
         if let Some(node) = self.0.lock().unwrap().get_mut(addr) {
             node.timer = Instant::now();
+
+            if !node.online {
+                log::info!("node online: addr={}", addr);
+                node.online = true;
+            }
         }
     }
 }
