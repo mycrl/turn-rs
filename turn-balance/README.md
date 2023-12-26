@@ -44,7 +44,7 @@ The client will first ask the top server, the top server will reply to the clien
 Start with configuration file:
 
 ```bash
-turn-balance --config=/etc/turn-server/balance.toml
+turn-balance-server --config=/etc/turn-server/balance.toml
 ```
 
 Please check the example configuration file for details: [turn-balance.toml](./turn-balance.toml)
