@@ -27,6 +27,8 @@ async fn main() -> anyhow::Result<()> {
 
     log::info!("balance server listening: addr={}", cfg.net.bind);
 
+    // Enable timed pings if a superior balance server exists, for the purpose of
+    // letting the superior know that I'm still alive.
     if let Some(superiors) = cfg.cluster.superiors {
         let socket = socket.clone();
         tokio::spawn(async move {
@@ -38,6 +40,8 @@ async fn main() -> anyhow::Result<()> {
             .encode(&mut ping_buf);
 
             loop {
+                // Sent every 10 seconds, too many packets can cause unnecessary overhead by the
+                // parent.
                 sleep(Duration::from_secs(10)).await;
                 if let Err(e) = socket.send_to(&ping_buf, superiors).await {
                     if e.kind() != ConnectionReset {
@@ -51,20 +55,34 @@ async fn main() -> anyhow::Result<()> {
     let mut buf = [0u8; 40960];
     let mut send_buf = BytesMut::new();
 
-    while let Ok((size, addr)) = socket.recv_from(&mut buf).await {
+    loop {
+        // Note: An error will also be reported when the remote host is shut down, which
+        // is not processed yet, but a warning will be issued.
+        let (size, addr) = match socket.recv_from(&mut buf).await {
+            Err(e) if e.kind() != ConnectionReset => break,
+            Ok(s) => s,
+            _ => continue,
+        };
+
         if let Ok(req) = BalanceRequest::decode(&buf[..size]) {
             if let Some(payload) = req.payload {
                 match payload {
+                    // If it's a ping message, then just refresh the timer.
                     Payload::Ping(_) => {
                         cluster.update(&addr);
                     }
                     Payload::Probe(_) => {
+                        // Clean up the last message encoded in the send buffer first.
                         send_buf.clear();
 
+                        // Only subordinate nodes that are currently online are reported.
                         let onlines = cluster.get_onlines();
                         BalanceResponse {
                             id: req.id,
                             reply: Some(Reply::Probe(ProbeReply {
+                                // If the subordinate node is empty, it means that this balance
+                                // server is the last level, and it is enough to report the
+                                // listening address of the turn server directly.
                                 turn: if onlines.is_empty() {
                                     cfg.turn.bind.map(|v| Host {
                                         ip: v.ip().to_string(),
@@ -83,6 +101,9 @@ async fn main() -> anyhow::Result<()> {
                             })),
                         }
                         .encode(&mut send_buf)?;
+
+                        // Note: An error will also be reported when the remote host is shut down,
+                        // which is not processed yet, but a warning will be issued.
                         if let Err(e) = socket.send_to(&send_buf, addr).await {
                             if e.kind() != ConnectionReset {
                                 break;
