@@ -3,6 +3,8 @@ on:
     create:
         tags:
             - 'v*'
+        branches-ignore:
+            - '*'
 jobs:
     release-github:
         runs-on: ubuntu-latest

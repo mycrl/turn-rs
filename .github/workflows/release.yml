@@ -3,6 +3,8 @@ on:
     create:
         tags:
             - 'v*'
+        branches-ignore:
+            - '*'
 jobs:
     build:
         runs-on: '${{ matrix.os }}'
