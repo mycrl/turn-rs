@@ -40,7 +40,7 @@
 //!     let balance = Balance::new(server).await.unwrap();
 //!     
 //!     if let Ok(node) = balance.probe(10).await {
-//!         //! node is a socket addr.
+//!         // node is a socket addr.
 //!     }
 //! }
 //! ```
