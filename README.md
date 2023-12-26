@@ -89,9 +89,6 @@ Please check the example configuration file for details: [turn-server.toml](./tu
 #### Docker
 
 ```bash
-// docker hub
-docker pull quasipaa/turn-server
-// github packages
 docker pull ghcr.io/mycrl/turn-server
 ```
 The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
@@ -125,7 +122,7 @@ cargo build --release
 ```
 
 After the compilation is complete, you can find the binary file in the `"target/release"` directory.  
-turn server uses mimalloc memory allocator on windows by default, while other platforms use jemallocator by default, and the third party memory allocator is not very friendly in terms of memory reclaim speed and memory usage for performance consideration, if you feel mindful of this, you can use `--features system_allocator` option to switch to the platform's default memory allocator at compile time.
+> turn server uses mimalloc memory allocator on windows by default, while other platforms use jemallocator by default, and the third party memory allocator is not very friendly in terms of memory reclaim speed and memory usage for performance consideration, if you feel mindful of this, you can use `--features system_allocator` option to switch to the platform's default memory allocator at compile time.
 
 ## License
 
