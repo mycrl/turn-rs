@@ -69,10 +69,10 @@ If you have extensive standard support requirements for turn servers and need mo
 Start with configuration file:
 
 ```bash
-turn-server --config=/etc/turn_server/config.toml
+turn-server --config=/etc/turn-server/config.toml
 ```
 
-Please check the example configuration file for details: [turn_server.toml](./turn_server.toml)
+Please check the example configuration file for details: [turn-server.toml](./turn-server.toml)
 
 
 #### Docker

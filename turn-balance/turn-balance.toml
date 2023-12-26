@@ -1,0 +1,14 @@
+[net]
+bind = "127.0.0.1:3001"
+
+[cluster]
+# superiors = "127.0.0.1:3002"
+nodes = [
+#    "127.0.0.1:3003"
+]
+
+[log]
+# log level
+#
+# An enum representing the available verbosity levels of the logger.
+level = "info"

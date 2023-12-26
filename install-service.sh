@@ -8,7 +8,7 @@ if [ ! -d "/etc/turn-server" ]; then
 fi
 
 if [ ! -f "/etc/turn-server/config.toml" ]; then 
-    cp ./turn_server.toml /etc/turn-server/config.toml
+    cp ./turn-server.toml /etc/turn-server/config.toml
 fi
 
 if [ ! -f "/etc/systemd/system/turn-server.service" ]; then 
