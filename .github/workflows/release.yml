@@ -63,7 +63,7 @@ jobs:
                 name: Build release (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
                 run: |
-                    $env:PROTOC = "${GITHUB_WORKSPACE}/third_party/bin/protoc.exe";
+                    $env:PROTOC = "${{ github.workspace }}/third_party/bin/protoc.exe";
                     cargo build --release;
             -
                 name: Rename release (Linux)
