@@ -54,11 +54,15 @@ jobs:
                     $PROTOC = "${{ github.workspace }}/third_party/bin/protoc.exe";
                     echo "PROTOC=$PROTOC" >> $GITHUB_ENV
             -
-                name: Build release
-                if: matrix.arch != 'aarch64'
+                name: Build release (Windows)
+                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
                 run: cargo build --release
                 env:
                     PROTOC: ${{ env.PROTOC }}
+             -
+                name: Build release (Linux)
+                if: runner.os == 'Linux' && matrix.arch == 'x86_64'
+                run: cargo build --release
             -
                 name: Build release (Linux aarch64)
                 if: runner.os == 'Linux' && matrix.arch == 'aarch64'
