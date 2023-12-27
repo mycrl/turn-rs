@@ -113,14 +113,15 @@ async fn main() -> anyhow::Result<()> {
         .encode(&mut ping_buf);
 
         loop {
-            // Sent every 10 seconds, too many packets can cause unnecessary overhead by the
-            // parent.
-            sleep(Duration::from_secs(10)).await;
             if let Err(e) = socket.send_to(&ping_buf, superiors).await {
                 if e.kind() != ConnectionReset {
                     break;
                 }
             }
+            
+            // Sent every 10 seconds, too many packets can cause unnecessary overhead by the
+            // parent.
+            sleep(Duration::from_secs(10)).await;
         }
     } else {
         std::future::pending::<()>().await;
