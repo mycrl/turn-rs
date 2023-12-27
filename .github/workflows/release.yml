@@ -51,14 +51,12 @@ jobs:
                     mkdir third_party;
                     Invoke-WebRequest -Uri https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-win64.zip -OutFile ./third_party/protoc-25.1-win64.zip;
                     Expand-Archive -Path ./third_party/protoc-25.1-win64.zip -DestinationPath ./third_party;
-                    $PROTOC = "${{ github.workspace }}/third_party/bin/protoc.exe";
-                    echo "PROTOC=$PROTOC" >> $GITHUB_ENV
             -
                 name: Build release (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
-                run: cargo build --release
-                env:
-                    PROTOC: ${{ env.PROTOC }}
+                run: |
+                    $PROTOC = "${{ github.workspace }}/third_party/bin/protoc.exe";
+                    cargo build --release;
             -
                 name: Build release (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'x86_64'
