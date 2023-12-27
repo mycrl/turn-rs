@@ -18,7 +18,7 @@ jobs:
                     - aarch64
                 exclude:
                     - os: windows-latest
-                    arch: aarch64
+                      arch: aarch64
         steps:
             -
                 uses: actions/checkout@v4
@@ -49,6 +49,7 @@ jobs:
                     Expand-Archive -Path ./third_party/protoc-25.1-win64.zip -DestinationPath ./third_party;
                     $currentDirectory = $PWD.Path;
                     $env:PATH += ";$currentDirectory/third_party/bin";
+                    echo "PATH=$env:PATH" >> $GITHUB_ENV;
             -
                 name: Build release (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'x86_64'
@@ -60,7 +61,9 @@ jobs:
             -
                 name: Build release (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
-                run: cargo build --release
+                run: |
+                    $env:PATH = ${{env.VERSION}};
+                    cargo build --release;
             -
                 name: Rename release (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'x86_64'
