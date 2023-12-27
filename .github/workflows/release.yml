@@ -5,6 +5,9 @@ on:
             - 'v*'
         branches-ignore:
             - '*'
+    push:
+        branches:
+            - workflow
 jobs:
     build:
         runs-on: '${{ matrix.os }}'
