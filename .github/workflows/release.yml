@@ -39,7 +39,7 @@ jobs:
                     cargo install cargo-zigbuild
             -
                 name: Install dependencies (Windows)
-                if: runner.os == 'Windows' && matrix.arch = 'x86_64'
+                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
                 run: |
                     mkdir third_party;
                     Invoke-WebRequest -Uri https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-win64.zip -OutFile ./third_party/protoc-25.1-win64.zip;
@@ -48,33 +48,33 @@ jobs:
                     $env:PATH += ";$currentDirectory/third_party/bin";
             -
                 name: Build release (Linux)
-                if: runner.os == 'Linux' && matrix.arch = 'x86_64'
+                if: runner.os == 'Linux' && matrix.arch == 'x86_64'
                 run: cargo build --release
             -
                 name: Build release (Linux)
-                if: runner.os == 'Linux' && matrix.arch = 'aarch64'
+                if: runner.os == 'Linux' && matrix.arch == 'aarch64'
                 run: cargo zigbuild --target aarch64-unknown-linux-gnu
             -
                 name: Build release (Windows)
-                if: runner.os == 'Windows' && matrix.arch = 'x86_64'
+                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
                 run: cargo build --release
             -
                 name: Rename release (Linux)
-                if: runner.os == 'Linux' && matrix.arch = 'x86_64'
+                if: runner.os == 'Linux' && matrix.arch == 'x86_64'
                 run: |
                     mv ./target/release/turn-balance-server ./target/release/turn-balance-server-linux-x86_64
                     mv ./target/release/turn-server ./target/release/turn-server-linux-x86_64
                     mv ./target/release/turn-cli ./target/release/turn-cli-linux-x86_64
             -
                 name: Rename release (Linux)
-                if: runner.os == 'Linux' && matrix.arch = 'aarch64'
+                if: runner.os == 'Linux' && matrix.arch == 'aarch64'
                 run: |
                     mv ./target/release/turn-balance-server ./target/release/turn-balance-server-linux-aarch64
                     mv ./target/release/turn-server ./target/release/turn-server-linux-aarch64
                     mv ./target/release/turn-cli ./target/release/turn-cli-linux-aarch64
             -
                 name: Rename release (Windows)
-                if: runner.os == 'Windows' && matrix.arch = 'x86_64'
+                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
                 run: |
                     Remove-Item -Path "./target/release/turn-balance-server-windows-x86_64.exe" -ErrorAction SilentlyContinue; 
                     Remove-Item -Path "./target/release/turn-server-windows-x86_64.exe" -ErrorAction SilentlyContinue; 
@@ -84,7 +84,7 @@ jobs:
                     Rename-Item -Path "./target/release/turn-cli.exe" -NewName "turn-cli-windows-x86_64.exe";
             -
                 name: Upload artifact (Linux)
-                if: runner.os == 'Linux' && matrix.arch = 'x86_64'
+                if: runner.os == 'Linux' && matrix.arch == 'x86_64'
                 uses: actions/upload-artifact@v3
                 with:
                     name: linux-x86_64
@@ -94,7 +94,7 @@ jobs:
                         ./target/release/turn-cli-linux-x86_64
             -
                 name: Upload artifact (Linux)
-                if: runner.os == 'Linux' && matrix.arch = 'aarch64'
+                if: runner.os == 'Linux' && matrix.arch == 'aarch64'
                 uses: actions/upload-artifact@v3
                 with:
                     name: linux-x86_64
@@ -104,7 +104,7 @@ jobs:
                         ./target/release/turn-cli-linux-aarch64
             -
                 name: Upload artifact (Windows)
-                if: runner.os == 'Windows' && matrix.arch = 'x86_64'
+                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
                 uses: actions/upload-artifact@v3
                 with:
                     name: windows-x86_64
