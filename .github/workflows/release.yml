@@ -59,7 +59,7 @@ jobs:
                 run: cargo build --release
                 env:
                     PROTOC: ${{ env.PROTOC }}
-             -
+            -
                 name: Build release (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'x86_64'
                 run: cargo build --release
