@@ -42,7 +42,7 @@ jobs:
                     sudo apt update
                     sudo apt install -y protobuf-compiler libprotobuf-dev gcc-aarch64-linux-gnu
                     rustup target add aarch64-unknown-linux-gnu
-                    cargo install cargo-zigbuild
+                    which cargo-zigbuild || cargo install cargo-zigbuild
                     sudo snap install zig --classic --beta
             -
                 name: Install dependencies (Windows)
