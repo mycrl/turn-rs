@@ -122,6 +122,8 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+    } else {
+        std::future::pending::<()>().await;
     }
 
     Ok(())
