@@ -55,7 +55,7 @@ jobs:
                     echo "PROTOC=$PROTOC" >> $GITHUB_ENV
             -
                 name: Build release
-                if: matrix.arch != 'x86_64'
+                if: matrix.arch != 'aarch64'
                 run: cargo build --release
                 env:
                     PROTOC: ${{ env.PROTOC }}
