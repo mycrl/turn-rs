@@ -55,7 +55,7 @@ jobs:
                 name: Build release (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
                 run: |
-                    $PROTOC = "${{ github.workspace }}/third_party/bin/protoc.exe";
+                    $env:PROTOC = "${{ github.workspace }}/third_party/bin/protoc.exe";
                     cargo build --release;
             -
                 name: Build release (Linux)
