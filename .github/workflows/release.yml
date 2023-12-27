@@ -76,9 +76,9 @@ jobs:
                 name: Rename release (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'aarch64'
                 run: |
-                    mv ./target/release/turn-balance-server ./target/release/turn-balance-server-linux-aarch64
-                    mv ./target/release/turn-server ./target/release/turn-server-linux-aarch64
-                    mv ./target/release/turn-cli ./target/release/turn-cli-linux-aarch64
+                    mv ./target/aarch64-unknown-linux-gnu/release/turn-balance-server ./target/aarch64-unknown-linux-gnu/release/turn-balance-server-linux-aarch64
+                    mv ./target/aarch64-unknown-linux-gnu/release/turn-server ./target/aarch64-unknown-linux-gnu/release/turn-server-linux-aarch64
+                    mv ./target/aarch64-unknown-linux-gnu/release/turn-cli ./target/aarch64-unknown-linux-gnu/release/turn-cli-linux-aarch64
             -
                 name: Rename release (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
@@ -106,9 +106,9 @@ jobs:
                 with:
                     name: linux-x86_64
                     path: |
-                        ./target/release/turn-balance-server-linux-aarch64
-                        ./target/release/turn-server-linux-aarch64
-                        ./target/release/turn-cli-linux-aarch64
+                        ./target/aarch64-unknown-linux-gnu/release/turn-balance-server-linux-aarch64
+                        ./target/aarch64-unknown-linux-gnu/release/turn-server-linux-aarch64
+                        ./target/aarch64-unknown-linux-gnu/release/turn-cli-linux-aarch64
             -
                 name: Upload artifact (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
