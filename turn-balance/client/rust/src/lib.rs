@@ -126,7 +126,7 @@ impl Balance {
                     if let Ok(size) = this.socket.recv(&mut buf).await {
                         if let Ok(res) = BalanceResponse::decode(&buf[..size]) {
                             if let Some(Reply::Probe(probe)) = res.reply {
-                                this.handle_canidates(res.id, probe.hosts, probe.turn).await;
+                                this.handle_probe(res.id, probe.hosts, probe.turn).await;
                             }
                         }
                     } else {
@@ -194,7 +194,7 @@ impl Balance {
         Ok(())
     }
 
-    async fn handle_canidates(&self, id: u32, hosts: Vec<Host>, turn: Option<Host>) {
+    async fn handle_probe(&self, id: u32, hosts: Vec<Host>, turn: Option<Host>) {
         let mut received = self.received.lock().await;
         match received.get_mut(&id) {
             Some(item) if *item == false => {
