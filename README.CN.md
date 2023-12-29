@@ -71,9 +71,6 @@ turn-server --config=/etc/turn_server/config.toml
 #### Docker
 
 ```bash
-// docker hub
-docker pull quasipaa/turn-server
-// github packages
 docker pull ghcr.io/mycrl/turn-server
 ```
 自定义配置文件`/etc/turn-server/config.toml`通过`-v`覆盖镜像内的路径.
