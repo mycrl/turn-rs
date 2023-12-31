@@ -1,8 +1,6 @@
 name: publish dockers
 on:
     push:
-        branches:
-            - main
         tags:
             - 'v*'
 jobs:
