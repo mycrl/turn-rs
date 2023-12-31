@@ -1,13 +1,10 @@
 name: publish release
 on:
-    create:
-        tags:
-            - 'v*'
-        branches-ignore:
-            - '*'
     push:
         branches:
-            - workflow
+            - main
+        tags:
+            - 'v*'
 jobs:
     build:
         runs-on: '${{ matrix.os }}'

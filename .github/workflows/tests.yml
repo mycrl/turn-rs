@@ -9,7 +9,9 @@ on:
             - stun/**
             - turn/**
             - turn-server/**
+            - turn-balance/**
             - Cargo.toml
+            - Cargo.lock
             - protos/**
     pull_request:
         branches:

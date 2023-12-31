@@ -1,10 +1,10 @@
 name: publish dockers
 on:
-    create:
+    push:
+        branches:
+            - main
         tags:
             - 'v*'
-        branches-ignore:
-            - '*'
 jobs:
     release-github:
         runs-on: ubuntu-latest
