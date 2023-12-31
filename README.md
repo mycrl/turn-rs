@@ -112,6 +112,10 @@ You need to install the Rust toolchain, if you have already installed it, you ca
 git clone https://github.com/mycrl/turn-rs
 ```
 
+##### Protoc
+
+Because all internal communication is based on `protobuf`, and the `prost-build` required to compile `.proto` files needs to rely on `protoc`, so please install protoc into your environment, to install `protoc` please see the [protobuf installation](https://github.com/protocolbuffers/protobuf#protobuf-compiler-installation) instructions.
+
 #### Build workspace
 
 Compile the entire workspace in release mode:
