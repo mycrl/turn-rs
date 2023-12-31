@@ -1,3 +1,11 @@
+#[global_allocator]
+#[cfg(all(target_os = "windows", not(feature = "system_allocator")))]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[global_allocator]
+#[cfg(all(not(target_os = "windows"), not(feature = "system_allocator")))]
+static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 mod cluster;
 mod config;
 
