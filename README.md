@@ -45,9 +45,6 @@ If you have extensive standard support requirements for turn servers and need mo
 
 * [features](#features)
 * [components](#components)
-* [usage](#usage)
-  * [docker](#docker)  
-  * [linux service](#linux-service)
 * [building](#building)
 
 
@@ -59,11 +56,11 @@ If you have extensive standard support requirements for turn servers and need mo
 - The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
 - Provides a simple command line tool to manage and monitor the turn server through the command line tool graphical interface. <sup>([`turn-cli`])</sup>
 - With a load balanced server, you can allow users to reach your turn server quickly with the best line. <sup>([`turn-balance`])</sup>
-- The grpc interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session. <sup>([`proto`])</sup>
+- The grpc interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session. <sup>([`protos`])</sup>
 
 [`turn-balance`]: ./turn-balance
 [`turn-cli`]: ./cli
-[`proto`]: ./protos
+[`protos`]: ./protos
 
 
 ## Components
@@ -71,35 +68,6 @@ If you have extensive standard support requirements for turn servers and need mo
 * [turn server](./turn-server) - A pure Rust implementation of the turn server.
 * [turn balance](./turn-balance) - A simple distributed load balancing service.
 * [turn cli](./cli) - A simple turn server command line monitoring tool.
-
-
-## Usage
-
-> The version on crates.io can be very outdated. It is recommended to compile directly from the github source or download the compiled binary from the [release](https://github.com/mycrl/turn-rs/releases).
-
-Start with configuration file:
-
-```bash
-turn-server --config=/etc/turn-server/config.toml
-```
-
-Please check the example configuration file for details: [turn-server.toml](./turn-server.toml)
-
-
-#### Docker
-
-```bash
-docker pull ghcr.io/mycrl/turn-server
-```
-The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
-
-#### Linux service
-
-```
-./install-service.sh
-```
-
-This will compile the project and install and start the service.
 
 
 ## Building
@@ -126,7 +94,9 @@ cargo build --release
 ```
 
 After the compilation is complete, you can find the binary file in the `"target/release"` directory.  
-> turn server uses mimalloc memory allocator on windows by default, while other platforms use jemallocator by default, and the third party memory allocator is not very friendly in terms of memory reclaim speed and memory usage for performance consideration, if you feel mindful of this, you can use `--features system_allocator` option to switch to the platform's default memory allocator at compile time.
+
+> turn server uses mimalloc memory allocator on windows by default, while other platforms use jemallocator by default, and the third party memory allocator is not very friendly in terms of memory reclaim speed and memory usage for performance consideration, if you feel mindful of this, you can use `cargo build --release --features system_allocator` option to switch to the platform's default memory allocator at compile time.
+
 
 ## License
 
