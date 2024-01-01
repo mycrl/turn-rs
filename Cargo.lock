@@ -2067,6 +2067,7 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
+ "turn-rs",
 ]
 
 [[package]]

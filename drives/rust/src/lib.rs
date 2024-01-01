@@ -44,7 +44,6 @@
 //!     }
 //! }
 //! ```
-//!
 
 pub mod balance;
 pub mod controller;

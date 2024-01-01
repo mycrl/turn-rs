@@ -9,10 +9,11 @@ use std::{
     time::Duration,
 };
 
-use prost::Message;
-use super::proto::{
+use crate::proto::{
     balance_request::Payload, balance_response::Reply, BalanceRequest, BalanceResponse, Host,
 };
+
+use prost::Message;
 use tokio::{
     net::UdpSocket,
     sync::{
@@ -21,6 +22,10 @@ use tokio::{
     },
     time::timeout,
 };
+
+mod proto {
+    include!(concat!(env!("OUT_DIR"), "/balance.rs"));
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BalanceError {

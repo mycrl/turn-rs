@@ -4,7 +4,7 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 use tonic::{transport::Channel, Request};
 
-use super::proto::{controller_client::ControllerClient, AddrParams, QueryFilter};
+use crate::proto::{controller_client::ControllerClient, AddrParams, QueryFilter};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

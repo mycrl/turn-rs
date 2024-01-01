@@ -6,7 +6,6 @@ use crate::rpc::{create_hooks, Hooks};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use turn_rs::Observer as TObserver;
 
 pub struct Observer {
     hooks: Hooks,
@@ -23,7 +22,7 @@ impl Observer {
 }
 
 #[async_trait]
-impl TObserver for Observer {
+impl turn_rs::Observer for Observer {
     async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
         let pwd = self.hooks.get_password(addr, name).await;
         log::info!("auth: addr={:?}, name={:?}, pwd={:?}", addr, name, pwd);
@@ -219,11 +218,11 @@ impl TObserver for Observer {
         let _ = self.hooks.refresh(addr, name, time);
     }
 
-    /// node exit
+    /// session abort
     ///
-    /// Triggered when the node leaves from the turn. Possible reasons: the node
-    /// life cycle has expired, external active deletion, or active exit of the
-    /// node.
+    /// Triggered when the session leaves from the turn. Possible reasons: the
+    /// session life cycle has expired, external active deletion, or active
+    /// exit of the session.
     #[allow(clippy::let_underscore_future)]
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
