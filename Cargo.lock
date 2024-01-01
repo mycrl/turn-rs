@@ -2049,11 +2049,9 @@ dependencies = [
  "anyhow",
  "clap",
  "crossterm",
- "prost",
  "ratatui",
  "tokio",
- "tonic",
- "tonic-build",
+ "turn-drive",
 ]
 
 [[package]]

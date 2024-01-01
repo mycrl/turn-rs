@@ -1,10 +1,12 @@
 mod events;
-mod rpc;
 mod state;
 mod ui;
 mod util;
 
-use std::io::{self, stdout};
+use std::{
+    io::{self, stdout},
+    sync::Arc,
+};
 
 use clap::Parser;
 use crossterm::{
@@ -15,15 +17,15 @@ use crossterm::{
 
 use events::EventProxy;
 use ratatui::prelude::*;
-use rpc::Rpc;
 use state::create_state;
+use turn_drive::controller::Controller;
 use ui::Ui;
 use util::Opts;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
-    let rpc = Rpc::new(&opts.uri).await?;
+    let rpc = Arc::new(Controller::new(&opts.uri).await?);
     let (event_proxy, receiver) = EventProxy::new();
     let state = create_state(rpc, receiver).await;
 

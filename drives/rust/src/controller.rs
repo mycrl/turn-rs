@@ -20,7 +20,7 @@ pub struct Interface {
     pub external: SocketAddr,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Stats {
     pub software: String,
     pub uptime: u64,
@@ -47,6 +47,8 @@ pub struct Session {
     pub channels: Vec<u16>,
     pub ports: Vec<u16>,
 }
+
+pub type Users = HashMap<String, HashMap<SocketAddr, Report>>;
 
 #[derive(Debug, Error)]
 pub enum ControllerError {
@@ -149,11 +151,7 @@ impl Controller {
     ///
     /// rpc GetUsers (QueryFilter) returns (GetUsersReply);
     /// ```
-    pub async fn get_users(
-        &self,
-        skip: u32,
-        limit: u32,
-    ) -> Result<HashMap<String, HashMap<SocketAddr, Report>>, ControllerError> {
+    pub async fn get_users(&self, skip: u32, limit: u32) -> Result<Users, ControllerError> {
         let users = self
             .0
             .lock()

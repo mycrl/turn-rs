@@ -1,0 +1,27 @@
+{
+    "name": "turn-drive",
+    "version": "0.0.1",
+    "description": "",
+    "main": "dist",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mycrl/turn-rs.git"
+    },
+    "author": "Mr.Panda (xivistudios@gmail.com)",
+    "license": "GPL-3.0-or-later",
+    "bugs": {
+        "url": "https://github.com/mycrl/turn-rs/issues"
+    },
+    "homepage": "https://github.com/mycrl/turn-rs#readme",
+    "dependencies": {
+        "@grpc/grpc-js": "^1.9.13",
+        "@grpc/proto-loader": "^0.7.10"
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.6",
+        "typescript": "^5.3.3"
+    }
+}

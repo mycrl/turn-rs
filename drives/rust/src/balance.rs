@@ -23,10 +23,6 @@ use tokio::{
     time::timeout,
 };
 
-mod proto {
-    include!(concat!(env!("OUT_DIR"), "/balance.rs"));
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BalanceError {
     UdpBindFailed,

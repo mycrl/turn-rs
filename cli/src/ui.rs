@@ -1,11 +1,14 @@
-use std::sync::{atomic::AtomicUsize, Arc, RwLock};
+use std::{
+    net::SocketAddr,
+    sync::{atomic::AtomicUsize, Arc, RwLock},
+};
 
 use crossterm::event::KeyCode;
 use ratatui::{layout::SegmentSize, prelude::*, widgets::*};
+use turn_drive::controller::Report;
 
 use crate::{
     events::{EventProxy, EventSender, Events},
-    rpc::proto::Report,
     state::State,
     util::{EasyAtomic, SOFTWARE},
 };
@@ -14,7 +17,7 @@ use crate::{
 struct Context {
     index: AtomicUsize,
     get_users_index: AtomicUsize,
-    addrs: RwLock<Vec<String>>,
+    addrs: RwLock<Vec<SocketAddr>>,
 }
 
 pub struct Ui {
@@ -208,8 +211,8 @@ impl StatsWidget {
                     ("software", stats.software.clone()),
                     ("realm", stats.realm.clone()),
                     ("uptime", Self::time_str(stats.uptime)),
-                    ("capacity", stats.port_capacity.to_string()),
-                    ("allocated", stats.port_allocated.to_string()),
+                    ("capacity", stats.capacity.to_string()),
+                    ("allocated", stats.allocated.to_string()),
                 ]
                 .into_iter()
                 .map(|(k, v)| Line::from(vec![Span::raw(k).blue(), ": ".into(), Span::raw(v)]))
@@ -257,9 +260,13 @@ impl InterfacesWidget {
             Table::new(
                 stats.interfaces.iter().map(|item| {
                     Row::new(vec![
-                        if item.transport == 0 { "TCP" } else { "UDP" },
-                        item.bind.as_ref(),
-                        item.external.as_ref(),
+                        if item.transport as u8 == 0 {
+                            "TCP"
+                        } else {
+                            "UDP"
+                        },
+                        &item.bind.to_string(),
+                        &item.external.to_string(),
                     ])
                 }),
                 [
@@ -300,15 +307,14 @@ impl TablesWidget {
         let mut rows = Vec::with_capacity(100);
 
         addrs.clear();
-        for user in self.state.get_users().as_ref() {
-            for report in &user.reports {
+        for (name, reports) in self.state.get_users().as_ref() {
+            for report in reports {
                 let previous_ = previous
                     .iter()
-                    .find(|item| item.name == user.name)
+                    .find(|item| item.name == name)
                     .and_then(|item| item.reports.iter().find(|item| item.addr == report.addr))
                     .cloned()
                     .unwrap_or_else(|| Report {
-                        addr: report.addr.clone(),
                         received_bytes: 0,
                         send_bytes: 0,
                         received_pkts: 0,

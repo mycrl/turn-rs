@@ -4,21 +4,15 @@ use std::{
 };
 
 use tokio::{sync::mpsc::UnboundedReceiver, time::sleep};
+use turn_drive::controller::{Controller, Session, Stats, Users};
 
-use crate::{
-    events::Events,
-    rpc::{
-        proto::{Session, Stats, User},
-        Rpc,
-    },
-    util::EasyAtomic,
-};
+use crate::{events::Events, util::EasyAtomic};
 
 #[derive(Default)]
 pub struct State {
     stats: RwLock<Arc<Stats>>,
-    users: RwLock<Arc<Vec<User>>>,
-    previous_users: RwLock<Arc<Vec<User>>>,
+    users: RwLock<Arc<Users>>,
+    previous_users: RwLock<Arc<Users>>,
     session: RwLock<Arc<Option<Session>>>,
 }
 
@@ -27,11 +21,11 @@ impl State {
         self.stats.read().unwrap().clone()
     }
 
-    pub fn get_users(&self) -> Arc<Vec<User>> {
+    pub fn get_users(&self) -> Arc<Users> {
         self.users.read().unwrap().clone()
     }
 
-    pub fn get_previous_users(&self) -> Arc<Vec<User>> {
+    pub fn get_previous_users(&self) -> Arc<Users> {
         self.previous_users.read().unwrap().clone()
     }
 
@@ -45,7 +39,10 @@ struct Context {
     get_users_skip: AtomicUsize,
 }
 
-pub async fn create_state(rpc: Arc<Rpc>, mut receiver: UnboundedReceiver<Events>) -> Arc<State> {
+pub async fn create_state(
+    rpc: Arc<Controller>,
+    mut receiver: UnboundedReceiver<Events>,
+) -> Arc<State> {
     let state = Arc::new(State::default());
     let ctx = Arc::new(Context::default());
 
@@ -63,14 +60,13 @@ pub async fn create_state(rpc: Arc<Rpc>, mut receiver: UnboundedReceiver<Events>
                     ctx_.get_users_skip.set(skip as usize);
                 }
                 Events::GetSession(addr) => {
-                    *state_.session.write().unwrap() =
-                        Arc::new(rpc_.get_session(addr).await?.session)
+                    *state_.session.write().unwrap() = Arc::new(rpc_.get_session(&addr).await?)
                 }
                 Events::ClearSession => {
                     *state_.session.write().unwrap() = Arc::new(None);
                 }
                 Events::RemoveSession(addr) => {
-                    rpc_.remove_session(addr).await?;
+                    rpc_.remove_session(&addr).await?;
                 }
             }
         }
@@ -87,8 +83,7 @@ pub async fn create_state(rpc: Arc<Rpc>, mut receiver: UnboundedReceiver<Events>
 
             *state_.users.write().unwrap() = Arc::new(
                 rpc.get_users(ctx.get_users_skip.get() as u32 * 20, 20)
-                    .await?
-                    .users,
+                    .await?,
             );
 
             sleep(Duration::from_secs(5)).await;
