@@ -13,6 +13,6 @@ members = [
     "turn",
     "stun",
     "turn-server",
-    "turn-balance/server",
-    "turn-balance/client/rust"
+    "turn-balance",
+    "drives/rust"
 ]

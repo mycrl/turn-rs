@@ -1740,6 +1740,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "thiserror"
+version = "1.0.53"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2cd5904763bad08ad5513ddbb12cf2ae273ca53fa9f68e843e236ec6dfccc09"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.53"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3dcf4a824cce0aeacd6f38ae6f24234c8e80d68632338ebaa1443b5df9e29e19"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.41",
+]
+
+[[package]]
 name = "time"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2003,16 +2023,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
-name = "turn-balance-client"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "prost",
- "prost-build",
- "tokio",
-]
-
-[[package]]
 name = "turn-balance-server"
 version = "0.1.0"
 dependencies = [
@@ -2041,6 +2051,19 @@ dependencies = [
  "crossterm",
  "prost",
  "ratatui",
+ "tokio",
+ "tonic",
+ "tonic-build",
+]
+
+[[package]]
+name = "turn-drive"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "prost",
+ "prost-build",
+ "thiserror",
  "tokio",
  "tonic",
  "tonic-build",

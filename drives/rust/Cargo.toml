@@ -1,5 +1,5 @@
 [package]
-name = "turn-balance-client"
+name = "turn-drive"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,9 +8,12 @@ name = "simple"
 
 [dependencies]
 tokio = { version = "1.35.1", features = ["net"]}
+tonic = { version = "0.10", features = ["prost", "gzip", "tls"] }
+thiserror = "1.0.53"
 prost = "0.12"
 
 [build-dependencies]
+tonic-build = "0.10"
 prost-build = "0.12"
 
 [dev-dependencies]
