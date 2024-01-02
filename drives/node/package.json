@@ -2,9 +2,9 @@
     "name": "turn-drive",
     "version": "0.0.1",
     "description": "",
-    "main": "dist",
+    "main": "src/index.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "build": "tsc"
     },
     "repository": {
         "type": "git",
@@ -19,9 +19,5 @@
     "dependencies": {
         "@grpc/grpc-js": "^1.9.13",
         "@grpc/proto-loader": "^0.7.10"
-    },
-    "devDependencies": {
-        "@types/node": "^20.10.6",
-        "typescript": "^5.3.3"
     }
 }
