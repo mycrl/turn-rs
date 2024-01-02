@@ -264,9 +264,9 @@ impl InterfacesWidget {
                             "TCP"
                         } else {
                             "UDP"
-                        },
-                        &item.bind.to_string(),
-                        &item.external.to_string(),
+                        }.to_string(),
+                        item.bind.to_string(),
+                        item.external.to_string(),
                     ])
                 }),
                 [
@@ -308,11 +308,11 @@ impl TablesWidget {
 
         addrs.clear();
         for (name, reports) in self.state.get_users().as_ref() {
-            for report in reports {
+            for (addr, report) in reports {
                 let previous_ = previous
                     .iter()
-                    .find(|item| item.name == name)
-                    .and_then(|item| item.reports.iter().find(|item| item.addr == report.addr))
+                    .find(|item| item.0 == name)
+                    .and_then(|item| item.1.iter().find(|item| item.0 == addr).map(|item| item.1))
                     .cloned()
                     .unwrap_or_else(|| Report {
                         received_bytes: 0,
@@ -321,10 +321,10 @@ impl TablesWidget {
                         send_pkts: 0,
                     });
 
-                addrs.push(report.addr.clone());
+                addrs.push(addr.clone());
                 rows.push(Row::new(vec![
-                    user.name.clone(),
-                    report.addr.clone(),
+                    name.clone(),
+                    addr.to_string(),
                     report.received_bytes.to_string(),
                     ((report.received_bytes - previous_.received_bytes) / 5).to_string(),
                     report.send_bytes.to_string(),
