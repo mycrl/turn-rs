@@ -50,5 +50,6 @@ The custom configuration file overrides the `/etc/turn-server/config.toml` path 
 This will compile the project and install and start the service.
 
 
-### License
+## License
+
 [GPL](../LICENSE) Copyright (c) 2022 Mr.Panda.

@@ -36,5 +36,6 @@ cargo run --example [example name]
 Replace `example name` with one from the list of examples below.
 
 
-### License
+## License
+
 [GPL](../LICENSE) Copyright (c) 2022 Mr.Panda.
