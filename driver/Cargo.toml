@@ -1,15 +1,21 @@
 [package]
-name = "turn-drive"
+name = "turn-driver"
 version = "0.1.0"
 edition = "2021"
 
 [[example]]
-name = "simple"
+name = "balance"
+
+[[example]]
+name = "hooks"
+
+[[example]]
+name = "controller"
 
 [dependencies]
 tokio = { version = "1.35.1", features = ["net"]}
 tonic = { version = "0.10", features = ["prost", "gzip", "tls"] }
-turn-rs = { path = "../../turn", version = "1" }
+turn-rs = { path = "../turn", version = "1" }
 thiserror = "1.0.53"
 prost = "0.12"
 
@@ -19,4 +25,5 @@ prost-build = "0.12"
 
 [dev-dependencies]
 anyhow = "1.0"
+async-trait = "0.1"
 tokio = {version = "1", features = ["full"]}

@@ -2051,14 +2051,15 @@ dependencies = [
  "crossterm",
  "ratatui",
  "tokio",
- "turn-drive",
+ "turn-driver",
 ]
 
 [[package]]
-name = "turn-drive"
+name = "turn-driver"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "prost",
  "prost-build",
  "thiserror",

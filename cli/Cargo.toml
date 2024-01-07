@@ -9,4 +9,4 @@ crossterm = "0.27.0"
 clap = { version = "4", features = ["derive", "env"] }
 tokio = { version = "1.35.1", features = ["full"] }
 ratatui = { version = "0.25.0", features = ["unstable-segment-size"] }
-turn-drive = { path = "../drives/rust", version = "0.1"}
+turn-driver = { path = "../driver", version = "0.1"}

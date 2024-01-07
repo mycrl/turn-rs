@@ -89,7 +89,7 @@ impl Controller {
     ///
     /// rpc GetStats (google.protobuf.Empty) returns (Stats)
     /// ```
-    pub async fn get_status(&self) -> Result<Stats, ControllerError> {
+    pub async fn get_stats(&self) -> Result<Stats, ControllerError> {
         let stats = self
             .0
             .lock()

@@ -18,7 +18,7 @@ use crossterm::{
 use events::EventProxy;
 use ratatui::prelude::*;
 use state::create_state;
-use turn_drive::controller::Controller;
+use turn_driver::controller::Controller;
 use ui::Ui;
 use util::Opts;
 

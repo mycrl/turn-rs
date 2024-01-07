@@ -4,7 +4,7 @@ use std::{
 };
 
 use tokio::{sync::mpsc::UnboundedReceiver, time::sleep};
-use turn_drive::controller::{Controller, Session, Stats, Users};
+use turn_driver::controller::{Controller, Session, Stats, Users};
 
 use crate::{events::Events, util::EasyAtomic};
 
@@ -51,7 +51,7 @@ pub async fn create_state(
     let state_ = state.clone();
     tokio::spawn(async move {
         {
-            *state_.stats.write().unwrap() = Arc::new(rpc_.get_status().await?);
+            *state_.stats.write().unwrap() = Arc::new(rpc_.get_stats().await?);
         }
 
         while let Some(event) = receiver.recv().await {

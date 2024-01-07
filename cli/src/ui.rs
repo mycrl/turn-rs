@@ -5,7 +5,7 @@ use std::{
 
 use crossterm::event::KeyCode;
 use ratatui::{layout::SegmentSize, prelude::*, widgets::*};
-use turn_drive::controller::Report;
+use turn_driver::controller::Report;
 
 use crate::{
     events::{EventProxy, EventSender, Events},
@@ -264,7 +264,8 @@ impl InterfacesWidget {
                             "TCP"
                         } else {
                             "UDP"
-                        }.to_string(),
+                        }
+                        .to_string(),
                         item.bind.to_string(),
                         item.external.to_string(),
                     ])
