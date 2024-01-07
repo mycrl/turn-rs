@@ -1,4 +1,4 @@
-use turn_balance_client::Balance;
+use turn_driver::balance::Balance;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

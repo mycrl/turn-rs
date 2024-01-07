@@ -1,6 +1,11 @@
 <!--lint disable no-literal-urls-->
+<div align="right">
+  <a href="./README.CN.md">简体中文</a>
+  /
+  <a href="./README.md">English</a>
+</div>
 <div align="center">
-  <h1>TURN-RS</h1>
+  <img src="./logo.svg" width="200px"/>
 </div>
 <br/>
 <div align="center">
@@ -65,7 +70,7 @@ Turn服务器的纯Rust实现, 与coturn相比, 优点是提供更好的性能.�
 turn-server --config=/etc/turn_server/config.toml
 ```
 
-详细配置项请查看示例配置文件: [turn_server.toml](./turn_server.toml)
+详细配置项请查看示例配置文件: [turn-server.toml](./turn-server.toml)
 
 
 #### Docker

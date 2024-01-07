@@ -126,7 +126,7 @@ async fn main() -> anyhow::Result<()> {
                     break;
                 }
             }
-            
+
             // Sent every 10 seconds, too many packets can cause unnecessary overhead by the
             // parent.
             sleep(Duration::from_secs(10)).await;

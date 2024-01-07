@@ -1,11 +1,13 @@
+use std::net::SocketAddr;
+
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 #[derive(Debug, Clone)]
 pub enum Events {
     GetUsers(u32),
-    GetSession(String),
+    GetSession(SocketAddr),
     ClearSession,
-    RemoveSession(String),
+    RemoveSession(SocketAddr),
 }
 
 #[derive(Clone)]
