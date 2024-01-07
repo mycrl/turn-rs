@@ -18,6 +18,13 @@
 This is a turn-rs driver library provided for use by rust. The driver can implement turn external control, turn external hooks, and balance delay detection functions.
 
 
+## Examples
+
+* [balance](./examples/balance.rs) - Send a latency detection request to the turn balance server at address `127.0.0.1:3001`.  
+* [controller](./examples/controller.rs) - A simple external controller that only gets status information from the turn server.
+* [hooks](./examples/hooks.rs) - A simple external hook service that handles turn server requests to get passwords.
+
+
 ## Start Examples
 
 A quick example can be run through `cargo`:
@@ -27,13 +34,6 @@ cargo run --example [example name]
 ```
 
 Replace `example name` with one from the list of examples below.
-
-
-#### Examples
-
-* [balance](./examples/balance.rs) - Send a latency detection request to the turn balance server at address `127.0.0.1:3001`.  
-* [controller](./examples/controller.rs) - A simple external controller that only gets status information from the turn server.
-* [hooks](./examples/hooks.rs) - A simple external hook service that handles turn server requests to get passwords.
 
 
 ### License
