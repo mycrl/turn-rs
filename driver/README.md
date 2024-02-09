@@ -33,8 +33,6 @@ A quick example can be run through `cargo`:
 cargo run --example [example name]
 ```
 
-Replace `example name` with one from the list of examples below.
-
 
 ## License
 
