@@ -15,15 +15,10 @@ bytes = "1.5.0"
 log = "0.4.20"
 simple_logger = "4.3.0"
 num_cpus = "1.15"
+mimalloc = { version = "*", default-features = false }
 
 [build-dependencies]
 prost-build = "0.12"
-
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-jemallocator = "0.5.4"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-mimalloc = "0.1.37"
 
 [features]
 system_allocator = []
