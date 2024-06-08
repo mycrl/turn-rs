@@ -1,28 +1,27 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::config::Config;
-use crate::monitor::Monitor;
-use crate::rpc::{create_hooks, Hooks};
+use crate::{api::HooksService, config::Config, monitor::Monitor};
 
 use anyhow::Result;
 use async_trait::async_trait;
+use serde_json::json;
 
 pub struct Observer {
-    hooks: Hooks,
+    hooks: HooksService,
     monitor: Monitor,
 }
 
 impl Observer {
     pub async fn new(cfg: Arc<Config>, monitor: Monitor) -> Result<Self> {
         Ok(Self {
-            hooks: create_hooks(cfg).await?,
+            hooks: HooksService::new(cfg),
             monitor,
         })
     }
 }
 
 #[async_trait]
-impl turn_rs::Observer for Observer {
+impl turn::Observer for Observer {
     async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
         let pwd = self.hooks.get_password(addr, name).await;
         log::info!("auth: addr={:?}, name={:?}, pwd={:?}", addr, name, pwd);
@@ -48,8 +47,12 @@ impl turn_rs::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
-        let _ = self.hooks.allocated(addr, name, port);
         self.monitor.set(*addr);
+        self.hooks.send_event(json!({
+            "kind": "allocated",
+            "addr": addr,
+            "port": port,
+        }));
     }
 
     /// binding request
@@ -77,7 +80,10 @@ impl turn_rs::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn binding(&self, addr: &SocketAddr) {
         log::info!("binding: addr={:?}", addr);
-        let _ = self.hooks.binding(addr);
+        self.hooks.send_event(json!({
+            "kind": "binding",
+            "addr": addr,
+        }))
     }
 
     /// channel binding request
@@ -111,15 +117,19 @@ impl turn_rs::Observer for Observer {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     #[allow(clippy::let_underscore_future)]
-    fn channel_bind(&self, addr: &SocketAddr, name: &str, number: u16) {
+    fn channel_bind(&self, addr: &SocketAddr, name: &str, channel: u16) {
         log::info!(
-            "channel bind: addr={:?}, name={:?}, number={}",
+            "channel bind: addr={:?}, name={:?}, channel={}",
             addr,
             name,
-            number
+            channel
         );
 
-        let _ = self.hooks.channel_bind(addr, name, number);
+        self.hooks.send_event(json!({
+            "kind": "channel_bind",
+            "addr": addr,
+            "channel": channel,
+        }));
     }
 
     /// create permission request
@@ -170,7 +180,11 @@ impl turn_rs::Observer for Observer {
             relay
         );
 
-        let _ = self.hooks.create_permission(addr, name, relay);
+        self.hooks.send_event(json!({
+            "kind": "create_permission",
+            "addr": addr,
+            "relay": relay,
+        }));
     }
 
     /// refresh request
@@ -213,9 +227,19 @@ impl turn_rs::Observer for Observer {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     #[allow(clippy::let_underscore_future)]
-    fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {
-        log::info!("refresh: addr={:?}, name={:?}, time={}", addr, name, time);
-        let _ = self.hooks.refresh(addr, name, time);
+    fn refresh(&self, addr: &SocketAddr, name: &str, expiration: u32) {
+        log::info!(
+            "refresh: addr={:?}, name={:?}, expiration={}",
+            addr,
+            name,
+            expiration
+        );
+        
+        self.hooks.send_event(json!({
+            "kind": "refresh",
+            "addr": addr,
+            "expiration": expiration,
+        }))
     }
 
     /// session abort
@@ -226,7 +250,10 @@ impl turn_rs::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
-        let _ = self.hooks.abort(addr, name);
         self.monitor.delete(addr);
+        self.hooks.send_event(json!({
+            "kind": "abort",
+            "addr": addr,
+        }))
     }
 }

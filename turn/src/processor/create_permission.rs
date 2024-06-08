@@ -2,9 +2,9 @@ use super::{ip_is_local, verify_message, Context, Response};
 use crate::{StunClass, SOFTWARE};
 
 use bytes::BytesMut;
-use faster_stun::attribute::ErrKind::*;
-use faster_stun::attribute::*;
-use faster_stun::*;
+use stun::attribute::ErrKind::*;
+use stun::attribute::*;
+use stun::*;
 
 /// return create permission error response
 #[inline(always)]

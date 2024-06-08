@@ -7,9 +7,8 @@ use std::{
 };
 
 use ahash::AHashMap;
-use serde::Serialize;
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Copy)]
 pub struct NodeCounts {
     pub received_bytes: usize,
     pub send_bytes: usize,

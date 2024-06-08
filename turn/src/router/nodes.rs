@@ -8,15 +8,15 @@ use std::{
 use super::ports::capacity;
 
 use ahash::{AHashMap, AHashSet};
-use faster_stun::util::long_key;
+use stun::util::long_key;
 
 /// turn node session.
 #[derive(Clone)]
 pub struct Node {
     pub channels: Vec<u16>,
     pub ports: Vec<u16>,
-    pub timer: Instant,
-    pub lifetime: u64,
+    pub lifetime: Instant,
+    pub expiration: u64,
     pub secret: Arc<[u8; 16]>,
     pub username: String,
     pub password: String,
@@ -33,8 +33,8 @@ impl Node {
             ports: Vec::with_capacity(10),
             username: username.to_string(),
             password: password.to_string(),
-            timer: Instant::now(),
-            lifetime: 600,
+            lifetime: Instant::now(),
+            expiration: 600,
             secret,
         }
     }
@@ -57,8 +57,8 @@ impl Node {
     /// assert!(!node.is_death());
     /// ```
     pub fn set_lifetime(&mut self, delay: u32) {
-        self.lifetime = delay as u64;
-        self.timer = Instant::now();
+        self.expiration = delay as u64;
+        self.lifetime = Instant::now();
     }
 
     /// whether the node is dead.
@@ -77,7 +77,7 @@ impl Node {
     /// assert!(!node.is_death());
     /// ```
     pub fn is_death(&self) -> bool {
-        self.timer.elapsed().as_secs() >= self.lifetime
+        self.lifetime.elapsed().as_secs() >= self.expiration
     }
 
     /// get node the secret.

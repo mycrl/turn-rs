@@ -34,8 +34,8 @@ impl<'a, 'b> MessageWriter<'a> {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use faster_stun::*;
     /// use std::convert::TryFrom;
+    /// use stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -68,9 +68,9 @@ impl<'a, 'b> MessageWriter<'a> {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use faster_stun::attribute::UserName;
-    /// use faster_stun::*;
     /// use std::convert::TryFrom;
+    /// use stun::attribute::UserName;
+    /// use stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -122,8 +122,8 @@ impl<'a, 'b> MessageWriter<'a> {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use faster_stun::*;
     /// use std::convert::TryFrom;
+    /// use stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -165,15 +165,15 @@ impl<'a, 'b> MessageWriter<'a> {
 
     /// append MessageIntegrity attribute.
     ///
-    /// add the `MessageIntegrity` attribute to the faster_stun message
+    /// add the `MessageIntegrity` attribute to the stun message
     /// and serialize the message into a buffer.
     ///
     /// # Unit Test
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use faster_stun::*;
     /// use std::convert::TryFrom;
+    /// use stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -261,9 +261,9 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// # Unit Test
     ///
     /// ```
-    /// use faster_stun::attribute::*;
-    /// use faster_stun::*;
     /// use std::convert::TryFrom;
+    /// use stun::attribute::*;
+    /// use stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -290,8 +290,8 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// # Unit Test
     ///
     /// ```
-    /// use faster_stun::*;
     /// use std::convert::TryFrom;
+    /// use stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x03, 0x00, 0x50, 0x21, 0x12, 0xa4, 0x42, 0x64, 0x4f, 0x5a,
@@ -346,9 +346,9 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// # Unit Test
     ///
     /// ```
-    /// use faster_stun::attribute::*;
-    /// use faster_stun::*;
     /// use std::convert::TryFrom;
+    /// use stun::attribute::*;
+    /// use stun::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
@@ -457,7 +457,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// # Unit Test
     ///
     /// ```
-    /// use faster_stun::*;
+    /// use stun::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,

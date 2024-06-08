@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use criterion::*;
-use turn_rs::{Observer, Router};
+use turn::{Observer, Router};
 
 struct RouterObserver;
 

@@ -46,8 +46,8 @@ impl ChannelData<'_> {
     /// # Unit Test
     ///
     /// ```
-    /// use faster_stun::*;
     /// use std::convert::TryFrom;
+    /// use stun::*;
     ///
     /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     ///
@@ -78,8 +78,8 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     /// # Unit Test
     ///
     /// ```
-    /// use faster_stun::*;
     /// use std::convert::TryFrom;
+    /// use stun::*;
     ///
     /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x00];
     ///

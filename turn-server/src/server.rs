@@ -1,13 +1,61 @@
+use crate::{
+    config::{Config, Transport},
+    monitor::{Monitor, Stats},
+    router::Router,
+};
+
 use std::{io::ErrorKind::ConnectionReset, net::SocketAddr, sync::Arc};
 
-use super::Monitor;
-use crate::{monitor::Stats, router::Router};
-
 use bytes::BytesMut;
-use faster_stun::Decoder;
-use tokio::net::{TcpListener, UdpSocket};
-use tokio::{io::AsyncReadExt, io::AsyncWriteExt, sync::Mutex};
-use turn_rs::{Service, StunClass};
+use stun::Decoder;
+use tokio::{
+    io::AsyncReadExt,
+    io::AsyncWriteExt,
+    net::{TcpListener, UdpSocket},
+    sync::Mutex,
+};
+
+use turn::{Service, StunClass};
+
+/// start turn server.
+///
+/// create a specified number of threads,
+/// each thread processes udp data separately.
+pub async fn run(config: Arc<Config>, monitor: Monitor, service: &Service) -> anyhow::Result<()> {
+    let router = Arc::new(Router::default());
+    for i in config.turn.interfaces.clone() {
+        let service = service.clone();
+        match i.transport {
+            Transport::UDP => {
+                tokio::spawn(udp_server(
+                    UdpSocket::bind(i.bind).await?,
+                    i.external,
+                    service.clone(),
+                    router.clone(),
+                    monitor.clone(),
+                ));
+            }
+            Transport::TCP => {
+                tokio::spawn(tcp_server(
+                    TcpListener::bind(i.bind).await?,
+                    i.external,
+                    service.clone(),
+                    router.clone(),
+                    monitor.clone(),
+                ));
+            }
+        }
+
+        log::info!(
+            "turn server listening: addr={}, external={}, transport={:?}",
+            i.bind,
+            i.external,
+            i.transport,
+        );
+    }
+
+    Ok(())
+}
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
 
@@ -15,7 +63,7 @@ static ZERO_BUF: [u8; 4] = [0u8; 4];
 ///
 /// This function is used to handle all connections coming from the tcp
 /// listener, and handle the receiving, sending and forwarding of messages.
-pub async fn tcp_processor(
+async fn tcp_server(
     listen: TcpListener,
     external: SocketAddr,
     service: Service,
@@ -148,7 +196,7 @@ pub async fn tcp_processor(
 /// read the data packet from the UDP socket and hand
 /// it to the proto for processing, and send the processed
 /// data packet to the specified address.
-pub async fn udp_processor(
+async fn udp_server(
     socket: UdpSocket,
     external: SocketAddr,
     service: Service,

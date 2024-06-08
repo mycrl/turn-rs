@@ -2,7 +2,7 @@ use std::{net::SocketAddr, sync::RwLock};
 
 use ahash::AHashMap;
 use tokio::sync::mpsc::*;
-use turn_rs::StunClass;
+use turn::StunClass;
 
 type Receiver = UnboundedSender<(Vec<u8>, StunClass, SocketAddr)>;
 

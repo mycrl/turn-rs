@@ -1,12 +1,14 @@
+#![allow(static_mut_refs)]
+
 use bytes::BytesMut;
-use faster_stun::attribute::{
+use stun::attribute::{
     ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Realm, ReqeestedTransport,
     ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress, XorRelayedAddress,
 };
 
-use faster_stun::{Decoder, Kind, MessageReader, MessageWriter, Method, Payload};
 use once_cell::sync::Lazy;
 use rand::seq::SliceRandom;
+use stun::{Decoder, Kind, MessageReader, MessageWriter, Method, Payload};
 use tokio::net::UdpSocket;
 use turn_server::{
     config::{self, *},
@@ -34,8 +36,7 @@ static TOKEN_BUF: Lazy<[u8; 12]> = Lazy::new(|| {
     token
 });
 
-static KEY_BUF: Lazy<[u8; 16]> =
-    Lazy::new(|| faster_stun::util::long_key(USERNAME, PASSWORD, REALM));
+static KEY_BUF: Lazy<[u8; 16]> = Lazy::new(|| stun::util::long_key(USERNAME, PASSWORD, REALM));
 static mut DECODER: Lazy<Decoder> = Lazy::new(Decoder::new);
 
 /// global static var end
@@ -59,8 +60,7 @@ pub async fn create_turn() {
     tokio::spawn(async move {
         server_main(Arc::new(Config {
             auth,
-            controller: Controller::default(),
-            hooks: Hooks::default(),
+            api: Api::default(),
             log: Log::default(),
             turn: Turn {
                 realm: REALM.to_string(),

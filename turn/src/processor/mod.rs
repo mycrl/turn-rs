@@ -11,8 +11,8 @@ use crate::{router::Router, Observer, StunClass};
 use std::{net::SocketAddr, sync::Arc};
 
 use bytes::BytesMut;
-use faster_stun::attribute::*;
-use faster_stun::*;
+use stun::attribute::*;
+use stun::*;
 
 pub struct Env {
     pub interface: SocketAddr,

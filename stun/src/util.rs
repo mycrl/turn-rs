@@ -12,9 +12,9 @@ use crate::StunError;
 /// # Unit Test
 ///
 /// ```
-/// assert_eq!(faster_stun::util::pad_size(4), 0);
-/// assert_eq!(faster_stun::util::pad_size(0), 0);
-/// assert_eq!(faster_stun::util::pad_size(5), 3);
+/// assert_eq!(stun::util::pad_size(4), 0);
+/// assert_eq!(stun::util::pad_size(0), 0);
+/// assert_eq!(stun::util::pad_size(5), 3);
 /// ```
 #[inline(always)]
 pub fn pad_size(size: usize) -> usize {
@@ -36,7 +36,7 @@ pub fn pad_size(size: usize) -> usize {
 ///     0x2f, 0x59, 0xb5, 0x0f, 0xd1,
 /// ];
 ///
-/// let key = faster_stun::util::long_key("panda", "panda", "raspberry");
+/// let key = stun::util::long_key("panda", "panda", "raspberry");
 /// assert_eq!(key, buffer);
 /// ```
 pub fn long_key(username: &str, key: &str, realm: &str) -> [u8; 16] {
@@ -70,7 +70,7 @@ pub fn long_key(username: &str, key: &str, realm: &str) -> [u8; 16] {
 ///     0x74, 0xe2, 0x3c, 0x26, 0xc5, 0xb1, 0x03, 0xb2, 0x6d,
 /// ];
 ///
-/// let hmac_output = faster_stun::util::hmac_sha1(&key, vec![&buffer])
+/// let hmac_output = stun::util::hmac_sha1(&key, vec![&buffer])
 ///     .unwrap()
 ///     .into_bytes();
 /// assert_eq!(hmac_output.as_slice(), &sign);
@@ -93,7 +93,7 @@ pub fn hmac_sha1(key: &[u8], source: Vec<&[u8]>) -> Result<CtOutput<Hmac<sha1::S
 /// # Unit Test
 ///
 /// ```
-/// assert_eq!(faster_stun::util::fingerprint(b"1"), 3498621689);
+/// assert_eq!(stun::util::fingerprint(b"1"), 3498621689);
 /// ```
 pub fn fingerprint(buffer: &[u8]) -> u32 {
     Crc::<u32>::new(&CRC_32_ISO_HDLC).checksum(buffer) ^ 0x5354_554e
@@ -104,7 +104,7 @@ pub fn fingerprint(buffer: &[u8]) -> u32 {
 /// # Unit Test
 ///
 /// ```
-/// let int = faster_stun::util::as_u16(&[0x00, 0x04]);
+/// let int = stun::util::as_u16(&[0x00, 0x04]);
 /// assert_eq!(int, 4);
 /// ```
 #[rustfmt::skip]
@@ -122,7 +122,7 @@ pub fn as_u16(buf: &[u8]) -> u16 {
 /// # Unit Test
 ///
 /// ```
-/// let int = faster_stun::util::as_u32(&[0x00, 0x00, 0x00, 0x04]);
+/// let int = stun::util::as_u32(&[0x00, 0x00, 0x00, 0x04]);
 ///
 /// assert_eq!(int, 4);
 /// ```
@@ -144,7 +144,7 @@ pub fn as_u32(buf: &[u8]) -> u32 {
 ///
 /// ```
 /// let int =
-///     faster_stun::util::as_u64(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04]);
+///     stun::util::as_u64(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04]);
 ///
 /// assert_eq!(int, 4);
 /// ```

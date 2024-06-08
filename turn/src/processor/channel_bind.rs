@@ -2,9 +2,9 @@ use super::{verify_message, Context, Response};
 use crate::StunClass;
 
 use bytes::BytesMut;
-use faster_stun::attribute::ErrKind::*;
-use faster_stun::attribute::*;
-use faster_stun::*;
+use stun::attribute::ErrKind::*;
+use stun::attribute::*;
+use stun::*;
 
 /// return channel binding error response
 #[inline(always)]

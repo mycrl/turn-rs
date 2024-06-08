@@ -113,7 +113,7 @@ pub enum AttrKind {
     IceControlling = 0x802A,
 }
 
-/// dyn faster_stun/turn message attribute.
+/// dyn stun/turn message attribute.
 #[rustfmt::skip]
 pub trait Property<'a> {
     type Error;

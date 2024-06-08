@@ -1,6 +1,6 @@
 use super::{Context, Response};
 use crate::StunClass;
-use faster_stun::ChannelData;
+use stun::ChannelData;
 
 /// process channel data
 ///
