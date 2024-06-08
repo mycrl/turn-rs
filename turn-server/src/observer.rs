@@ -234,7 +234,7 @@ impl turn::Observer for Observer {
             name,
             expiration
         );
-        
+
         self.hooks.send_event(json!({
             "kind": "refresh",
             "addr": addr,
