@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::{api::HooksService, config::Config, monitor::Monitor};
+use crate::{api::HooksService, config::Config, statistics::Statistics};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -8,14 +8,14 @@ use serde_json::json;
 
 pub struct Observer {
     hooks: HooksService,
-    monitor: Monitor,
+    statistics: Statistics,
 }
 
 impl Observer {
-    pub async fn new(cfg: Arc<Config>, monitor: Monitor) -> Result<Self> {
+    pub async fn new(cfg: Arc<Config>, statistics: Statistics) -> Result<Self> {
         Ok(Self {
             hooks: HooksService::new(cfg),
-            monitor,
+            statistics,
         })
     }
 }
@@ -47,7 +47,7 @@ impl turn::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
-        self.monitor.set(*addr);
+        self.statistics.set(*addr);
         self.hooks.send_event(json!({
             "kind": "allocated",
             "addr": addr,
@@ -250,7 +250,7 @@ impl turn::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
-        self.monitor.delete(addr);
+        self.statistics.delete(addr);
         self.hooks.send_event(json!({
             "kind": "abort",
             "addr": addr,

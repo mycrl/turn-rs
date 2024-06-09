@@ -1,9 +1,4 @@
 <!--lint disable no-literal-urls-->
-<div align="right">
-  <a href="./README.CN.md">简体中文</a>
-  /
-  <a href="./README.md">English</a>
-</div>
 <div align="center">
   <img src="./logo.svg" width="200px"/>
 </div>
@@ -35,40 +30,54 @@ If you are not familiar with coturn configuration items and are annoyed by the c
 
 If you have extensive standard support requirements for turn servers and need more integrated services and ecological support, then you should choose coturn.
 
-## Who uses it?
-
-* [`Psyai`](https://psyai.com) <sup>(turn-rs has been in service for more than a year without any faults or downtime.)</sup>
-* [`Faszialespecialist`](https://faszialespecialist.com/)
-
 
 ## Table of contents
 
 * [features](#features)
-* [components](#components)
+* [usage](#usage)
+  * [docker](#docker)  
+  * [linux service](#linux-service)
 * [building](#building)
 
 
 ## Features
 
-- Only long-term authentication mechanisms are supported.
+- Only long-term authentication mechanisms are used.
 - Static authentication lists can be used in configuration files.
 - Only virtual ports are always allocated and no real system ports are occupied.
 - The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
-- Provides a simple command line tool to manage and monitor the turn server through the command line tool graphical interface. <sup>([`turn-cli`])</sup>
-- With a load balanced server, you can allow users to reach your turn server quickly with the best line. <sup>([`turn-balance`])</sup>
-- The grpc interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session. <sup>([`protos`])</sup>
+- The HTTP interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
 
-[`turn-balance`]: ./turn-balance
 [`turn-cli`]: ./cli
-[`protos`]: ./protos
+[`proto`]: ./protos
+
+## Usage
+
+> The version on crates.io can be very outdated. It is recommended to compile directly from the github source or download the compiled binary from the [release](https://github.com/mycrl/turn-rs/releases).
+
+Start with configuration file:
+
+```bash
+turn-server --config=/etc/turn-server/config.toml
+```
+
+Please check the example configuration file for details: [turn-server.toml](./turn-server.toml)
 
 
-## Components
+#### Docker
 
-* [turn server](./turn-server) - A pure Rust implementation of the turn server.
-* [turn balance](./turn-balance) - A simple distributed load balancing service.
-* [turn cli](./cli) - A simple turn server command line monitoring tool.
-* [turn driver](./driver) - A turn server driver for rust.
+```bash
+docker pull ghcr.io/mycrl/turn-server
+```
+The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
+
+#### Linux service
+
+```
+./install-service.sh
+```
+
+This will compile the project and install and start the service.
 
 
 ## Building
@@ -81,10 +90,6 @@ You need to install the Rust toolchain, if you have already installed it, you ca
 git clone https://github.com/mycrl/turn-rs
 ```
 
-##### Protoc
-
-Because all internal communication is based on `protobuf`, and the `prost-build` required to compile `.proto` files needs to rely on `protoc`, so please install protoc into your environment, to install `protoc` please see the [protobuf installation](https://github.com/protocolbuffers/protobuf#protobuf-compiler-installation) instructions.
-
 #### Build workspace
 
 Compile the entire workspace in release mode:
@@ -94,9 +99,7 @@ cd turn-rs
 cargo build --release
 ```
 
-After the compilation is complete, you can find the binary file in the `"target/release"` directory.  
-
-> turn server uses mimalloc memory allocator by default, and the third party memory allocator is not very friendly in terms of memory reclaim speed and memory usage for performance consideration, if you feel mindful of this, you can use `cargo build --release --features system_allocator` option to switch to the platform's default memory allocator at compile time.
+After the compilation is complete, you can find the binary file in the `"target/release"` directory.
 
 
 ## License

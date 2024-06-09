@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc, time::Instant};
 
-use crate::{config::Config, monitor::Monitor};
+use crate::{config::Config, statistics::Statistics};
 
 use axum::{
     extract::{Query, State},
@@ -22,7 +22,7 @@ use turn::Service;
 struct AppState {
     config: Arc<Config>,
     service: Service,
-    monitor: Monitor,
+    statistics: Statistics,
     uptime: Instant,
 }
 
@@ -44,7 +44,7 @@ struct QueryFilter {
 pub async fn start_server(
     config: Arc<Config>,
     service: Service,
-    monitor: Monitor,
+    statistics: Statistics,
 ) -> anyhow::Result<()> {
     let app = Router::new()
         .route(
@@ -77,10 +77,7 @@ pub async fn start_server(
 
                     let mut res = Vec::with_capacity(addrs.len());
                     for addr in addrs {
-                        if let (Some(node), Some(counts)) = (
-                            state.service.get_router().get_node(&Arc::new(addr)),
-                            state.monitor.get(&addr),
-                        ) {
+                        if let Some(node) = state.service.get_router().get_node(&Arc::new(addr)) {
                             res.push(json!({
                                 "address": addr,
                                 "username": node.username,
@@ -89,15 +86,31 @@ pub async fn start_server(
                                 "allocated_ports": node.ports,
                                 "expiration": node.expiration,
                                 "lifetime": node.lifetime.elapsed().as_secs(),
-                                "received_bytes": counts.received_bytes,
-                                "send_bytes": counts.send_bytes,
-                                "received_pkts": counts.received_pkts,
-                                "send_pkts": counts.send_pkts,
                             }));
                         }
                     }
 
                     Json(Value::Array(res)).into_response()
+                },
+            ),
+        )
+        .route(
+            "/session/statistics",
+            get(
+                |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
+                    if let Some(addr) = query.addr {
+                        if let Some(counts) = state.statistics.get(&addr) {
+                            return Json(json!({
+                                "received_bytes": counts.received_bytes,
+                                "send_bytes": counts.send_bytes,
+                                "received_pkts": counts.received_pkts,
+                                "send_pkts": counts.send_pkts,
+                            }))
+                            .into_response();
+                        }
+                    }
+
+                    StatusCode::NOT_FOUND.into_response()
                 },
             ),
         )
@@ -129,7 +142,7 @@ pub async fn start_server(
             config: config.clone(),
             uptime: Instant::now(),
             service,
-            monitor,
+            statistics,
         }));
 
     log::info!("controller server listening={:?}", &config.api.bind);
