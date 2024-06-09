@@ -3,13 +3,14 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 use crate::{config::Config, monitor::Monitor};
 
 use axum::{
-    extract::{Path, State},
+    extract::{Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get},
     Json, Router,
 };
 
+use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::{
     net::TcpListener,
@@ -23,6 +24,12 @@ struct AppState {
     service: Service,
     monitor: Monitor,
     uptime: Instant,
+}
+
+#[derive(Deserialize)]
+struct QueryFilter {
+    addr: Option<SocketAddr>,
+    username: Option<String>,
 }
 
 /// start http server
@@ -45,11 +52,7 @@ pub async fn start_server(
             get(|State(state): State<Arc<AppState>>| async move {
                 let router = state.service.get_router();
                 Json(json!({
-                    "software": concat!(
-                        env!("CARGO_PKG_NAME"),
-                        ":",
-                        env!("CARGO_PKG_VERSION")
-                    ),
+                    "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
                     "uptime": state.uptime.elapsed().as_secs(),
                     "realm": state.config.turn.realm,
                     "port_allocated": router.len(),
@@ -59,41 +62,66 @@ pub async fn start_server(
             }),
         )
         .route(
-            "/session/:addr/info",
+            "/session",
             get(
-                |Path(addr): Path<SocketAddr>, State(state): State<Arc<AppState>>| async move {
-                    if let (Some(node), Some(counts)) = (
-                        state.service.get_router().get_node(&Arc::new(addr)),
-                        state.monitor.get(&addr),
-                    ) {
-                        Json(json!({
-                            "username": node.username,
-                            "password": node.password,
-                            "allocated_channels": node.channels,
-                            "allocated_ports": node.ports,
-                            "expiration": node.expiration,
-                            "lifetime": node.lifetime.elapsed().as_secs(),
-                            "received_bytes": counts.received_bytes,
-                            "send_bytes": counts.send_bytes,
-                            "received_pkts": counts.received_pkts,
-                            "send_pkts": counts.send_pkts,
-                        }))
-                        .into_response()
+                |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
+                    let addrs = if let Some(username) = query.username {
+                        state.service.get_router().get_node_addrs(&username)
                     } else {
-                        StatusCode::NOT_FOUND.into_response()
+                        if let Some(addr) = query.addr {
+                            vec![addr]
+                        } else {
+                            return StatusCode::NOT_FOUND.into_response();
+                        }
+                    };
+
+                    let mut res = Vec::with_capacity(addrs.len());
+                    for addr in addrs {
+                        if let (Some(node), Some(counts)) = (
+                            state.service.get_router().get_node(&Arc::new(addr)),
+                            state.monitor.get(&addr),
+                        ) {
+                            res.push(json!({
+                                "address": addr,
+                                "username": node.username,
+                                "password": node.password,
+                                "allocated_channels": node.channels,
+                                "allocated_ports": node.ports,
+                                "expiration": node.expiration,
+                                "lifetime": node.lifetime.elapsed().as_secs(),
+                                "received_bytes": counts.received_bytes,
+                                "send_bytes": counts.send_bytes,
+                                "received_pkts": counts.received_pkts,
+                                "send_pkts": counts.send_pkts,
+                            }));
+                        }
                     }
+
+                    Json(Value::Array(res)).into_response()
                 },
             ),
         )
         .route(
-            "/session/:addr",
+            "/session",
             delete(
-                |Path(addr): Path<SocketAddr>, State(state): State<Arc<AppState>>| async move {
-                    if state.service.get_router().remove(&Arc::new(addr)).is_some() {
-                        StatusCode::OK
+                |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
+                    let addrs = if let Some(username) = query.username {
+                        state.service.get_router().get_node_addrs(&username)
                     } else {
-                        StatusCode::EXPECTATION_FAILED
+                        if let Some(addr) = query.addr {
+                            vec![addr]
+                        } else {
+                            return StatusCode::NOT_FOUND;
+                        }
+                    };
+
+                    for addr in addrs {
+                        if state.service.get_router().remove(&Arc::new(addr)).is_none() {
+                            return StatusCode::EXPECTATION_FAILED;
+                        }
                     }
+
+                    StatusCode::OK
                 },
             ),
         )
@@ -129,7 +157,7 @@ impl HooksService {
 
                 while let Some(signal) = rx.recv().await {
                     if let Err(e) = client_.post(&uri).json(&signal).send().await {
-                        log::error!("failed to request hooks server, err={:?}", e);
+                        log::error!("failed to request hooks server, err={}", e);
                     }
                 }
             }
@@ -157,7 +185,9 @@ impl HooksService {
 
     pub fn send_event(&self, event: Value) {
         if self.cfg.api.hooks.is_some() {
-            let _ = self.tx.send(event);
+            if let Err(e) = self.tx.send(event) {
+                log::error!("failed to send event, err={}", e)
+            }
         }
     }
 }
