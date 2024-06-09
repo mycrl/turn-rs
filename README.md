@@ -53,7 +53,7 @@ If you have extensive standard support requirements for turn servers and need mo
 
 ## Usage
 
-> The version on crates.io can be very outdated. It is recommended to compile directly from the github source or download the compiled binary from the [release](https://github.com/mycrl/turn-rs/releases).
+First, Get the compiled binaries from [github release](https://github.com/mycrl/turn-rs/releases).
 
 Start with configuration file:
 
