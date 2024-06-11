@@ -30,7 +30,7 @@ impl Interfaces {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::interfaces::*;
+    /// use turn::router::interfaces::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let interface = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -57,7 +57,7 @@ impl Interfaces {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::interfaces::*;
+    /// use turn::router::interfaces::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let interface = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -83,7 +83,7 @@ impl Interfaces {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::interfaces::*;
+    /// use turn::router::interfaces::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let interface = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -105,7 +105,7 @@ impl Interfaces {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::interfaces::*;
+    /// use turn::router::interfaces::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let interface = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();

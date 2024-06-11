@@ -43,8 +43,8 @@ impl Router {
     ///
     /// ```
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
@@ -85,8 +85,8 @@ impl Router {
     ///
     /// ```
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
@@ -104,8 +104,8 @@ impl Router {
     ///
     /// ```
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
@@ -123,8 +123,8 @@ impl Router {
     ///
     /// ```
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
@@ -143,8 +143,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -183,8 +183,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -223,8 +223,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -267,8 +267,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -307,8 +307,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -349,8 +349,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -422,8 +422,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -464,8 +464,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -505,8 +505,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -587,8 +587,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -632,8 +632,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -682,8 +682,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -757,8 +757,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -801,8 +801,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -849,8 +849,8 @@ impl Router {
     /// ```
     /// use std::net::SocketAddr;
     /// use std::sync::Arc;
-    /// use turn_rs::router::*;
-    /// use turn_rs::*;
+    /// use turn::router::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///

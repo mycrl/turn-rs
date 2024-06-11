@@ -46,7 +46,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     ///
@@ -66,7 +66,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     ///
@@ -85,7 +85,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     /// let secret = node.get_secret();
@@ -106,7 +106,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     ///
@@ -124,7 +124,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     ///
@@ -163,7 +163,7 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// assert_eq!(nodes.get_users(0, 10), vec![]);
@@ -185,7 +185,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -215,7 +215,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -241,7 +241,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -286,7 +286,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -319,7 +319,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -352,7 +352,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -402,7 +402,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -444,7 +444,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -476,7 +476,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();

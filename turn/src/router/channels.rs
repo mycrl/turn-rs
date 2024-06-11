@@ -29,7 +29,7 @@ impl Iterator for Iter {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let mut iter = Iter::new(Channel::new(&addr));
@@ -109,7 +109,7 @@ impl Channel {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let channel = Channel::new(&addr);
@@ -125,7 +125,7 @@ impl Channel {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let channel = Channel::new(&addr);
@@ -141,7 +141,7 @@ impl Channel {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -160,7 +160,7 @@ impl Channel {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let mut channel = Channel::new(&addr);
@@ -178,7 +178,7 @@ impl Channel {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let mut channel = Channel::new(&addr);
@@ -199,7 +199,7 @@ impl IntoIterator for Channel {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let channel = Channel::new(&addr);
@@ -240,7 +240,7 @@ impl Channels {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -261,7 +261,7 @@ impl Channels {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -308,7 +308,7 @@ impl Channels {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -332,7 +332,7 @@ impl Channels {
     /// get death channels.
     ///
     /// ```
-    /// use turn_rs::router::channels::*;
+    /// use turn::router::channels::*;
     ///
     /// let channels = Channels::new();
     /// assert_eq!(channels.get_deaths().len(), 0);

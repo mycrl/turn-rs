@@ -22,7 +22,7 @@ impl Router {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::StunClass;
+    /// use turn::StunClass;
     /// use turn_server::router::*;
     ///
     /// #[tokio::main]
@@ -58,7 +58,7 @@ impl Router {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::StunClass;
+    /// use turn::StunClass;
     /// use turn_server::router::*;
     ///
     /// #[tokio::main]
@@ -96,7 +96,7 @@ impl Router {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::StunClass;
+    /// use turn::StunClass;
     /// use turn_server::router::*;
     ///
     /// #[tokio::main]
