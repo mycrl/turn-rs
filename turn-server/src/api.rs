@@ -1,13 +1,25 @@
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{
+    net::SocketAddr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use crate::{config::Config, statistics::Statistics};
 
 use axum::{
     extract::{Query, State},
     http::StatusCode,
-    response::IntoResponse,
+    middleware,
+    response::{IntoResponse, Response},
     routing::{delete, get},
     Json, Router,
+};
+
+use once_cell::sync::Lazy;
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    Client, ClientBuilder,
 };
 
 use serde::Deserialize;
@@ -18,6 +30,15 @@ use tokio::{
 };
 
 use turn::Service;
+
+static RID: Lazy<String> = Lazy::new(|| {
+    let mut rng = thread_rng();
+    std::iter::repeat(())
+        .map(|_| rng.sample(Alphanumeric) as char)
+        .take(16)
+        .collect::<String>()
+        .to_lowercase()
+});
 
 struct AppState {
     config: Arc<Config>,
@@ -46,6 +67,13 @@ pub async fn start_server(
     service: Service,
     statistics: Statistics,
 ) -> anyhow::Result<()> {
+    let state = Arc::new(AppState {
+        config: config.clone(),
+        uptime: Instant::now(),
+        service,
+        statistics,
+    });
+
     let app = Router::new()
         .route(
             "/info",
@@ -54,7 +82,6 @@ pub async fn start_server(
                 Json(json!({
                     "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
                     "uptime": state.uptime.elapsed().as_secs(),
-                    "realm": state.config.turn.realm,
                     "port_allocated": router.len(),
                     "port_capacity": router.capacity(),
                     "interfaces": state.config.turn.interfaces,
@@ -138,12 +165,20 @@ pub async fn start_server(
                 },
             ),
         )
-        .with_state(Arc::new(AppState {
-            config: config.clone(),
-            uptime: Instant::now(),
-            service,
-            statistics,
-        }));
+        .route_layer(middleware::map_response_with_state(
+            state.clone(),
+            |State(state): State<Arc<AppState>>, mut res: Response| async move {
+                let headers = res.headers_mut();
+                headers.insert("Rid", HeaderValue::from_str(&RID).unwrap());
+                headers.insert(
+                    "Realm",
+                    HeaderValue::from_str(&state.config.turn.realm).unwrap(),
+                );
+
+                res
+            },
+        ))
+        .with_state(state);
 
     log::info!("controller server listening={:?}", &config.api.bind);
     axum::serve(TcpListener::bind(config.api.bind).await?, app).await?;
@@ -152,14 +187,23 @@ pub async fn start_server(
 }
 
 pub struct HooksService {
-    client: Arc<reqwest::Client>,
+    client: Arc<Client>,
     tx: UnboundedSender<Value>,
     cfg: Arc<Config>,
 }
 
 impl HooksService {
-    pub fn new(cfg: Arc<Config>) -> Self {
-        let client = Arc::new(reqwest::Client::new());
+    pub fn new(cfg: Arc<Config>) -> anyhow::Result<Self> {
+        let mut headers = HeaderMap::new();
+        headers.insert("Realm", HeaderValue::from_str(&cfg.turn.realm)?);
+        headers.insert("Rid", HeaderValue::from_str(&RID)?);
+
+        let client = Arc::new(
+            ClientBuilder::new()
+                .default_headers(headers)
+                .timeout(Duration::from_secs(5))
+                .build()?,
+        );
 
         let cfg_ = cfg.clone();
         let client_ = client.clone();
@@ -176,10 +220,14 @@ impl HooksService {
             }
         });
 
-        Self { client, cfg, tx }
+        Ok(Self { client, cfg, tx })
     }
 
     pub async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
+        if let Some(pwd) = self.cfg.auth.get(name) {
+            return Some(pwd.clone());
+        }
+
         if let Some(server) = &self.cfg.api.hooks {
             if let Ok(res) = self
                 .client

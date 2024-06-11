@@ -4,9 +4,11 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc, RwLock,
     },
+    time::Duration,
 };
 
 use ahash::AHashMap;
+use tokio::time::sleep;
 
 #[derive(Debug, Clone, Copy)]
 pub struct NodeCounts {
@@ -36,6 +38,10 @@ impl Count {
     fn get(&self) -> usize {
         self.0.load(Ordering::Relaxed)
     }
+
+    fn set_zero(&self) {
+        self.0.fetch_add(0, Ordering::Relaxed);
+    }
 }
 
 /// Worker independent statisticsing statistics
@@ -56,13 +62,33 @@ impl Counts {
             Stats::SendPkts(v) => self.send_pkts.add(*v),
         }
     }
+
+    fn clear(&self) {
+        self.received_bytes.set_zero();
+        self.received_pkts.set_zero();
+        self.send_bytes.set_zero();
+        self.send_pkts.set_zero();
+    }
 }
 
 /// worker cluster statistics
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Statistics(Arc<RwLock<AHashMap<SocketAddr, Counts>>>);
 
 impl Statistics {
+    pub fn new() -> Self {
+        let map: Arc<RwLock<AHashMap<SocketAddr, Counts>>> = Default::default();
+        let map_ = Arc::downgrade(&map);
+        tokio::spawn(async move {
+            while let Some(map) = map_.upgrade() {
+                let _ = map.read().unwrap().iter().for_each(|(_, it)| it.clear());
+                sleep(Duration::from_secs(1)).await;
+            }
+        });
+
+        Self(map)
+    }
+
     /// get signal sender
     ///
     /// The signal sender can notify the statisticsing instance to update

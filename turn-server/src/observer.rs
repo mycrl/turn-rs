@@ -14,7 +14,7 @@ pub struct Observer {
 impl Observer {
     pub async fn new(cfg: Arc<Config>, statistics: Statistics) -> Result<Self> {
         Ok(Self {
-            hooks: HooksService::new(cfg),
+            hooks: HooksService::new(cfg)?,
             statistics,
         })
     }
@@ -50,6 +50,7 @@ impl turn::Observer for Observer {
         self.statistics.set(*addr);
         self.hooks.send_event(json!({
             "kind": "allocated",
+            "name": name,
             "addr": addr,
             "port": port,
         }));
@@ -127,6 +128,7 @@ impl turn::Observer for Observer {
 
         self.hooks.send_event(json!({
             "kind": "channel_bind",
+            "name": name,
             "addr": addr,
             "channel": channel,
         }));
@@ -182,6 +184,7 @@ impl turn::Observer for Observer {
 
         self.hooks.send_event(json!({
             "kind": "create_permission",
+            "name": name,
             "addr": addr,
             "relay": relay,
         }));
@@ -237,12 +240,13 @@ impl turn::Observer for Observer {
 
         self.hooks.send_event(json!({
             "kind": "refresh",
+            "name": name,
             "addr": addr,
             "expiration": expiration,
         }))
     }
 
-    /// session abort
+    /// session closed
     ///
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
@@ -253,6 +257,7 @@ impl turn::Observer for Observer {
         self.statistics.delete(addr);
         self.hooks.send_event(json!({
             "kind": "abort",
+            "name": name,
             "addr": addr,
         }))
     }
