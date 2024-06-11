@@ -75,8 +75,8 @@ impl Counts {
 #[derive(Clone)]
 pub struct Statistics(Arc<RwLock<AHashMap<SocketAddr, Counts>>>);
 
-impl Statistics {
-    pub fn new() -> Self {
+impl Default for Statistics {
+    fn default() -> Self {
         let map: Arc<RwLock<AHashMap<SocketAddr, Counts>>> = Default::default();
         let map_ = Arc::downgrade(&map);
         tokio::spawn(async move {
@@ -88,7 +88,9 @@ impl Statistics {
 
         Self(map)
     }
+}
 
+impl Statistics {
     /// get signal sender
     ///
     /// The signal sender can notify the statisticsing instance to update

@@ -15,7 +15,7 @@ use self::{config::Config, observer::Observer, statistics::Statistics};
 /// start the server, a function is opened to replace the main function to
 /// directly start the server.
 pub async fn server_main(config: Arc<Config>) -> anyhow::Result<()> {
-    let statistics = Statistics::new();
+    let statistics = Statistics::default();
     let observer = Observer::new(config.clone(), statistics.clone()).await?;
     let externals = config.turn.get_externals();
     let service = Service::new(config.turn.realm.clone(), externals, observer);
