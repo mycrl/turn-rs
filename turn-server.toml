@@ -28,7 +28,7 @@ transport = "tcp"
 bind = "127.0.0.1:3478"
 external = "127.0.0.1:3478"
 
-[controller]
+[api]
 # controller bind
 #
 # This option specifies the http server binding address used to control
@@ -40,8 +40,7 @@ external = "127.0.0.1:3478"
 # environment.
 bind = "127.0.0.1:3000"
 
-[hooks]
-# hooks uri
+# web hooks url
 #
 # This option is used to specify the http address of the hooks service.
 #
@@ -49,17 +48,8 @@ bind = "127.0.0.1:3000"
 # and sensitive information and dangerous operations can be obtained
 # through this service, please do not expose it directly to an unsafe
 # environment.
-bind = "http://127.0.0.1:8080"
-
-# list of events followed by hooks
-events = [
-    "allocated",
-    "binding",
-    "channel_bind",
-    "create_permission",
-    "refresh", 
-    "abort"
-]
+#
+# hooks = "http://127.0.0.1:8080"
 
 [log]
 # log level
