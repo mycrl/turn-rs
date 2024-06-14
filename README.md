@@ -46,10 +46,7 @@ If you have extensive standard support requirements for turn servers and need mo
 - Static authentication lists can be used in configuration files.
 - Only virtual ports are always allocated and no real system ports are occupied.
 - The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
-- The HTTP interface can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
-
-[`turn-cli`]: ./cli
-[`proto`]: ./protos
+- The REST API can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
 
 ## Usage
 
