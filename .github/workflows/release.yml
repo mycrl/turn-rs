@@ -40,18 +40,9 @@ jobs:
                     which cargo-zigbuild || cargo install cargo-zigbuild
                     sudo snap install zig --classic --beta
             -
-                name: Install dependencies (Windows)
-                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
-                run: |
-                    mkdir third_party;
-                    Invoke-WebRequest -Uri https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-win64.zip -OutFile ./third_party/protoc-25.1-win64.zip;
-                    Expand-Archive -Path ./third_party/protoc-25.1-win64.zip -DestinationPath ./third_party;
-            -
                 name: Build release (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
-                run: |
-                    $env:PROTOC = "${{ github.workspace }}/third_party/bin/protoc.exe";
-                    cargo build --release;
+                run: cargo build --release
             -
                 name: Build release (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'x86_64'
