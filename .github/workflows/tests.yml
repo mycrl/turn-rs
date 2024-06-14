@@ -34,7 +34,4 @@ jobs:
                     key: '${{ runner.os }}-cargo-${{ hashFiles(''**/Cargo.lock'') }}'
             -
                 name: Run tests
-                run: |
-                    sudo apt update
-                    sudo apt install -y pkg-config libssl-dev
-                    cargo test
+                run: cargo test
