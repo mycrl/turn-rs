@@ -35,7 +35,7 @@ jobs:
                 if: runner.os == 'Linux'
                 run: |
                     sudo apt update
-                    sudo apt install -y protobuf-compiler libprotobuf-dev gcc-aarch64-linux-gnu
+                    sudo apt install -y pkg-config libssl-dev gcc-aarch64-linux-gnu
                     rustup target add aarch64-unknown-linux-gnu
                     which cargo-zigbuild || cargo install cargo-zigbuild
                     sudo snap install zig --classic --beta

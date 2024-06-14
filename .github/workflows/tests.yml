@@ -36,5 +36,5 @@ jobs:
                 name: Run tests
                 run: |
                     sudo apt update
-                    sudo apt install -y protobuf-compiler libprotobuf-dev
+                    sudo apt install -y pkg-config libssl-dev
                     cargo test
