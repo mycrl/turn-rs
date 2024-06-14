@@ -4,7 +4,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 
 #[repr(C)]
-#[derive(Deserialize, Serialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Transport {
     TCP = 0,
@@ -71,8 +71,8 @@ impl Default for Turn {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Controller {
-    /// controller bind
+pub struct Api {
+    /// Api bind
     ///
     /// This option specifies the http server binding address used to control
     /// the turn server.
@@ -81,25 +81,9 @@ pub struct Controller {
     /// and sensitive information and dangerous operations can be obtained
     /// through this service, please do not expose it directly to an unsafe
     /// environment.
-    #[serde(default = "Controller::bind")]
+    #[serde(default = "Api::bind")]
     pub bind: SocketAddr,
-}
-
-impl Controller {
-    fn bind() -> SocketAddr {
-        "127.0.0.1:3000".parse().unwrap()
-    }
-}
-
-impl Default for Controller {
-    fn default() -> Self {
-        Self { bind: Self::bind() }
-    }
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Hooks {
-    /// hooks bind
+    /// hooks server url
     ///
     /// This option is used to specify the http address of the hooks service.
     ///
@@ -107,27 +91,24 @@ pub struct Hooks {
     /// and sensitive information and dangerous operations can be obtained
     /// through this service, please do not expose it directly to an unsafe
     /// environment.
-    pub bind: Option<String>,
-
-    /// list of events followed by hooks
-    ///
-    /// event list: "allocated", "binding", "channel_bind",
-    /// "create_permission", "refresh", "abort".
-    #[serde(default = "Hooks::events")]
-    pub events: Vec<String>,
+    pub hooks: Option<String>,
 }
 
-impl Hooks {
-    fn events() -> Vec<String> {
-        vec![]
+impl Api {
+    fn bind() -> SocketAddr {
+        "127.0.0.1:3000".parse().unwrap()
+    }
+
+    fn hooks() -> Option<String> {
+        None
     }
 }
 
-impl Default for Hooks {
+impl Default for Api {
     fn default() -> Self {
         Self {
-            bind: None,
-            events: Self::events(),
+            bind: Self::bind(),
+            hooks: Self::hooks(),
         }
     }
 }
@@ -174,9 +155,7 @@ pub struct Config {
     #[serde(default)]
     pub turn: Turn,
     #[serde(default)]
-    pub controller: Controller,
-    #[serde(default)]
-    pub hooks: Hooks,
+    pub api: Api,
     #[serde(default)]
     pub log: Log,
 

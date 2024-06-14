@@ -4,9 +4,9 @@ use crate::{StunClass, SOFTWARE};
 use std::{net::SocketAddr, sync::Arc};
 
 use bytes::BytesMut;
-use faster_stun::attribute::ErrKind::*;
-use faster_stun::attribute::*;
-use faster_stun::*;
+use stun::attribute::ErrKind::*;
+use stun::attribute::*;
+use stun::*;
 
 /// return allocate error response
 #[inline(always)]

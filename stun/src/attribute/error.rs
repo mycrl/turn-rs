@@ -115,7 +115,7 @@ impl Error<'_> {
     /// # Example
     ///
     /// ```no_run
-    /// use faster_stun::attribute::*;
+    /// use stun::attribute::*;
     ///
     /// Error::from(ErrKind::TryAlternate);
     /// ```
@@ -132,7 +132,7 @@ impl Error<'_> {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use faster_stun::attribute::*;
+    /// use stun::attribute::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -157,8 +157,8 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     /// # Unit Test
     ///
     /// ```
-    /// use faster_stun::attribute::*;
     /// use std::convert::TryFrom;
+    /// use stun::attribute::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -189,8 +189,8 @@ impl From<Kind> for &'static str {
     /// # Unit Test
     ///
     /// ```
-    /// use faster_stun::attribute::*;
     /// use std::convert::Into;
+    /// use stun::attribute::*;
     ///
     /// let err: &'static str = ErrKind::TryAlternate.into();
     /// assert_eq!(err, "Try Alternate");

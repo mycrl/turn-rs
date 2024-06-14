@@ -1,12 +1,14 @@
+#![allow(static_mut_refs)]
+
 use bytes::BytesMut;
-use faster_stun::attribute::{
+use stun::attribute::{
     ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Realm, ReqeestedTransport,
     ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress, XorRelayedAddress,
 };
 
-use faster_stun::{Decoder, Kind, MessageReader, MessageWriter, Method, Payload};
 use once_cell::sync::Lazy;
 use rand::seq::SliceRandom;
+use stun::{Decoder, Kind, MessageReader, MessageWriter, Method, Payload};
 use tokio::net::UdpSocket;
 use turn_server::{
     config::{self, *},
@@ -17,7 +19,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
-/// global static var
+// global static var
 
 pub const BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 pub const BIND_ADDR: SocketAddr = SocketAddr::new(BIND_IP, 3478);
@@ -34,11 +36,10 @@ static TOKEN_BUF: Lazy<[u8; 12]> = Lazy::new(|| {
     token
 });
 
-static KEY_BUF: Lazy<[u8; 16]> =
-    Lazy::new(|| faster_stun::util::long_key(USERNAME, PASSWORD, REALM));
+static KEY_BUF: Lazy<[u8; 16]> = Lazy::new(|| stun::util::long_key(USERNAME, PASSWORD, REALM));
 static mut DECODER: Lazy<Decoder> = Lazy::new(Decoder::new);
 
-/// global static var end
+// global static var end
 
 fn get_message_from_payload<'a, 'b>(payload: Payload<'a, 'b>) -> MessageReader<'a, 'b> {
     if let Payload::Message(m) = payload {
@@ -59,8 +60,7 @@ pub async fn create_turn() {
     tokio::spawn(async move {
         server_main(Arc::new(Config {
             auth,
-            controller: Controller::default(),
-            hooks: Hooks::default(),
+            api: Api::default(),
             log: Log::default(),
             turn: Turn {
                 realm: REALM.to_string(),
@@ -95,7 +95,7 @@ static BIND_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
 });
 
 pub async fn binding_request(socket: &UdpSocket) {
-    socket.send_to(&BIND_REQUEST_BUF, BIND_ADDR).await.unwrap();
+    socket.send(&BIND_REQUEST_BUF).await.unwrap();
     let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
 
     let decoder = unsafe { &mut DECODER };
@@ -125,10 +125,7 @@ static BASE_ALLOCATE_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
 });
 
 pub async fn base_allocate_request(socket: &UdpSocket) {
-    socket
-        .send_to(&BASE_ALLOCATE_REQUEST_BUF, BIND_ADDR)
-        .await
-        .unwrap();
+    socket.send(&BASE_ALLOCATE_REQUEST_BUF).await.unwrap();
 
     let decoder = unsafe { &mut DECODER };
     let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
@@ -157,10 +154,7 @@ static ALLOCATE_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
 });
 
 pub async fn allocate_request(socket: &UdpSocket) -> u16 {
-    socket
-        .send_to(&ALLOCATE_REQUEST_BUF, BIND_ADDR)
-        .await
-        .unwrap();
+    socket.send(&ALLOCATE_REQUEST_BUF).await.unwrap();
 
     let decoder = unsafe { &mut DECODER };
     let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
@@ -194,10 +188,7 @@ pub async fn create_permission_request(socket: &UdpSocket, port: u16) {
     msg.append::<UserName>(USERNAME);
     msg.append::<Realm>(REALM);
     msg.flush(Some(&KEY_BUF)).unwrap();
-    socket
-        .send_to(unsafe { &SEND_BUF }, BIND_ADDR)
-        .await
-        .unwrap();
+    socket.send(unsafe { &SEND_BUF }).await.unwrap();
 
     let decoder = unsafe { &mut DECODER };
     let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
@@ -219,10 +210,7 @@ pub async fn channel_bind_request(socket: &UdpSocket, port: u16) {
     msg.append::<UserName>(USERNAME);
     msg.append::<Realm>(REALM);
     msg.flush(Some(&KEY_BUF)).unwrap();
-    socket
-        .send_to(unsafe { &SEND_BUF }, BIND_ADDR)
-        .await
-        .unwrap();
+    socket.send(unsafe { &SEND_BUF }).await.unwrap();
 
     let decoder = unsafe { &mut DECODER };
     let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
@@ -243,10 +231,7 @@ pub async fn refresh_request(socket: &UdpSocket) {
     msg.append::<UserName>(USERNAME);
     msg.append::<Realm>(REALM);
     msg.flush(Some(&KEY_BUF)).unwrap();
-    socket
-        .send_to(unsafe { &SEND_BUF }, BIND_ADDR)
-        .await
-        .unwrap();
+    socket.send(unsafe { &SEND_BUF }).await.unwrap();
 
     let decoder = unsafe { &mut DECODER };
     let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
@@ -267,10 +252,7 @@ pub async fn indication(local: &UdpSocket, peer: &UdpSocket, port: u16) {
     msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
     msg.append::<Data>(TOKEN_BUF.as_slice());
     msg.flush(None).unwrap();
-    local
-        .send_to(unsafe { &SEND_BUF }, BIND_ADDR)
-        .await
-        .unwrap();
+    local.send(unsafe { &SEND_BUF }).await.unwrap();
 
     let decoder = unsafe { &mut DECODER };
     let size = peer.recv(unsafe { &mut RECV_BUF }).await.unwrap();

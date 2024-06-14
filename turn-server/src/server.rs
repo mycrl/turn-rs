@@ -1,13 +1,66 @@
+use crate::{
+    config::{Config, Interface, Transport},
+    router::Router,
+    statistics::{Statistics, Stats},
+};
+
 use std::{io::ErrorKind::ConnectionReset, net::SocketAddr, sync::Arc};
 
-use super::Monitor;
-use crate::{monitor::Stats, router::Router};
-
 use bytes::BytesMut;
-use faster_stun::Decoder;
-use tokio::net::{TcpListener, UdpSocket};
-use tokio::{io::AsyncReadExt, io::AsyncWriteExt, sync::Mutex};
-use turn_rs::{Service, StunClass};
+use stun::Decoder;
+use tokio::{
+    io::AsyncReadExt,
+    io::AsyncWriteExt,
+    net::{TcpListener, UdpSocket},
+    sync::Mutex,
+};
+
+use turn::{Service, StunClass};
+
+/// start turn server.
+///
+/// create a specified number of threads,
+/// each thread processes udp data separately.
+pub async fn run(
+    config: Arc<Config>,
+    statistics: Statistics,
+    service: &Service,
+) -> anyhow::Result<()> {
+    let router = Arc::new(Router::default());
+    for Interface {
+        transport,
+        external,
+        bind,
+    } in config.turn.interfaces.clone()
+    {
+        if transport == Transport::UDP {
+            tokio::spawn(udp_server(
+                UdpSocket::bind(bind).await?,
+                external,
+                service.clone(),
+                router.clone(),
+                statistics.clone(),
+            ));
+        } else {
+            tokio::spawn(tcp_server(
+                TcpListener::bind(bind).await?,
+                external,
+                service.clone(),
+                router.clone(),
+                statistics.clone(),
+            ));
+        }
+
+        log::info!(
+            "turn server listening: addr={}, external={}, transport={:?}",
+            bind,
+            external,
+            transport,
+        );
+    }
+
+    Ok(())
+}
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
 
@@ -15,12 +68,12 @@ static ZERO_BUF: [u8; 4] = [0u8; 4];
 ///
 /// This function is used to handle all connections coming from the tcp
 /// listener, and handle the receiving, sending and forwarding of messages.
-pub async fn tcp_processor(
+async fn tcp_server(
     listen: TcpListener,
     external: SocketAddr,
     service: Service,
     router: Arc<Router>,
-    monitor: Monitor,
+    statistics: Statistics,
 ) {
     let local_addr = listen
         .local_addr()
@@ -30,7 +83,7 @@ pub async fn tcp_processor(
     // process when an error occurs.
     while let Ok((socket, addr)) = listen.accept().await {
         let router = router.clone();
-        let actor = monitor.get_actor();
+        let actor = statistics.get_actor();
         let mut receiver = router.get_receiver(addr);
         let mut processor = service.get_processor(addr, external);
 
@@ -148,12 +201,12 @@ pub async fn tcp_processor(
 /// read the data packet from the UDP socket and hand
 /// it to the proto for processing, and send the processed
 /// data packet to the specified address.
-pub async fn udp_processor(
+async fn udp_server(
     socket: UdpSocket,
     external: SocketAddr,
     service: Service,
     router: Arc<Router>,
-    monitor: Monitor,
+    statistics: Statistics,
 ) {
     let socket = Arc::new(socket);
     let local_addr = socket
@@ -163,7 +216,7 @@ pub async fn udp_processor(
     for _ in 0..num_cpus::get() {
         let socket = socket.clone();
         let router = router.clone();
-        let actor = monitor.get_actor();
+        let actor = statistics.get_actor();
         let mut processor = service.get_processor(external, external);
 
         tokio::spawn(async move {
@@ -207,7 +260,7 @@ pub async fn udp_processor(
         });
     }
 
-    let actor = monitor.get_actor();
+    let actor = statistics.get_actor();
     let mut receiver = router.get_receiver(external);
     while let Some((bytes, _, addr)) = receiver.recv().await {
         if let Err(e) = socket.send_to(&bytes, addr).await {

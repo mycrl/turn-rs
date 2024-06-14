@@ -35,23 +35,14 @@ jobs:
                 if: runner.os == 'Linux'
                 run: |
                     sudo apt update
-                    sudo apt install -y protobuf-compiler libprotobuf-dev gcc-aarch64-linux-gnu
+                    sudo apt install -y gcc-aarch64-linux-gnu
                     rustup target add aarch64-unknown-linux-gnu
                     which cargo-zigbuild || cargo install cargo-zigbuild
                     sudo snap install zig --classic --beta
             -
-                name: Install dependencies (Windows)
-                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
-                run: |
-                    mkdir third_party;
-                    Invoke-WebRequest -Uri https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-win64.zip -OutFile ./third_party/protoc-25.1-win64.zip;
-                    Expand-Archive -Path ./third_party/protoc-25.1-win64.zip -DestinationPath ./third_party;
-            -
                 name: Build release (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
-                run: |
-                    $env:PROTOC = "${{ github.workspace }}/third_party/bin/protoc.exe";
-                    cargo build --release;
+                run: cargo build --release
             -
                 name: Build release (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'x86_64'
@@ -64,26 +55,18 @@ jobs:
                 name: Rename release (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'x86_64'
                 run: |
-                    mv ./target/release/turn-balance-server ./target/release/turn-balance-server-linux-x86_64
                     mv ./target/release/turn-server ./target/release/turn-server-linux-x86_64
-                    mv ./target/release/turn-cli ./target/release/turn-cli-linux-x86_64
             -
                 name: Rename release (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'aarch64'
                 run: |
-                    mv ./target/aarch64-unknown-linux-gnu/release/turn-balance-server ./target/aarch64-unknown-linux-gnu/release/turn-balance-server-linux-aarch64
                     mv ./target/aarch64-unknown-linux-gnu/release/turn-server ./target/aarch64-unknown-linux-gnu/release/turn-server-linux-aarch64
-                    mv ./target/aarch64-unknown-linux-gnu/release/turn-cli ./target/aarch64-unknown-linux-gnu/release/turn-cli-linux-aarch64
             -
                 name: Rename release (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
                 run: |
-                    Remove-Item -Path "./target/release/turn-balance-server-windows-x86_64.exe" -ErrorAction SilentlyContinue; 
                     Remove-Item -Path "./target/release/turn-server-windows-x86_64.exe" -ErrorAction SilentlyContinue; 
-                    Remove-Item -Path "./target/release/turn-cli-windows-x86_64.exe" -ErrorAction SilentlyContinue; 
-                    Rename-Item -Path "./target/release/turn-balance-server.exe" -NewName "turn-balance-server-windows-x86_64.exe";
                     Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-windows-x86_64.exe";
-                    Rename-Item -Path "./target/release/turn-cli.exe" -NewName "turn-cli-windows-x86_64.exe";
             -
                 name: Upload artifact (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'x86_64'
@@ -91,9 +74,7 @@ jobs:
                 with:
                     name: linux-x86_64
                     path: |
-                        ./target/release/turn-balance-server-linux-x86_64
                         ./target/release/turn-server-linux-x86_64
-                        ./target/release/turn-cli-linux-x86_64
             -
                 name: Upload artifact (Linux)
                 if: runner.os == 'Linux' && matrix.arch == 'aarch64'
@@ -101,9 +82,7 @@ jobs:
                 with:
                     name: linux-x86_64
                     path: |
-                        ./target/aarch64-unknown-linux-gnu/release/turn-balance-server-linux-aarch64
                         ./target/aarch64-unknown-linux-gnu/release/turn-server-linux-aarch64
-                        ./target/aarch64-unknown-linux-gnu/release/turn-cli-linux-aarch64
             -
                 name: Upload artifact (Windows)
                 if: runner.os == 'Windows' && matrix.arch == 'x86_64'
@@ -111,9 +90,7 @@ jobs:
                 with:
                     name: windows-x86_64
                     path: |
-                        ./target/release/turn-balance-server-windows-x86_64.exe
                         ./target/release/turn-server-windows-x86_64.exe
-                        ./target/release/turn-cli-windows-x86_64.exe
     deploy:
         needs: build
         runs-on: ubuntu-latest

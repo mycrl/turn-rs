@@ -4,8 +4,8 @@ use super::{ip_is_local, Context, Response};
 use crate::StunClass;
 
 use bytes::BytesMut;
-use faster_stun::attribute::{Data, XorPeerAddress};
-use faster_stun::{MessageReader, MessageWriter, Method, StunError};
+use stun::attribute::{Data, XorPeerAddress};
+use stun::{MessageReader, MessageWriter, Method, StunError};
 
 /// process send indication request
 ///

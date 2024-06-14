@@ -44,7 +44,7 @@ impl Nonce {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nonces::*;
+    /// use turn::router::nonces::*;
     ///
     /// let nonce = Nonce::new();
     /// assert!(!nonce.is_death());
@@ -58,7 +58,7 @@ impl Nonce {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nonces::*;
+    /// use turn::router::nonces::*;
     ///
     /// let nonce = Nonce::new();
     /// assert_eq!(nonce.unwind().len(), 16);
@@ -104,7 +104,7 @@ impl Nonces {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nonces::*;
+    /// use turn::router::nonces::*;
     ///
     /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();
     /// let nonce_table = Nonces::new();
@@ -127,7 +127,7 @@ impl Nonces {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nonces::*;
+    /// use turn::router::nonces::*;
     ///
     /// let addr = "127.0.0.1:1080".parse::<SocketAddr>().unwrap();
     /// let nonce_table = Nonces::new();

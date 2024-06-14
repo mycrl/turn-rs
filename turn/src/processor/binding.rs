@@ -2,8 +2,8 @@ use super::{Context, Response};
 use crate::{StunClass, SOFTWARE};
 
 use bytes::BytesMut;
-use faster_stun::attribute::*;
-use faster_stun::*;
+use stun::attribute::*;
+use stun::*;
 
 /// process binding request
 ///

@@ -8,15 +8,15 @@ use std::{
 use super::ports::capacity;
 
 use ahash::{AHashMap, AHashSet};
-use faster_stun::util::long_key;
+use stun::util::long_key;
 
 /// turn node session.
 #[derive(Clone)]
 pub struct Node {
     pub channels: Vec<u16>,
     pub ports: Vec<u16>,
-    pub timer: Instant,
-    pub lifetime: u64,
+    pub lifetime: Instant,
+    pub expiration: u64,
     pub secret: Arc<[u8; 16]>,
     pub username: String,
     pub password: String,
@@ -33,8 +33,8 @@ impl Node {
             ports: Vec::with_capacity(10),
             username: username.to_string(),
             password: password.to_string(),
-            timer: Instant::now(),
-            lifetime: 600,
+            lifetime: Instant::now(),
+            expiration: 600,
             secret,
         }
     }
@@ -46,7 +46,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     ///
@@ -57,8 +57,8 @@ impl Node {
     /// assert!(!node.is_death());
     /// ```
     pub fn set_lifetime(&mut self, delay: u32) {
-        self.lifetime = delay as u64;
-        self.timer = Instant::now();
+        self.expiration = delay as u64;
+        self.lifetime = Instant::now();
     }
 
     /// whether the node is dead.
@@ -66,7 +66,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     ///
@@ -77,7 +77,7 @@ impl Node {
     /// assert!(!node.is_death());
     /// ```
     pub fn is_death(&self) -> bool {
-        self.timer.elapsed().as_secs() >= self.lifetime
+        self.lifetime.elapsed().as_secs() >= self.expiration
     }
 
     /// get node the secret.
@@ -85,7 +85,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     /// let secret = node.get_secret();
@@ -106,7 +106,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     ///
@@ -124,7 +124,7 @@ impl Node {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let mut node = Node::new("test", "test", "test");
     ///
@@ -163,7 +163,7 @@ impl Nodes {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// assert_eq!(nodes.get_users(0, 10), vec![]);
@@ -185,7 +185,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -215,7 +215,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -241,7 +241,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -286,7 +286,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -319,7 +319,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -352,7 +352,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -402,7 +402,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -444,7 +444,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -476,7 +476,7 @@ impl Nodes {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::nodes::*;
+    /// use turn::router::nodes::*;
     ///
     /// let nodes = Nodes::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();

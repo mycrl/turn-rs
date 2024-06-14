@@ -225,7 +225,7 @@ impl Service {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///
@@ -253,7 +253,7 @@ impl Service {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::*;
+    /// use turn::*;
     ///
     /// struct ObserverTest;
     ///

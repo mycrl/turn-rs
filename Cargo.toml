@@ -8,11 +8,9 @@ lto = true
 [workspace]
 resolver = "2"
 members = [
-    "cli",
     "tests",
     "turn",
     "stun",
-    "turn-server",
-    "turn-balance",
-    "driver"
+    "turn-server", 
+    "drivers",
 ]

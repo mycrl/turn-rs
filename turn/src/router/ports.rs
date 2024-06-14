@@ -69,8 +69,8 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::Bit;
-    /// use turn_rs::router::ports::PortPools;
+    /// use turn::router::ports::Bit;
+    /// use turn::router::ports::PortPools;
     ///
     /// let pools = PortPools::new();
     /// assert_eq!(pools.capacity(), 65535 - 49152);
@@ -82,7 +82,7 @@ impl PortPools {
     /// get pools allocated size.
     ///
     /// ```
-    /// use turn_rs::router::ports::PortPools;
+    /// use turn::router::ports::PortPools;
     ///
     /// let mut pools = PortPools::new();
     /// assert_eq!(pools.len(), 0);
@@ -97,7 +97,7 @@ impl PortPools {
     /// get pools allocated size is empty.
     ///
     /// ```
-    /// use turn_rs::router::ports::PortPools;
+    /// use turn::router::ports::PortPools;
     ///
     /// let mut pools = PortPools::new();
     /// assert_eq!(pools.len(), 0);
@@ -112,7 +112,7 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::PortPools;
+    /// use turn::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -163,7 +163,7 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::PortPools;
+    /// use turn::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -194,8 +194,8 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::Bit;
-    /// use turn_rs::router::ports::PortPools;
+    /// use turn::router::ports::Bit;
+    /// use turn::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -227,8 +227,8 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::Bit;
-    /// use turn_rs::router::ports::PortPools;
+    /// use turn::router::ports::Bit;
+    /// use turn::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -263,7 +263,7 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::PortPools;
+    /// use turn::router::ports::PortPools;
     ///
     /// let mut pool = PortPools::new();
     ///
@@ -295,7 +295,7 @@ impl PortPools {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::*;
+    /// use turn::router::ports::*;
     ///
     /// let pool = PortPools::new();
     ///
@@ -336,7 +336,7 @@ impl Ports {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::*;
+    /// use turn::router::ports::*;
     ///
     /// let ports = Ports::new();
     /// assert_eq!(ports.capacity(), 65535 - 49152);
@@ -350,7 +350,7 @@ impl Ports {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::*;
+    /// use turn::router::ports::*;
     ///
     /// let ports = Ports::new();
     /// assert_eq!(ports.len(), 0);
@@ -364,7 +364,7 @@ impl Ports {
     /// # Examples
     ///
     /// ```
-    /// use turn_rs::router::ports::*;
+    /// use turn::router::ports::*;
     ///
     /// let ports = Ports::new();
     /// assert_eq!(ports.is_empty(), true);
@@ -379,7 +379,7 @@ impl Ports {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::ports::*;
+    /// use turn::router::ports::*;
     ///
     /// let ports = Ports::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
@@ -397,7 +397,7 @@ impl Ports {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::ports::*;
+    /// use turn::router::ports::*;
     ///
     /// let local = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
@@ -420,7 +420,7 @@ impl Ports {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::ports::*;
+    /// use turn::router::ports::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
@@ -439,7 +439,7 @@ impl Ports {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::ports::*;
+    /// use turn::router::ports::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
@@ -466,7 +466,7 @@ impl Ports {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_rs::router::ports::*;
+    /// use turn::router::ports::*;
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
@@ -495,7 +495,7 @@ impl Ports {
 /// # Examples
 ///
 /// ```
-/// use turn_rs::router::ports::*;
+/// use turn::router::ports::*;
 ///
 /// assert_eq!(bucket_size(), 256);
 /// ```
@@ -508,7 +508,7 @@ pub fn bucket_size() -> usize {
 /// # Examples
 ///
 /// ```
-/// use turn_rs::router::ports::*;
+/// use turn::router::ports::*;
 ///
 /// assert_eq!(bit_len(), 63);
 /// ```
@@ -521,7 +521,7 @@ pub fn bit_len() -> u32 {
 /// # Examples
 ///
 /// ```
-/// use turn_rs::router::ports::*;
+/// use turn::router::ports::*;
 ///
 /// assert_eq!(capacity(), 65535 - 49152);
 /// ```
@@ -534,7 +534,7 @@ pub const fn capacity() -> usize {
 /// # Examples
 ///
 /// ```
-/// use turn_rs::router::ports::*;
+/// use turn::router::ports::*;
 ///
 /// assert_eq!(port_range(), 49152..65535);
 /// ```
