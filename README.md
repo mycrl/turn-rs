@@ -38,7 +38,7 @@ If you have extensive standard support requirements for turn servers and need mo
   * [docker](#docker)  
   * [linux service](#linux-service)
 * [building](#building)
-* [document](https://mr-pandas-organization.gitbook.io/turn-rs/)
+* [document](./docs)
 * [driver](./drivers)
 
 ## Features
