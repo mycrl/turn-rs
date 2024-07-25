@@ -1,7 +1,7 @@
-FROM rust:latest as builder
-WORKDIR /app
+FROM clux/muslrust:stable AS builder
+WORKDIR /usr/src/
 COPY . .
-RUN cargo build --release
+RUN cargo build --release --target x86_64-unknown-linux-musl
     
 FROM debian:buster-slim
 WORKDIR /app
