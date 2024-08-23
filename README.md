@@ -39,6 +39,12 @@ If you have extensive standard support requirements for turn servers and need mo
   * [linux service](#linux-service)
 * [building](#building)
 * [document](./docs)
+  * [install](./docs/install.md)
+  * [build](./docs/build.md)
+  * [start the server](./docs/start-the-server.md)
+  * [configure](./docs/configure.md)
+  * [rest api](./docs/rest-api.md)
+  * [web hooks](./docs/web-hooks.md)
 * [driver](./drivers)
 
 ## Features
