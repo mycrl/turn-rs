@@ -12,7 +12,7 @@ use stun::{Decoder, Kind, MessageReader, MessageWriter, Method, Payload};
 use tokio::net::UdpSocket;
 use turn_server::{
     config::{self, *},
-    server_main,
+    startup,
 };
 
 use std::collections::HashMap;
@@ -58,7 +58,7 @@ pub async fn create_turn() {
     // pass, so turn-server is used as a library here, and the server is
     // started with a custom configuration.
     tokio::spawn(async move {
-        server_main(Arc::new(Config {
+        startup(Arc::new(Config {
             auth,
             api: Api::default(),
             log: Log::default(),

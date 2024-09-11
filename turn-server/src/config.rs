@@ -72,7 +72,7 @@ impl Default for Turn {
 
 #[derive(Deserialize, Debug)]
 pub struct Api {
-    /// Api bind
+    /// api bind
     ///
     /// This option specifies the http server binding address used to control
     /// the turn server.
@@ -92,6 +92,16 @@ pub struct Api {
     /// through this service, please do not expose it directly to an unsafe
     /// environment.
     pub hooks: Option<String>,
+    /// Credentials used by the http interface, credentials are carried in the
+    /// http request and are used to authenticate the request.
+    pub credential: Option<String>,
+    /// Choose whether the hooks api follows the
+    /// RFC [turn rest api](https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00),
+    /// if the use follows this RFC, then the hooks api will only keep the
+    /// authentication functionality, other things like event push will be
+    /// disabled.
+    #[serde(default = "Api::use_turn_rest_api")]
+    pub use_turn_rest_api: bool,
 }
 
 impl Api {
@@ -99,16 +109,18 @@ impl Api {
         "127.0.0.1:3000".parse().unwrap()
     }
 
-    fn hooks() -> Option<String> {
-        None
+    fn use_turn_rest_api() -> bool {
+        false
     }
 }
 
 impl Default for Api {
     fn default() -> Self {
         Self {
+            hooks: None,
+            credential: None,
             bind: Self::bind(),
-            hooks: Self::hooks(),
+            use_turn_rest_api: Self::use_turn_rest_api(),
         }
     }
 }

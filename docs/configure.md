@@ -45,7 +45,7 @@ external = "127.0.0.1:3478"
 # environment.
 bind = "127.0.0.1:3000"
 
-# web hooks url
+# hooks url
 #
 # This option is used to specify the http address of the hooks service.
 #
@@ -55,6 +55,19 @@ bind = "127.0.0.1:3000"
 # environment.
 #
 # hooks = "http://127.0.0.1:8080"
+
+# Credentials used by the http interface, credentials are carried in the
+# http request and are used to authenticate the request.
+#
+# credential = ""
+
+# Choose whether the hooks api follows the
+# RFC [turn rest api](https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00),
+# if the use follows this RFC, then the hooks api will only keep the
+# authentication functionality, other things like event push will be
+# disabled.
+#
+# use_turn_rest_api = false
 
 [log]
 # log level
@@ -70,8 +83,9 @@ level = "info"
 # The server will try to use static authentication first, and then use
 # external control service authentication.
 [auth]
-user1 = "test"
-user2 = "test"
+# user1 = "test"
+# user2 = "test"
+
 ```
 
 ## Configuration keys
@@ -80,7 +94,7 @@ user2 = "test"
 
 ### `turn.realm`
 
-* Type: strings
+* Type: string
 * Default: "localhost"
 
 This option describes the realm of the turn service. For the definition of realm, please refer to [RFC](https://datatracker.ietf.org/doc/html/rfc5766#section-3).
@@ -98,7 +112,7 @@ This option describes the interface to which the turn service is bound. A turn s
 
 ### `[turn.interfaces.transport]`
 
-* Type: enum of strings
+* Type: enum of string
 
 Describes the transport protocol used by the interface. The value can be `udp` or `tcp`, which correspond to udp turn and tcp turn respectively, and choose whether to bind the turn service to a udp socket or a tcp socket.
 
@@ -106,7 +120,7 @@ Describes the transport protocol used by the interface. The value can be `udp` o
 
 ### `[turn.interfaces.bind]`
 
-* Type: strings
+* Type: string
 
 The IP address and port number bound to the interface. This is the address to which the internal socket is bound.
 
@@ -114,7 +128,7 @@ The IP address and port number bound to the interface. This is the address to wh
 
 ### `[turn.interfaces.external]`
 
-* Type: strings
+* Type: string
 
 bind is used to bind to the address of your local NIC, for example, you have two NICs A and B on your server, the IP address of NIC A is 192.168.1.2, and the address of NIC B is 192.168.1.3, if you bind to NIC A, you should bind to the address of 192.168.1.2, and bind to 0.0.0.0 means that it listens to all of them at the same time.
 
@@ -126,7 +140,7 @@ As for why bind and external are needed, this is because for the stun protocol, 
 
 ### `api.bind`
 
-* Type: strings
+* Type: string
 * Default: "127.0.0.1:3000"
 
 Describes the address to which the turn api server is bound.
@@ -139,7 +153,7 @@ The turn service provides an external REST API. External parties can control the
 
 ### `api.hooks`
 
-* Type: strings
+* Type: string
 * Default: None
 
 Describes the address of external Web Hooks. The default value is empty. The purpose of Web Hooks is to allow the turn service to push to external services when authentication is required and event updates occur.
@@ -148,11 +162,25 @@ The turn service provides an external REST API. External parties can control the
 
 > Warning: The REST API does not provide any authentication or encryption measures. You need to run the turn service in a trusted network environment or add a proxy to increase authentication and encryption measures.
 
+### `api.credential`
+
+* Type: string
+* Default: None
+
+Credentials used by the http interface, credentials are carried in the http request and are used to authenticate the request.
+
+### `api.use_turn_rest_api`
+
+* Type: boolean
+* Default: false
+
+Choose whether the hooks api follows the RFC [turn rest api](https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00), if the use follows this RFC, then the hooks api will only keep the authentication functionality, other things like event push will be disabled.
+
 ***
 
 ### `log.level`
 
-* Type: enum of strings
+* Type: enum of string
 * Default: "info"
 
 Describes the log level of the turn service. Possible values ​​are `"error"`, `"warn"`, `"info"`, `"debug"`, `"trace"`.

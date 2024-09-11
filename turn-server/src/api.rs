@@ -175,6 +175,10 @@ pub async fn start_server(
                     HeaderValue::from_str(&state.config.turn.realm).unwrap(),
                 );
 
+                if let Some(credential) = &state.config.api.credential {
+                    headers.insert("Credential", HeaderValue::from_str(credential).unwrap());
+                }
+
                 res
             },
         ))
@@ -197,6 +201,10 @@ impl HooksService {
         let mut headers = HeaderMap::new();
         headers.insert("Realm", HeaderValue::from_str(&cfg.turn.realm)?);
         headers.insert("Rid", HeaderValue::from_str(&RID)?);
+
+        if let Some(credential) = &cfg.api.credential {
+            headers.insert("Credential", HeaderValue::from_str(credential)?);
+        }
 
         let client = Arc::new(
             ClientBuilder::new()
@@ -229,14 +237,28 @@ impl HooksService {
         }
 
         if let Some(server) = &self.cfg.api.hooks {
-            if let Ok(res) = self
-                .client
-                .get(format!("{}/password?addr={}&name={}", server, addr, name))
-                .send()
-                .await
-            {
-                if let Ok(password) = res.text().await {
-                    return Some(password);
+            let url = if self.cfg.api.use_turn_rest_api {
+                if let Some(credential) = &self.cfg.api.credential {
+                    format!(
+                        "{}/?service=turn&username={}&key={}",
+                        server, name, credential
+                    )
+                } else {
+                    format!("{}/?service=turn&username={}", server, name)
+                }
+            } else {
+                format!("{}/password?addr={}&name={}", server, addr, name)
+            };
+
+            if let Ok(res) = self.client.get(url).send().await {
+                if self.cfg.api.use_turn_rest_api {
+                    if let Ok(response) = res.json::<TurnRestApiResponse>().await {
+                        return Some(response.password);
+                    }
+                } else {
+                    if let Ok(password) = res.text().await {
+                        return Some(password);
+                    }
                 }
             }
         }
@@ -245,10 +267,37 @@ impl HooksService {
     }
 
     pub fn send_event(&self, event: Value) {
+        if self.cfg.api.use_turn_rest_api {
+            return;
+        }
+
         if self.cfg.api.hooks.is_some() {
             if let Err(e) = self.tx.send(event) {
                 log::error!("failed to send event, err={}", e)
             }
         }
     }
+}
+
+#[allow(unused)]
+#[derive(Deserialize, Debug)]
+struct TurnRestApiResponse {
+    // the TURN username to use, which is a colon-delimited combination of the expiration timestamp
+    // and the username parameter from the request (if specified).  The timestamp is intended to be
+    // opaque to the web application, so its format is arbitrary, but for simplicity, use of UNIX
+    // timestamps is recommended.
+    username: String,
+    // the TURN password to use; this value is computed from the a secret key shared with the TURN
+    // server and the returned username value, by performing base64(hmac(secret key, returned
+    // username)).  HMAC-SHA1 is one HMAC algorithm that can be used, but any algorithm that
+    // incorporates a shared secret is acceptable, as long as both the web server and TURN server
+    // use the same algorithm and secret.
+    password: String,
+    // the duration for which the username and password are valid, in seconds.  A value of one day
+    // (86400 seconds) is recommended.
+    ttl: u32,
+    // This is used to indicate the different addresses and/or protocols that can be used to reach
+    // the TURN server.  These URIs SHOULD specify a hostname, IPv4, or IPv6 address for the TURN
+    // server, as well as the port and transport to use;
+    uris: Vec<String>,
 }
