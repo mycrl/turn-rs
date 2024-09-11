@@ -95,22 +95,11 @@ pub struct Api {
     /// Credentials used by the http interface, credentials are carried in the
     /// http request and are used to authenticate the request.
     pub credential: Option<String>,
-    /// Choose whether the hooks api follows the
-    /// RFC [turn rest api](https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00),
-    /// if the use follows this RFC, then the hooks api will only keep the
-    /// authentication functionality, other things like event push will be
-    /// disabled.
-    #[serde(default = "Api::use_turn_rest_api")]
-    pub use_turn_rest_api: bool,
 }
 
 impl Api {
     fn bind() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
-    }
-
-    fn use_turn_rest_api() -> bool {
-        false
     }
 }
 
@@ -120,7 +109,6 @@ impl Default for Api {
             hooks: None,
             credential: None,
             bind: Self::bind(),
-            use_turn_rest_api: Self::use_turn_rest_api(),
         }
     }
 }

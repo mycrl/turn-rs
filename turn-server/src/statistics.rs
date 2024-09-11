@@ -4,11 +4,11 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc, RwLock,
     },
+    thread::{self, sleep},
     time::Duration,
 };
 
 use ahash::AHashMap;
-use tokio::time::sleep;
 
 #[derive(Debug, Clone, Copy)]
 pub struct NodeCounts {
@@ -79,10 +79,10 @@ impl Default for Statistics {
     fn default() -> Self {
         let map: Arc<RwLock<AHashMap<SocketAddr, Counts>>> = Default::default();
         let map_ = Arc::downgrade(&map);
-        tokio::spawn(async move {
+        thread::spawn(move || {
             while let Some(map) = map_.upgrade() {
                 let _ = map.read().unwrap().iter().for_each(|(_, it)| it.clear());
-                sleep(Duration::from_secs(1)).await;
+                sleep(Duration::from_secs(1));
             }
         });
 
