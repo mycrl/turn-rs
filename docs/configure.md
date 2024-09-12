@@ -61,14 +61,6 @@ bind = "127.0.0.1:3000"
 #
 # credential = ""
 
-# Choose whether the hooks api follows the
-# RFC [turn rest api](https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00),
-# if the use follows this RFC, then the hooks api will only keep the
-# authentication functionality, other things like event push will be
-# disabled.
-#
-# use_turn_rest_api = false
-
 [log]
 # log level
 #
@@ -168,13 +160,6 @@ The turn service provides an external REST API. External parties can control the
 * Default: None
 
 Credentials used by the http interface, credentials are carried in the http request and are used to authenticate the request.
-
-### `api.use_turn_rest_api`
-
-* Type: boolean
-* Default: false
-
-Choose whether the hooks api follows the RFC [turn rest api](https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00), if the use follows this RFC, then the hooks api will only keep the authentication functionality, other things like event push will be disabled.
 
 ***
 
