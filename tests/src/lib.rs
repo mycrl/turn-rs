@@ -1,22 +1,29 @@
 use base64::prelude::*;
 use bytes::BytesMut;
 use once_cell::sync::Lazy;
-use stun::attribute::{
-    ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Realm, ReqeestedTransport,
-    ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress, XorRelayedAddress,
+use stun::{
+    attribute::{
+        ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Realm,
+        ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress,
+        XorRelayedAddress,
+    },
+    Decoder, Kind, MessageReader, MessageWriter, Method, Payload,
 };
 
 use rand::seq::SliceRandom;
-use stun::{Decoder, Kind, MessageReader, MessageWriter, Method, Payload};
 use tokio::{net::UdpSocket, runtime::Runtime};
 use turn_server::{
     config::{self, *},
     startup,
 };
 
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Arc;
-use std::{collections::HashMap, thread::sleep, time::Duration};
+use std::{
+    collections::HashMap,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
+    thread::sleep,
+    time::Duration,
+};
 
 static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
