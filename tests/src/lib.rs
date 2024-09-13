@@ -14,14 +14,13 @@ use turn_server::{
     startup,
 };
 
-use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+use std::{collections::HashMap, thread::sleep, time::Duration};
 
 static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
 static BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-static BIND_ADDR: SocketAddr = SocketAddr::new(BIND_IP, 3478);
 static USERNAME: &str = "user1";
 static PASSWORD: &str = "test";
 static REALM: &str = "localhost";
@@ -33,7 +32,7 @@ pub enum AuthMethod {
     Hooks(String),
 }
 
-pub fn create_turn_server(auth_method: &AuthMethod) {
+pub fn create_turn_server(auth_method: &AuthMethod, bind: SocketAddr) {
     let mut static_credentials = HashMap::new();
     let mut static_auth_secret = None;
     let mut api = Api::default();
@@ -62,14 +61,16 @@ pub fn create_turn_server(auth_method: &AuthMethod) {
                 realm: REALM.to_string(),
                 interfaces: vec![Interface {
                     transport: config::Transport::UDP,
-                    bind: BIND_ADDR,
-                    external: BIND_ADDR,
+                    external: bind,
+                    bind,
                 }],
             },
         }))
         .await
         .unwrap();
     });
+
+    sleep(Duration::from_secs(2));
 }
 
 pub struct TurnClient {
@@ -82,15 +83,16 @@ pub struct TurnClient {
     bind_request_buf: BytesMut,
     base_allocate_request_buf: BytesMut,
     allocate_request_buf: BytesMut,
+    bind: SocketAddr,
 }
 
 impl TurnClient {
-    pub fn new(auth_method: &AuthMethod) -> Self {
+    pub fn new(auth_method: &AuthMethod, bind: SocketAddr) -> Self {
         let client = RUNTIME
             .block_on(UdpSocket::bind(SocketAddr::new(BIND_IP, 0)))
             .unwrap();
 
-        RUNTIME.block_on(client.connect(BIND_ADDR)).unwrap();
+        RUNTIME.block_on(client.connect(bind)).unwrap();
 
         let key = match &auth_method {
             AuthMethod::Static => PASSWORD.to_string(),
@@ -145,6 +147,7 @@ impl TurnClient {
             decoder: Decoder::new(),
             token_buf,
             client,
+            bind,
         }
     }
 
@@ -152,7 +155,7 @@ impl TurnClient {
         RUNTIME
             .block_on(self.client.send(&self.bind_request_buf))
             .unwrap();
-        
+
         let size = RUNTIME
             .block_on(self.client.recv(&mut self.recv_buf))
             .unwrap();
@@ -170,7 +173,7 @@ impl TurnClient {
         assert_eq!(value, self.client.local_addr().unwrap());
 
         let value = ret.get::<ResponseOrigin>().unwrap();
-        assert_eq!(value, BIND_ADDR);
+        assert_eq!(value, self.bind);
     }
 
     pub fn base_allocate_request(&mut self) {
@@ -341,13 +344,18 @@ impl TurnClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::{create_turn_server, AuthMethod, TurnClient, PASSWORD};
+    use std::net::SocketAddr;
+
+    use crate::{create_turn_server, AuthMethod, TurnClient, BIND_IP, PASSWORD};
 
     #[test]
-    fn integration_testing() {
-        create_turn_server(&AuthMethod::Static);
+    fn static_auth_testing() {
+        let bind = SocketAddr::new(BIND_IP, 4478);
+        let auth = AuthMethod::Static;
 
-        let mut local = TurnClient::new(&AuthMethod::Static);
+        create_turn_server(&auth, bind);
+
+        let mut local = TurnClient::new(&auth, bind);
         local.binding_request();
         local.base_allocate_request();
 
@@ -359,9 +367,12 @@ mod tests {
 
     #[test]
     fn turn_rest_testing() {
-        create_turn_server(&AuthMethod::Secret(PASSWORD.to_string()));
+        let bind = SocketAddr::new(BIND_IP, 4479);
+        let auth = AuthMethod::Secret(PASSWORD.to_string());
 
-        let mut local = TurnClient::new(&AuthMethod::Secret(PASSWORD.to_string()));
+        create_turn_server(&auth, bind);
+
+        let mut local = TurnClient::new(&auth, bind);
         local.binding_request();
         local.base_allocate_request();
 

@@ -2,10 +2,11 @@ use criterion::*;
 use tests::{create_turn_server, AuthMethod, TurnClient};
 
 fn criterion_benchmark(c: &mut Criterion) {
-    create_turn_server(&AuthMethod::Static);
+    let bind = "127.0.0.1:3578".parse().unwrap();
+    create_turn_server(&AuthMethod::Static, bind);
 
-    let mut local = TurnClient::new(&AuthMethod::Static);
-    let mut peer = TurnClient::new(&AuthMethod::Static);
+    let mut local = TurnClient::new(&AuthMethod::Static, bind);
+    let mut peer = TurnClient::new(&AuthMethod::Static, bind);
 
     let local_port = local.allocate_request();
     let peer_port = peer.allocate_request();
