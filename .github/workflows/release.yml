@@ -80,7 +80,7 @@ jobs:
                 if: runner.os == 'Linux' && matrix.arch == 'aarch64'
                 uses: actions/upload-artifact@v4
                 with:
-                    name: linux-x86_64
+                    name: linux-aarch64
                     path: |
                         ./target/aarch64-unknown-linux-gnu/release/turn-server-linux-aarch64
             -
@@ -95,9 +95,6 @@ jobs:
         needs: build
         runs-on: ubuntu-latest
         steps:
-            -
-                name: Checkout code
-                uses: actions/checkout@v3
             -
                 name: Download All Artifacts
                 uses: actions/download-artifact@v4
