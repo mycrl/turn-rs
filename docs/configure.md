@@ -56,16 +56,20 @@ bind = "127.0.0.1:3000"
 #
 # hooks = "http://127.0.0.1:8080"
 
-# Credentials used by the http interface, credentials are carried in the
-# http request and are used to authenticate the request.
-#
-# credential = ""
-
 [log]
 # log level
 #
 # An enum representing the available verbosity levels of the logger.
 level = "info"
+
+[auth]
+# Static authentication key value (string) that applies only to the TURN
+# REST API.
+#
+# If set, the turn server will not request external services via the HTTP
+# Hooks API to obtain the key.
+#
+# static_auth_secret = ""
 
 # static user password
 #
@@ -74,10 +78,9 @@ level = "info"
 # verification. Note: this is a high-priority authentication method, turn
 # The server will try to use static authentication first, and then use
 # external control service authentication.
-[auth]
+[auth.static_credentials]
 # user1 = "test"
 # user2 = "test"
-
 ```
 
 ## Configuration keys
@@ -154,13 +157,6 @@ The turn service provides an external REST API. External parties can control the
 
 > Warning: The REST API does not provide any authentication or encryption measures. You need to run the turn service in a trusted network environment or add a proxy to increase authentication and encryption measures.
 
-### `api.credential`
-
-* Type: string
-* Default: None
-
-Credentials used by the http interface, credentials are carried in the http request and are used to authenticate the request.
-
 ***
 
 ### `log.level`
@@ -172,8 +168,19 @@ Describes the log level of the turn service. Possible values ​​are `"error"`
 
 ***
 
-### `auth`
+### `auth.static_credentials`
 
 * Type: key values
 
 Describes static authentication information, with username and password as key pair. Static identity authentication is authentication information provided to the turn service in advance. The turn service will first look for this table when it needs to authenticate the turn session. If it cannot find it, it will use Web Hooks for external authentication.
+
+***
+
+### `auth.static_auth_secret`
+
+* Type: string
+* Default: None
+
+Static authentication key value (string) that applies only to the TURN REST API. 
+
+If set, the turn server will not request external services via the HTTP Hooks API to obtain the key.

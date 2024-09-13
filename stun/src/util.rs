@@ -70,12 +70,12 @@ pub fn long_key(username: &str, key: &str, realm: &str) -> [u8; 16] {
 ///     0x74, 0xe2, 0x3c, 0x26, 0xc5, 0xb1, 0x03, 0xb2, 0x6d,
 /// ];
 ///
-/// let hmac_output = stun::util::hmac_sha1(&key, vec![&buffer])
+/// let hmac_output = stun::util::hmac_sha1(&key, &[&buffer])
 ///     .unwrap()
 ///     .into_bytes();
 /// assert_eq!(hmac_output.as_slice(), &sign);
 /// ```
-pub fn hmac_sha1(key: &[u8], source: Vec<&[u8]>) -> Result<CtOutput<Hmac<sha1::Sha1>>, StunError> {
+pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<CtOutput<Hmac<sha1::Sha1>>, StunError> {
     match Hmac::<sha1::Sha1>::new_from_slice(key) {
         Err(_) => Err(StunError::ShaFailed),
         Ok(mut mac) => {

@@ -1,8 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::{
-    config::Config, credentials::StaticCredentials, publicly::HooksService, statistics::Statistics,
-};
+use crate::{config::Config, publicly::HooksService, statistics::Statistics};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -14,13 +12,9 @@ pub struct Observer {
 }
 
 impl Observer {
-    pub async fn new(
-        config: Arc<Config>,
-        statistics: Statistics,
-        credentials: StaticCredentials,
-    ) -> Result<Self> {
+    pub async fn new(config: Arc<Config>, statistics: Statistics) -> Result<Self> {
         Ok(Self {
-            hooks: HooksService::new(config, credentials)?,
+            hooks: HooksService::new(config)?,
             statistics,
         })
     }

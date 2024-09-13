@@ -51,16 +51,20 @@ bind = "127.0.0.1:3000"
 #
 # hooks = "http://127.0.0.1:8080"
 
-# Credentials used by the http interface, credentials are carried in the
-# http request and are used to authenticate the request.
-#
-# credential = ""
-
 [log]
 # log level
 #
 # An enum representing the available verbosity levels of the logger.
 level = "info"
+
+[auth]
+# Static authentication key value (string) that applies only to the TURN
+# REST API.
+#
+# If set, the turn server will not request external services via the HTTP
+# Hooks API to obtain the key.
+#
+# static_auth_secret = ""
 
 # static user password
 #
@@ -69,6 +73,6 @@ level = "info"
 # verification. Note: this is a high-priority authentication method, turn
 # The server will try to use static authentication first, and then use
 # external control service authentication.
-[auth]
+[auth.static_credentials]
 # user1 = "test"
 # user2 = "test"

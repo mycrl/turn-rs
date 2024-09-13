@@ -92,9 +92,6 @@ pub struct Api {
     /// through this service, please do not expose it directly to an unsafe
     /// environment.
     pub hooks: Option<String>,
-    /// Credentials used by the http interface, credentials are carried in the
-    /// http request and are used to authenticate the request.
-    pub credential: Option<String>,
 }
 
 impl Api {
@@ -107,7 +104,6 @@ impl Default for Api {
     fn default() -> Self {
         Self {
             hooks: None,
-            credential: None,
             bind: Self::bind(),
         }
     }
@@ -150,15 +146,8 @@ pub struct Log {
     pub level: LogLevel,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct Config {
-    #[serde(default)]
-    pub turn: Turn,
-    #[serde(default)]
-    pub api: Api,
-    #[serde(default)]
-    pub log: Log,
-
+#[derive(Deserialize, Debug, Default)]
+pub struct Auth {
     /// static user password
     ///
     /// This option can be used to specify the
@@ -167,7 +156,25 @@ pub struct Config {
     /// The server will try to use static authentication first, and then use
     /// external control service authentication.
     #[serde(default)]
-    pub auth: HashMap<String, String>,
+    pub static_credentials: HashMap<String, String>,
+    /// Static authentication key value (string) that applies only to the TURN
+    /// REST API.
+    ///
+    /// If set, the turn server will not request external services via the HTTP
+    /// Hooks API to obtain the key.
+    pub static_auth_secret: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Config {
+    #[serde(default)]
+    pub turn: Turn,
+    #[serde(default)]
+    pub api: Api,
+    #[serde(default)]
+    pub log: Log,
+    #[serde(default)]
+    pub auth: Auth,
 }
 
 #[derive(Parser)]
