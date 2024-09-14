@@ -11,12 +11,34 @@ jobs:
                 os:
                     - ubuntu-latest
                     - windows-latest
-                arch:
-                    - x86_64
-                    - aarch64
+                    - macos-latest
+                target:
+                    - aarch64-apple-darwin
+                    - aarch64-unknown-linux-gnu
+                    - x86_64-apple-darwin
+                    - x86_64-pc-windows-msvc
+                    - x86_64-unknown-linux-gnu
                 exclude:
                     - os: windows-latest
-                      arch: aarch64
+                      target: aarch64-unknown-linux-gnu
+                    - os: windows-latest
+                      target: x86_64-unknown-linux-gnu
+                    - os: windows-latest
+                      target: aarch64-apple-darwin
+                    - os: windows-latest
+                      target: x86_64-apple-darwin
+                    - os: ubuntu-latest
+                      target: x86_64-pc-windows-msvc
+                    - os: ubuntu-latest
+                      target: aarch64-apple-darwin
+                    - os: ubuntu-latest
+                      target: x86_64-apple-darwin
+                    - os: macos-latest
+                      target: x86_64-pc-windows-msvc
+                    - os: macos-latest
+                      target: aarch64-unknown-linux-gnu
+                    - os: macos-latest
+                      target: x86_64-unknown-linux-gnu
         steps:
             -
                 uses: actions/checkout@v4
@@ -36,61 +58,51 @@ jobs:
                 run: |
                     sudo apt update
                     sudo apt install -y gcc-aarch64-linux-gnu
-                    rustup target add aarch64-unknown-linux-gnu
-                    which cargo-zigbuild || cargo install cargo-zigbuild
+                    rustup target add ${{ matrix.target }}
+                    cargo install cargo-zigbuild
                     sudo snap install zig --classic --beta
             -
+                name: Install dependencies (Macos)
+                if: runner.os == 'Macos'
+                run: |
+                    rustup target add ${{ matrix.target }}
+                    cargo install cargo-zigbuild
+                    brew install zig
+            -
+                name: Build release (Linux & Macos)
+                if: runner.os == 'Macos' || runner.os == 'Linux'
+                run: cargo zigbuild --target ${{ matrix.target }} --release
+            -
                 name: Build release (Windows)
-                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
+                if: runner.os == 'Windows'
                 run: cargo build --release
             -
-                name: Build release (Linux)
-                if: runner.os == 'Linux' && matrix.arch == 'x86_64'
-                run: cargo build --release
-            -
-                name: Build release (Linux aarch64)
-                if: runner.os == 'Linux' && matrix.arch == 'aarch64'
-                run: cargo zigbuild --target aarch64-unknown-linux-gnu --release
-            -
-                name: Rename release (Linux)
-                if: runner.os == 'Linux' && matrix.arch == 'x86_64'
+                name: Rename release (Linux & Macos)
+                if: runner.os == 'Macos' || runner.os == 'Linux'
                 run: |
-                    mv ./target/release/turn-server ./target/release/turn-server-linux-x86_64
-            -
-                name: Rename release (Linux)
-                if: runner.os == 'Linux' && matrix.arch == 'aarch64'
-                run: |
-                    mv ./target/aarch64-unknown-linux-gnu/release/turn-server ./target/aarch64-unknown-linux-gnu/release/turn-server-linux-aarch64
+                    mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
             -
                 name: Rename release (Windows)
-                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
+                if: runner.os == 'Windows'
                 run: |
-                    Remove-Item -Path "./target/release/turn-server-windows-x86_64.exe" -ErrorAction SilentlyContinue; 
-                    Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-windows-x86_64.exe";
+                    Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}.exe" -ErrorAction SilentlyContinue; 
+                    Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}.exe";
             -
-                name: Upload artifact (Linux)
-                if: runner.os == 'Linux' && matrix.arch == 'x86_64'
+                name: Upload artifact (Linux & Macos)
+                if: runner.os == 'Macos' || runner.os == 'Linux'
                 uses: actions/upload-artifact@v4
                 with:
-                    name: linux-x86_64
+                    name: ${{ matrix.target }}
                     path: |
-                        ./target/release/turn-server-linux-x86_64
-            -
-                name: Upload artifact (Linux)
-                if: runner.os == 'Linux' && matrix.arch == 'aarch64'
-                uses: actions/upload-artifact@v4
-                with:
-                    name: linux-aarch64
-                    path: |
-                        ./target/aarch64-unknown-linux-gnu/release/turn-server-linux-aarch64
+                        ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
             -
                 name: Upload artifact (Windows)
-                if: runner.os == 'Windows' && matrix.arch == 'x86_64'
+                if: runner.os == 'Windows'
                 uses: actions/upload-artifact@v4
                 with:
-                    name: windows-x86_64
+                    name: ${{ matrix.target }}
                     path: |
-                        ./target/release/turn-server-windows-x86_64.exe
+                        ./target/release/turn-server-${{ matrix.target }}.exe
     deploy:
         needs: build
         runs-on: ubuntu-latest

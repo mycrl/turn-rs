@@ -2,7 +2,7 @@ name: publish dockers
 on:
     push:
         tags:
-            - 'v*'
+            - 'docekr-v*'
 jobs:
     release-github:
         runs-on: ubuntu-latest
