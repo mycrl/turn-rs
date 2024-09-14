@@ -80,7 +80,7 @@ jobs:
                 name: Rename release (Linux & Macos)
                 if: runner.os == 'Macos' || runner.os == 'Linux'
                 run: |
-                    mv ./target/${{ matrix.target }}/turn-server ./target/${{ matrix.target }}/turn-server-${{ matrix.target }}
+                    mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
             -
                 name: Rename release (Windows)
                 if: runner.os == 'Windows'
@@ -94,7 +94,7 @@ jobs:
                 with:
                     name: ${{ matrix.target }}
                     path: |
-                        ./target/${{ matrix.target }}/turn-server-${{ matrix.target }}
+                        ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
             -
                 name: Upload artifact (Windows)
                 if: runner.os == 'Windows'
