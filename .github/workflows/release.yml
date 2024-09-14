@@ -14,15 +14,15 @@ jobs:
                     - macos-latest
                 target:
                     - aarch64-apple-darwin
-                    - aarch64-unknown-linux-musl
+                    - aarch64-unknown-linux-gnu
                     - x86_64-apple-darwin
                     - x86_64-pc-windows-msvc
-                    - x86_64-unknown-linux-musl
+                    - x86_64-unknown-linux-gnu
                 exclude:
                     - os: windows-latest
-                      target: aarch64-unknown-linux-musl
+                      target: aarch64-unknown-linux-gnu
                     - os: windows-latest
-                      target: x86_64-unknown-linux-musl
+                      target: x86_64-unknown-linux-gnu
                     - os: windows-latest
                       target: aarch64-apple-darwin
                     - os: windows-latest
@@ -36,9 +36,9 @@ jobs:
                     - os: macos-latest
                       target: x86_64-pc-windows-msvc
                     - os: macos-latest
-                      target: aarch64-unknown-linux-musl
+                      target: aarch64-unknown-linux-gnu
                     - os: macos-latest
-                      target: x86_64-unknown-linux-musl
+                      target: x86_64-unknown-linux-gnu
         steps:
             -
                 uses: actions/checkout@v4
@@ -57,7 +57,7 @@ jobs:
                 if: runner.os == 'Linux'
                 run: |
                     sudo apt update
-                    sudo apt install -y gcc-aarch64-linux-musl
+                    sudo apt install -y gcc-aarch64-linux-gnu
                     rustup target add ${{ matrix.target }}
                     cargo install cargo-zigbuild
                     sudo snap install zig --classic --beta
