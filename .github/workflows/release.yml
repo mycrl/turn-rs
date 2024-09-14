@@ -14,24 +14,31 @@ jobs:
                     - macos-latest
                 target:
                     - aarch64-apple-darwin
-                    - aarch64-pc-windows-msvc
                     - aarch64-unknown-linux-musl
                     - x86_64-apple-darwin
                     - x86_64-pc-windows-msvc
                     - x86_64-unknown-linux-musl
-                include:
+                exclude:
                     - os: windows-latest
-                      target: aarch64-pc-windows-msvc
+                      target: aarch64-unknown-linux-musl
                     - os: windows-latest
+                      target: x86_64-unknown-linux-musl
+                    - os: windows-latest
+                      target: aarch64-apple-darwin
+                    - os: windows-latest
+                      target: x86_64-apple-darwin
+                    - os: ubuntu-latest
                       target: x86_64-pc-windows-msvc
                     - os: ubuntu-latest
-                      target: aarch64-unknown-linux-musl
-                    - os: ubuntu-latest
-                      target: x86_64-unknown-linux-musl
-                    - os: macos-latest
                       target: aarch64-apple-darwin
-                    - os: macos-latest
+                    - os: ubuntu-latest
                       target: x86_64-apple-darwin
+                    - os: macos-latest
+                      target: x86_64-pc-windows-msvc
+                    - os: macos-latest
+                      target: aarch64-unknown-linux-musl
+                    - os: macos-latest
+                      target: x86_64-unknown-linux-musl
         steps:
             -
                 uses: actions/checkout@v4
@@ -55,13 +62,6 @@ jobs:
                     cargo install cargo-zigbuild
                     sudo snap install zig --classic --beta
             -
-                name: Install dependencies (Windows)
-                if: runner.os == 'Windows'
-                run: |
-                    rustup target add ${{ matrix.target }}
-                    cargo install cargo-zigbuild
-                    choco install zig
-            -
                 name: Install dependencies (Macos)
                 if: runner.os == 'Macos'
                 run: |
@@ -69,13 +69,18 @@ jobs:
                     cargo install cargo-zigbuild
                     brew install zig
             -
-                name: Build release
+                name: Build release (Linux & Macos)
+                if: runner.os == 'Macos' || runner.os == 'Linux'
                 run: cargo zigbuild --target ${{ matrix.target }} --release
+            -
+                name: Build release (Windows)
+                if: runner.os == 'Windows'
+                run: cargo build --release
             -
                 name: Rename release (Linux & Macos)
                 if: runner.os == 'Macos' || runner.os == 'Linux'
                 run: |
-                    mv ./target/release/turn-server ./target/release/turn-server-${{ matrix.target }}
+                    mv ./target/${{ matrix.target }}/turn-server ./target/${{ matrix.target }}/turn-server-${{ matrix.target }}
             -
                 name: Rename release (Windows)
                 if: runner.os == 'Windows'
@@ -83,7 +88,16 @@ jobs:
                     Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}.exe" -ErrorAction SilentlyContinue; 
                     Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}.exe";
             -
-                name: Upload artifact
+                name: Upload artifact (Linux & Macos)
+                if: runner.os == 'Macos' || runner.os == 'Linux'
+                uses: actions/upload-artifact@v4
+                with:
+                    name: ${{ matrix.target }}
+                    path: |
+                        ./target/${{ matrix.target }}/turn-server-${{ matrix.target }}
+            -
+                name: Upload artifact (Windows)
+                if: runner.os == 'Windows'
                 uses: actions/upload-artifact@v4
                 with:
                     name: ${{ matrix.target }}
