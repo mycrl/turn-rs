@@ -102,7 +102,7 @@ jobs:
                 with:
                     name: ${{ matrix.target }}
                     path: |
-                        ./target/release/turn-server-${{ matrix.target }}
+                        ./target/release/turn-server-${{ matrix.target }}.exe
     deploy:
         needs: build
         runs-on: ubuntu-latest
