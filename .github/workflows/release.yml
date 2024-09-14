@@ -33,27 +33,26 @@ jobs:
                     key: '${{ runner.os }}-cargo-${{ hashFiles(''**/Cargo.lock'') }}'
             -
                 name: Install dependencies
-                if: runner.os == 'Linux'
                 run: |
                     sudo apt update
                     sudo apt install -y gcc-aarch64-linux-gnu
-                    rustup target add ${{ matrix.arch }}
+                    rustup target add ${{ matrix.target }}
                     which cargo-zigbuild || cargo install cargo-zigbuild
                     sudo snap install zig --classic --beta
             -
                 name: Build release
-                run: cargo zigbuild --target ${{ matrix.arch }} --release
+                run: cargo zigbuild --target ${{ matrix.target }} --release
             -
                 name: Rename release
                 run: |
-                    mv ./target/release/turn-server ./target/release/turn-server-${{ matrix.arch }}
+                    mv ./target/release/turn-server ./target/release/turn-server-${{ matrix.target }}
             -
                 name: Upload artifact
                 uses: actions/upload-artifact@v4
                 with:
-                    name: ${{ matrix.arch }}
+                    name: ${{ matrix.target }}
                     path: |
-                        ./target/release/turn-server-${{ matrix.arch }}
+                        ./target/release/turn-server-${{ matrix.target }}
     deploy:
         needs: build
         runs-on: ubuntu-latest
