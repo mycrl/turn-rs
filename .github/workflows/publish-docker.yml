@@ -1,8 +1,8 @@
 name: publish dockers
-on:
-    push:
-        tags:
-            - 'v*'
+# on:
+#     push:
+#         tags:
+#             - 'v*'
 jobs:
     release-github:
         runs-on: ubuntu-latest
