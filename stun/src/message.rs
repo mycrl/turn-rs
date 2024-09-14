@@ -213,7 +213,7 @@ impl<'a, 'b> MessageWriter<'a> {
         // long key,
         // digest the message buffer,
         // create the new MessageIntegrity attribute.
-        let hmac_output = util::hmac_sha1(auth, vec![self.raw])?.into_bytes();
+        let hmac_output = util::hmac_sha1(auth, &[self.raw])?.into_bytes();
         let property_buf = hmac_output.as_slice();
 
         // write MessageIntegrity attribute.
@@ -325,14 +325,14 @@ impl<'a, 'b> MessageReader<'a, 'b> {
 
         // create multiple submit.
         let size_buf = (self.valid_offset + 4).to_be_bytes();
-        let body = vec![
+        let body = [
             &self.buf[0..2],
             &size_buf,
             &self.buf[4..self.valid_offset as usize],
         ];
 
         // digest the message buffer.
-        let hmac_output = util::hmac_sha1(auth, body)?.into_bytes();
+        let hmac_output = util::hmac_sha1(auth, &body)?.into_bytes();
         let property_buf = hmac_output.as_slice();
 
         // Compare local and original attribute.

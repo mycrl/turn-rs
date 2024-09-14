@@ -1,3 +1,4 @@
+use core::str;
 use std::{
     net::SocketAddr,
     sync::Arc,
@@ -15,6 +16,7 @@ use axum::{
     Json, Router,
 };
 
+use base64::prelude::*;
 use once_cell::sync::Lazy;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::{
@@ -31,14 +33,7 @@ use tokio::{
 
 use turn::Service;
 
-static RID: Lazy<String> = Lazy::new(|| {
-    let mut rng = thread_rng();
-    std::iter::repeat(())
-        .map(|_| rng.sample(Alphanumeric) as char)
-        .take(16)
-        .collect::<String>()
-        .to_lowercase()
-});
+static RID: Lazy<String> = Lazy::new(|| random_string(16));
 
 struct AppState {
     config: Arc<Config>,
@@ -189,13 +184,13 @@ pub async fn start_server(
 pub struct HooksService {
     client: Arc<Client>,
     tx: UnboundedSender<Value>,
-    cfg: Arc<Config>,
+    config: Arc<Config>,
 }
 
 impl HooksService {
-    pub fn new(cfg: Arc<Config>) -> anyhow::Result<Self> {
+    pub fn new(config: Arc<Config>) -> anyhow::Result<Self> {
         let mut headers = HeaderMap::new();
-        headers.insert("Realm", HeaderValue::from_str(&cfg.turn.realm)?);
+        headers.insert("Realm", HeaderValue::from_str(&config.turn.realm)?);
         headers.insert("Rid", HeaderValue::from_str(&RID)?);
 
         let client = Arc::new(
@@ -205,11 +200,11 @@ impl HooksService {
                 .build()?,
         );
 
-        let cfg_ = cfg.clone();
+        let config_ = config.clone();
         let client_ = client.clone();
         let (tx, mut rx) = unbounded_channel::<Value>();
         tokio::spawn(async move {
-            if let Some(server) = &cfg_.api.hooks {
+            if let Some(server) = &config_.api.hooks {
                 let uri = format!("{}/events", server);
 
                 while let Some(signal) = rx.recv().await {
@@ -220,15 +215,19 @@ impl HooksService {
             }
         });
 
-        Ok(Self { client, cfg, tx })
+        Ok(Self { client, config, tx })
     }
 
     pub async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        if let Some(pwd) = self.cfg.auth.get(name) {
+        if let Some(pwd) = self.config.auth.static_credentials.get(name) {
             return Some(pwd.clone());
         }
 
-        if let Some(server) = &self.cfg.api.hooks {
+        if let Some(secret) = &self.config.auth.static_auth_secret {
+            return encode_password(secret, name);
+        }
+
+        if let Some(server) = &self.config.api.hooks {
             if let Ok(res) = self
                 .client
                 .get(format!("{}/password?addr={}&name={}", server, addr, name))
@@ -245,10 +244,31 @@ impl HooksService {
     }
 
     pub fn send_event(&self, event: Value) {
-        if self.cfg.api.hooks.is_some() {
+        if self.config.api.hooks.is_some() {
             if let Err(e) = self.tx.send(event) {
                 log::error!("failed to send event, err={}", e)
             }
         }
     }
+}
+
+fn random_string(len: usize) -> String {
+    let mut rng = thread_rng();
+    std::iter::repeat(())
+        .map(|_| rng.sample(Alphanumeric) as char)
+        .take(len)
+        .collect::<String>()
+        .to_lowercase()
+}
+
+// https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
+fn encode_password(key: &str, username: &str) -> Option<String> {
+    Some(
+        BASE64_STANDARD.encode(
+            stun::util::hmac_sha1(key.as_bytes(), &[username.as_bytes()])
+                .ok()?
+                .into_bytes()
+                .as_slice(),
+        ),
+    )
 }

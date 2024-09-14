@@ -22,7 +22,7 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 /// for guidance on selection of nonce values in a server.
 pub struct Nonce {
     raw: Arc<String>,
-    timer: Instant,
+    lifetime: Instant,
 }
 
 impl Default for Nonce {
@@ -35,7 +35,7 @@ impl Nonce {
     pub fn new() -> Self {
         Self {
             raw: Arc::new(Self::create_nonce()),
-            timer: Instant::now(),
+            lifetime: Instant::now(),
         }
     }
 
@@ -50,7 +50,7 @@ impl Nonce {
     /// assert!(!nonce.is_death());
     /// ```
     pub fn is_death(&self) -> bool {
-        self.timer.elapsed().as_secs() >= 3600
+        self.lifetime.elapsed().as_secs() >= 3600
     }
 
     /// unwind nonce random string.

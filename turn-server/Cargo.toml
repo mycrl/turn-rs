@@ -25,6 +25,7 @@ ahash = "0.8.3"
 async-trait = "0.1"
 anyhow = "1.0"
 axum = "0.7.5"
+base64 = "0.22.1"
 bytes = "1.4.0"
 clap = { version = "4", features = ["derive"] }
 log = "0.4"

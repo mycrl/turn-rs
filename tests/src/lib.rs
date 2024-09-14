@@ -1,282 +1,391 @@
-#![allow(static_mut_refs)]
-
+use base64::prelude::*;
 use bytes::BytesMut;
-use stun::attribute::{
-    ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Realm, ReqeestedTransport,
-    ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress, XorRelayedAddress,
+use once_cell::sync::Lazy;
+use stun::{
+    attribute::{
+        ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Realm,
+        ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress,
+        XorRelayedAddress,
+    },
+    Decoder, Kind, MessageReader, MessageWriter, Method, Payload,
 };
 
-use once_cell::sync::Lazy;
 use rand::seq::SliceRandom;
-use stun::{Decoder, Kind, MessageReader, MessageWriter, Method, Payload};
-use tokio::net::UdpSocket;
+use tokio::{net::UdpSocket, runtime::Runtime};
 use turn_server::{
     config::{self, *},
-    server_main,
+    startup,
 };
 
-use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
+    thread::sleep,
+    time::Duration,
+};
 
-// global static var
+static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
-pub const BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-pub const BIND_ADDR: SocketAddr = SocketAddr::new(BIND_IP, 3478);
-pub const USERNAME: &str = "user1";
-pub const PASSWORD: &str = "test";
-pub const REALM: &str = "localhost";
+static BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+static USERNAME: &str = "user1";
+static PASSWORD: &str = "test";
+static REALM: &str = "localhost";
 
-static mut RECV_BUF: [u8; 1500] = [0u8; 1500];
-static mut SEND_BUF: Lazy<BytesMut> = Lazy::new(|| BytesMut::with_capacity(2048));
-static TOKEN_BUF: Lazy<[u8; 12]> = Lazy::new(|| {
-    let mut rng = rand::thread_rng();
-    let mut token = [0u8; 12];
-    token.shuffle(&mut rng);
-    token
-});
-
-static KEY_BUF: Lazy<[u8; 16]> = Lazy::new(|| stun::util::long_key(USERNAME, PASSWORD, REALM));
-static mut DECODER: Lazy<Decoder> = Lazy::new(Decoder::new);
-
-// global static var end
-
-fn get_message_from_payload<'a, 'b>(payload: Payload<'a, 'b>) -> MessageReader<'a, 'b> {
-    if let Payload::Message(m) = payload {
-        m
-    } else {
-        panic!("get message from payload failed!")
-    }
+#[derive(Debug, Clone)]
+pub enum AuthMethod {
+    Static,
+    Secret(String),
+    Hooks(String),
 }
 
-pub async fn create_turn() {
-    let mut auth = HashMap::new();
-    auth.insert(USERNAME.to_string(), PASSWORD.to_string());
+pub fn create_turn_server(auth_method: &AuthMethod, bind: SocketAddr) {
+    let mut static_credentials = HashMap::new();
+    let mut static_auth_secret = None;
+    let mut api = Api::default();
 
-    // Because it is testing, it is not reasonable to start a separate process
-    // to start turn-server, and the configuration file is not convenient to
-    // pass, so turn-server is used as a library here, and the server is
-    // started with a custom configuration.
-    tokio::spawn(async move {
-        server_main(Arc::new(Config {
-            auth,
+    match auth_method {
+        AuthMethod::Static => {
+            static_credentials.insert(USERNAME.to_string(), PASSWORD.to_string());
+        }
+        AuthMethod::Secret(secret) => {
+            static_auth_secret = Some(secret.clone());
+        }
+        AuthMethod::Hooks(uri) => {
+            api.hooks = Some(uri.clone());
+        }
+    };
+
+    RUNTIME.spawn(async move {
+        startup(Arc::new(Config {
+            auth: Auth {
+                static_credentials,
+                static_auth_secret,
+            },
             api: Api::default(),
             log: Log::default(),
             turn: Turn {
                 realm: REALM.to_string(),
                 interfaces: vec![Interface {
                     transport: config::Transport::UDP,
-                    bind: BIND_ADDR,
-                    external: BIND_ADDR,
+                    external: bind,
+                    bind,
                 }],
             },
         }))
         .await
         .unwrap();
     });
+
+    sleep(Duration::from_secs(2));
 }
 
-// Create a udp connection and connect to the turn-server, and then start
-// the corresponding session process checks in sequence. It should be noted
-// that the order of request responses is relatively strict, and should not
-// be changed under normal circumstances.
-pub async fn create_client() -> UdpSocket {
-    let socket = UdpSocket::bind(SocketAddr::new(BIND_IP, 0)).await.unwrap();
-    socket.connect(BIND_ADDR).await.unwrap();
-    socket
+pub struct TurnClient {
+    key_buf: [u8; 16],
+    decoder: Decoder,
+    client: UdpSocket,
+    token_buf: [u8; 12],
+    recv_buf: [u8; 1500],
+    send_buf: BytesMut,
+    bind_request_buf: BytesMut,
+    base_allocate_request_buf: BytesMut,
+    allocate_request_buf: BytesMut,
+    bind: SocketAddr,
 }
 
-static BIND_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
-    let mut buf = BytesMut::with_capacity(1500);
-    let mut msg = MessageWriter::new(Method::Binding(Kind::Request), &TOKEN_BUF, &mut buf);
+impl TurnClient {
+    pub fn new(auth_method: &AuthMethod, bind: SocketAddr) -> Self {
+        let client = RUNTIME
+            .block_on(UdpSocket::bind(SocketAddr::new(BIND_IP, 0)))
+            .unwrap();
 
-    msg.flush(None).unwrap();
-    buf
-});
+        RUNTIME.block_on(client.connect(bind)).unwrap();
 
-pub async fn binding_request(socket: &UdpSocket) {
-    socket.send(&BIND_REQUEST_BUF).await.unwrap();
-    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
+        let key = match &auth_method {
+            AuthMethod::Static => PASSWORD.to_string(),
+            AuthMethod::Secret(secret) => Self::encode_password(secret, USERNAME).unwrap(),
+            AuthMethod::Hooks(_) => PASSWORD.to_string(),
+        };
 
-    let decoder = unsafe { &mut DECODER };
-    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
-    let ret = get_message_from_payload(ret);
+        let key_buf = stun::util::long_key(USERNAME, &key, REALM);
 
-    assert_eq!(ret.method, Method::Binding(Kind::Response));
-    assert_eq!(ret.token, TOKEN_BUF.as_slice());
+        let token_buf = {
+            let mut rng = rand::thread_rng();
+            let mut token = [0u8; 12];
+            token.shuffle(&mut rng);
+            token
+        };
 
-    let value = ret.get::<XorMappedAddress>().unwrap();
-    assert_eq!(value, socket.local_addr().unwrap());
+        let bind_request_buf = {
+            let mut buf = BytesMut::with_capacity(1500);
+            let mut msg = MessageWriter::new(Method::Binding(Kind::Request), &token_buf, &mut buf);
 
-    let value = ret.get::<MappedAddress>().unwrap();
-    assert_eq!(value, socket.local_addr().unwrap());
+            msg.flush(None).unwrap();
+            buf
+        };
 
-    let value = ret.get::<ResponseOrigin>().unwrap();
-    assert_eq!(value, BIND_ADDR);
-}
+        let base_allocate_request_buf = {
+            let mut buf = BytesMut::with_capacity(1500);
+            let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &token_buf, &mut buf);
 
-static BASE_ALLOCATE_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
-    let mut buf = BytesMut::with_capacity(1500);
-    let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &TOKEN_BUF, &mut buf);
+            msg.append::<ReqeestedTransport>(Transport::UDP);
+            msg.flush(None).unwrap();
+            buf
+        };
 
-    msg.append::<ReqeestedTransport>(Transport::UDP);
-    msg.flush(None).unwrap();
-    buf
-});
+        let allocate_request_buf = {
+            let mut buf = BytesMut::with_capacity(1500);
+            let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &token_buf, &mut buf);
 
-pub async fn base_allocate_request(socket: &UdpSocket) {
-    socket.send(&BASE_ALLOCATE_REQUEST_BUF).await.unwrap();
+            msg.append::<ReqeestedTransport>(Transport::UDP);
+            msg.append::<UserName>(USERNAME);
+            msg.append::<Realm>(REALM);
+            msg.flush(Some(&key_buf)).unwrap();
+            buf
+        };
 
-    let decoder = unsafe { &mut DECODER };
-    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
-    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
-    let ret = get_message_from_payload(ret);
+        Self {
+            key_buf,
+            bind_request_buf,
+            base_allocate_request_buf,
+            allocate_request_buf,
+            send_buf: BytesMut::with_capacity(2048),
+            recv_buf: [0u8; 1500],
+            decoder: Decoder::new(),
+            token_buf,
+            client,
+            bind,
+        }
+    }
 
-    assert_eq!(ret.method, Method::Allocate(Kind::Error));
-    assert_eq!(ret.token, TOKEN_BUF.as_slice());
+    pub fn binding_request(&mut self) {
+        RUNTIME
+            .block_on(self.client.send(&self.bind_request_buf))
+            .unwrap();
 
-    let value = ret.get::<ErrorCode>().unwrap();
-    assert_eq!(value.code, ErrKind::Unauthorized as u16);
+        let size = RUNTIME
+            .block_on(self.client.recv(&mut self.recv_buf))
+            .unwrap();
 
-    let value = ret.get::<Realm>().unwrap();
-    assert_eq!(value, REALM);
-}
+        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = Self::get_message_from_payload(ret);
 
-static ALLOCATE_REQUEST_BUF: Lazy<BytesMut> = Lazy::new(|| {
-    let mut buf = BytesMut::with_capacity(1500);
-    let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &TOKEN_BUF, &mut buf);
+        assert_eq!(ret.method, Method::Binding(Kind::Response));
+        assert_eq!(ret.token, self.token_buf.as_slice());
 
-    msg.append::<ReqeestedTransport>(Transport::UDP);
-    msg.append::<UserName>(USERNAME);
-    msg.append::<Realm>(REALM);
-    msg.flush(Some(&KEY_BUF)).unwrap();
-    buf
-});
+        let value = ret.get::<XorMappedAddress>().unwrap();
+        assert_eq!(value, self.client.local_addr().unwrap());
 
-pub async fn allocate_request(socket: &UdpSocket) -> u16 {
-    socket.send(&ALLOCATE_REQUEST_BUF).await.unwrap();
+        let value = ret.get::<MappedAddress>().unwrap();
+        assert_eq!(value, self.client.local_addr().unwrap());
 
-    let decoder = unsafe { &mut DECODER };
-    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
-    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
-    let ret = get_message_from_payload(ret);
+        let value = ret.get::<ResponseOrigin>().unwrap();
+        assert_eq!(value, self.bind);
+    }
 
-    assert_eq!(ret.method, Method::Allocate(Kind::Response));
-    assert_eq!(ret.token, TOKEN_BUF.as_slice());
-    ret.integrity(&KEY_BUF).unwrap();
+    pub fn base_allocate_request(&mut self) {
+        RUNTIME
+            .block_on(self.client.send(&self.base_allocate_request_buf))
+            .unwrap();
 
-    let relay = ret.get::<XorRelayedAddress>().unwrap();
-    assert_eq!(relay.ip(), BIND_IP);
+        let size = RUNTIME
+            .block_on(self.client.recv(&mut self.recv_buf))
+            .unwrap();
+        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = Self::get_message_from_payload(ret);
 
-    let value = ret.get::<XorMappedAddress>().unwrap();
-    assert_eq!(value, socket.local_addr().unwrap());
+        assert_eq!(ret.method, Method::Allocate(Kind::Error));
+        assert_eq!(ret.token, self.token_buf.as_slice());
 
-    let value = ret.get::<Lifetime>().unwrap();
-    assert_eq!(value, 600);
+        let value = ret.get::<ErrorCode>().unwrap();
+        assert_eq!(value.code, ErrKind::Unauthorized as u16);
 
-    relay.port()
-}
+        let value = ret.get::<Realm>().unwrap();
+        assert_eq!(value, REALM);
+    }
 
-pub async fn create_permission_request(socket: &UdpSocket, port: u16) {
-    let mut msg = MessageWriter::new(
-        Method::CreatePermission(Kind::Request),
-        &TOKEN_BUF,
-        unsafe { &mut SEND_BUF },
-    );
+    pub fn allocate_request(&mut self) -> u16 {
+        RUNTIME
+            .block_on(self.client.send(&self.allocate_request_buf))
+            .unwrap();
 
-    msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
-    msg.append::<UserName>(USERNAME);
-    msg.append::<Realm>(REALM);
-    msg.flush(Some(&KEY_BUF)).unwrap();
-    socket.send(unsafe { &SEND_BUF }).await.unwrap();
+        let size = RUNTIME
+            .block_on(self.client.recv(&mut self.recv_buf))
+            .unwrap();
+        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = Self::get_message_from_payload(ret);
 
-    let decoder = unsafe { &mut DECODER };
-    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
-    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
-    let ret = get_message_from_payload(ret);
+        assert_eq!(ret.method, Method::Allocate(Kind::Response));
+        assert_eq!(ret.token, self.token_buf.as_slice());
+        ret.integrity(&self.key_buf).unwrap();
 
-    assert_eq!(ret.method, Method::CreatePermission(Kind::Response));
-    assert_eq!(ret.token, TOKEN_BUF.as_slice());
-    ret.integrity(&KEY_BUF).unwrap();
-}
+        let relay = ret.get::<XorRelayedAddress>().unwrap();
+        assert_eq!(relay.ip(), BIND_IP);
 
-pub async fn channel_bind_request(socket: &UdpSocket, port: u16) {
-    let mut msg = MessageWriter::new(Method::ChannelBind(Kind::Request), &TOKEN_BUF, unsafe {
-        &mut SEND_BUF
-    });
+        let value = ret.get::<XorMappedAddress>().unwrap();
+        assert_eq!(value, self.client.local_addr().unwrap());
 
-    msg.append::<ChannelNumber>(0x4000);
-    msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
-    msg.append::<UserName>(USERNAME);
-    msg.append::<Realm>(REALM);
-    msg.flush(Some(&KEY_BUF)).unwrap();
-    socket.send(unsafe { &SEND_BUF }).await.unwrap();
+        let value = ret.get::<Lifetime>().unwrap();
+        assert_eq!(value, 600);
 
-    let decoder = unsafe { &mut DECODER };
-    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
-    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
-    let ret = get_message_from_payload(ret);
+        relay.port()
+    }
 
-    assert_eq!(ret.method, Method::ChannelBind(Kind::Response));
-    assert_eq!(ret.token, TOKEN_BUF.as_slice());
-    ret.integrity(&KEY_BUF).unwrap();
-}
+    pub fn create_permission_request(&mut self, port: u16) {
+        let mut msg = MessageWriter::new(
+            Method::CreatePermission(Kind::Request),
+            &self.token_buf,
+            &mut self.send_buf,
+        );
 
-pub async fn refresh_request(socket: &UdpSocket) {
-    let mut msg = MessageWriter::new(Method::Refresh(Kind::Request), &TOKEN_BUF, unsafe {
-        &mut SEND_BUF
-    });
+        msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
+        msg.append::<UserName>(USERNAME);
+        msg.append::<Realm>(REALM);
+        msg.flush(Some(&self.key_buf)).unwrap();
+        RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
 
-    msg.append::<Lifetime>(0);
-    msg.append::<UserName>(USERNAME);
-    msg.append::<Realm>(REALM);
-    msg.flush(Some(&KEY_BUF)).unwrap();
-    socket.send(unsafe { &SEND_BUF }).await.unwrap();
+        let size = RUNTIME
+            .block_on(self.client.recv(&mut self.recv_buf))
+            .unwrap();
+        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = Self::get_message_from_payload(ret);
 
-    let decoder = unsafe { &mut DECODER };
-    let size = socket.recv(unsafe { &mut RECV_BUF }).await.unwrap();
-    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
-    let ret = get_message_from_payload(ret);
+        assert_eq!(ret.method, Method::CreatePermission(Kind::Response));
+        assert_eq!(ret.token, self.token_buf.as_slice());
+        ret.integrity(&self.key_buf).unwrap();
+    }
 
-    assert_eq!(ret.method, Method::Refresh(Kind::Response));
-    assert_eq!(ret.token, TOKEN_BUF.as_slice());
-    ret.integrity(&KEY_BUF).unwrap();
+    pub fn channel_bind_request(&mut self, port: u16) {
+        let mut msg = MessageWriter::new(
+            Method::ChannelBind(Kind::Request),
+            &self.token_buf,
+            &mut self.send_buf,
+        );
 
-    let value = ret.get::<Lifetime>().unwrap();
-    assert_eq!(value, 0);
-}
+        msg.append::<ChannelNumber>(0x4000);
+        msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
+        msg.append::<UserName>(USERNAME);
+        msg.append::<Realm>(REALM);
+        msg.flush(Some(&self.key_buf)).unwrap();
+        RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
 
-pub async fn indication(local: &UdpSocket, peer: &UdpSocket, port: u16) {
-    let mut msg = MessageWriter::new(Method::SendIndication, &TOKEN_BUF, unsafe { &mut SEND_BUF });
+        let size = RUNTIME
+            .block_on(self.client.recv(&mut self.recv_buf))
+            .unwrap();
+        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = Self::get_message_from_payload(ret);
 
-    msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
-    msg.append::<Data>(TOKEN_BUF.as_slice());
-    msg.flush(None).unwrap();
-    local.send(unsafe { &SEND_BUF }).await.unwrap();
+        assert_eq!(ret.method, Method::ChannelBind(Kind::Response));
+        assert_eq!(ret.token, self.token_buf.as_slice());
+        ret.integrity(&self.key_buf).unwrap();
+    }
 
-    let decoder = unsafe { &mut DECODER };
-    let size = peer.recv(unsafe { &mut RECV_BUF }).await.unwrap();
-    let ret = decoder.decode(unsafe { &RECV_BUF[..size] }).unwrap();
-    let ret = get_message_from_payload(ret);
+    pub fn refresh_request(&mut self) {
+        let mut msg = MessageWriter::new(
+            Method::Refresh(Kind::Request),
+            &self.token_buf,
+            &mut self.send_buf,
+        );
 
-    assert_eq!(ret.method, Method::DataIndication);
-    assert_eq!(ret.token, TOKEN_BUF.as_slice());
+        msg.append::<Lifetime>(0);
+        msg.append::<UserName>(USERNAME);
+        msg.append::<Realm>(REALM);
+        msg.flush(Some(&self.key_buf)).unwrap();
+        RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
 
-    let value = ret.get::<Data>().unwrap();
-    assert_eq!(value, TOKEN_BUF.as_slice());
+        let size = RUNTIME
+            .block_on(self.client.recv(&mut self.recv_buf))
+            .unwrap();
+        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = Self::get_message_from_payload(ret);
+
+        assert_eq!(ret.method, Method::Refresh(Kind::Response));
+        assert_eq!(ret.token, self.token_buf.as_slice());
+        ret.integrity(&self.key_buf).unwrap();
+
+        let value = ret.get::<Lifetime>().unwrap();
+        assert_eq!(value, 0);
+    }
+
+    pub fn indication(&mut self, peer: &Self, port: u16) {
+        let mut msg =
+            MessageWriter::new(Method::SendIndication, &self.token_buf, &mut self.send_buf);
+
+        msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
+        msg.append::<Data>(self.token_buf.as_slice());
+        msg.flush(None).unwrap();
+        RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
+
+        let size = RUNTIME
+            .block_on(peer.client.recv(&mut self.recv_buf))
+            .unwrap();
+        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = Self::get_message_from_payload(ret);
+
+        assert_eq!(ret.method, Method::DataIndication);
+        assert_eq!(ret.token, self.token_buf.as_slice());
+
+        let value = ret.get::<Data>().unwrap();
+        assert_eq!(value, self.token_buf.as_slice());
+    }
+
+    fn get_message_from_payload<'a, 'b>(payload: Payload<'a, 'b>) -> MessageReader<'a, 'b> {
+        if let Payload::Message(m) = payload {
+            m
+        } else {
+            panic!("get message from payload failed!")
+        }
+    }
+
+    fn encode_password(key: &str, username: &str) -> Option<String> {
+        Some(
+            BASE64_STANDARD.encode(
+                stun::util::hmac_sha1(key.as_bytes(), &[username.as_bytes()])
+                    .ok()?
+                    .into_bytes()
+                    .as_slice(),
+            ),
+        )
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    #[tokio::test]
-    async fn integration_testing() {
-        crate::create_turn().await;
-        let socket = crate::create_client().await;
-        crate::binding_request(&socket).await;
-        crate::base_allocate_request(&socket).await;
-        let port = crate::allocate_request(&socket).await;
-        crate::create_permission_request(&socket, port).await;
-        crate::channel_bind_request(&socket, port).await;
-        crate::refresh_request(&socket).await;
+    use std::net::SocketAddr;
+
+    use crate::{create_turn_server, AuthMethod, TurnClient, BIND_IP, PASSWORD};
+
+    #[test]
+    fn static_auth_testing() {
+        let bind = SocketAddr::new(BIND_IP, 4478);
+        let auth = AuthMethod::Static;
+
+        create_turn_server(&auth, bind);
+
+        let mut local = TurnClient::new(&auth, bind);
+        local.binding_request();
+        local.base_allocate_request();
+
+        let port = local.allocate_request();
+        local.create_permission_request(port);
+        local.channel_bind_request(port);
+        local.refresh_request();
+    }
+
+    #[test]
+    fn turn_rest_testing() {
+        let bind = SocketAddr::new(BIND_IP, 4479);
+        let auth = AuthMethod::Secret(PASSWORD.to_string());
+
+        create_turn_server(&auth, bind);
+
+        let mut local = TurnClient::new(&auth, bind);
+        local.binding_request();
+        local.base_allocate_request();
+
+        let port = local.allocate_request();
+        local.create_permission_request(port);
+        local.channel_bind_request(port);
+        local.refresh_request();
     }
 }

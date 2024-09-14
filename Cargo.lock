@@ -1704,6 +1704,7 @@ dependencies = [
 name = "tests"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "bytes",
  "criterion",
  "once_cell",
@@ -1967,6 +1968,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "base64",
  "bytes",
  "clap",
  "log",

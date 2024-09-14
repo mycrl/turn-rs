@@ -269,7 +269,7 @@ impl Nodes {
         password: &str,
     ) -> Option<Arc<[u8; 16]>> {
         let node = Node::new(realm, username, password);
-        let pwd = node.get_secret();
+        let secret = node.get_secret();
         let mut addrs = self.addrs.write().unwrap();
         self.map.write().unwrap().insert(*addr, node);
 
@@ -277,7 +277,7 @@ impl Nodes {
             .entry(username.to_string())
             .or_insert_with(|| AHashSet::with_capacity(5))
             .insert(*addr);
-        Some(pwd)
+        Some(secret)
     }
 
     /// push port to node.

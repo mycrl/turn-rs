@@ -72,7 +72,7 @@ impl Default for Turn {
 
 #[derive(Deserialize, Debug)]
 pub struct Api {
-    /// Api bind
+    /// api bind
     ///
     /// This option specifies the http server binding address used to control
     /// the turn server.
@@ -98,17 +98,13 @@ impl Api {
     fn bind() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
     }
-
-    fn hooks() -> Option<String> {
-        None
-    }
 }
 
 impl Default for Api {
     fn default() -> Self {
         Self {
+            hooks: None,
             bind: Self::bind(),
-            hooks: Self::hooks(),
         }
     }
 }
@@ -150,15 +146,8 @@ pub struct Log {
     pub level: LogLevel,
 }
 
-#[derive(Deserialize, Debug)]
-pub struct Config {
-    #[serde(default)]
-    pub turn: Turn,
-    #[serde(default)]
-    pub api: Api,
-    #[serde(default)]
-    pub log: Log,
-
+#[derive(Deserialize, Debug, Default)]
+pub struct Auth {
     /// static user password
     ///
     /// This option can be used to specify the
@@ -167,7 +156,25 @@ pub struct Config {
     /// The server will try to use static authentication first, and then use
     /// external control service authentication.
     #[serde(default)]
-    pub auth: HashMap<String, String>,
+    pub static_credentials: HashMap<String, String>,
+    /// Static authentication key value (string) that applies only to the TURN
+    /// REST API.
+    ///
+    /// If set, the turn server will not request external services via the HTTP
+    /// Hooks API to obtain the key.
+    pub static_auth_secret: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Config {
+    #[serde(default)]
+    pub turn: Turn,
+    #[serde(default)]
+    pub api: Api,
+    #[serde(default)]
+    pub log: Log,
+    #[serde(default)]
+    pub auth: Auth,
 }
 
 #[derive(Parser)]

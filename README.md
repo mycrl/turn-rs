@@ -44,7 +44,7 @@ If you have extensive standard support requirements for turn servers and need mo
   * [start the server](./docs/start-the-server.md)
   * [configure](./docs/configure.md)
   * [rest api](./docs/rest-api.md)
-  * [web hooks](./docs/web-hooks.md)
+  * [http hooks](./docs/http-hooks.md)
 * [driver](./drivers)
 
 ## Features
