@@ -37,7 +37,7 @@ jobs:
                 run: |
                     sudo apt update
                     sudo apt install -y gcc-aarch64-linux-gnu
-                    rustup target add aarch64-unknown-linux-gnu
+                    rustup target add ${{ matrix.arch }}
                     which cargo-zigbuild || cargo install cargo-zigbuild
                     sudo snap install zig --classic --beta
             -
