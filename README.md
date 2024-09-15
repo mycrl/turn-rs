@@ -15,18 +15,25 @@
 <br/>
 <br/>
 
-A pure Rust implementation of the turn server. Compared with coturn, the advantage is to provide better performance. Single-threaded decoding speed up to 5Gib/s, forwarding delay is less than 35 microseconds. However, it does not provide as rich as coturn feature support, this project is more focused on the core business, do not need to touch the complex configuration items, almost out of the box.
+A pure Rust implementation of a forwarding server that takes advantage of the memory and concurrency security provided by Rust, with single-threaded decoding speeds up to 5Gib/s and forwarding latency of less than 35 microseconds. The project is more focused on the core business , do not need to access the complex configuration project , almost out of the box .
 
-## How do I choose?
+## Differences with coturn?
 
-#### turn-rs
+First of all, I remain in awe and respect for coturn, which is a much more mature implementation and has very comprehensive support for a wide range of features.
 
-If you are not familiar with coturn configuration items and are annoyed by the complexity of coturn configuration items, then you should use this project, and similarly, if you want better performance performance and lower memory footprint, you can also use this project. turn-rs configuration is easy, and the external api is very simple, and is good enough for core business support.
+However, turn-rs is not a simple duplicate implementation, and this project is not a blind “RIIR”. Because turn server is currently the largest use of the scene or WebRTC, for WebRTC business, many features are not too much necessary, so keep it simple and fast is the best choice.
 
-#### coturn
+##### "Better performance"
 
-If you have extensive standard support requirements for turn servers and need more integrated services and ecological support, then you should choose coturn.
+Because turn-rs only focuses on the core business, it removes a lot of features that are almost less commonly used in WebRTC scenarios, resulting in better performance, both in terms of throughput and memory performance.
 
+##### "Database storage is not supported"
+
+I don't think turn servers should be concerned about user information, just do their essential work, it's better to leave the hosting and storing of user information to other services, and interacting with databases adds complexity. turn-rs communicates with external services through http hooks, which can be more flexible in deciding how to deal with it based on their own business situation.
+
+##### "No transport layer encryption"
+
+This is an obvious drawback, unlike coturn which provides various transport layer encryption, turn-rs doesn't provide any transport layer encryption, but turn-rs mainly serves WebRTC business, WebRTC comes with transport layer encryption, and the packets transmitted in turn are already encrypted, so in order to reduce the overhead, turn -rs does not provide transport layer encryption.
 
 ## Table of contents
 
