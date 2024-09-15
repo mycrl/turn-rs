@@ -46,6 +46,8 @@ If you have extensive standard support requirements for turn servers and need mo
 
 ## Features
 
+> turn-rs is based on WebRTC usage scenarios, so when providing support for a typical WebRTC session, most of the features that a turn server should have are already supported, and if there are no supported features, most of the time a similar mechanism is provided.As for why we don't follow RFCs, turn-rs has its own considerations, such as the fact that some RFCs are more complex to implement, but can be used in very few scenarios, or that the RFCs themselves are not well developed, and the technical specifications are rather old.
+
 - Only long-term authentication mechanisms are used.
 - Static authentication lists can be used in configuration files.
 - Only virtual ports are always allocated and no real system ports are occupied.
@@ -61,8 +63,6 @@ If you have extensive standard support requirements for turn servers and need mo
 * [RFC 6062](https://datatracker.ietf.org/doc/html/rfc6062) - TCP relaying TURN extension
 * [RFC 6156](https://datatracker.ietf.org/doc/html/rfc6156) - IPv6 extension for TURN
 * TURN REST API (http://tools.ietf.org/html/draft-uberti-behave-turn-rest-00)
-
-turn-rs is based on WebRTC usage scenarios, so when providing support for a typical WebRTC session, most of the features that a turn server should have are already supported, and if there are no supported features, most of the time a similar mechanism is provided.As for why we don't follow RFCs, turn-rs has its own considerations, such as the fact that some RFCs are more complex to implement, but can be used in very few scenarios, or that the RFCs themselves are not well developed, and the technical specifications are rather old.
 
 ## Usage
 
