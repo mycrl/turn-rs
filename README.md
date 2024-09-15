@@ -12,9 +12,6 @@
   <img src="https://img.shields.io/github/issues/mycrl/turn-rs"/>
   <img src="https://img.shields.io/github/stars/mycrl/turn-rs"/>
 </div>
-<div align="center">
-  <sup>RFC: https://datatracker.ietf.org/doc/html/rfc8656</sup>
-</div>
 <br/>
 <br/>
 
@@ -54,6 +51,18 @@ If you have extensive standard support requirements for turn servers and need mo
 - Only virtual ports are always allocated and no real system ports are occupied.
 - The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
 - The REST API can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
+
+#### RFC
+
+* [RFC 3489](https://datatracker.ietf.org/doc/html/rfc3489) - "classic" STUN
+* [RFC 5389](https://datatracker.ietf.org/doc/html/rfc5389) - base "new" STUN specs
+* [RFC 5769](https://datatracker.ietf.org/doc/html/rfc5769) - test vectors for STUN protocol testing
+* [RFC 5766](https://datatracker.ietf.org/doc/html/rfc5766) - base TURN specs
+* [RFC 6062](https://datatracker.ietf.org/doc/html/rfc6062) - TCP relaying TURN extension
+* [RFC 6156](https://datatracker.ietf.org/doc/html/rfc6156) - IPv6 extension for TURN
+* TURN REST API (http://tools.ietf.org/html/draft-uberti-behave-turn-rest-00)
+
+turn-rs is based on WebRTC usage scenarios, so when providing support for a typical WebRTC session, most of the features that a turn server should have are already supported, and if there are no supported features, most of the time a similar mechanism is provided. turn-rs has its own considerations for why it doesn't follow the RFCs. As for why we don't follow RFCs, turn-rs has its own considerations, such as the fact that some RFCs are more complex to implement, but can be used in very few scenarios, or that the RFCs themselves are not well developed, and the technical specifications are rather old.
 
 ## Usage
 
