@@ -1,6 +1,7 @@
-use std::{net::SocketAddr, sync::RwLock};
+use std::net::SocketAddr;
 
 use ahash::AHashMap;
+use parking_lot::RwLock;
 use tokio::sync::mpsc::*;
 use turn::StunClass;
 
@@ -43,7 +44,7 @@ impl Router {
         interface: SocketAddr,
     ) -> UnboundedReceiver<(Vec<u8>, StunClass, SocketAddr)> {
         let (sender, receiver) = unbounded_channel();
-        self.senders.write().unwrap().insert(interface, sender);
+        self.senders.write().insert(interface, sender);
         receiver
     }
 
@@ -78,7 +79,7 @@ impl Router {
         let mut is_destroy = false;
 
         {
-            if let Some(sender) = self.senders.read().unwrap().get(interface) {
+            if let Some(sender) = self.senders.read().get(interface) {
                 if sender.send((data.to_vec(), class, *addr)).is_err() {
                     is_destroy = true;
                 }
@@ -116,6 +117,6 @@ impl Router {
     /// }
     /// ```
     pub fn remove(&self, interface: &SocketAddr) {
-        drop(self.senders.write().unwrap().remove(interface))
+        drop(self.senders.write().remove(interface))
     }
 }

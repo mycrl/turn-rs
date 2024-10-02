@@ -2,8 +2,9 @@ use super::ports::capacity;
 
 use ahash::AHashMap;
 
+use parking_lot::RwLock;
 use std::iter::{IntoIterator, Iterator};
-use std::{net::SocketAddr, sync::RwLock, time::Instant};
+use std::{net::SocketAddr, time::Instant};
 
 /// channels iterator.
 pub struct Iter {
@@ -252,7 +253,7 @@ impl Channels {
     /// assert_eq!(channels.get_bound(&addr, 43159).unwrap(), peer);
     /// ```
     pub fn get_bound(&self, a: &SocketAddr, c: u16) -> Option<SocketAddr> {
-        self.bounds.read().unwrap().get(&(*a, c)).cloned()
+        self.bounds.read().get(&(*a, c)).cloned()
     }
 
     /// insert address for peer address to channel table.
@@ -273,7 +274,7 @@ impl Channels {
     /// assert_eq!(channels.get_bound(&addr, 43159).unwrap(), peer);
     /// ```
     pub fn insert(&self, a: &SocketAddr, c: u16, p: &SocketAddr) -> Option<()> {
-        let mut map = self.map.write().unwrap();
+        let mut map = self.map.write();
         let mut is_empty = false;
 
         let channel = map.entry(c).or_insert_with(|| {
@@ -294,11 +295,7 @@ impl Channels {
             channel.refresh();
         }
 
-        self.bounds
-            .write()
-            .unwrap()
-            .entry((*a, c))
-            .or_insert_with(|| *p);
+        self.bounds.write().entry((*a, c)).or_insert_with(|| *p);
         Some(())
     }
 
@@ -321,8 +318,8 @@ impl Channels {
     /// assert!(channels.remove(43160).is_some());
     /// ```
     pub fn remove(&self, c: u16) -> Option<()> {
-        let mut bounds = self.bounds.write().unwrap();
-        for a in self.map.write().unwrap().remove(&c)? {
+        let mut bounds = self.bounds.write();
+        for a in self.map.write().remove(&c)? {
             bounds.remove(&(a, c));
         }
 
@@ -340,7 +337,6 @@ impl Channels {
     pub fn get_deaths(&self) -> Vec<u16> {
         self.map
             .read()
-            .unwrap()
             .iter()
             .filter(|(_, v)| v.is_death())
             .map(|(k, _)| *k)

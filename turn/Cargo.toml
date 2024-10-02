@@ -8,23 +8,17 @@ readme = "../README.md"
 homepage = "https://github.com/mycrl/turn-rs"
 repository = "https://github.com/mycrl/turn-rs"
 license = "GPL-2.0-or-later"
-keywords = [
-    "stun",
-    "webrtc",
-    "turn"
-]
+keywords = ["stun", "webrtc", "turn"]
 
-categories = [
-    "parsing",
-    "network-programming"
-]
+categories = ["parsing", "network-programming"]
 
 [dependencies]
-ahash = "0.8.3"
+ahash = "0.8"
 stun = { path = "../stun", version = "1" }
 async-trait = "0.1"
 bytes = "1"
 rand = "0.8"
+parking_lot = "0.12"
 
 [dev-dependencies]
 criterion = "0.5"

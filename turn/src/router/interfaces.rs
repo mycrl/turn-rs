@@ -1,9 +1,9 @@
 use super::ports::capacity;
 
-use std::net::SocketAddr;
-use std::sync::{Arc, RwLock};
+use std::{net::SocketAddr, sync::Arc};
 
 use ahash::AHashMap;
+use parking_lot::RwLock;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Interface {
@@ -42,7 +42,7 @@ impl Interfaces {
     /// assert_eq!(ret.external, interface);
     /// ```
     pub fn insert(&self, addr: SocketAddr, interface: SocketAddr, external: SocketAddr) {
-        self.map.write().unwrap().insert(
+        self.map.write().insert(
             addr,
             Arc::new(Interface {
                 addr: interface,
@@ -69,11 +69,7 @@ impl Interfaces {
     /// assert_eq!(ret.external, interface);
     /// ```
     pub fn get(&self, addr: &SocketAddr) -> Option<Interface> {
-        self.map
-            .read()
-            .unwrap()
-            .get(addr)
-            .map(|item| *item.as_ref())
+        self.map.read().get(addr).map(|item| *item.as_ref())
     }
 
     /// get interface ref from addr.
@@ -95,7 +91,7 @@ impl Interfaces {
     /// assert_eq!(ret.external, interface);
     /// ```
     pub fn get_ref(&self, addr: &SocketAddr) -> Option<Arc<Interface>> {
-        self.map.read().unwrap().get(addr).cloned()
+        self.map.read().get(addr).cloned()
     }
 
     /// remove interface from addr.
@@ -122,6 +118,6 @@ impl Interfaces {
     /// assert!(ret.is_none());
     /// ```
     pub fn remove(&self, addr: &SocketAddr) {
-        self.map.write().unwrap().remove(addr);
+        self.map.write().remove(addr);
     }
 }

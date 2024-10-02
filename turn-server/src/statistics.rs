@@ -2,13 +2,14 @@ use std::{
     net::SocketAddr,
     sync::{
         atomic::{AtomicUsize, Ordering},
-        Arc, RwLock,
+        Arc,
     },
     thread::{self, sleep},
     time::Duration,
 };
 
 use ahash::AHashMap;
+use parking_lot::RwLock;
 
 #[derive(Debug, Clone, Copy)]
 pub struct NodeCounts {
@@ -81,7 +82,7 @@ impl Default for Statistics {
         let map_ = Arc::downgrade(&map);
         thread::spawn(move || {
             while let Some(map) = map_.upgrade() {
-                let _ = map.read().unwrap().iter().for_each(|(_, it)| it.clear());
+                let _ = map.read().iter().for_each(|(_, it)| it.clear());
                 sleep(Duration::from_secs(1));
             }
         });
@@ -133,7 +134,7 @@ impl Statistics {
     /// }
     /// ```
     pub fn set(&self, addr: SocketAddr) {
-        self.0.write().unwrap().insert(addr, Counts::default());
+        self.0.write().insert(addr, Counts::default());
     }
 
     /// Remove an address from the watch list
@@ -157,7 +158,7 @@ impl Statistics {
     /// }
     /// ```
     pub fn delete(&self, addr: &SocketAddr) {
-        self.0.write().unwrap().remove(addr);
+        self.0.write().remove(addr);
     }
 
     /// Obtain a list of statistics from statisticsing
@@ -180,7 +181,7 @@ impl Statistics {
     /// }
     /// ```
     pub fn get(&self, addr: &SocketAddr) -> Option<NodeCounts> {
-        self.0.read().unwrap().get(addr).map(|counts| NodeCounts {
+        self.0.read().get(addr).map(|counts| NodeCounts {
             received_bytes: counts.received_bytes.get(),
             received_pkts: counts.received_pkts.get(),
             send_bytes: counts.send_bytes.get(),
@@ -199,7 +200,7 @@ pub struct StatisticsActor(Arc<RwLock<AHashMap<SocketAddr, Counts>>>);
 
 impl StatisticsActor {
     pub fn send(&self, addr: &SocketAddr, payload: &[Stats]) {
-        if let Some(counts) = self.0.read().unwrap().get(addr) {
+        if let Some(counts) = self.0.read().get(addr) {
             for item in payload {
                 counts.add(item);
             }

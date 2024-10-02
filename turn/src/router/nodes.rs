@@ -1,13 +1,9 @@
-use std::{
-    collections::BTreeMap,
-    net::SocketAddr,
-    sync::{Arc, RwLock},
-    time::Instant,
-};
+use std::{collections::BTreeMap, net::SocketAddr, sync::Arc, time::Instant};
 
 use super::ports::capacity;
 
 use ahash::{AHashMap, AHashSet};
+use parking_lot::RwLock;
 use stun::util::long_key;
 
 /// turn node session.
@@ -171,7 +167,6 @@ impl Nodes {
     pub fn get_users(&self, skip: usize, limit: usize) -> Vec<(String, Vec<SocketAddr>)> {
         self.addrs
             .read()
-            .unwrap()
             .iter()
             .skip(skip)
             .take(limit)
@@ -206,7 +201,7 @@ impl Nodes {
     /// assert_eq!(node.ports.len(), 0);
     /// ```
     pub fn get_node(&self, a: &SocketAddr) -> Option<Node> {
-        self.map.read().unwrap().get(a).cloned()
+        self.map.read().get(a).cloned()
     }
 
     /// get password from address.
@@ -232,7 +227,7 @@ impl Nodes {
     /// );
     /// ```
     pub fn get_secret(&self, a: &SocketAddr) -> Option<Arc<[u8; 16]>> {
-        self.map.read().unwrap().get(a).map(|n| n.get_secret())
+        self.map.read().get(a).map(|n| n.get_secret())
     }
 
     /// insert node in node table.
@@ -270,8 +265,8 @@ impl Nodes {
     ) -> Option<Arc<[u8; 16]>> {
         let node = Node::new(realm, username, password);
         let secret = node.get_secret();
-        let mut addrs = self.addrs.write().unwrap();
-        self.map.write().unwrap().insert(*addr, node);
+        let mut addrs = self.addrs.write();
+        self.map.write().insert(*addr, node);
 
         addrs
             .entry(username.to_string())
@@ -309,7 +304,7 @@ impl Nodes {
     /// assert_eq!(node.ports, vec![60000]);
     /// ```
     pub fn push_port(&self, a: &SocketAddr, port: u16) -> Option<()> {
-        self.map.write().unwrap().get_mut(a)?.push_port(port);
+        self.map.write().get_mut(a)?.push_port(port);
         Some(())
     }
 
@@ -342,7 +337,7 @@ impl Nodes {
     /// assert_eq!(node.ports, vec![]);
     /// ```
     pub fn push_channel(&self, a: &SocketAddr, channel: u16) -> Option<()> {
-        self.map.write().unwrap().get_mut(a)?.push_channel(channel);
+        self.map.write().get_mut(a)?.push_channel(channel);
         Some(())
     }
 
@@ -392,7 +387,7 @@ impl Nodes {
     /// assert!(node.is_death());
     /// ```
     pub fn set_lifetime(&self, a: &SocketAddr, delay: u32) -> Option<()> {
-        self.map.write().unwrap().get_mut(a)?.set_lifetime(delay);
+        self.map.write().get_mut(a)?.set_lifetime(delay);
         Some(())
     }
 
@@ -426,8 +421,8 @@ impl Nodes {
     /// assert!(nodes.get_node(&addr).is_none());
     /// ```
     pub fn remove(&self, a: &SocketAddr) -> Option<Node> {
-        let mut user_addrs = self.addrs.write().unwrap();
-        let node = self.map.write().unwrap().remove(a)?;
+        let mut user_addrs = self.addrs.write();
+        let node = self.map.write().remove(a)?;
         let addrs = user_addrs.get_mut(&node.username)?;
         if addrs.len() == 1 {
             user_addrs.remove(&node.username)?;
@@ -462,7 +457,6 @@ impl Nodes {
     pub fn get_addrs(&self, u: &str) -> Vec<SocketAddr> {
         self.addrs
             .read()
-            .unwrap()
             .get(u)
             .cloned()
             .unwrap_or_default()
@@ -492,7 +486,6 @@ impl Nodes {
     pub fn get_deaths(&self) -> Vec<SocketAddr> {
         self.map
             .read()
-            .unwrap()
             .iter()
             .filter(|(_, v)| v.is_death())
             .map(|(k, _)| *k)
