@@ -7,10 +7,4 @@ lto = true
 
 [workspace]
 resolver = "2"
-members = [
-    "tests",
-    "turn",
-    "stun",
-    "turn-server", 
-    "drivers",
-]
+members = ["tests", "turn", "stun", "turn-server", "drivers"]
