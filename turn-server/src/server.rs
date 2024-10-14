@@ -85,7 +85,7 @@ async fn tcp_server(
         let router = router.clone();
         let actor = statistics.get_actor();
         let mut receiver = router.get_receiver(addr);
-        let mut processor = service.get_processor(addr, external);
+        let mut operationer = service.get_operationer(addr, external);
 
         log::info!(
             "tcp socket accept: addr={:?}, interface={:?}",
@@ -166,7 +166,7 @@ async fn tcp_server(
                     };
 
                     let chunk = buf.split_to(size);
-                    if let Ok(Some(res)) = processor.process(&chunk, addr).await {
+                    if let Ok(Some(res)) = operationer.process(&chunk, addr).await {
                         let target = res.relay.unwrap_or(addr);
                         if let Some(to) = res.interface {
                             router.send(&to, res.kind, &target, res.data);
@@ -217,7 +217,7 @@ async fn udp_server(
         let socket = socket.clone();
         let router = router.clone();
         let actor = statistics.get_actor();
-        let mut processor = service.get_processor(external, external);
+        let mut operationer = service.get_operationer(external, external);
 
         tokio::spawn(async move {
             let mut buf = vec![0u8; 2048];
@@ -238,7 +238,7 @@ async fn udp_server(
                 // smallest stun message is channel data,
                 // excluding content)
                 if size >= 4 {
-                    if let Ok(Some(res)) = processor.process(&buf[..size], addr).await {
+                    if let Ok(Some(res)) = operationer.process(&buf[..size], addr).await {
                         let target = res.relay.unwrap_or(addr);
                         if let Some(to) = res.interface {
                             router.send(&to, res.kind, &target, res.data);

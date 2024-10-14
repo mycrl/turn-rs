@@ -25,13 +25,13 @@ pub struct Env {
 
 /// process udp message
 /// and return message + address.
-pub struct Processor {
+pub struct Operationer {
     env: Arc<Env>,
     decoder: Decoder,
     buf: BytesMut,
 }
 
-impl Processor {
+impl Operationer {
     pub(crate) fn new(
         interface: SocketAddr,
         external: SocketAddr,
