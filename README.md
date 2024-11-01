@@ -53,8 +53,6 @@ This is an obvious drawback, unlike coturn which provides various transport laye
 
 ## Features
 
-> turn-rs is based on WebRTC usage scenarios, so when providing support for a typical WebRTC session, most of the features that a turn server should have are already supported, and if there are no supported features, most of the time a similar mechanism is provided.As for why we don't follow RFCs, turn-rs has its own considerations, such as the fact that some RFCs are more complex to implement, but can be used in very few scenarios, or that the RFCs themselves are not well developed, and the technical specifications are rather old.
-
 - Only long-term authentication mechanisms are used.
 - Static authentication lists can be used in configuration files.
 - Only virtual ports are always allocated and no real system ports are occupied.
