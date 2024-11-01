@@ -122,5 +122,5 @@ After the compilation is complete, you can find the binary file in the `"target/
 
 ## License
 
-[GPL3.0](./LICENSE)
+[LGPL](./LICENSE)
 Copyright (c) 2022 Mr.Panda.
