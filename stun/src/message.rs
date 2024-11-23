@@ -142,7 +142,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message =
     ///     MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
-    /// 
+    ///
     /// message
     ///     .flush(Some(&util::long_key("panda", "panda", "raspberry")))
     ///     .unwrap();
@@ -189,7 +189,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message =
     ///     MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
-    /// 
+    ///
     /// message
     ///     .flush(Some(&util::long_key("panda", "panda", "raspberry")))
     ///     .unwrap();

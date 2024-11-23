@@ -2,6 +2,7 @@ use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, str::FromSt
 
 use anyhow::anyhow;
 use clap::Parser;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 #[repr(C)]
@@ -36,6 +37,28 @@ pub struct Interface {
     /// you need to manually specify the server external IP
     /// address and service listening port.
     pub external: SocketAddr,
+}
+
+impl FromStr for Interface {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (transport, addrs) = s
+            .split('@')
+            .collect_tuple()
+            .ok_or_else(|| anyhow!("invalid interface transport: {}", s))?;
+
+        let (bind, external) = addrs
+            .split('/')
+            .collect_tuple()
+            .ok_or_else(|| anyhow!("invalid interface address: {}", s))?;
+
+        Ok(Interface {
+            external: external.parse::<SocketAddr>()?,
+            bind: bind.parse::<SocketAddr>()?,
+            transport: transport.parse()?,
+        })
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -247,38 +270,18 @@ struct Cli {
     /// TURN server listen interfaces
     ///
     /// Example: --turn-interfaces udp@127.0.0.1:3478/127.0.0.1:3478
-    #[arg(long, value_parser = Cli::parse_interface)]
+    #[arg(long)]
     turn_interfaces: Option<Vec<Interface>>,
 }
 
 impl Cli {
     // [username]:[password]
     fn parse_credential(s: &str) -> Result<(String, String), anyhow::Error> {
-        let err = || anyhow!("invalid credential str: {}", s);
-
-        let mut iter = s.split('=');
-        Ok((
-            iter.next().ok_or_else(err)?.to_string(),
-            iter.next().ok_or_else(err)?.to_string(),
-        ))
-    }
-
-    // [transport]@[bind]/[external]
-    fn parse_interface(s: &str) -> Result<Interface, anyhow::Error> {
-        let err = || anyhow!("invalid interface str: {}", s);
-
-        let mut iter = s.split('@').take(2);
-        let transport = Transport::from_str(iter.next().ok_or_else(err)?)?;
-
-        let mut iter = iter.next().ok_or_else(err)?.split('/');
-        let bind = iter.next().ok_or_else(err)?.parse::<SocketAddr>()?;
-        let external = iter.next().ok_or_else(err)?.parse::<SocketAddr>()?;
-
-        Ok(Interface {
-            transport,
-            external,
-            bind,
-        })
+        let (username, password) = s
+            .split('=')
+            .collect_tuple()
+            .ok_or_else(|| anyhow!("invalid credential str: {}", s))?;
+        Ok((username.to_string(), password.to_string()))
     }
 }
 
