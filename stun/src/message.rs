@@ -131,11 +131,10 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ];
     ///
     /// let result = [
-    ///     0x00u8, 0x01, 0x00, 0x20, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
-    ///     0x42, 0x72, 0x52, 0x64, 0x48, 0x57, 0x62, 0x4b, 0x2b, 0x00, 0x08, 0x00,
-    ///     0x14, 0x45, 0x0e, 0x6e, 0x44, 0x52, 0x1e, 0xe8, 0xde, 0x2c, 0xf0, 0xfa,
-    ///     0xb6, 0x9c, 0x5c, 0x19, 0x17, 0x98, 0xc6, 0xd9, 0xde, 0x80, 0x28, 0x00,
-    ///     0x04, 0xed, 0x41, 0xb6, 0xbe,
+    ///     0, 1, 0, 32, 33, 18, 164, 66, 114, 109, 73, 66, 114, 82, 100, 72, 87,
+    ///     98, 75, 43, 0, 8, 0, 20, 69, 14, 110, 68, 82, 30, 232, 222, 44, 240,
+    ///     250, 182, 156, 92, 25, 23, 152, 198, 217, 222, 128, 40, 0, 4, 74, 165,
+    ///     171, 86,
     /// ];
     ///
     /// let mut attributes = Vec::new();
@@ -143,6 +142,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message =
     ///     MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
+    /// 
     /// message
     ///     .flush(Some(&util::long_key("panda", "panda", "raspberry")))
     ///     .unwrap();
@@ -150,10 +150,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ```
     pub fn flush(&mut self, auth: Option<&Auth>) -> Result<(), StunError> {
         // write attribute list size.
-        let size = (self.raw.len() - 20) as u16;
-        let size_buf = size.to_be_bytes();
-        self.raw[2] = size_buf[0];
-        self.raw[3] = size_buf[1];
+        self.set_len(self.raw.len() - 20);
 
         // if need message integrity?
         if let Some(a) = auth {
@@ -181,11 +178,10 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ];
     ///
     /// let result = [
-    ///     0x00u8, 0x01, 0x00, 0x20, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
-    ///     0x42, 0x72, 0x52, 0x64, 0x48, 0x57, 0x62, 0x4b, 0x2b, 0x00, 0x08, 0x00,
-    ///     0x14, 0x45, 0x0e, 0x6e, 0x44, 0x52, 0x1e, 0xe8, 0xde, 0x2c, 0xf0, 0xfa,
-    ///     0xb6, 0x9c, 0x5c, 0x19, 0x17, 0x98, 0xc6, 0xd9, 0xde, 0x80, 0x28, 0x00,
-    ///     0x04, 0xed, 0x41, 0xb6, 0xbe,
+    ///     0, 1, 0, 32, 33, 18, 164, 66, 114, 109, 73, 66, 114, 82, 100, 72, 87,
+    ///     98, 75, 43, 0, 8, 0, 20, 69, 14, 110, 68, 82, 30, 232, 222, 44, 240,
+    ///     250, 182, 156, 92, 25, 23, 152, 198, 217, 222, 128, 40, 0, 4, 74, 165,
+    ///     171, 86,
     /// ];
     ///
     /// let mut attributes = Vec::new();
@@ -193,6 +189,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message =
     ///     MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
+    /// 
     /// message
     ///     .flush(Some(&util::long_key("panda", "panda", "raspberry")))
     ///     .unwrap();
@@ -200,42 +197,34 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ```
     fn integrity(&mut self, auth: &Auth) -> Result<(), StunError> {
         assert!(self.raw.len() >= 20);
+        let len = self.raw.len();
 
         // compute new size,
         // new size include the MessageIntegrity attribute size.
-        let mut buf_size = (self.raw.len() + 4) as u16;
-        let size_buf = buf_size.to_be_bytes();
-
-        // overwrite old size with new size.
-        self.raw[2] = size_buf[0];
-        self.raw[3] = size_buf[1];
-
-        // long key,
-        // digest the message buffer,
-        // create the new MessageIntegrity attribute.
-        let hmac_output = util::hmac_sha1(auth, &[self.raw])?.into_bytes();
-        let property_buf = hmac_output.as_slice();
+        self.set_len(len + 4);
 
         // write MessageIntegrity attribute.
+        let hmac_output = util::hmac_sha1(auth, &[self.raw])?.into_bytes();
         self.raw.put_u16(AttrKind::MessageIntegrity as u16);
         self.raw.put_u16(20);
-        self.raw.put(property_buf);
+        self.raw.put(hmac_output.as_slice());
 
         // compute new size,
         // new size include the Fingerprint attribute size.
-        buf_size += 8;
-        let size_buf = buf_size.to_be_bytes();
-
-        // overwrite old size with new size.
-        self.raw[2] = size_buf[0];
-        self.raw[3] = size_buf[1];
+        self.set_len(len + 4 + 8);
 
         // CRC Fingerprint
+        let fingerprint = util::fingerprint(self.raw);
         self.raw.put_u16(AttrKind::Fingerprint as u16);
         self.raw.put_u16(4);
-        self.raw.put_u32(util::fingerprint(self.raw));
+        self.raw.put_u32(fingerprint);
 
         Ok(())
+    }
+
+    // set stun message header size.
+    fn set_len(&mut self, len: usize) {
+        self.raw[2..4].copy_from_slice((len as u16).to_be_bytes().as_slice());
     }
 }
 
@@ -333,10 +322,10 @@ impl<'a, 'b> MessageReader<'a, 'b> {
 
         // digest the message buffer.
         let hmac_output = util::hmac_sha1(auth, &body)?.into_bytes();
-        let property_buf = hmac_output.as_slice();
+        let hmac_buf = hmac_output.as_slice();
 
         // Compare local and original attribute.
-        if integrity != property_buf {
+        if integrity != hmac_buf {
             return Err(StunError::IntegrityFailed);
         }
 
