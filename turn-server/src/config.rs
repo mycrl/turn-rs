@@ -1,10 +1,7 @@
 use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, str::FromStr};
 
 use anyhow::anyhow;
-use clap::{
-    builder::{PossibleValuesParser, TypedValueParser},
-    Parser,
-};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 
 #[repr(C)]
@@ -232,8 +229,7 @@ struct Cli {
     /// An enum representing the available verbosity levels of the logger
     #[arg(
         long,
-        value_parser = PossibleValuesParser::new(["trace", "debug", "info", "warn", "error"])
-            .map(|s| s.parse::<LogLevel>()),
+        value_parser = clap::value_parser!(LogLevel),
     )]
     log_level: Option<LogLevel>,
     /// This option specifies the http server binding address used to control
@@ -260,7 +256,7 @@ impl Cli {
     fn parse_credential(s: &str) -> Result<(String, String), anyhow::Error> {
         let err = || anyhow!("invalid credential str: {}", s);
 
-        let mut iter = s.split(':');
+        let mut iter = s.split('=');
         Ok((
             iter.next().ok_or_else(err)?.to_string(),
             iter.next().ok_or_else(err)?.to_string(),
