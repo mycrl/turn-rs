@@ -2,10 +2,10 @@ name: publish release
 on:
     push:
         tags:
-            - 'v*'
+            - "v*"
 jobs:
     build:
-        runs-on: '${{ matrix.os }}'
+        runs-on: "${{ matrix.os }}"
         strategy:
             matrix:
                 os:
@@ -40,87 +40,75 @@ jobs:
                     - os: macos-latest
                       target: x86_64-unknown-linux-gnu
         steps:
-            -
-                uses: actions/checkout@v4
-            -
-                uses: actions/cache@v4
-                with:
-                    path: |
-                        ~/.cargo/bin/
-                        ~/.cargo/registry/index/
-                        ~/.cargo/registry/cache/
-                        ~/.cargo/git/db/
-                        target/
-                    key: '${{ runner.os }}-cargo-${{ hashFiles(''**/Cargo.lock'') }}'
-            -
-                name: Install dependencies (Linux)
-                if: runner.os == 'Linux'
-                run: |
-                    sudo apt update
-                    sudo apt install -y gcc-aarch64-linux-gnu
-                    rustup target add ${{ matrix.target }}
-                    cargo install cargo-zigbuild
-                    sudo snap install zig --classic --beta
-            -
-                name: Install dependencies (Macos)
-                if: runner.os == 'Macos'
-                run: |
-                    rustup target add ${{ matrix.target }}
-                    cargo install cargo-zigbuild
-                    brew install zig
-            -
-                name: Build release (Linux & Macos)
-                if: runner.os == 'Macos' || runner.os == 'Linux'
-                run: cargo zigbuild --target ${{ matrix.target }} --release
-            -
-                name: Build release (Windows)
-                if: runner.os == 'Windows'
-                run: cargo build --release
-            -
-                name: Rename release (Linux & Macos)
-                if: runner.os == 'Macos' || runner.os == 'Linux'
-                run: |
-                    mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
-            -
-                name: Rename release (Windows)
-                if: runner.os == 'Windows'
-                run: |
-                    Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}.exe" -ErrorAction SilentlyContinue; 
-                    Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}.exe";
-            -
-                name: Upload artifact (Linux & Macos)
-                if: runner.os == 'Macos' || runner.os == 'Linux'
-                uses: actions/upload-artifact@v4
-                with:
-                    name: ${{ matrix.target }}
-                    path: |
-                        ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
-            -
-                name: Upload artifact (Windows)
-                if: runner.os == 'Windows'
-                uses: actions/upload-artifact@v4
-                with:
-                    name: ${{ matrix.target }}
-                    path: |
-                        ./target/release/turn-server-${{ matrix.target }}.exe
+            - uses: actions/checkout@v4
+            - uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      target/
+                  key: "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
+            - name: Install dependencies (Linux)
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt update
+                  sudo apt install -y gcc-aarch64-linux-gnu
+                  rustup target add ${{ matrix.target }}
+                  cargo install cargo-zigbuild
+                  sudo snap install zig --classic --beta
+            - name: Install dependencies (Macos)
+              if: runner.os == 'Macos'
+              run: |
+                  rustup target add ${{ matrix.target }}
+                  cargo install cargo-zigbuild
+                  brew install zig
+            - name: Build release (Linux & Macos)
+              if: runner.os == 'Macos' || runner.os == 'Linux'
+              run: cargo zigbuild --target ${{ matrix.target }} --release
+            - name: Build release (Windows)
+              if: runner.os == 'Windows'
+              run: cargo build --release
+            - name: Rename release (Linux & Macos)
+              if: runner.os == 'Macos' || runner.os == 'Linux'
+              run: |
+                  mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
+            - name: Rename release (Windows)
+              if: runner.os == 'Windows'
+              run: |
+                  Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}.exe" -ErrorAction SilentlyContinue; 
+                  Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}.exe";
+            - name: Upload artifact (Linux & Macos)
+              if: runner.os == 'Macos' || runner.os == 'Linux'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.target }}
+                  path: |
+                      ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
+            - name: Upload artifact (Windows)
+              if: runner.os == 'Windows'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.target }}
+                  path: |
+                      ./target/release/turn-server-${{ matrix.target }}.exe
     deploy:
         needs: build
         runs-on: ubuntu-latest
         steps:
-            -
-                name: Download All Artifacts
-                uses: actions/download-artifact@v4
-                with:
-                    path: artifacts
-            -
-                name: Create release
-                id: create_release
-                uses: softprops/action-gh-release@v1
-                env:
-                    GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-                with:
-                    tag_name: ${{ github.ref_name }}
-                    name: ${{ github.ref_name }}
-                    draft: false
-                    prerelease: false
-                    files: artifacts/**/*
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+            - name: Create release
+              id: create_release
+              uses: softprops/action-gh-release@v1
+              env:
+                  GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+              with:
+                  tag_name: ${{ github.ref_name }}
+                  name: ${{ github.ref_name }}
+                  draft: false
+                  prerelease: false
+                  files: artifacts/**/*

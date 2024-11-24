@@ -20,18 +20,15 @@ jobs:
     test:
         runs-on: ubuntu-latest
         steps:
-            -
-                uses: actions/checkout@v4
-            -
-                uses: actions/cache@v3
-                with:
-                    path: |
-                        ~/.cargo/bin/
-                        ~/.cargo/registry/index/
-                        ~/.cargo/registry/cache/
-                        ~/.cargo/git/db/
-                        target/
-                    key: '${{ runner.os }}-cargo-${{ hashFiles(''**/Cargo.lock'') }}'
-            -
-                name: Run tests
-                run: cargo test
+            - uses: actions/checkout@v4
+            - uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      target/
+                  key: "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
+            - name: Run tests
+              run: cargo test
