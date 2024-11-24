@@ -166,6 +166,7 @@ pub async fn start_server(
     #[cfg(feature = "prometheus")]
     {
         use crate::statistics::prometheus::generate_metrics;
+        use axum::http::header::CONTENT_TYPE;
 
         let mut metrics_bytes = Vec::with_capacity(4096);
 
@@ -177,7 +178,9 @@ pub async fn start_server(
                 if generate_metrics(&mut metrics_bytes).is_err() {
                     StatusCode::EXPECTATION_FAILED.into_response()
                 } else {
-                    metrics_bytes.into_response()
+                    ([
+                        (CONTENT_TYPE, "text/plain")
+                    ], metrics_bytes).into_response()
                 }
             }),
         );
