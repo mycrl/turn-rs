@@ -1,17 +1,17 @@
 pub mod channels;
 pub mod interfaces;
-pub mod nodes;
 pub mod nonces;
 pub mod ports;
+pub mod sockets;
 
 #[rustfmt::skip]
 use crate::Observer;
 use self::{
     channels::Channels,
     interfaces::{Interface, Interfaces},
-    nodes::Nodes,
     nonces::Nonces,
     ports::Ports,
+    sockets::{Socket, Sockets},
 };
 
 use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
@@ -19,11 +19,11 @@ use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 /// Router State Tree.
 ///
 /// this state management example maintains the status of all
-/// nodes in the current service and adds a node grouping model.
-/// it is necessary to specify a group for each node.
+/// sockets in the current service and adds a socket grouping model.
+/// it is necessary to specify a group for each socket.
 ///
 /// The state between groups is isolated. However,
-/// it should be noted that the node key only supports
+/// it should be noted that the socket key only supports
 /// long-term valid passwords，does not support short-term
 /// valid passwords.
 pub struct Router {
@@ -31,7 +31,7 @@ pub struct Router {
     observer: Arc<dyn Observer>,
     ports: Ports,
     nonces: Nonces,
-    nodes: Nodes,
+    sockets: Sockets,
     channels: Channels,
     interfaces: Interfaces,
 }
@@ -57,7 +57,7 @@ impl Router {
             channels: Channels::default(),
             nonces: Nonces::default(),
             ports: Ports::default(),
-            nodes: Nodes::default(),
+            sockets: Sockets::default(),
             observer,
             realm,
         });
@@ -66,7 +66,7 @@ impl Router {
         thread::spawn(move || {
             while let Some(this) = this_.upgrade() {
                 thread::sleep(Duration::from_secs(60));
-                this.nodes.get_deaths().iter().for_each(|a| {
+                this.sockets.get_deaths().iter().for_each(|a| {
                     this.remove(a);
                 });
 
@@ -207,10 +207,10 @@ impl Router {
     /// assert_eq!(users.as_slice(), &[("test".to_string(), vec![addr])]);
     /// ```
     pub fn get_users(&self, skip: usize, limit: usize) -> Vec<(String, Vec<SocketAddr>)> {
-        self.nodes.get_users(skip, limit)
+        self.sockets.get_users(skip, limit)
     }
 
-    /// get node.
+    /// get socket.
     ///
     /// # Examples
     ///
@@ -243,18 +243,18 @@ impl Router {
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
-    /// let node = router.get_node(&addr).unwrap();
-    /// assert_eq!(node.username.as_str(), "test");
-    /// assert_eq!(node.password.as_str(), "test");
-    /// assert_eq!(node.secret.as_slice(), &secret);
-    /// assert_eq!(node.channels, vec![]);
-    /// assert_eq!(node.ports, vec![]);
+    /// let socket = router.get_socket(&addr).unwrap();
+    /// assert_eq!(socket.username.as_str(), "test");
+    /// assert_eq!(socket.password.as_str(), "test");
+    /// assert_eq!(socket.secret.as_slice(), &secret);
+    /// assert_eq!(socket.channels, vec![]);
+    /// assert_eq!(socket.port, None);
     /// ```
-    pub fn get_node(&self, addr: &SocketAddr) -> Option<nodes::Node> {
-        self.nodes.get_node(addr)
+    pub fn get_socket(&self, addr: &SocketAddr) -> Option<Socket> {
+        self.sockets.get_socket(addr)
     }
 
-    /// get node bound list.
+    /// get socket bind list.
     ///
     /// # Examples
     ///
@@ -287,14 +287,14 @@ impl Router {
     ///
     /// assert_eq!(key.as_slice(), &secret);
     ///
-    /// let ret = router.get_node_addrs("test");
+    /// let ret = router.get_user_addrs("test");
     /// assert_eq!(ret, vec![addr]);
     /// ```
-    pub fn get_node_addrs(&self, username: &str) -> Vec<SocketAddr> {
-        self.nodes.get_addrs(username)
+    pub fn get_user_addrs(&self, username: &str) -> Vec<SocketAddr> {
+        self.sockets.get_addrs(username)
     }
 
-    /// get the nonce of the node SocketAddr.
+    /// get the nonce of the socket SocketAddr.
     ///
     /// # Examples
     ///
@@ -334,7 +334,7 @@ impl Router {
         self.nonces.get(addr)
     }
 
-    /// get the password of the node SocketAddr.
+    /// get the password of the socket SocketAddr.
     ///
     /// require remote control service to distribute keys.
     ///
@@ -376,18 +376,18 @@ impl Router {
         external: &SocketAddr,
         username: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let key = self.nodes.get_secret(addr);
+        let key = self.sockets.get_secret(addr);
         if key.is_some() {
             return key;
         }
 
         let pwd = self.observer.get_password_blocking(addr, username)?;
-        let key = self.nodes.insert(addr, &self.realm, username, &pwd)?;
+        let key = self.sockets.insert(addr, &self.realm, username, &pwd)?;
         self.interfaces.insert(*addr, *interface, *external);
         Some(key)
     }
 
-    /// get the password of the node SocketAddr.
+    /// get the password of the socket SocketAddr.
     ///
     /// require remote control service to distribute keys.
     pub async fn get_key(
@@ -397,19 +397,19 @@ impl Router {
         external: &SocketAddr,
         username: &str,
     ) -> Option<Arc<[u8; 16]>> {
-        let key = self.nodes.get_secret(addr);
+        let key = self.sockets.get_secret(addr);
         if key.is_some() {
             return key;
         }
 
         let pwd = self.observer.get_password(addr, username).await?;
-        let key = self.nodes.insert(addr, &self.realm, username, &pwd)?;
+        let key = self.sockets.insert(addr, &self.realm, username, &pwd)?;
         self.interfaces.insert(*addr, *interface, *external);
         Some(key)
     }
 
-    /// obtain the peer address bound to the current
-    /// node according to the channel number.
+    /// obtain the peer address bind to the current
+    /// socket according to the port number.
     ///
     /// # Examples
     ///
@@ -443,96 +443,14 @@ impl Router {
     /// assert_eq!(key.as_slice(), &secret);
     ///
     /// let port = router.alloc_port(&addr).unwrap();
-    /// assert!(router.bind_port(&addr, port).is_some());
-    /// assert_eq!(router.get_port_bound(port), Some(addr));
+    /// assert_eq!(router.get_port_addr(port), Some(addr));
     /// ```
-    pub fn get_channel_bound(&self, addr: &SocketAddr, channel: u16) -> Option<SocketAddr> {
-        self.channels.get_bound(addr, channel)
-    }
-
-    /// obtain the peer address bound to the current
-    /// node according to the port number.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::router::*;
-    /// use turn::*;
-    ///
-    /// struct ObserverTest;
-    ///
-    /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(
-    ///         &self,
-    ///         _: &SocketAddr,
-    ///         _: &str,
-    ///     ) -> Option<String> {
-    ///         Some("test".to_string())
-    ///     }
-    /// }
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
-    ///
-    /// assert_eq!(key.as_slice(), &secret);
-    ///
-    /// let port = router.alloc_port(&addr).unwrap();
-    /// assert!(router.bind_port(&addr, port).is_some());
-    /// assert_eq!(router.get_port_bound(port), Some(addr));
-    /// ```
-    pub fn get_port_bound(&self, port: u16) -> Option<SocketAddr> {
+    pub fn get_port_addr(&self, port: u16) -> Option<SocketAddr> {
         self.ports.get(port)
     }
 
-    /// get node the port.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::router::*;
-    /// use turn::*;
-    ///
-    /// struct ObserverTest;
-    ///
-    /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(
-    ///         &self,
-    ///         _: &SocketAddr,
-    ///         _: &str,
-    ///     ) -> Option<String> {
-    ///         Some("test".to_string())
-    ///     }
-    /// }
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-    /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
-    ///
-    /// assert_eq!(key.as_slice(), &secret);
-    ///
-    /// let port = router.alloc_port(&addr).unwrap();
-    /// assert!(router.bind_port(&addr, port).is_some());
-    /// assert!(router.bind_port(&peer, port).is_some());
-    /// assert_eq!(router.get_bound_port(&addr, &peer), Some(port));
-    /// ```
-    pub fn get_bound_port(&self, addr: &SocketAddr, peer: &SocketAddr) -> Option<u16> {
-        self.ports.get_bound(addr, peer)
+    pub fn get_addr_port(&self, addr: &SocketAddr) -> Option<u16> {
+        self.sockets.get_socket(addr)?.port
     }
 
     /// alloc a port from State.
@@ -609,17 +527,12 @@ impl Router {
     /// assert!(router.alloc_port(&addr).is_some());
     /// ```
     pub fn alloc_port(&self, addr: &SocketAddr) -> Option<u16> {
-        let port = self.ports.alloc(addr)?;
-        self.nodes.push_port(addr, port);
+        let port = self.ports.alloc(*addr)?;
+        self.sockets.set_port(addr, port)?;
         Some(port)
     }
 
-    /// bind port for State.
-    ///
-    /// A server need not do anything special to implement
-    /// idempotency of CreatePermission requests over UDP using the
-    /// "stateless stack approach".  Retransmitted CreatePermission
-    /// requests will simply refresh the permissions.
+    /// Get whether the current socket has been assigned a port.
     ///
     /// # Examples
     ///
@@ -651,12 +564,12 @@ impl Router {
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
-    ///
-    /// let port = router.alloc_port(&addr).unwrap();
-    /// assert!(router.bind_port(&addr, port).is_some());
+    /// assert_eq!(router.is_port_allcated(&addr), false);
+    /// assert!(router.alloc_port(&addr).is_some());
+    /// assert_eq!(router.is_port_allcated(&addr), true);
     /// ```
-    pub fn bind_port(&self, addr: &SocketAddr, port: u16) -> Option<()> {
-        self.ports.bound(addr, port)
+    pub fn is_port_allcated(&self, addr: &SocketAddr) -> bool {
+        self.sockets.is_port_allcated(addr)
     }
 
     /// bind channel number for State.
@@ -666,7 +579,7 @@ impl Router {
     /// "stateless stack approach".  Retransmitted ChannelBind requests
     /// will simply refresh the channel binding and the corresponding
     /// permission.  Furthermore, the client must wait 5 minutes before
-    /// binding a previously bound channel number or peer address to a
+    /// binding a previously bind channel number or peer address to a
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
@@ -708,11 +621,62 @@ impl Router {
     pub fn bind_channel(&self, addr: &SocketAddr, port: u16, channel: u16) -> Option<()> {
         let source = self.ports.get(port)?;
         self.channels.insert(addr, channel, &source)?;
-        self.nodes.push_channel(addr, channel)?;
+        self.sockets.push_channel(addr, channel)?;
         Some(())
     }
 
-    /// refresh node lifetime.
+    /// obtain the peer address bind to the current
+    /// socket according to the channel number.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::net::SocketAddr;
+    /// use std::sync::Arc;
+    /// use turn::router::*;
+    /// use turn::*;
+    ///
+    /// struct ObserverTest;
+    ///
+    /// impl Observer for ObserverTest {
+    ///     fn get_password_blocking(
+    ///         &self,
+    ///         _: &SocketAddr,
+    ///         _: &str,
+    ///     ) -> Option<String> {
+    ///         Some("test".to_string())
+    ///     }
+    /// }
+    ///
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
+    ///
+    /// let secret = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
+    ///
+    /// assert_eq!(key.as_slice(), &secret);
+    ///
+    /// router.get_key_block(&peer, &peer, &peer, "test").unwrap();
+    ///
+    /// let port = router.alloc_port(&peer).unwrap();
+    /// assert!(router.bind_channel(&addr, port, 0x4000).is_some());
+    ///
+    /// let port = router.alloc_port(&addr).unwrap();
+    /// assert!(router.bind_channel(&peer, port, 0x4000).is_some());
+    ///
+    /// assert_eq!(router.get_channel_bind(&addr, 0x4000), Some(peer));
+    /// assert_eq!(router.get_channel_bind(&peer, 0x4000), Some(addr));
+    /// ```
+    pub fn get_channel_bind(&self, addr: &SocketAddr, channel: u16) -> Option<SocketAddr> {
+        self.channels.get_bind(addr, channel)
+    }
+
+    /// refresh socket lifetime.
     ///
     /// The server computes a value called the "desired lifetime" as follows:
     /// if the request contains a LIFETIME attribute and the attribute value
@@ -778,17 +742,17 @@ impl Router {
     /// assert_eq!(key.as_slice(), &secret);
     /// router.refresh(&addr, 0);
     ///
-    /// assert!(router.get_node(&addr).is_none());
+    /// assert!(router.get_socket(&addr).is_none());
     /// ```
     pub fn refresh(&self, addr: &SocketAddr, delay: u32) {
         if delay > 0 {
-            self.nodes.set_lifetime(addr, delay);
+            self.sockets.set_lifetime(addr, delay);
         } else {
             self.remove(addr);
         }
     }
 
-    /// remove a node.
+    /// remove a socket.
     ///
     /// # Examples
     ///
@@ -821,22 +785,25 @@ impl Router {
     ///
     /// assert_eq!(key.as_slice(), &secret);
     /// assert!(router.remove(&addr).is_some());
-    /// assert!(router.get_node(&addr).is_none());
+    /// assert!(router.get_socket(&addr).is_none());
     /// ```
     pub fn remove(&self, addr: &SocketAddr) -> Option<()> {
-        let node = self.nodes.remove(addr)?;
-        self.ports.remove(addr, &node.ports);
-        for c in node.channels {
+        let socket = self.sockets.remove(addr)?;
+        if let Some(port) = socket.port {
+            self.ports.remove(port);
+        }
+
+        for c in socket.channels {
             self.channels.remove(c);
         }
 
         self.nonces.remove(addr);
         self.interfaces.remove(addr);
-        self.observer.abort(addr, &node.username);
+        self.observer.abort(addr, &socket.username);
         Some(())
     }
 
-    /// remove a node from username.
+    /// remove a socket from username.
     ///
     /// # Examples
     ///
@@ -870,10 +837,10 @@ impl Router {
     /// assert_eq!(key.as_slice(), &secret);
     /// router.remove_from_user("test");
     ///
-    /// assert!(router.get_node(&addr).is_none());
+    /// assert!(router.get_socket(&addr).is_none());
     /// ```
     pub fn remove_from_user(&self, u: &str) {
-        for addr in self.nodes.get_addrs(u) {
+        for addr in self.sockets.get_addrs(u) {
             self.remove(&addr);
         }
     }

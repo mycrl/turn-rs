@@ -94,10 +94,6 @@ pub async fn process<'a>(
         return reject(ctx, reader, bytes, Forbidden);
     }
 
-    if ctx.env.router.bind_port(&ctx.addr, peer.port()).is_none() {
-        return reject(ctx, reader, bytes, Forbidden);
-    }
-
     ctx.env
         .observer
         .create_permission(&ctx.addr, username, &peer);

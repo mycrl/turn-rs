@@ -308,8 +308,7 @@ impl PortPools {
 /// port table.
 pub struct Ports {
     pools: Mutex<PortPools>,
-    map: RwLock<AHashMap<u16, SocketAddr>>,
-    bounds: RwLock<AHashMap<SocketAddr, AHashMap<SocketAddr, u16>>>,
+    addrs: RwLock<AHashMap<u16, SocketAddr>>,
 }
 
 impl Default for Ports {
@@ -321,8 +320,7 @@ impl Default for Ports {
 impl Ports {
     pub fn new() -> Self {
         Self {
-            bounds: RwLock::new(AHashMap::with_capacity(capacity())),
-            map: RwLock::new(AHashMap::with_capacity(capacity())),
+            addrs: RwLock::new(AHashMap::with_capacity(capacity())),
             pools: Mutex::new(PortPools::new()),
         }
     }
@@ -378,35 +376,12 @@ impl Ports {
     ///
     /// let ports = Ports::new();
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let port = ports.alloc(&addr).unwrap();
+    /// let port = ports.alloc(addr).unwrap();
     ///
     /// assert!(ports.get(port).is_some());
     /// ```
-    pub fn get(&self, p: u16) -> Option<SocketAddr> {
-        self.map.read().get(&p).cloned()
-    }
-
-    /// get address bound port.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::net::SocketAddr;
-    /// use turn::router::ports::*;
-    ///
-    /// let local = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let peer = "127.0.0.1:8081".parse::<SocketAddr>().unwrap();
-    ///
-    /// let pools = Ports::new();
-    ///
-    /// let port = pools.alloc(&local).unwrap();
-    /// assert!(pools.bound(&local, port).is_some());
-    /// assert!(pools.bound(&peer, port).is_some());
-    ///
-    /// assert_eq!(pools.get_bound(&local, &peer), Some(port));
-    /// ```
-    pub fn get_bound(&self, a: &SocketAddr, p: &SocketAddr) -> Option<u16> {
-        self.bounds.read().get(p)?.get(a).cloned()
+    pub fn get(&self, port: u16) -> Option<SocketAddr> {
+        self.addrs.read().get(&port).cloned()
     }
 
     /// allocate port in ports.
@@ -420,11 +395,11 @@ impl Ports {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
     /// let pools = Ports::new();
-    /// assert_eq!(pools.alloc(&addr).is_some(), true);
+    /// assert_eq!(pools.alloc(addr).is_some(), true);
     /// ```
-    pub fn alloc(&self, a: &SocketAddr) -> Option<u16> {
+    pub fn alloc(&self, addr: SocketAddr) -> Option<u16> {
         let port = self.pools.lock().alloc(None)?;
-        self.map.write().insert(port, *a);
+        self.addrs.write().insert(port, addr);
         Some(port)
     }
 
@@ -439,48 +414,19 @@ impl Ports {
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///
     /// let pools = Ports::new();
-    /// let port = pools.alloc(&addr).unwrap();
+    /// let port = pools.alloc(addr).unwrap();
     ///
-    /// assert!(pools.bound(&addr, port).is_some());
+    /// assert!(pools.get(port).is_some());
+    ///
+    /// pools.remove(port);
+    /// assert!(pools.get(port).is_none());
     /// ```
-    pub fn bound(&self, addr: &SocketAddr, port: u16) -> Option<()> {
-        let peer = *self.map.read().get(&port)?;
-        self.bounds
-            .write()
-            .entry(*addr)
-            .or_insert_with(|| AHashMap::with_capacity(10))
-            .entry(peer)
-            .or_insert(port);
-        Some(())
-    }
-
-    /// bound address and peer port.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::net::SocketAddr;
-    /// use turn::router::ports::*;
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    ///
-    /// let pools = Ports::new();
-    /// let port = pools.alloc(&addr).unwrap();
-    ///
-    /// assert!(pools.bound(&addr, port).is_some());
-    /// assert!(pools.remove(&addr, &vec![port]).is_some());
-    /// ```
-    pub fn remove(&self, a: &SocketAddr, ports: &[u16]) -> Option<()> {
+    pub fn remove(&self, port: u16) {
         let mut pools = self.pools.lock();
-        let mut map = self.map.write();
+        let mut addrs = self.addrs.write();
 
-        for p in ports {
-            pools.restore(*p);
-            map.remove(p);
-        }
-
-        self.bounds.write().remove(a);
-        Some(())
+        pools.restore(port);
+        addrs.remove(&port);
     }
 }
 

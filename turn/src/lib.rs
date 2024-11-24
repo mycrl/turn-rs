@@ -2,7 +2,7 @@ pub mod operation;
 pub mod router;
 
 pub use operation::Operationer;
-pub use router::{nodes::Node, Router};
+pub use router::{sockets::Socket, Router};
 
 use std::{net::SocketAddr, sync::Arc};
 

@@ -39,7 +39,7 @@ impl Iterator for Iter {
     /// ```
     fn next(&mut self) -> Option<Self::Item> {
         let item = match self.index < 2 {
-            true => self.inner.bound[self.index],
+            true => self.inner.bind[self.index],
             false => None,
         };
 
@@ -60,8 +60,8 @@ impl Iterator for Iter {
 ///
 ///  Within the context of an allocation, a channel binding is uniquely
 /// identified either by the channel number or by the peer's transport
-/// address.  Thus, the same channel cannot be bound to two different
-/// transport addresses, nor can the same transport address be bound to
+/// address.  Thus, the same channel cannot be bind to two different
+/// transport addresses, nor can the same transport address be bind to
 /// two different channels.
 ///
 /// A channel binding lasts for 10 minutes unless refreshed.  Refreshing
@@ -69,9 +69,9 @@ impl Iterator for Iter {
 /// the channel to the same peer) resets the time-to-expiry timer back to
 /// 10 minutes.
 ///
-/// When the channel binding expires, the channel becomes unbound.  Once
-/// unbound, the channel number can be bound to a different transport
-/// address, and the transport address can be bound to a different
+/// When the channel binding expires, the channel becomes unbind.  Once
+/// unbind, the channel number can be bind to a different transport
+/// address, and the transport address can be bind to a different
 /// channel number.  To prevent race conditions, the client MUST wait 5
 /// minutes after the channel binding expires before attempting to bind
 /// the channel number to a different transport address or the transport
@@ -93,13 +93,13 @@ impl Iterator for Iter {
 /// the channel binding is confirmed.
 pub struct Channel {
     timer: Instant,
-    bound: [Option<SocketAddr>; 2],
+    bind: [Option<SocketAddr>; 2],
 }
 
 impl Channel {
     pub fn new(a: &SocketAddr) -> Self {
         Self {
-            bound: [Some(*a), None],
+            bind: [Some(*a), None],
             timer: Instant::now(),
         }
     }
@@ -117,7 +117,7 @@ impl Channel {
     /// assert!(channel.includes(&addr));
     /// ```
     pub fn includes(&self, a: &SocketAddr) -> bool {
-        self.bound.contains(&Some(*a))
+        self.bind.contains(&Some(*a))
     }
 
     /// wether the peer addr has been established.
@@ -133,7 +133,7 @@ impl Channel {
     /// assert!(channel.is_half());
     /// ```
     pub fn is_half(&self) -> bool {
-        self.bound.contains(&None)
+        self.bind.contains(&None)
     }
 
     /// update half addr.
@@ -152,7 +152,7 @@ impl Channel {
     /// assert!(!channel.is_half());
     /// ```
     pub fn up(&mut self, a: &SocketAddr) {
-        self.bound[1] = Some(*a)
+        self.bind[1] = Some(*a)
     }
 
     /// refresh channel lifetime.
@@ -218,7 +218,7 @@ impl IntoIterator for Channel {
 /// channels table.
 pub struct Channels {
     map: RwLock<AHashMap<u16, Channel>>,
-    bounds: RwLock<AHashMap<(SocketAddr, u16), SocketAddr>>,
+    binds: RwLock<AHashMap<(SocketAddr, u16), SocketAddr>>,
 }
 
 impl Default for Channels {
@@ -231,11 +231,11 @@ impl Channels {
     pub fn new() -> Self {
         Self {
             map: RwLock::new(AHashMap::with_capacity(capacity())),
-            bounds: RwLock::new(AHashMap::with_capacity(capacity())),
+            binds: RwLock::new(AHashMap::with_capacity(capacity())),
         }
     }
 
-    /// get bound address.
+    /// get bind address.
     ///
     /// # Examples
     ///
@@ -250,10 +250,10 @@ impl Channels {
     /// channels.insert(&addr, 43159, &peer).unwrap();
     /// channels.insert(&peer, 43160, &addr).unwrap();
     ///
-    /// assert_eq!(channels.get_bound(&addr, 43159).unwrap(), peer);
+    /// assert_eq!(channels.get_bind(&addr, 43159).unwrap(), peer);
     /// ```
-    pub fn get_bound(&self, a: &SocketAddr, c: u16) -> Option<SocketAddr> {
-        self.bounds.read().get(&(*a, c)).cloned()
+    pub fn get_bind(&self, a: &SocketAddr, c: u16) -> Option<SocketAddr> {
+        self.binds.read().get(&(*a, c)).cloned()
     }
 
     /// insert address for peer address to channel table.
@@ -271,7 +271,7 @@ impl Channels {
     /// channels.insert(&addr, 43159, &peer).unwrap();
     /// channels.insert(&peer, 43160, &addr).unwrap();
     ///
-    /// assert_eq!(channels.get_bound(&addr, 43159).unwrap(), peer);
+    /// assert_eq!(channels.get_bind(&addr, 43159).unwrap(), peer);
     /// ```
     pub fn insert(&self, a: &SocketAddr, c: u16, p: &SocketAddr) -> Option<()> {
         let mut map = self.map.write();
@@ -295,7 +295,7 @@ impl Channels {
             channel.refresh();
         }
 
-        self.bounds.write().entry((*a, c)).or_insert_with(|| *p);
+        self.binds.write().entry((*a, c)).or_insert_with(|| *p);
         Some(())
     }
 
@@ -318,9 +318,9 @@ impl Channels {
     /// assert!(channels.remove(43160).is_some());
     /// ```
     pub fn remove(&self, c: u16) -> Option<()> {
-        let mut bounds = self.bounds.write();
+        let mut binds = self.binds.write();
         for a in self.map.write().remove(&c)? {
-            bounds.remove(&(a, c));
+            binds.remove(&(a, c));
         }
 
         Some(())

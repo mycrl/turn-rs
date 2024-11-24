@@ -89,7 +89,7 @@ pub async fn start_server(
             get(
                 |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
                     let addrs = if let Some(username) = query.username {
-                        state.service.get_router().get_node_addrs(&username)
+                        state.service.get_router().get_user_addrs(&username)
                     } else {
                         if let Some(addr) = query.addr {
                             vec![addr]
@@ -100,13 +100,13 @@ pub async fn start_server(
 
                     let mut res = Vec::with_capacity(addrs.len());
                     for addr in addrs {
-                        if let Some(node) = state.service.get_router().get_node(&Arc::new(addr)) {
+                        if let Some(node) = state.service.get_router().get_socket(&Arc::new(addr)) {
                             res.push(json!({
                                 "address": addr,
                                 "username": node.username,
                                 "password": node.password,
                                 "allocated_channels": node.channels,
-                                "allocated_ports": node.ports,
+                                "allocated_port": node.port,
                                 "expiration": node.expiration,
                                 "lifetime": node.lifetime.elapsed().as_secs(),
                             }));
@@ -143,7 +143,7 @@ pub async fn start_server(
             delete(
                 |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
                     let addrs = if let Some(username) = query.username {
-                        state.service.get_router().get_node_addrs(&username)
+                        state.service.get_router().get_user_addrs(&username)
                     } else {
                         if let Some(addr) = query.addr {
                             vec![addr]
