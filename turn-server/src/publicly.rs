@@ -79,7 +79,7 @@ pub async fn start_server(
                     "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
                     "uptime": state.uptime.elapsed().as_secs(),
                     "port_allocated": router.len(),
-                    "port_capacity": router.capacity(),
+                    "port_capacity": turn::Router::capacity(),
                     "interfaces": state.config.turn.interfaces,
                 }))
             }),
@@ -178,9 +178,7 @@ pub async fn start_server(
                 if generate_metrics(&mut metrics_bytes).is_err() {
                     StatusCode::EXPECTATION_FAILED.into_response()
                 } else {
-                    ([
-                        (CONTENT_TYPE, "text/plain")
-                    ], metrics_bytes).into_response()
+                    ([(CONTENT_TYPE, "text/plain")], metrics_bytes).into_response()
                 }
             }),
         );

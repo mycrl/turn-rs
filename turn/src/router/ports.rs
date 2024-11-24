@@ -69,10 +69,9 @@ impl PortPools {
     /// use turn::router::ports::Bit;
     /// use turn::router::ports::PortPools;
     ///
-    /// let pools = PortPools::new();
-    /// assert_eq!(pools.capacity(), 65535 - 49152);
+    /// assert_eq!(PortPools::capacity(), 65535 - 49152);
     /// ```
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity() -> usize {
         capacity()
     }
 
@@ -335,11 +334,10 @@ impl Ports {
     /// ```
     /// use turn::router::ports::*;
     ///
-    /// let ports = Ports::new();
-    /// assert_eq!(ports.capacity(), 65535 - 49152);
+    /// assert_eq!(Ports::capacity(), 65535 - 49152);
     /// ```
-    pub fn capacity(&self) -> usize {
-        self.pools.lock().capacity()
+    pub const fn capacity() -> usize {
+        PortPools::capacity()
     }
 
     /// get ports allocated size.

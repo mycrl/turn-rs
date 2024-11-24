@@ -16,13 +16,14 @@ use crate::config::Transport;
 /// [issue](https://github.com/mycrl/turn-rs/issues/101)
 ///
 /// Integrated Prometheus Metrics Exporter
-#[cfg(feature = "prometheus")]
 pub mod prometheus {
     use anyhow::Result;
     use lazy_static::lazy_static;
-    use prometheus::{register_int_counter, Encoder, IntCounter, TextEncoder};
+    use prometheus::{
+        register_int_counter, register_int_gauge, Encoder, IntCounter, IntGauge, TextEncoder,
+    };
 
-    use super::Stats;
+    use super::{Counts, Number, Stats};
     use crate::config::Transport;
 
     // The `register_int_counter` macro would be too long if written out in full,
@@ -37,17 +38,41 @@ pub mod prometheus {
         };
     }
 
-    struct Statistics {
-        received_bytes: IntCounter,
-        send_bytes: IntCounter,
-        received_pkts: IntCounter,
-        send_pkts: IntCounter,
-        error_pkts: IntCounter,
+    lazy_static! {
+        pub static ref METRICS: Metrics = Metrics::default();
     }
 
-    impl Statistics {
+    /// # Example
+    ///
+    /// ```
+    /// use prometheus::register_int_counter;
+    /// use turn_server::statistics::{prometheus::*, Number};
+    ///
+    /// let count = register_int_counter!("test", "test").unwrap();
+    ///
+    /// count.add(1);
+    /// assert_eq!(count.get(), 1);
+    ///
+    /// count.clear();
+    /// assert_eq!(count.get(), 0);
+    /// ```
+    impl Number for IntCounter {
+        fn add(&self, value: u64) {
+            self.inc_by(value);
+        }
+
+        fn get(&self) -> u64 {
+            self.get()
+        }
+
+        fn clear(&self) {
+            self.reset();
+        }
+    }
+
+    impl Counts<IntCounter> {
         fn new(prefix: &str) -> Result<Self> {
-            Ok(Statistics {
+            Ok(Self {
                 received_bytes: counter!(prefix, "received", "bytes")?,
                 send_bytes: counter!(prefix, "sent", "bytes")?,
                 received_pkts: counter!(prefix, "received", "packets")?,
@@ -55,23 +80,14 @@ pub mod prometheus {
                 error_pkts: counter!(prefix, "error", "packets")?,
             })
         }
-
-        fn inc(&self, payload: &Stats) {
-            match payload {
-                Stats::ReceivedBytes(v) => self.received_bytes.inc_by(*v),
-                Stats::ReceivedPkts(v) => self.received_pkts.inc_by(*v),
-                Stats::SendBytes(v) => self.send_bytes.inc_by(*v),
-                Stats::SendPkts(v) => self.send_pkts.inc_by(*v),
-                Stats::ErrorPkts(v) => self.error_pkts.inc_by(*v),
-            }
-        }
     }
 
     /// Summarized metrics data for Global/TCP/UDP.
     pub struct Metrics {
-        total: Statistics,
-        tcp: Statistics,
-        udp: Statistics,
+        pub allocated: IntGauge,
+        pub total: Counts<IntCounter>,
+        pub tcp: Counts<IntCounter>,
+        pub udp: Counts<IntCounter>,
     }
 
     impl Default for Metrics {
@@ -81,27 +97,40 @@ pub mod prometheus {
     }
 
     impl Metrics {
-        fn new() -> Result<Self> {
+        pub fn new() -> Result<Self> {
             Ok(Self {
-                total: Statistics::new("total")?,
-                tcp: Statistics::new("tcp")?,
-                udp: Statistics::new("udp")?,
+                total: Counts::new("total")?,
+                tcp: Counts::new("tcp")?,
+                udp: Counts::new("udp")?,
+                allocated: register_int_gauge!(
+                    "allocated",
+                    "The number of allocated ports, count = 16383"
+                )?,
             })
         }
 
-        pub fn inc(&self, transport: Transport, payload: &Stats) {
-            self.total.inc(payload);
+        /// # Example
+        ///
+        /// ```
+        /// use turn_server::{
+        ///     config::Transport,
+        ///     statistics::{prometheus::*, *},
+        /// };
+        ///
+        /// METRICS.add(Transport::TCP, &Stats::ReceivedBytes(1));
+        /// assert_eq!(METRICS.tcp.received_bytes.get(), 1);
+        /// assert_eq!(METRICS.total.received_bytes.get(), 1);
+        /// assert_eq!(METRICS.udp.received_bytes.get(), 0);
+        /// ```
+        pub fn add(&self, transport: Transport, payload: &Stats) {
+            self.total.add(payload);
 
             if transport == Transport::TCP {
-                self.tcp.inc(payload);
+                self.tcp.add(payload);
             } else {
-                self.udp.inc(payload);
+                self.udp.add(payload);
             }
         }
-    }
-
-    lazy_static! {
-        pub static ref METRICS: Metrics = Metrics::default();
     }
 
     /// Generate prometheus metrics data that externally needs to be exposed to
@@ -110,15 +139,6 @@ pub mod prometheus {
         TextEncoder::new().encode(&prometheus::gather(), buf)?;
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct SessionCounts {
-    pub received_bytes: u64,
-    pub send_bytes: u64,
-    pub received_pkts: u64,
-    pub send_pkts: u64,
-    pub error_pkts: u64,
 }
 
 /// The type of information passed in the statisticsing channel
@@ -131,10 +151,16 @@ pub enum Stats {
     ErrorPkts(u64),
 }
 
-#[derive(Default)]
-struct Count(AtomicU64);
+pub trait Number {
+    fn add(&self, value: u64);
+    fn get(&self) -> u64;
+    fn clear(&self);
+}
 
-impl Count {
+#[derive(Default)]
+pub struct Count(AtomicU64);
+
+impl Number for Count {
     fn add(&self, value: u64) {
         self.0.fetch_add(value, Ordering::Relaxed);
     }
@@ -143,23 +169,50 @@ impl Count {
         self.0.load(Ordering::Relaxed)
     }
 
-    fn set_zero(&self) {
-        self.0.fetch_add(0, Ordering::Relaxed);
+    fn clear(&self) {
+        self.0.store(0, Ordering::Relaxed);
     }
 }
 
 /// Worker independent statisticsing statistics
-#[derive(Default)]
-struct Counts {
-    received_bytes: Count,
-    send_bytes: Count,
-    received_pkts: Count,
-    send_pkts: Count,
-    error_pkts: Count,
+pub struct Counts<T> {
+    pub received_bytes: T,
+    pub send_bytes: T,
+    pub received_pkts: T,
+    pub send_pkts: T,
+    pub error_pkts: T,
 }
 
-impl Counts {
-    fn add(&self, payload: &Stats) {
+impl<T: Number> Counts<T> {
+    /// # Example
+    ///
+    /// ```
+    /// use turn_server::statistics::*;
+    ///
+    /// let counts = Counts {
+    ///     received_bytes: Count::default(),
+    ///     send_bytes: Count::default(),
+    ///     received_pkts: Count::default(),
+    ///     send_pkts: Count::default(),
+    ///     error_pkts: Count::default(),
+    /// };
+    ///
+    /// counts.add(&Stats::ReceivedBytes(1));
+    /// assert_eq!(counts.received_bytes.get(), 1);
+    ///
+    /// counts.add(&Stats::ReceivedPkts(1));
+    /// assert_eq!(counts.received_pkts.get(), 1);
+    ///
+    /// counts.add(&Stats::SendBytes(1));
+    /// assert_eq!(counts.send_bytes.get(), 1);
+    ///
+    /// counts.add(&Stats::SendPkts(1));
+    /// assert_eq!(counts.send_pkts.get(), 1);
+    ///
+    /// counts.add(&Stats::ErrorPkts(1));
+    /// assert_eq!(counts.error_pkts.get(), 1);
+    /// ```
+    pub fn add(&self, payload: &Stats) {
         match payload {
             Stats::ReceivedBytes(v) => self.received_bytes.add(*v),
             Stats::ReceivedPkts(v) => self.received_pkts.add(*v),
@@ -169,21 +222,40 @@ impl Counts {
         }
     }
 
-    fn clear(&self) {
-        self.received_bytes.set_zero();
-        self.received_pkts.set_zero();
-        self.send_bytes.set_zero();
-        self.send_pkts.set_zero();
+    /// # Example
+    ///
+    /// ```
+    /// use turn_server::statistics::*;
+    ///
+    /// let counts = Counts {
+    ///     received_bytes: Count::default(),
+    ///     send_bytes: Count::default(),
+    ///     received_pkts: Count::default(),
+    ///     send_pkts: Count::default(),
+    ///     error_pkts: Count::default(),
+    /// };
+    ///
+    /// counts.add(&Stats::ReceivedBytes(1));
+    /// assert_eq!(counts.received_bytes.get(), 1);
+    ///
+    /// counts.clear();
+    /// assert_eq!(counts.received_bytes.get(), 0);
+    /// ```
+    pub fn clear(&self) {
+        self.received_bytes.clear();
+        self.received_pkts.clear();
+        self.send_bytes.clear();
+        self.send_pkts.clear();
     }
 }
 
 /// worker cluster statistics
 #[derive(Clone)]
-pub struct Statistics(Arc<RwLock<AHashMap<SocketAddr, Counts>>>);
+pub struct Statistics(Arc<RwLock<AHashMap<SocketAddr, Counts<Count>>>>);
 
 impl Default for Statistics {
     fn default() -> Self {
-        let map: Arc<RwLock<AHashMap<SocketAddr, Counts>>> = Default::default();
+        let map: Arc<RwLock<AHashMap<SocketAddr, Counts<Count>>>> = Default::default();
         let map_ = Arc::downgrade(&map);
         thread::spawn(move || {
             while let Some(map) = map_.upgrade() {
@@ -206,7 +278,7 @@ impl Statistics {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_server::{statistics::*, config::Transport};
+    /// use turn_server::{config::Transport, statistics::*};
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -234,12 +306,26 @@ impl Statistics {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///     let statistics = Statistics::default();
     ///
-    ///     statistics.set(addr.clone());
+    ///     statistics.register(addr.clone());
     ///     assert_eq!(statistics.get(&addr).is_some(), true);
     /// }
     /// ```
-    pub fn set(&self, addr: SocketAddr) {
-        self.0.write().insert(addr, Counts::default());
+    pub fn register(&self, addr: SocketAddr) {
+        #[cfg(feature = "prometheus")]
+        {
+            self::prometheus::METRICS.allocated.inc();
+        }
+
+        self.0.write().insert(
+            addr,
+            Counts {
+                received_bytes: Count::default(),
+                send_bytes: Count::default(),
+                received_pkts: Count::default(),
+                send_pkts: Count::default(),
+                error_pkts: Count::default(),
+            },
+        );
     }
 
     /// Remove an address from the watch list
@@ -255,14 +341,19 @@ impl Statistics {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///     let statistics = Statistics::default();
     ///
-    ///     statistics.set(addr.clone());
+    ///     statistics.register(addr.clone());
     ///     assert_eq!(statistics.get(&addr).is_some(), true);
     ///
-    ///     statistics.delete(&addr);
+    ///     statistics.unregister(&addr);
     ///     assert_eq!(statistics.get(&addr).is_some(), false);
     /// }
     /// ```
-    pub fn delete(&self, addr: &SocketAddr) {
+    pub fn unregister(&self, addr: &SocketAddr) {
+        #[cfg(feature = "prometheus")]
+        {
+            self::prometheus::METRICS.allocated.dec();
+        }
+
         self.0.write().remove(addr);
     }
 
@@ -281,12 +372,12 @@ impl Statistics {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///     let statistics = Statistics::default();
     ///
-    ///     statistics.set(addr.clone());
+    ///     statistics.register(addr.clone());
     ///     assert_eq!(statistics.get(&addr).is_some(), true);
     /// }
     /// ```
-    pub fn get(&self, addr: &SocketAddr) -> Option<SessionCounts> {
-        self.0.read().get(addr).map(|counts| SessionCounts {
+    pub fn get(&self, addr: &SocketAddr) -> Option<Counts<u64>> {
+        self.0.read().get(addr).map(|counts| Counts {
             received_bytes: counts.received_bytes.get(),
             received_pkts: counts.received_pkts.get(),
             send_bytes: counts.send_bytes.get(),
@@ -302,17 +393,15 @@ impl Statistics {
 /// statisticsing instance through this instance to update the internal
 /// statistical information of the statistics.
 #[derive(Clone)]
-pub struct StatisticsReporter(Arc<RwLock<AHashMap<SocketAddr, Counts>>>);
+pub struct StatisticsReporter(Arc<RwLock<AHashMap<SocketAddr, Counts<Count>>>>);
 
 impl StatisticsReporter {
     #[allow(unused_variables)]
     pub fn send(&self, transport: Transport, addr: &SocketAddr, reports: &[Stats]) {
         #[cfg(feature = "prometheus")]
         {
-            use self::prometheus::METRICS;
-
             for report in reports {
-                METRICS.inc(transport, report);
+                self::prometheus::METRICS.add(transport, report);
             }
         }
 

@@ -84,18 +84,12 @@ impl Router {
     /// # Examples
     ///
     /// ```
-    /// use std::sync::Arc;
     /// use turn::router::*;
-    /// use turn::*;
     ///
-    /// struct ObserverTest;
-    /// impl Observer for ObserverTest {}
-    ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
-    /// assert_eq!(router.capacity(), 16383);
+    /// assert_eq!(Router::capacity(), 16383);
     /// ```
-    pub fn capacity(&self) -> usize {
-        self.ports.capacity()
+    pub fn capacity() -> usize {
+        Ports::capacity()
     }
 
     /// get router allocate size.

@@ -47,7 +47,7 @@ impl turn::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
         log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
-        self.statistics.set(*addr);
+        self.statistics.register(*addr);
         self.hooks.send_event(json!({
             "kind": "allocated",
             "name": name,
@@ -254,7 +254,7 @@ impl turn::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn abort(&self, addr: &SocketAddr, name: &str) {
         log::info!("node abort: addr={:?}, name={:?}", addr, name);
-        self.statistics.delete(addr);
+        self.statistics.unregister(addr);
         self.hooks.send_event(json!({
             "kind": "abort",
             "name": name,
