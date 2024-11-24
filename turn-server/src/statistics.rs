@@ -212,7 +212,7 @@ impl Statistics {
     /// async fn main() {
     ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     ///     let statistics = Statistics::default();
-    ///     let sender = statistics.get_actor();
+    ///     let sender = statistics.get_reporter();
     ///
     ///     sender.send(&addr, &[Stats::ReceivedBytes(100)]);
     /// }
