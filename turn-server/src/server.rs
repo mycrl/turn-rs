@@ -83,7 +83,7 @@ async fn tcp_server(
     // process when an error occurs.
     while let Ok((socket, addr)) = listen.accept().await {
         let router = router.clone();
-        let actor = statistics.get_actor();
+        let reporter = statistics.get_reporter();
         let mut receiver = router.get_receiver(addr);
         let mut operationer = service.get_operationer(addr, external);
 
@@ -103,7 +103,7 @@ async fn tcp_server(
         let (mut reader, writer) = socket.into_split();
         let writer = Arc::new(Mutex::new(writer));
         let writer_ = writer.clone();
-        let actor_ = actor.clone();
+        let reporter_ = reporter.clone();
 
         // Use a separate task to handle messages forwarded to this socket.
         tokio::spawn(async move {
@@ -112,7 +112,11 @@ async fn tcp_server(
                 if writer.write_all(bytes.as_slice()).await.is_err() {
                     break;
                 } else {
-                    actor_.send(&addr, &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)]);
+                    reporter_.send(
+                        Transport::TCP,
+                        &addr,
+                        &[Stats::SendBytes(bytes.len() as u64), Stats::SendPkts(1)],
+                    );
                 }
 
                 // The channel data needs to be aligned in multiples of 4 in
@@ -138,7 +142,7 @@ async fn tcp_server(
                 if size == 0 {
                     break;
                 } else {
-                    actor.send(&addr, &[Stats::ReceivedBytes(size)]);
+                    reporter.send(Transport::TCP, &addr, &[Stats::ReceivedBytes(size as u64)]);
                 }
 
                 // The minimum length of a stun message will not be less
@@ -160,7 +164,8 @@ async fn tcp_server(
                         Ok(s) if s > buf.len() => break,
                         Err(_) => break,
                         Ok(s) => {
-                            actor.send(&addr, &[Stats::ReceivedPkts(1)]);
+                            reporter.send(Transport::TCP, &addr, &[Stats::ReceivedPkts(1)]);
+
                             s
                         }
                     };
@@ -175,11 +180,14 @@ async fn tcp_server(
                                 break 'a;
                             }
 
-                            actor.send(
+                            reporter.send(
+                                Transport::TCP,
                                 &addr,
-                                &[Stats::SendBytes(res.data.len()), Stats::SendPkts(1)],
+                                &[Stats::SendBytes(res.data.len() as u64), Stats::SendPkts(1)],
                             );
                         }
+                    } else {
+                        reporter.send(Transport::TCP, &addr, &[Stats::ErrorPkts(1)]);
                     }
                 }
             }
@@ -216,7 +224,7 @@ async fn udp_server(
     for _ in 0..num_cpus::get() {
         let socket = socket.clone();
         let router = router.clone();
-        let actor = statistics.get_actor();
+        let reporter = statistics.get_reporter();
         let mut operationer = service.get_operationer(external, external);
 
         tokio::spawn(async move {
@@ -232,7 +240,11 @@ async fn udp_server(
                     _ => continue,
                 };
 
-                actor.send(&addr, &[Stats::ReceivedBytes(size), Stats::ReceivedPkts(1)]);
+                reporter.send(
+                    Transport::UDP,
+                    &addr,
+                    &[Stats::ReceivedBytes(size as u64), Stats::ReceivedPkts(1)],
+                );
 
                 // The stun message requires at least 4 bytes. (currently the
                 // smallest stun message is channel data,
@@ -249,18 +261,21 @@ async fn udp_server(
                                 }
                             }
 
-                            actor.send(
+                            reporter.send(
+                                Transport::UDP,
                                 &addr,
-                                &[Stats::SendBytes(res.data.len()), Stats::SendPkts(1)],
+                                &[Stats::SendBytes(res.data.len() as u64), Stats::SendPkts(1)],
                             );
                         }
+                    } else {
+                        reporter.send(Transport::UDP, &addr, &[Stats::ErrorPkts(1)]);
                     }
                 }
             }
         });
     }
 
-    let actor = statistics.get_actor();
+    let reporter = statistics.get_reporter();
     let mut receiver = router.get_receiver(external);
     while let Some((bytes, _, addr)) = receiver.recv().await {
         if let Err(e) = socket.send_to(&bytes, addr).await {
@@ -268,7 +283,11 @@ async fn udp_server(
                 break;
             }
         } else {
-            actor.send(&addr, &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)]);
+            reporter.send(
+                Transport::UDP,
+                &addr,
+                &[Stats::SendBytes(bytes.len() as u64), Stats::SendPkts(1)],
+            );
         }
     }
 

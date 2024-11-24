@@ -69,7 +69,8 @@ pub async fn start_server(
         statistics,
     });
 
-    let app = Router::new()
+    #[allow(unused_mut)]
+    let mut app = Router::new()
         .route(
             "/info",
             get(|State(state): State<Arc<AppState>>| async move {
@@ -127,6 +128,7 @@ pub async fn start_server(
                                 "send_bytes": counts.send_bytes,
                                 "received_pkts": counts.received_pkts,
                                 "send_pkts": counts.send_pkts,
+                                "error_pkts": counts.error_pkts,
                             }))
                             .into_response();
                         }
@@ -159,7 +161,29 @@ pub async fn start_server(
                     StatusCode::OK
                 },
             ),
-        )
+        );
+
+    #[cfg(feature = "prometheus")]
+    {
+        use crate::statistics::prometheus::generate_metrics;
+
+        let mut metrics_bytes = Vec::with_capacity(4096);
+
+        app = app.route(
+            "/metrics",
+            get(|| async move {
+                metrics_bytes.clear();
+
+                if generate_metrics(&mut metrics_bytes).is_err() {
+                    StatusCode::EXPECTATION_FAILED.into_response()
+                } else {
+                    metrics_bytes.into_response()
+                }
+            }),
+        );
+    }
+
+    let app = app
         .route_layer(middleware::map_response_with_state(
             state.clone(),
             |State(state): State<Arc<AppState>>, mut res: Response| async move {
