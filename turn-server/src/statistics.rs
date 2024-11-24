@@ -206,7 +206,7 @@ impl Statistics {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_server::statistics::*;
+    /// use turn_server::{statistics::*, config::Transport};
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -214,7 +214,7 @@ impl Statistics {
     ///     let statistics = Statistics::default();
     ///     let sender = statistics.get_reporter();
     ///
-    ///     sender.send(&addr, &[Stats::ReceivedBytes(100)]);
+    ///     sender.send(Transport::UDP, &addr, &[Stats::ReceivedBytes(100)]);
     /// }
     /// ```
     pub fn get_reporter(&self) -> StatisticsReporter {
