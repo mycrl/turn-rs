@@ -1,6 +1,8 @@
-use std::{collections::HashMap, fs::read_to_string, net::SocketAddr};
+use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, str::FromStr};
 
+use anyhow::anyhow;
 use clap::Parser;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 #[repr(C)]
@@ -9,6 +11,18 @@ use serde::{Deserialize, Serialize};
 pub enum Transport {
     TCP = 0,
     UDP = 1,
+}
+
+impl FromStr for Transport {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(match value {
+            "udp" => Self::UDP,
+            "tcp" => Self::TCP,
+            _ => return Err(anyhow!("unknown transport: {value}")),
+        })
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -23,6 +37,28 @@ pub struct Interface {
     /// you need to manually specify the server external IP
     /// address and service listening port.
     pub external: SocketAddr,
+}
+
+impl FromStr for Interface {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (transport, addrs) = s
+            .split('@')
+            .collect_tuple()
+            .ok_or_else(|| anyhow!("invalid interface transport: {}", s))?;
+
+        let (bind, external) = addrs
+            .split('/')
+            .collect_tuple()
+            .ok_or_else(|| anyhow!("invalid interface address: {}", s))?;
+
+        Ok(Interface {
+            external: external.parse::<SocketAddr>()?,
+            bind: bind.parse::<SocketAddr>()?,
+            transport: transport.parse()?,
+        })
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -109,7 +145,7 @@ impl Default for Api {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Error,
@@ -117,6 +153,21 @@ pub enum LogLevel {
     Info,
     Debug,
     Trace,
+}
+
+impl FromStr for LogLevel {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(match value {
+            "trace" => Self::Trace,
+            "debug" => Self::Debug,
+            "info" => Self::Info,
+            "warn" => Self::Warn,
+            "error" => Self::Error,
+            _ => return Err(format!("unknown log level: {value}")),
+        })
+    }
 }
 
 impl Default for LogLevel {
@@ -177,16 +228,61 @@ pub struct Config {
     pub auth: Auth,
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(
     about = env!("CARGO_PKG_DESCRIPTION"),
     version = env!("CARGO_PKG_VERSION"),
     author = env!("CARGO_PKG_AUTHORS"),
 )]
 struct Cli {
-    /// specify the configuration file path.
-    #[arg(long)]
+    /// Specify the configuration file path
+    ///
+    /// Example: --config /etc/turn-rs/config.toml
+    #[arg(long, short)]
     config: Option<String>,
+    /// Static user password
+    ///
+    /// Example: --auth-static-credentials test=test
+    #[arg(long, value_parser = Cli::parse_credential)]
+    auth_static_credentials: Option<Vec<(String, String)>>,
+    /// Static authentication key value (string) that applies only to the TURN
+    /// REST API
+    #[arg(long)]
+    auth_static_auth_secret: Option<String>,
+    /// An enum representing the available verbosity levels of the logger
+    #[arg(
+        long,
+        value_parser = clap::value_parser!(LogLevel),
+    )]
+    log_level: Option<LogLevel>,
+    /// This option specifies the http server binding address used to control
+    /// the turn server
+    #[arg(long)]
+    api_bind: Option<SocketAddr>,
+    /// This option is used to specify the http address of the hooks service
+    ///
+    /// Example: --api-hooks http://localhost:8080/turn
+    #[arg(long)]
+    api_hooks: Option<String>,
+    /// TURN server listen address
+    #[arg(long)]
+    turn_realm: Option<String>,
+    /// TURN server listen interfaces
+    ///
+    /// Example: --turn-interfaces udp@127.0.0.1:3478/127.0.0.1:3478
+    #[arg(long)]
+    turn_interfaces: Option<Vec<Interface>>,
+}
+
+impl Cli {
+    // [username]:[password]
+    fn parse_credential(s: &str) -> Result<(String, String), anyhow::Error> {
+        let (username, password) = s
+            .split('=')
+            .collect_tuple()
+            .ok_or_else(|| anyhow!("invalid credential str: {}", s))?;
+        Ok((username.to_string(), password.to_string()))
+    }
 }
 
 impl Config {
@@ -194,11 +290,50 @@ impl Config {
     /// specified, the configuration is read from the configuration file,
     /// otherwise the default configuration is used.
     pub fn load() -> anyhow::Result<Self> {
-        Ok(toml::from_str(
-            &Cli::parse()
-                .config
+        let cli = Cli::parse();
+        let mut config = toml::from_str::<Self>(
+            &cli.config
                 .and_then(|path| read_to_string(path).ok())
                 .unwrap_or("".to_string()),
-        )?)
+        )?;
+
+        // Command line arguments have a high priority and override configuration file
+        // options; here they are used to replace the configuration parsed out of the
+        // configuration file.
+        {
+            if let Some(credentials) = cli.auth_static_credentials {
+                for (k, v) in credentials {
+                    config.auth.static_credentials.insert(k, v);
+                }
+            }
+
+            if let Some(secret) = cli.auth_static_auth_secret {
+                config.auth.static_auth_secret.replace(secret);
+            }
+
+            if let Some(level) = cli.log_level {
+                config.log.level = level;
+            }
+
+            if let Some(bind) = cli.api_bind {
+                config.api.bind = bind;
+            }
+
+            if let Some(hooks) = cli.api_hooks {
+                config.api.hooks.replace(hooks);
+            }
+
+            if let Some(realm) = cli.turn_realm {
+                config.turn.realm = realm;
+            }
+
+            if let Some(interfaces) = cli.turn_interfaces {
+                for interface in interfaces {
+                    config.turn.interfaces.push(interface);
+                }
+            }
+        }
+
+        Ok(config)
     }
 }

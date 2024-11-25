@@ -25,25 +25,22 @@ fn criterion_benchmark(c: &mut Criterion) {
     let local_port = router.alloc_port(&local_addr).unwrap();
     let peer_port = router.alloc_port(&peer_addr).unwrap();
 
-    router.bind_port(&local_addr, peer_port);
-    router.bind_port(&peer_addr, local_port);
-
     router.refresh(&local_addr, 600);
     router.refresh(&peer_addr, 600);
 
     let mut turn_router = c.benchmark_group("turn_router");
     turn_router.bench_function("local_indication_peer", |b| {
         b.iter(|| {
-            let addr = router.get_port_bound(peer_port).unwrap();
-            let _ = router.get_bound_port(&local_addr, &addr).unwrap();
+            let addr = router.get_port_addr(peer_port).unwrap();
+            let _ = router.get_addr_port(&local_addr).unwrap();
             let _ = router.get_interface(&addr).unwrap();
         })
     });
 
     turn_router.bench_function("peer_indication_local", |b| {
         b.iter(|| {
-            let addr = router.get_port_bound(local_port).unwrap();
-            let _ = router.get_bound_port(&peer_addr, &addr).unwrap();
+            let addr = router.get_port_addr(local_port).unwrap();
+            let _ = router.get_addr_port(&peer_addr).unwrap();
             let _ = router.get_interface(&addr).unwrap();
         })
     });
@@ -53,14 +50,14 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     turn_router.bench_function("local_channel_data_peer", |b| {
         b.iter(|| {
-            let addr = router.get_channel_bound(&local_addr, 0x4000).unwrap();
+            let addr = router.get_channel_bind(&local_addr, 0x4000).unwrap();
             let _ = router.get_interface(&addr).unwrap();
         })
     });
 
     turn_router.bench_function("peer_channel_data_local", |b| {
         b.iter(|| {
-            let addr = router.get_channel_bound(&peer_addr, 0x4000).unwrap();
+            let addr = router.get_channel_bind(&peer_addr, 0x4000).unwrap();
             let _ = router.get_interface(&addr).unwrap();
         })
     });

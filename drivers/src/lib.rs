@@ -53,10 +53,10 @@ pub struct Session {
     pub username: String,
     /// The password used in session authentication
     pub password: String,
-    /// List of channel numbers that have been assigned to the session
-    pub allocated_channels: Vec<u16>,
-    /// List of port numbers that have been assigned to the session
-    pub allocated_ports: Vec<u16>,
+    /// Channel numbers that have been assigned to the session
+    pub channel: Option<u16>,
+    /// Port numbers that have been assigned to the session
+    pub port: Option<u16>,
     /// The validity period of the current session application, in seconds
     pub expiration: u32,
     /// The lifetime of the session currently in use, in seconds
@@ -66,13 +66,15 @@ pub struct Session {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Statistics {
     /// Number of bytes received in the current session/s
-    pub received_bytes: usize,
+    pub received_bytes: u64,
     /// The number of bytes sent by the current session/s
-    pub send_bytes: usize,
+    pub send_bytes: u64,
     /// Number of packets received in the current session/s
-    pub received_pkts: usize,
+    pub received_pkts: u64,
     /// The number of packets sent by the current session/s
-    pub send_pkts: usize,
+    pub send_pkts: u64,
+    /// The number of packets error by the current session/s
+    pub error_pkts: u64,
 }
 
 /// Controller Query Filters

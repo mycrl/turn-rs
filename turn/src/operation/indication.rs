@@ -70,12 +70,12 @@ pub async fn process<'a>(
         Some(x) => x,
     };
 
-    let addr = match ctx.env.router.get_port_bound(peer.port()) {
+    let addr = match ctx.env.router.get_port_addr(peer.port()) {
         None => return Ok(None),
         Some(a) => a,
     };
 
-    let port = match ctx.env.router.get_bound_port(&ctx.addr, &addr) {
+    let port = match ctx.env.router.get_addr_port(&ctx.addr) {
         None => return Ok(None),
         Some(p) => p,
     };

@@ -85,6 +85,10 @@ pub async fn process<'a>(
         Some(ret) => ret,
     };
 
+    if ctx.env.router.is_port_allcated(&ctx.addr) {
+        return reject(ctx, reader, bytes, AllocationMismatch);
+    }
+
     let port = match ctx.env.router.alloc_port(&ctx.addr) {
         None => return reject(ctx, reader, bytes, Unauthorized),
         Some(p) => p,

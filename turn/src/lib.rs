@@ -1,9 +1,8 @@
-pub mod processor;
+pub mod operation;
 pub mod router;
 
-pub use processor::Processor;
-pub use router::nodes::Node;
-pub use router::Router;
+pub use operation::Operationer;
+pub use router::{sockets::Socket, Router};
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -247,7 +246,7 @@ impl Service {
         }
     }
 
-    /// Get processor.
+    /// Get operationer.
     ///
     /// # Examples
     ///
@@ -261,10 +260,10 @@ impl Service {
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let service = Service::new("test".to_string(), vec![], ObserverTest);
-    /// service.get_processor(addr, addr);
+    /// service.get_operationer(addr, addr);
     /// ```
-    pub fn get_processor(&self, interface: SocketAddr, external: SocketAddr) -> Processor {
-        Processor::new(
+    pub fn get_operationer(&self, interface: SocketAddr, external: SocketAddr) -> Operationer {
+        Operationer::new(
             interface,
             external,
             self.externals.clone(),

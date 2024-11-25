@@ -31,7 +31,7 @@ use stun::ChannelData;
 /// no data in the UDP datagram, but the UDP datagram is still formed and
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
 pub fn process(ctx: Context, data: ChannelData<'_>) -> Option<Response<'_>> {
-    let addr = ctx.env.router.get_channel_bound(&ctx.addr, data.number)?;
+    let addr = ctx.env.router.get_channel_bind(&ctx.addr, data.number)?;
     let interface = ctx.env.router.get_interface(&addr)?;
     let to = (ctx.env.interface != interface.addr).then(|| interface.addr);
     Some(Response::new(data.buf, StunClass::Channel, Some(addr), to))

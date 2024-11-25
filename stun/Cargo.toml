@@ -8,24 +8,16 @@ readme = "../README.md"
 homepage = "https://github.com/mycrl/turn-rs"
 repository = "https://github.com/mycrl/turn-rs"
 license = "GPL-2.0-or-later"
-keywords = [
-    "stun",
-    "webrtc",
-    "turn"
-]
-
-categories = [
-    "parsing",
-    "network-programming"
-]
+keywords = ["stun", "webrtc", "turn"]
+categories = ["parsing", "network-programming"]
 
 [dependencies]
 bytes = "1"
-num_enum = "0.6"
-md-5 = "0.10.5"
-hmac = "0.12.1"
-sha-1 = "0.10.1"
-crc = "3.0.1"
+num_enum = "0.7"
+md-5 = "0.10"
+hmac = "0.12"
+sha-1 = "0.10"
+crc = "3"
 
 [dev-dependencies]
 criterion = "0.5"

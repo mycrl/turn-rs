@@ -69,7 +69,8 @@ pub async fn start_server(
         statistics,
     });
 
-    let app = Router::new()
+    #[allow(unused_mut)]
+    let mut app = Router::new()
         .route(
             "/info",
             get(|State(state): State<Arc<AppState>>| async move {
@@ -78,7 +79,7 @@ pub async fn start_server(
                     "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
                     "uptime": state.uptime.elapsed().as_secs(),
                     "port_allocated": router.len(),
-                    "port_capacity": router.capacity(),
+                    "port_capacity": turn::Router::capacity(),
                     "interfaces": state.config.turn.interfaces,
                 }))
             }),
@@ -88,7 +89,7 @@ pub async fn start_server(
             get(
                 |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
                     let addrs = if let Some(username) = query.username {
-                        state.service.get_router().get_node_addrs(&username)
+                        state.service.get_router().get_user_addrs(&username)
                     } else {
                         if let Some(addr) = query.addr {
                             vec![addr]
@@ -99,15 +100,15 @@ pub async fn start_server(
 
                     let mut res = Vec::with_capacity(addrs.len());
                     for addr in addrs {
-                        if let Some(node) = state.service.get_router().get_node(&Arc::new(addr)) {
+                        if let Some(socket) = state.service.get_router().get_socket(&addr) {
                             res.push(json!({
                                 "address": addr,
-                                "username": node.username,
-                                "password": node.password,
-                                "allocated_channels": node.channels,
-                                "allocated_ports": node.ports,
-                                "expiration": node.expiration,
-                                "lifetime": node.lifetime.elapsed().as_secs(),
+                                "username": socket.username,
+                                "password": socket.password,
+                                "channel": socket.channel,
+                                "port": socket.port,
+                                "expiration": socket.expiration,
+                                "lifetime": socket.lifetime.elapsed().as_secs(),
                             }));
                         }
                     }
@@ -127,6 +128,7 @@ pub async fn start_server(
                                 "send_bytes": counts.send_bytes,
                                 "received_pkts": counts.received_pkts,
                                 "send_pkts": counts.send_pkts,
+                                "error_pkts": counts.error_pkts,
                             }))
                             .into_response();
                         }
@@ -141,7 +143,7 @@ pub async fn start_server(
             delete(
                 |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
                     let addrs = if let Some(username) = query.username {
-                        state.service.get_router().get_node_addrs(&username)
+                        state.service.get_router().get_user_addrs(&username)
                     } else {
                         if let Some(addr) = query.addr {
                             vec![addr]
@@ -159,7 +161,30 @@ pub async fn start_server(
                     StatusCode::OK
                 },
             ),
-        )
+        );
+
+    #[cfg(feature = "prometheus")]
+    {
+        use crate::statistics::prometheus::generate_metrics;
+        use axum::http::header::CONTENT_TYPE;
+
+        let mut metrics_bytes = Vec::with_capacity(4096);
+
+        app = app.route(
+            "/metrics",
+            get(|| async move {
+                metrics_bytes.clear();
+
+                if generate_metrics(&mut metrics_bytes).is_err() {
+                    StatusCode::EXPECTATION_FAILED.into_response()
+                } else {
+                    ([(CONTENT_TYPE, "text/plain")], metrics_bytes).into_response()
+                }
+            }),
+        );
+    }
+
+    let app = app
         .route_layer(middleware::map_response_with_state(
             state.clone(),
             |State(state): State<Arc<AppState>>, mut res: Response| async move {
