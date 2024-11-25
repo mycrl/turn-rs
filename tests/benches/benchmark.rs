@@ -11,8 +11,8 @@ fn criterion_benchmark(c: &mut Criterion) {
     let local_port = local.allocate_request();
     let peer_port = peer.allocate_request();
 
-    local.create_permission_request(peer_port);
-    peer.create_permission_request(local_port);
+    local.create_permission_request();
+    peer.create_permission_request();
 
     let mut turn_relay = c.benchmark_group("turn_relay");
     turn_relay.bench_function("send_indication_local_to_peer", |b| {

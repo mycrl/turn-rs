@@ -53,10 +53,10 @@ pub struct Session {
     pub username: String,
     /// The password used in session authentication
     pub password: String,
-    /// List of channel numbers that have been assigned to the session
-    pub allocated_channels: Vec<u16>,
-    /// List of port numbers that have been assigned to the session
-    pub allocated_ports: Vec<u16>,
+    /// Channel numbers that have been assigned to the session
+    pub channel: Option<u16>,
+    /// Port numbers that have been assigned to the session
+    pub port: Option<u16>,
     /// The validity period of the current session application, in seconds
     pub expiration: u32,
     /// The lifetime of the session currently in use, in seconds

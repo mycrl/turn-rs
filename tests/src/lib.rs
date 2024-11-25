@@ -231,14 +231,14 @@ impl TurnClient {
         relay.port()
     }
 
-    pub fn create_permission_request(&mut self, port: u16) {
+    pub fn create_permission_request(&mut self) {
         let mut msg = MessageWriter::new(
             Method::CreatePermission(Kind::Request),
             &self.token_buf,
             &mut self.send_buf,
         );
 
-        msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
+        msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, 80));
         msg.append::<UserName>(USERNAME);
         msg.append::<Realm>(REALM);
         msg.flush(Some(&self.key_buf)).unwrap();
@@ -367,7 +367,7 @@ mod tests {
         local.base_allocate_request();
 
         let port = local.allocate_request();
-        local.create_permission_request(port);
+        local.create_permission_request();
         local.channel_bind_request(port);
         local.refresh_request();
     }
@@ -384,7 +384,7 @@ mod tests {
         local.base_allocate_request();
 
         let port = local.allocate_request();
-        local.create_permission_request(port);
+        local.create_permission_request();
         local.channel_bind_request(port);
         local.refresh_request();
     }
