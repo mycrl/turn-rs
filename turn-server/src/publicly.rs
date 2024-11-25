@@ -100,15 +100,15 @@ pub async fn start_server(
 
                     let mut res = Vec::with_capacity(addrs.len());
                     for addr in addrs {
-                        if let Some(node) = state.service.get_router().get_socket(&Arc::new(addr)) {
+                        if let Some(socket) = state.service.get_router().get_socket(&addr) {
                             res.push(json!({
                                 "address": addr,
-                                "username": node.username,
-                                "password": node.password,
-                                "allocated_channels": node.channels,
-                                "allocated_port": node.port,
-                                "expiration": node.expiration,
-                                "lifetime": node.lifetime.elapsed().as_secs(),
+                                "username": socket.username,
+                                "password": socket.password,
+                                "channel": socket.channel,
+                                "port": socket.port,
+                                "expiration": socket.expiration,
+                                "lifetime": socket.lifetime.elapsed().as_secs(),
                             }));
                         }
                     }

@@ -9,13 +9,13 @@ use stun::util::long_key;
 /// turn socket session.
 #[derive(Clone)]
 pub struct Socket {
-    pub secret: Arc<[u8; 16]>,
-    pub channels: Vec<u16>,
-    pub port: Option<u16>,
-    pub lifetime: Instant,
-    pub expiration: u64,
     pub username: String,
     pub password: String,
+    pub channel: Option<u16>,
+    pub port: Option<u16>,
+    pub secret: Arc<[u8; 16]>,
+    pub lifetime: Instant,
+    pub expiration: u64,
 }
 
 impl Socket {
@@ -25,11 +25,11 @@ impl Socket {
     pub fn new(realm: &str, username: &str, password: &str) -> Self {
         let secret = Arc::new(long_key(username, password, realm));
         Self {
-            channels: Vec::with_capacity(5),
             username: username.to_string(),
             password: password.to_string(),
             lifetime: Instant::now(),
             expiration: 600,
+            channel: None,
             port: None,
             secret,
         }
@@ -113,7 +113,7 @@ impl Socket {
         self.port.replace(port);
     }
 
-    /// push channel in socket.
+    /// set channel in socket.
     ///
     /// # Examples
     ///
@@ -122,13 +122,11 @@ impl Socket {
     ///
     /// let mut socket = Socket::new("test", "test", "test");
     ///
-    /// socket.push_channel(0x4000);
-    /// assert_eq!(&socket.channels, &[0x4000]);
+    /// socket.set_channel(0x4000);
+    /// assert_eq!(socket.channel, Some(0x4000));
     /// ```
-    pub fn push_channel(&mut self, channel: u16) {
-        if !self.channels.contains(&channel) {
-            self.channels.push(channel);
-        }
+    pub fn set_channel(&mut self, channel: u16) {
+        self.channel.replace(channel);
     }
 }
 
@@ -195,7 +193,7 @@ impl Sockets {
     ///         224, 239
     ///     ]
     /// );
-    /// assert_eq!(socket.channels.len(), 0);
+    /// assert_eq!(socket.channel, None);
     /// assert_eq!(socket.port, None);
     /// ```
     pub fn get_socket(&self, a: &SocketAddr) -> Option<Socket> {
@@ -251,7 +249,7 @@ impl Sockets {
     ///         224, 239
     ///     ]
     /// );
-    /// assert_eq!(socket.channels.len(), 0);
+    /// assert_eq!(socket.channel, None);
     /// assert_eq!(socket.port, None);
     /// ```
     pub fn insert(
@@ -286,19 +284,36 @@ impl Sockets {
     ///
     /// sockets.insert(&addr, "test", "test", "test");
     ///
-    /// assert_eq!(sockets.is_port_allcated(&addr), false);
-    /// assert!(sockets.set_port(&addr, 60000).is_some());
-    /// assert_eq!(sockets.is_port_allcated(&addr), true);
+    /// assert_eq!(sockets.get_port(&addr), None);
+    /// assert!(sockets.set_port(&addr, 6000).is_some());
+    /// assert_eq!(sockets.get_port(&addr), Some(6000));
     /// ```
-    pub fn is_port_allcated(&self, addr: &SocketAddr) -> bool {
-        if let Some(socket) = self.map.read().get(addr) {
-            socket.port.is_some()
-        } else {
-            false
-        }
+    pub fn get_port(&self, addr: &SocketAddr) -> Option<u16> {
+        self.map.read().get(addr)?.port
     }
 
-    /// push port to socket.
+    /// Get whether the current socket has been assigned a channel.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::net::SocketAddr;
+    /// use turn::router::sockets::*;
+    ///
+    /// let sockets = Sockets::new();
+    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
+    ///
+    /// sockets.insert(&addr, "test", "test", "test");
+    ///
+    /// assert_eq!(sockets.get_channel(&addr), None);
+    /// assert!(sockets.set_channel(&addr, 6000).is_some());
+    /// assert_eq!(sockets.get_channel(&addr), Some(6000));
+    /// ```
+    pub fn get_channel(&self, addr: &SocketAddr) -> Option<u16> {
+        self.map.read().get(addr)?.channel
+    }
+
+    /// set port to socket.
     ///
     /// # Examples
     ///
@@ -323,7 +338,7 @@ impl Sockets {
     ///         224, 239
     ///     ]
     /// );
-    /// assert_eq!(socket.channels, vec![]);
+    /// assert_eq!(socket.channel, None);
     /// assert_eq!(socket.port, Some(60000));
     /// ```
     pub fn set_port(&self, addr: &SocketAddr, port: u16) -> Option<()> {
@@ -331,7 +346,7 @@ impl Sockets {
         Some(())
     }
 
-    /// push channel to socket.
+    /// set channel to socket.
     ///
     /// # Examples
     ///
@@ -344,7 +359,7 @@ impl Sockets {
     ///
     /// sockets.insert(&addr, "test", "test", "test");
     ///
-    /// assert!(sockets.push_channel(&addr, 0x4000).is_some());
+    /// assert!(sockets.set_channel(&addr, 0x4000).is_some());
     ///
     /// let socket = sockets.get_socket(&addr).unwrap();
     /// assert_eq!(socket.username.as_str(), "test");
@@ -356,11 +371,11 @@ impl Sockets {
     ///         224, 239
     ///     ]
     /// );
-    /// assert_eq!(socket.channels, vec![0x4000]);
+    /// assert_eq!(socket.channel, Some(0x4000));
     /// assert_eq!(socket.port, None);
     /// ```
-    pub fn push_channel(&self, a: &SocketAddr, channel: u16) -> Option<()> {
-        self.map.write().get_mut(a)?.push_channel(channel);
+    pub fn set_channel(&self, addr: &SocketAddr, channel: u16) -> Option<()> {
+        self.map.write().get_mut(addr)?.set_channel(channel);
         Some(())
     }
 
@@ -389,7 +404,7 @@ impl Sockets {
     ///         224, 239
     ///     ]
     /// );
-    /// assert_eq!(socket.channels, vec![]);
+    /// assert_eq!(socket.channel, None);
     /// assert_eq!(socket.port, None);
     /// assert!(!socket.is_death());
     ///
@@ -405,7 +420,7 @@ impl Sockets {
     ///         224, 239
     ///     ]
     /// );
-    /// assert_eq!(socket.channels, vec![]);
+    /// assert_eq!(socket.channel, None);
     /// assert_eq!(socket.port, None);
     /// assert!(socket.is_death());
     /// ```
@@ -437,7 +452,7 @@ impl Sockets {
     ///         224, 239
     ///     ]
     /// );
-    /// assert_eq!(socket.channels, vec![]);
+    /// assert_eq!(socket.channel, None);
     /// assert_eq!(socket.port, None);
     ///
     /// assert!(sockets.remove(&addr).is_some());

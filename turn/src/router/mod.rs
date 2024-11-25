@@ -69,10 +69,6 @@ impl Router {
                 this.sockets.get_deaths().iter().for_each(|a| {
                     this.remove(a);
                 });
-
-                this.channels.get_deaths().iter().for_each(|c| {
-                    this.channels.remove(*c);
-                });
             }
         });
 
@@ -247,7 +243,7 @@ impl Router {
     /// assert_eq!(socket.username.as_str(), "test");
     /// assert_eq!(socket.password.as_str(), "test");
     /// assert_eq!(socket.secret.as_slice(), &secret);
-    /// assert_eq!(socket.channels, vec![]);
+    /// assert_eq!(socket.channel, None);
     /// assert_eq!(socket.port, None);
     /// ```
     pub fn get_socket(&self, addr: &SocketAddr) -> Option<Socket> {
@@ -569,7 +565,7 @@ impl Router {
     /// assert_eq!(router.is_port_allcated(&addr), true);
     /// ```
     pub fn is_port_allcated(&self, addr: &SocketAddr) -> bool {
-        self.sockets.is_port_allcated(addr)
+        self.sockets.get_port(addr).is_some()
     }
 
     /// bind channel number for State.
@@ -619,9 +615,15 @@ impl Router {
     /// assert!(router.bind_channel(&addr, port, 0x4000).is_some());
     /// ```
     pub fn bind_channel(&self, addr: &SocketAddr, port: u16, channel: u16) -> Option<()> {
-        let source = self.ports.get(port)?;
-        self.channels.insert(addr, channel, &source)?;
-        self.sockets.push_channel(addr, channel)?;
+        if let Some(it) = self.sockets.get_channel(addr) {
+            if it != channel {
+                return None;
+            }
+        }
+
+        let target = self.ports.get(port)?;
+        self.channels.insert(addr, channel, &target)?;
+        self.sockets.set_channel(addr, channel)?;
         Some(())
     }
 
@@ -793,8 +795,8 @@ impl Router {
             self.ports.remove(port);
         }
 
-        for c in socket.channels {
-            self.channels.remove(c);
+        if let Some(channel) = socket.channel {
+            self.channels.remove(*addr, channel);
         }
 
         self.nonces.remove(addr);
