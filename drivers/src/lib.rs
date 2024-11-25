@@ -66,13 +66,15 @@ pub struct Session {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Statistics {
     /// Number of bytes received in the current session/s
-    pub received_bytes: usize,
+    pub received_bytes: u64,
     /// The number of bytes sent by the current session/s
-    pub send_bytes: usize,
+    pub send_bytes: u64,
     /// Number of packets received in the current session/s
-    pub received_pkts: usize,
+    pub received_pkts: u64,
     /// The number of packets sent by the current session/s
-    pub send_pkts: usize,
+    pub send_pkts: u64,
+    /// The number of packets error by the current session/s
+    pub error_pkts: u64,
 }
 
 /// Controller Query Filters
