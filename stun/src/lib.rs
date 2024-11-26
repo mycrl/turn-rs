@@ -338,7 +338,7 @@ impl Decoder {
             // reference is safe. Unsafe is used here to make the external life
             // cycle declaration cleaner.
             Payload::Message(MessageReader::decode(
-                unsafe { std::mem::transmute(buf) },
+                unsafe { std::mem::transmute::<&'a [u8], &[u8]>(buf) },
                 &mut self.attrs,
             )?)
         } else {

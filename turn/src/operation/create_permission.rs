@@ -71,10 +71,10 @@ fn resolve<'a>(
 /// The server then responds with a CreatePermission success response.
 /// There are no mandatory attributes in the success response.
 ///
-/// > NOTE: A server need not do anything special to implement
-/// idempotency of CreatePermission requests over UDP using the
-/// "stateless stack approach".  Retransmitted CreatePermission
-/// requests will simply refresh the permissions.
+/// > NOTE: A server need not do anything special to implement idempotency of
+/// > CreatePermission requests over UDP using the "stateless stack approach".
+/// > Retransmitted CreatePermission requests will simply refresh the
+/// > permissions.
 pub async fn process<'a>(
     ctx: Context,
     reader: MessageReader<'_, '_>,

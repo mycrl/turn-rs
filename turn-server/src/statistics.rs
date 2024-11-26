@@ -259,7 +259,7 @@ impl Default for Statistics {
         let map_ = Arc::downgrade(&map);
         thread::spawn(move || {
             while let Some(map) = map_.upgrade() {
-                let _ = map.read().iter().for_each(|(_, it)| it.clear());
+                map.read().iter().for_each(|(_, it)| it.clear());
                 sleep(Duration::from_secs(1));
             }
         });

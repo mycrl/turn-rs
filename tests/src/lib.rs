@@ -167,7 +167,7 @@ impl TurnClient {
             .block_on(self.client.recv(&mut self.recv_buf))
             .unwrap();
 
-        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = self.decoder.decode(&self.recv_buf[..size]).unwrap();
         let ret = Self::get_message_from_payload(ret);
 
         assert_eq!(ret.method, Method::Binding(Kind::Response));
@@ -191,7 +191,7 @@ impl TurnClient {
         let size = RUNTIME
             .block_on(self.client.recv(&mut self.recv_buf))
             .unwrap();
-        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = self.decoder.decode(&self.recv_buf[..size]).unwrap();
         let ret = Self::get_message_from_payload(ret);
 
         assert_eq!(ret.method, Method::Allocate(Kind::Error));
@@ -212,7 +212,7 @@ impl TurnClient {
         let size = RUNTIME
             .block_on(self.client.recv(&mut self.recv_buf))
             .unwrap();
-        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = self.decoder.decode(&self.recv_buf[..size]).unwrap();
         let ret = Self::get_message_from_payload(ret);
 
         assert_eq!(ret.method, Method::Allocate(Kind::Response));
@@ -247,7 +247,7 @@ impl TurnClient {
         let size = RUNTIME
             .block_on(self.client.recv(&mut self.recv_buf))
             .unwrap();
-        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = self.decoder.decode(&self.recv_buf[..size]).unwrap();
         let ret = Self::get_message_from_payload(ret);
 
         assert_eq!(ret.method, Method::CreatePermission(Kind::Response));
@@ -272,7 +272,7 @@ impl TurnClient {
         let size = RUNTIME
             .block_on(self.client.recv(&mut self.recv_buf))
             .unwrap();
-        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = self.decoder.decode(&self.recv_buf[..size]).unwrap();
         let ret = Self::get_message_from_payload(ret);
 
         assert_eq!(ret.method, Method::ChannelBind(Kind::Response));
@@ -296,7 +296,7 @@ impl TurnClient {
         let size = RUNTIME
             .block_on(self.client.recv(&mut self.recv_buf))
             .unwrap();
-        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = self.decoder.decode(&self.recv_buf[..size]).unwrap();
         let ret = Self::get_message_from_payload(ret);
 
         assert_eq!(ret.method, Method::Refresh(Kind::Response));
@@ -319,7 +319,7 @@ impl TurnClient {
         let size = RUNTIME
             .block_on(peer.client.recv(&mut self.recv_buf))
             .unwrap();
-        let ret = self.decoder.decode(&mut self.recv_buf[..size]).unwrap();
+        let ret = self.decoder.decode(&self.recv_buf[..size]).unwrap();
         let ret = Self::get_message_from_payload(ret);
 
         assert_eq!(ret.method, Method::DataIndication);

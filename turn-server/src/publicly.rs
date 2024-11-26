@@ -90,12 +90,10 @@ pub async fn start_server(
                 |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
                     let addrs = if let Some(username) = query.username {
                         state.service.get_router().get_user_addrs(&username)
+                    } else if let Some(addr) = query.addr {
+                        vec![addr]
                     } else {
-                        if let Some(addr) = query.addr {
-                            vec![addr]
-                        } else {
-                            return StatusCode::NOT_FOUND.into_response();
-                        }
+                        return StatusCode::NOT_FOUND.into_response();
                     };
 
                     let mut res = Vec::with_capacity(addrs.len());
@@ -144,12 +142,10 @@ pub async fn start_server(
                 |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
                     let addrs = if let Some(username) = query.username {
                         state.service.get_router().get_user_addrs(&username)
+                    } else if let Some(addr) = query.addr {
+                        vec![addr]
                     } else {
-                        if let Some(addr) = query.addr {
-                            vec![addr]
-                        } else {
-                            return StatusCode::NOT_FOUND;
-                        }
+                        return StatusCode::NOT_FOUND;
                     };
 
                     for addr in addrs {

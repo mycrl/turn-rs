@@ -16,15 +16,15 @@ use stun::ChannelData;
 /// On the server, if no errors are detected, the server relays the
 /// application data to the peer by forming a UDP datagram as follows:
 ///
-/// * the source transport address is the relayed transport address of
-/// the allocation, where the allocation is determined by the 5-tuple
-/// on which the ChannelData message arrived;
+/// * the source transport address is the relayed transport address of the
+///   allocation, where the allocation is determined by the 5-tuple on which the
+///   ChannelData message arrived;
 ///
-/// * the destination transport address is the transport address to
-/// which the channel is bound;
+/// * the destination transport address is the transport address to which the
+///   channel is bound;
 ///
-/// * the data following the UDP header is the contents of the data
-/// field of the ChannelData message.
+/// * the data following the UDP header is the contents of the data field of the
+///   ChannelData message.
 ///
 /// The resulting UDP datagram is then sent to the peer.  Note that if
 /// the Length field in the ChannelData message is 0, then there will be

@@ -1,4 +1,4 @@
-use std::{future::Future, net::SocketAddr, sync::Arc};
+use std::{fmt::Display, future::Future, net::SocketAddr, sync::Arc};
 
 use async_trait::async_trait;
 use axum::{
@@ -87,12 +87,16 @@ pub enum QueryFilter<'a> {
     UserName(&'a str),
 }
 
-impl<'a> ToString for QueryFilter<'a> {
-    fn to_string(&self) -> String {
-        match self {
-            QueryFilter::UserName(name) => format!("username={}", name),
-            QueryFilter::Addr(addr) => format!("addr={}", addr),
-        }
+impl<'a> Display for QueryFilter<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                QueryFilter::UserName(name) => format!("username={}", name),
+                QueryFilter::Addr(addr) => format!("addr={}", addr),
+            }
+        )
     }
 }
 
@@ -158,7 +162,7 @@ impl Controller {
     pub async fn get_session(&self, query: &QueryFilter<'_>) -> Option<Message<Vec<Session>>> {
         Message::from_res(
             self.client
-                .get(format!("{}/session?{}", self.server, query.to_string()))
+                .get(format!("{}/session?{}", self.server, query))
                 .send()
                 .await
                 .ok()?,
@@ -175,11 +179,7 @@ impl Controller {
     ) -> Option<Message<Statistics>> {
         Message::from_res(
             self.client
-                .get(format!(
-                    "{}/session/statistics?{}",
-                    self.server,
-                    query.to_string()
-                ))
+                .get(format!("{}/session/statistics?{}", self.server, query))
                 .send()
                 .await
                 .ok()?,
@@ -194,7 +194,7 @@ impl Controller {
     pub async fn remove_session(&self, query: &QueryFilter<'_>) -> Option<Message<bool>> {
         Message::from_res(
             self.client
-                .delete(format!("{}/session?{}", self.server, query.to_string()))
+                .delete(format!("{}/session?{}", self.server, query))
                 .send()
                 .await
                 .ok()?,
@@ -321,10 +321,10 @@ pub enum Events {
     /// The server then responds with a CreatePermission success response.
     /// There are no mandatory attributes in the success response.
     ///
-    /// > NOTE: A server need not do anything special to implement
-    /// idempotency of CreatePermission requests over UDP using the
-    /// "stateless stack approach".  Retransmitted CreatePermission
-    /// requests will simply refresh the permissions.
+    /// NOTE: A server need not do anything special to implement idempotency of
+    /// CreatePermission requests over UDP using the "stateless stack approach".
+    /// Retransmitted CreatePermission requests will simply refresh the
+    /// permissions.
     CreatePermission {
         name: String,
         addr: SocketAddr,
@@ -348,18 +348,17 @@ pub enum Events {
     ///
     /// Subsequent processing depends on the "desired lifetime" value:
     ///
-    /// * If the "desired lifetime" is zero, then the request succeeds and
-    /// the allocation is deleted.
+    /// * If the "desired lifetime" is zero, then the request succeeds and the
+    ///   allocation is deleted.
     ///
-    /// * If the "desired lifetime" is non-zero, then the request succeeds
-    /// and the allocation's time-to-expiry is set to the "desired
-    /// lifetime".
+    /// * If the "desired lifetime" is non-zero, then the request succeeds and
+    ///   the allocation's time-to-expiry is set to the "desired lifetime".
     ///
     /// If the request succeeds, then the server sends a success response
     /// containing:
     ///
-    /// * A LIFETIME attribute containing the current value of the time-to-
-    /// expiry timer.
+    /// * A LIFETIME attribute containing the current value of the
+    ///   time-to-expiry timer.
     ///
     /// NOTE: A server need not do anything special to implement
     /// idempotency of Refresh requests over UDP using the "stateless

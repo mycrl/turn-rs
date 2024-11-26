@@ -36,15 +36,15 @@ use stun::{MessageReader, MessageWriter, Method, StunError};
 ///
 /// If everything is OK, then the server forms a UDP datagram as follows:
 ///
-/// * the source transport address is the relayed transport address of
-/// the allocation, where the allocation is determined by the 5-tuple
-/// on which the Send indication arrived;
+/// * the source transport address is the relayed transport address of the
+///   allocation, where the allocation is determined by the 5-tuple on which the
+///   Send indication arrived;
 ///
-/// * the destination transport address is taken from the XOR-PEER-
-/// ADDRESS attribute;
+/// * the destination transport address is taken from the XOR-PEER-ADDRESS
+///   attribute;
 ///
-/// * the data following the UDP header is the contents of the value
-/// field of the DATA attribute.
+/// * the data following the UDP header is the contents of the value field of
+///   the DATA attribute.
 ///
 /// The handling of the DONT-FRAGMENT attribute (if present), is
 /// described in Sections [14](https://tools.ietf.org/html/rfc8656#section-14)
