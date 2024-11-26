@@ -21,7 +21,7 @@ Info:
 
 Interface:
 
-* `transport` - <sup>int </sup> - 0 = UDP, 1 = TCP
+* `transport` - <sup>int</sup> - 0 = UDP, 1 = TCP
 * `bind` - <sup>string</sup> - turn server listen address
 * `external` - <sup>string</sup> - specify the node external address and port
 
@@ -36,8 +36,8 @@ Session:
 * `address` - <sup>string</sup> - The IP address and port number currently used by the session
 * `username` - <sup>string</sup> - Username used in session authentication
 * `password` - <sup>string</sup> - The password used in session authentication
-* `allocated_channels` - <sup>uint16[]</sup> - List of channel numbers that have been assigned to the session
-* `allocated_ports` - <sup>uint16[]</sup> - List of port numbers that have been assigned to the session
+* `channel?` - <sup>uint16</sup> - Channel numbers that have been assigned to the session
+* `port?` - <sup>uint16</sup> - Port numbers that have been assigned to the session
 * `expiration` - <sup>uint32</sup> - The validity period of the current session application, in seconds
 * `lifetime` - <sup>uint32</sup> - The lifetime of the session currently in use, in seconds
 
@@ -49,10 +49,11 @@ Get session information. A session corresponds to each UDP socket. It should be 
 
 Statistics:
 
-* `received_bytes` - <sup>size_t</sup> - Number of bytes received in the current session/s
-* `send_bytes` - <sup>size_t</sup> - The number of bytes sent by the current session/s 
-* `received_pkts` - <sup>size_t</sup> - Number of packets received in the current session/s
-* `send_pkts` - <sup>size_t</sup> - The number of packets sent by the current session/s
+* `received_bytes` - <sup>uint64</sup> - Number of bytes received in the current session/s
+* `send_bytes` - <sup>uint64</sup> - The number of bytes sent by the current session/s 
+* `received_pkts` - <sup>uint64</sup> - Number of packets received in the current session/s
+* `send_pkts` - <sup>uint64</sup> - The number of packets sent by the current session/s
+* `error_pkts` - <sup>uint64</sup> - The number of packets error by the current session/s
 
 Get session statistics, which is mainly the traffic statistics of the current session.
 
