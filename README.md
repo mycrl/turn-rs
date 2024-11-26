@@ -53,6 +53,7 @@ This is an obvious drawback, unlike coturn which provides various transport laye
 
 ## Features
 
+- Prometheus metrics exporter.
 - Only long-term authentication mechanisms are used.
 - Static authentication lists can be used in configuration files.
 - Only virtual ports are always allocated and no real system ports are occupied.
@@ -119,6 +120,11 @@ cargo build --release
 
 After the compilation is complete, you can find the binary file in the `"target/release"` directory.
 
+Prometheus metrics exporter is not enabled by default, use the `prometheus` feature flag if you need to enable it:
+
+```bash
+cargo build --release --features prometheus
+```
 
 ## License
 
