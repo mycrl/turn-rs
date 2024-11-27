@@ -264,7 +264,7 @@ struct Cli {
     /// Example: --api-hooks http://localhost:8080/turn
     #[arg(long)]
     api_hooks: Option<String>,
-    /// TURN server listen address
+    /// TURN server realm
     #[arg(long)]
     turn_realm: Option<String>,
     /// TURN server listen interfaces
