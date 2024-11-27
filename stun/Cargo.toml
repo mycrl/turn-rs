@@ -1,8 +1,8 @@
 [package]
 name = "stun"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2021"
-authors = ["Mr.Panda <xivistudios@gmail.com>"]
+authors = ["mycrl <lepidodendraceae@gmail.com>"]
 description = "Fast and zero-cost stun message decoder and encoder."
 readme = "../README.md"
 homepage = "https://github.com/mycrl/turn-rs"

@@ -1,8 +1,8 @@
 [package]
 name = "turn"
-version = "1.2.2"
+version = "1.2.3"
 edition = "2021"
-authors = ["Mr.Panda <xivistudios@gmail.com>"]
+authors = ["mycrl <lepidodendraceae@gmail.com>"]
 description = "A library for handling round sessions."
 readme = "../README.md"
 homepage = "https://github.com/mycrl/turn-rs"

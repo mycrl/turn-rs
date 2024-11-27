@@ -1,8 +1,8 @@
 [package]
 name = "turn-server"
-version = "3.0.0"
+version = "3.2.0"
 edition = "2021"
-authors = ["Mr.Panda <xivistudios@gmail.com>"]
+authors = ["mycrl <lepidodendraceae@gmail.com>"]
 description = "A pure rust-implemented turn server."
 readme = "../README.md"
 homepage = "https://github.com/mycrl/turn-rs"
