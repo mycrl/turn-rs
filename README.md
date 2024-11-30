@@ -15,7 +15,7 @@
 <br/>
 <br/>
 
-#### ❤️ [I need some test users](https://github.com/mycrl/turn-rs/issues/109).
+#### ❤️ [I need test users](https://github.com/mycrl/turn-rs/issues/109).
 
 A pure Rust implementation of a forwarding server that takes advantage of the memory and concurrency security provided by Rust, with single-threaded decoding speeds up to 5Gib/s and forwarding latency of less than 35 microseconds. The project is more focused on the core business , do not need to access the complex configuration project , almost out of the box .
 
