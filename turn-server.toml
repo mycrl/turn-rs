@@ -28,6 +28,20 @@ transport = "tcp"
 bind = "127.0.0.1:3478"
 external = "127.0.0.1:3478"
 
+[[turn.interfaces]]
+transport = "tls"
+bind = "127.0.0.1:5349"
+external = "127.0.0.1:5349"
+cert_file = "cert.pem"   
+key_file = "key.pem"     
+
+[[turn.interfaces]]
+transport = "dtls"
+bind = "127.0.0.1:5349"
+external = "127.0.0.1:5349"
+cert_file = "cert.pem"   
+key_file = "key.pem" 
+
 [api]
 # controller bind
 #

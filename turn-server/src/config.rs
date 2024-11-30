@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 pub enum Transport {
     TCP = 0,
     UDP = 1,
+    TLS = 2,
+    DTLS = 3,
 }
 
 impl FromStr for Transport {
@@ -20,6 +22,8 @@ impl FromStr for Transport {
         Ok(match value {
             "udp" => Self::UDP,
             "tcp" => Self::TCP,
+            "tls" => Self::TLS,
+            "dtls" => Self::DTLS,
             _ => return Err(anyhow!("unknown transport: {value}")),
         })
     }
@@ -37,6 +41,12 @@ pub struct Interface {
     /// you need to manually specify the server external IP
     /// address and service listening port.
     pub external: SocketAddr,
+    /// TLS/DTLS certificate file path
+    #[serde(default)]
+    pub cert_file: Option<String>,
+    /// TLS/DTLS private key file path
+    #[serde(default)]
+    pub key_file: Option<String>,
 }
 
 impl FromStr for Interface {
@@ -57,6 +67,8 @@ impl FromStr for Interface {
             external: external.parse::<SocketAddr>()?,
             bind: bind.parse::<SocketAddr>()?,
             transport: transport.parse()?,
+            cert_file: None,
+            key_file: None,
         })
     }
 }

@@ -68,8 +68,10 @@ pub fn create_turn_server(auth_method: &AuthMethod, bind: SocketAddr) {
                 realm: REALM.to_string(),
                 interfaces: vec![Interface {
                     transport: config::Transport::UDP,
+                    bind: bind,
                     external: bind,
-                    bind,
+                    cert_file: None,
+                    key_file: None,
                 }],
             },
         }))
