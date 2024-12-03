@@ -2,7 +2,7 @@ use core::str;
 use std::{
     net::SocketAddr,
     sync::Arc,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
 use crate::{config::Config, statistics::Statistics};
@@ -245,7 +245,27 @@ impl HooksService {
         }
 
         if let Some(secret) = &self.config.auth.static_auth_secret {
-            return encode_password(secret, name);
+            let parts = name.split(':').collect::<Vec<&str>>();
+            if parts.len() != 2 {
+                return None;
+            }
+
+            let timestamp = parts[0].parse::<i64>();
+            if let Ok(timestamp) = timestamp {
+                if timestamp < 0
+                    || timestamp
+                        < SystemTime::now()
+                            .duration_since(SystemTime::UNIX_EPOCH)
+                            .ok()?
+                            .as_millis() as i64
+                {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+
+            return encode_password(secret, parts[1]);
         }
 
         if let Some(server) = &self.config.api.hooks {
