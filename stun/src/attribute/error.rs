@@ -60,6 +60,7 @@ pub enum Kind {
     AddressFamilyNotSupported = 0x0428,
     WrongCredentials = 0x0429,
     UnsupportedTransportAddress = 0x042A,
+    PeerAddressFamilyMismatch = 0x42B,
     AllocationQuotaReached = 0x0456,
     ServerError = 0x0500,
     InsufficientCapacity = 0x0508,
@@ -212,6 +213,7 @@ impl From<Kind> for &'static str {
             Kind::AllocationQuotaReached => "Allocation Quota Reached",
             Kind::ServerError => "Server Error",
             Kind::InsufficientCapacity => "Insufficient Capacity",
+            Kind::PeerAddressFamilyMismatch => "Peer Address Family Mismatch",
         }
     }
 }

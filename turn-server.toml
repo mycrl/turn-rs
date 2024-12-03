@@ -74,5 +74,5 @@ level = "info"
 # The server will try to use static authentication first, and then use
 # external control service authentication.
 [auth.static_credentials]
-# user1 = "test"
-# user2 = "test"
+user1 = "test"
+user2 = "test"

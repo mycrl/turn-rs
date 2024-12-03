@@ -98,7 +98,7 @@ pub async fn process<'a>(
         .bind_channel(&ctx.addr, peer.port(), number)
         .is_none()
     {
-        return reject(ctx, reader, bytes, InsufficientCapacity);
+        return reject(ctx, reader, bytes, PeerAddressFamilyMismatch);
     }
 
     ctx.env.observer.channel_bind(&ctx.addr, username, number);
