@@ -249,23 +249,34 @@ impl HooksService {
             if parts.len() != 2 {
                 return None;
             }
-
+            println!("parts: {:?}", parts);
             let timestamp = parts[0].parse::<i64>();
+            println!("timestamp: {:?}", timestamp);
             if let Ok(timestamp) = timestamp {
-                if timestamp < 0
-                    || timestamp
-                        < SystemTime::now()
-                            .duration_since(SystemTime::UNIX_EPOCH)
-                            .ok()?
-                            .as_millis() as i64
-                {
+                let current_time = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()?;
+
+                // 根据时间戳长度判断单位
+                let is_expired = if timestamp > 1_000_000_000_000 {
+                    // 毫秒时间戳 (13位)
+                    timestamp < current_time.as_millis() as i64
+                } else {
+                    // 秒时间戳 (10位)
+                    timestamp < current_time.as_secs() as i64
+                };
+
+                if timestamp < 0 || is_expired {
+                    println!("timestamp is invalid");
                     return None;
                 }
             } else {
                 return None;
             }
-
-            return encode_password(secret, parts[1]);
+            println!("secret: {:?}", secret);
+            let ret = encode_password(secret, name);
+            println!("ret: {:?}", ret);
+            return ret;
         }
 
         if let Some(server) = &self.config.api.hooks {
