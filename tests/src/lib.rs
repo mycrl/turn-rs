@@ -94,7 +94,7 @@ pub struct TurnClient {
 }
 
 impl TurnClient {
-    pub fn new(auth_method: &AuthMethod, bind: SocketAddr) -> Self {
+    pub fn new(auth_method: &AuthMethod, bind: SocketAddr, username: &str) -> Self {
         let client = RUNTIME
             .block_on(UdpSocket::bind(SocketAddr::new(BIND_IP, 0)))
             .unwrap();
@@ -103,11 +103,11 @@ impl TurnClient {
 
         let key = match &auth_method {
             AuthMethod::Static => PASSWORD.to_string(),
-            AuthMethod::Secret(secret) => Self::encode_password(secret, USERNAME).unwrap(),
+            AuthMethod::Secret(secret) => Self::encode_password(secret, username).unwrap(),
             AuthMethod::Hooks(_) => PASSWORD.to_string(),
         };
 
-        let key_buf = stun::util::long_key(USERNAME, &key, REALM);
+        let key_buf = stun::util::long_key(username, &key, REALM);
 
         let token_buf = {
             let mut rng = rand::thread_rng();
@@ -138,7 +138,7 @@ impl TurnClient {
             let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &token_buf, &mut buf);
 
             msg.append::<ReqeestedTransport>(Transport::UDP);
-            msg.append::<UserName>(USERNAME);
+            msg.append::<UserName>(username);
             msg.append::<Realm>(REALM);
             msg.flush(Some(&key_buf)).unwrap();
             buf
@@ -231,7 +231,7 @@ impl TurnClient {
         relay.port()
     }
 
-    pub fn create_permission_request(&mut self) {
+    pub fn create_permission_request(&mut self, username: &str) {
         let mut msg = MessageWriter::new(
             Method::CreatePermission(Kind::Request),
             &self.token_buf,
@@ -239,7 +239,7 @@ impl TurnClient {
         );
 
         msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, 80));
-        msg.append::<UserName>(USERNAME);
+        msg.append::<UserName>(username);
         msg.append::<Realm>(REALM);
         msg.flush(Some(&self.key_buf)).unwrap();
         RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
@@ -255,7 +255,7 @@ impl TurnClient {
         ret.integrity(&self.key_buf).unwrap();
     }
 
-    pub fn channel_bind_request(&mut self, port: u16) {
+    pub fn channel_bind_request(&mut self, port: u16, username: &str) {
         let mut msg = MessageWriter::new(
             Method::ChannelBind(Kind::Request),
             &self.token_buf,
@@ -264,7 +264,7 @@ impl TurnClient {
 
         msg.append::<ChannelNumber>(0x4000);
         msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
-        msg.append::<UserName>(USERNAME);
+        msg.append::<UserName>(username);
         msg.append::<Realm>(REALM);
         msg.flush(Some(&self.key_buf)).unwrap();
         RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
@@ -280,7 +280,7 @@ impl TurnClient {
         ret.integrity(&self.key_buf).unwrap();
     }
 
-    pub fn refresh_request(&mut self) {
+    pub fn refresh_request(&mut self, username: &str) {
         let mut msg = MessageWriter::new(
             Method::Refresh(Kind::Request),
             &self.token_buf,
@@ -288,7 +288,7 @@ impl TurnClient {
         );
 
         msg.append::<Lifetime>(0);
-        msg.append::<UserName>(USERNAME);
+        msg.append::<UserName>(username);
         msg.append::<Realm>(REALM);
         msg.flush(Some(&self.key_buf)).unwrap();
         RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
@@ -351,9 +351,26 @@ impl TurnClient {
 
 #[cfg(test)]
 mod tests {
-    use std::net::SocketAddr;
+    use std::{
+        net::SocketAddr,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
-    use crate::{create_turn_server, AuthMethod, TurnClient, BIND_IP, PASSWORD};
+    use crate::{create_turn_server, AuthMethod, TurnClient, BIND_IP, PASSWORD, USERNAME};
+
+    fn get_current_timestamp_ms() -> i64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64
+    }
+
+    fn get_current_timestamp_secs() -> i64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64
+    }
 
     #[test]
     fn static_auth_testing() {
@@ -362,30 +379,51 @@ mod tests {
 
         create_turn_server(&auth, bind);
 
-        let mut local = TurnClient::new(&auth, bind);
+        let mut local = TurnClient::new(&auth, bind, USERNAME);
         local.binding_request();
         local.base_allocate_request();
 
         let port = local.allocate_request();
-        local.create_permission_request();
-        local.channel_bind_request(port);
-        local.refresh_request();
+        local.create_permission_request(USERNAME);
+        local.channel_bind_request(port, USERNAME);
+        local.refresh_request(USERNAME);
     }
 
     #[test]
-    fn turn_rest_testing() {
+    fn turn_rest_testing_ms() {
         let bind = SocketAddr::new(BIND_IP, 4479);
         let auth = AuthMethod::Secret(PASSWORD.to_string());
 
         create_turn_server(&auth, bind);
 
-        let mut local = TurnClient::new(&auth, bind);
+        let timestamp_now = get_current_timestamp_ms() + 1000 * 60;
+        let username_now = format!("{}:{}", timestamp_now, USERNAME);
+        let mut local = TurnClient::new(&auth, bind, &username_now);
         local.binding_request();
         local.base_allocate_request();
 
         let port = local.allocate_request();
-        local.create_permission_request();
-        local.channel_bind_request(port);
-        local.refresh_request();
+        local.create_permission_request(&username_now);
+        local.channel_bind_request(port, &username_now);
+        local.refresh_request(&username_now);
+    }
+
+    #[test]
+    fn turn_rest_testing_secs() {
+        let bind = SocketAddr::new(BIND_IP, 4479);
+        let auth = AuthMethod::Secret(PASSWORD.to_string());
+
+        create_turn_server(&auth, bind);
+
+        let timestamp_now = get_current_timestamp_secs() + 60;
+        let username_now = format!("{}:{}", timestamp_now, USERNAME);
+        let mut local = TurnClient::new(&auth, bind, &username_now);
+        local.binding_request();
+        local.base_allocate_request();
+
+        let port = local.allocate_request();
+        local.create_permission_request(&username_now);
+        local.channel_bind_request(port, &username_now);
+        local.refresh_request(&username_now);
     }
 }
