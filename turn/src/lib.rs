@@ -1,8 +1,9 @@
 pub mod operation;
-pub mod router;
+pub mod state;
 
 pub use operation::Operationer;
-pub use router::{sockets::Socket, Router};
+use operation::ServiceContext;
+pub use state::{sockets::Socket, State};
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -10,7 +11,7 @@ use async_trait::async_trait;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StunClass {
-    Msg,
+    Message,
     Channel,
 }
 
@@ -205,18 +206,21 @@ pub trait Observer: Send + Sync {
     fn abort(&self, addr: &SocketAddr, name: &str) {}
 }
 
-/// TUTN service.
+/// Turn service.
 #[derive(Clone)]
-pub struct Service {
-    router: Arc<Router>,
-    observer: Arc<dyn Observer>,
+pub struct Service<T> {
     externals: Arc<Vec<SocketAddr>>,
-    realm: String,
+    state: Arc<State<T>>,
+    realm: Arc<String>,
+    observer: T,
 }
 
-impl Service {
-    pub fn get_router(&self) -> &Arc<Router> {
-        &self.router
+impl<T> Service<T>
+where
+    T: Clone + Observer + 'static,
+{
+    pub fn get_state(&self) -> Arc<State<T>> {
+        self.state.clone()
     }
 
     /// Create turn service.
@@ -232,17 +236,16 @@ impl Service {
     ///
     /// Service::new("test".to_string(), vec![], ObserverTest);
     /// ```
-    pub fn new<T>(realm: String, externals: Vec<SocketAddr>, observer: T) -> Self
+    pub fn new(realm: String, externals: Vec<SocketAddr>, observer: T) -> Self
     where
         T: Observer + 'static,
     {
-        let observer = Arc::new(observer);
-        let router = Router::new(realm.clone(), observer.clone());
+        let state = State::new(realm.clone(), observer.clone());
         Self {
             externals: Arc::new(externals),
+            realm: Arc::new(realm),
             observer,
-            router,
-            realm,
+            state,
         }
     }
 
@@ -262,14 +265,14 @@ impl Service {
     /// let service = Service::new("test".to_string(), vec![], ObserverTest);
     /// service.get_operationer(addr, addr);
     /// ```
-    pub fn get_operationer(&self, interface: SocketAddr, external: SocketAddr) -> Operationer {
-        Operationer::new(
+    pub fn get_operationer(&self, interface: SocketAddr, external: SocketAddr) -> Operationer<T> {
+        Operationer::new(ServiceContext {
+            externals: self.externals.clone(),
+            observer: self.observer.clone(),
+            state: self.state.clone(),
+            realm: self.realm.clone(),
             interface,
             external,
-            self.externals.clone(),
-            self.realm.clone(),
-            self.router.clone(),
-            self.observer.clone(),
-        )
+        })
     }
 }

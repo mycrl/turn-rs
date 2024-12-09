@@ -16,7 +16,7 @@ use self::{
 
 use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 
-/// Router State Tree.
+/// State State Tree.
 ///
 /// this state management example maintains the status of all
 /// sockets in the current service and adds a socket grouping model.
@@ -26,9 +26,9 @@ use std::{net::SocketAddr, sync::Arc, thread, time::Duration};
 /// it should be noted that the socket key only supports
 /// long-term valid passwords，does not support short-term
 /// valid passwords.
-pub struct Router {
+pub struct State<T> {
+    observer: T,
     realm: String,
-    observer: Arc<dyn Observer>,
     ports: Ports,
     nonces: Nonces,
     sockets: Sockets,
@@ -36,7 +36,10 @@ pub struct Router {
     interfaces: Interfaces,
 }
 
-impl Router {
+impl<T> State<T>
+where
+    T: Observer + 'static,
+{
     /// create a router.
     ///
     /// # Examples
@@ -49,9 +52,9 @@ impl Router {
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
     ///
-    /// Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// State::new("test".to_string(), Arc::new(ObserverTest));
     /// ```
-    pub fn new(realm: String, observer: Arc<dyn Observer>) -> Arc<Self> {
+    pub fn new(realm: String, observer: T) -> Arc<Self> {
         let this = Arc::new(Self {
             interfaces: Interfaces::default(),
             channels: Channels::default(),
@@ -82,7 +85,7 @@ impl Router {
     /// ```
     /// use turn::router::*;
     ///
-    /// assert_eq!(Router::capacity(), 16383);
+    /// assert_eq!(State::capacity(), 16383);
     /// ```
     pub fn capacity() -> usize {
         Ports::capacity()
@@ -100,7 +103,7 @@ impl Router {
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// assert_eq!(router.len(), 0);
     /// ```
     pub fn len(&self) -> usize {
@@ -119,7 +122,7 @@ impl Router {
     /// struct ObserverTest;
     /// impl Observer for ObserverTest {}
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// assert_eq!(router.is_empty(), true);
     /// ```
     pub fn is_empty(&self) -> bool {
@@ -154,7 +157,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -194,7 +197,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -234,7 +237,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -278,7 +281,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -318,7 +321,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -360,7 +363,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -433,7 +436,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -516,7 +519,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -556,7 +559,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -606,7 +609,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -658,7 +661,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -738,7 +741,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -782,7 +785,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);
@@ -833,7 +836,7 @@ impl Router {
     ///     239,
     /// ];
     ///
-    /// let router = Router::new("test".to_string(), Arc::new(ObserverTest));
+    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
     /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
     ///
     /// assert_eq!(key.as_slice(), &secret);

@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 
 use crate::StunError;
 
-use super::attribute::{AttrKind, MessageIntegrity, Property};
+use super::attribute::{AttrKind, Attribute, MessageIntegrity};
 use super::{util, Method};
 
 const ZOER_BUF: [u8; 10] = [0u8; 10];
@@ -14,18 +14,18 @@ const COOKIE: [u8; 4] = 0x2112A442u32.to_be_bytes();
 type Auth = [u8; 16];
 
 pub struct MessageWriter<'a> {
-    token: &'a [u8],
-    raw: &'a mut BytesMut,
+    pub token: &'a [u8],
+    pub bytes: &'a mut BytesMut,
 }
 
 impl<'a, 'b> MessageWriter<'a> {
-    pub fn new(method: Method, token: &'a [u8; 12], buf: &'a mut BytesMut) -> Self {
-        unsafe { buf.set_len(0) }
-        buf.put_u16(method.into());
-        buf.put_u16(0);
-        buf.put(&COOKIE[..]);
-        buf.put(token.as_slice());
-        Self { raw: buf, token }
+    pub fn new(method: Method, token: &'a [u8; 12], bytes: &'a mut BytesMut) -> Self {
+        unsafe { bytes.set_len(0) }
+        bytes.put_u16(method.into());
+        bytes.put_u16(0);
+        bytes.put(&COOKIE[..]);
+        bytes.put(token.as_slice());
+        Self { bytes, token }
     }
 
     /// rely on old message to create new message.
@@ -48,16 +48,15 @@ impl<'a, 'b> MessageWriter<'a> {
     /// MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
     /// assert_eq!(&buf[..], &buffer[..]);
     /// ```
-    pub fn extend(method: Method, reader: &MessageReader<'a, 'b>, buf: &'a mut BytesMut) -> Self {
-        unsafe { buf.set_len(0) }
-        buf.put_u16(method.into());
-        buf.put_u16(0);
-        buf.put(&COOKIE[..]);
-        buf.put(reader.token);
-        Self {
-            raw: buf,
-            token: reader.token,
-        }
+    pub fn extend(method: Method, reader: &MessageReader<'a, 'b>, bytes: &'a mut BytesMut) -> Self {
+        let token = reader.token;
+
+        unsafe { bytes.set_len(0) }
+        bytes.put_u16(method.into());
+        bytes.put_u16(0);
+        bytes.put(&COOKIE[..]);
+        bytes.put(token);
+        Self { bytes, token }
     }
 
     /// append attribute.
@@ -91,28 +90,28 @@ impl<'a, 'b> MessageWriter<'a> {
     /// message.append::<UserName>("panda");
     /// assert_eq!(&new_buf[..], &buf[..]);
     /// ```
-    pub fn append<T: Property<'a>>(&mut self, value: T::Inner) {
-        self.raw.put_u16(T::kind() as u16);
+    pub fn append<'c, T: Attribute<'c>>(&'c mut self, value: T::Item) {
+        self.bytes.put_u16(T::KIND as u16);
 
         // record the current position,
         // and then advance the internal cursor 2 bytes,
         // here is to reserve the position.
-        let os = self.raw.len();
-        unsafe { self.raw.advance_mut(2) }
-        T::into(value, self.raw, self.token);
+        let os = self.bytes.len();
+        unsafe { self.bytes.advance_mut(2) }
+        T::encode(value, self.bytes, self.token);
 
         // compute write index,
         // back to source index write size.
-        let size = self.raw.len() - os - 2;
+        let size = self.bytes.len() - os - 2;
         let size_buf = (size as u16).to_be_bytes();
-        self.raw[os] = size_buf[0];
-        self.raw[os + 1] = size_buf[1];
+        self.bytes[os] = size_buf[0];
+        self.bytes[os + 1] = size_buf[1];
 
         // if you need to padding,
         // padding in the zero bytes.
         let psize = util::pad_size(size);
         if psize > 0 {
-            self.raw.put(&ZOER_BUF[0..psize]);
+            self.bytes.put(&ZOER_BUF[0..psize]);
         }
     }
 
@@ -150,7 +149,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ```
     pub fn flush(&mut self, auth: Option<&Auth>) -> Result<(), StunError> {
         // write attribute list size.
-        self.set_len(self.raw.len() - 20);
+        self.set_len(self.bytes.len() - 20);
 
         // if need message integrity?
         if let Some(a) = auth {
@@ -196,35 +195,35 @@ impl<'a, 'b> MessageWriter<'a> {
     /// assert_eq!(&buf[..], &result);
     /// ```
     fn integrity(&mut self, auth: &Auth) -> Result<(), StunError> {
-        assert!(self.raw.len() >= 20);
-        let len = self.raw.len();
+        assert!(self.bytes.len() >= 20);
+        let len = self.bytes.len();
 
         // compute new size,
         // new size include the MessageIntegrity attribute size.
         self.set_len(len + 4);
 
         // write MessageIntegrity attribute.
-        let hmac_output = util::hmac_sha1(auth, &[self.raw])?.into_bytes();
-        self.raw.put_u16(AttrKind::MessageIntegrity as u16);
-        self.raw.put_u16(20);
-        self.raw.put(hmac_output.as_slice());
+        let hmac_output = util::hmac_sha1(auth, &[self.bytes])?.into_bytes();
+        self.bytes.put_u16(AttrKind::MessageIntegrity as u16);
+        self.bytes.put_u16(20);
+        self.bytes.put(hmac_output.as_slice());
 
         // compute new size,
         // new size include the Fingerprint attribute size.
         self.set_len(len + 4 + 8);
 
         // CRC Fingerprint
-        let fingerprint = util::fingerprint(self.raw);
-        self.raw.put_u16(AttrKind::Fingerprint as u16);
-        self.raw.put_u16(4);
-        self.raw.put_u32(fingerprint);
+        let fingerprint = util::fingerprint(self.bytes);
+        self.bytes.put_u16(AttrKind::Fingerprint as u16);
+        self.bytes.put_u16(4);
+        self.bytes.put_u32(fingerprint);
 
         Ok(())
     }
 
     // set stun message header size.
     fn set_len(&mut self, len: usize) {
-        self.raw[2..4].copy_from_slice((len as u16).to_be_bytes().as_slice());
+        self.bytes[2..4].copy_from_slice((len as u16).to_be_bytes().as_slice());
     }
 }
 
@@ -235,7 +234,7 @@ pub struct MessageReader<'a, 'b> {
     /// message transaction id.
     pub token: &'a [u8],
     /// message source bytes.
-    buf: &'a [u8],
+    bytes: &'a [u8],
     /// message valid block bytes size.
     valid_offset: u16,
     // message attribute list.
@@ -263,12 +262,11 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// assert!(message.get::<UserName>().is_none());
     /// ```
-    pub fn get<T: Property<'a>>(&self) -> Option<T::Inner> {
-        let kind = T::kind();
+    pub fn get<T: Attribute<'a>>(&self) -> Option<T::Item> {
         self.attributes
             .iter()
-            .find(|(k, _)| k == &kind)
-            .and_then(|(_, v)| T::try_from(v, self.token).ok())
+            .find(|(k, _)| *k == T::KIND)
+            .and_then(|(_, v)| T::decode(v, self.token).ok())
     }
 
     /// check MessageReaderIntegrity attribute.
@@ -302,7 +300,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// assert!(result);
     /// ```
     pub fn integrity(&self, auth: &Auth) -> Result<(), StunError> {
-        if self.buf.is_empty() || self.valid_offset < 20 {
+        if self.bytes.is_empty() || self.valid_offset < 20 {
             return Err(StunError::InvalidInput);
         }
 
@@ -315,9 +313,9 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         // create multiple submit.
         let size_buf = (self.valid_offset + 4).to_be_bytes();
         let body = [
-            &self.buf[0..2],
+            &self.bytes[0..2],
             &size_buf,
-            &self.buf[4..self.valid_offset as usize],
+            &self.bytes[4..self.valid_offset as usize],
         ];
 
         // digest the message buffer.
@@ -349,93 +347,90 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// assert_eq!(message.method, Method::Binding(Kind::Request));
     /// assert!(message.get::<UserName>().is_none());
     /// ```
-    #[rustfmt::skip]
     pub fn decode(
-        buf: &'a [u8],
+        bytes: &'a [u8],
         attributes: &'b mut Vec<(AttrKind, &'a [u8])>,
     ) -> Result<MessageReader<'a, 'b>, StunError> {
-        if buf.len() < 20 {
-            return Err(StunError::InvalidInput)
+        if bytes.len() < 20 {
+            return Err(StunError::InvalidInput);
         }
 
         let mut find_integrity = false;
         let mut valid_offset = 0;
-        let count_size = buf.len();
+        let count_size = bytes.len();
 
         // message type
         // message size
         // check fixed magic cookie
         // check if the message size is overflow
-        let method = Method::try_from(util::as_u16(&buf[..2]))?;
-        let size = util::as_u16(&buf[2..4]) as usize + 20;
-        if buf[4..8] != COOKIE[..] {
-            return Err(StunError::NotCookie)
+        let method = Method::try_from(u16::from_be_bytes(bytes[..2].try_into()?))?;
+        let size = u16::from_be_bytes(bytes[2..4].try_into()?) as usize + 20;
+        if bytes[4..8] != COOKIE[..] {
+            return Err(StunError::NotCookie);
         }
 
         if count_size < size {
-            return Err(StunError::InvalidInput)
+            return Err(StunError::InvalidInput);
         }
 
         // get transaction id
-        let token = &buf[8..20];
+        let token = &bytes[8..20];
         let mut offset = 20;
 
-    // warn: loop
-    loop {
-        // if the buf length is not long enough to continue,
-        // jump out of the loop.
-        if count_size - offset < 4 {
-            break;
+        loop {
+            // if the buf length is not long enough to continue,
+            // jump out of the loop.
+            if count_size - offset < 4 {
+                break;
+            }
+
+            // get attribute type
+            let key = u16::from_be_bytes([bytes[offset], bytes[offset + 1]]);
+
+            // whether the MessageIntegrity attribute has been found,
+            // if found, record the current offset position.
+            if !find_integrity {
+                valid_offset = offset as u16;
+            }
+
+            // check whether the current attribute is MessageIntegrity,
+            // if it is, mark this attribute has been found.
+            if key == AttrKind::MessageIntegrity as u16 {
+                find_integrity = true;
+            }
+
+            // get attribute size
+            let size = u16::from_be_bytes([bytes[offset + 2], bytes[offset + 3]]) as usize;
+
+            // check if the attribute length has overflowed.
+            offset += 4;
+            if count_size - offset < size {
+                break;
+            }
+
+            // body range.
+            let range = offset..(offset + size);
+
+            // if there are padding bytes,
+            // skip padding size.
+            if size > 0 {
+                offset += size;
+                offset += util::pad_size(size);
+            }
+
+            // skip the attributes that are not supported.
+            let attrkind = match AttrKind::try_from(key) {
+                Err(_) => continue,
+                Ok(a) => a,
+            };
+
+            // get attribute body
+            // insert attribute to attributes list.
+            attributes.push((attrkind, &bytes[range]));
         }
-
-        // get attribute type
-        let key = u16::from_be_bytes([buf[offset], buf[offset + 1]]);
-
-        // whether the MessageIntegrity attribute has been found,
-        // if found, record the current offset position.
-        if !find_integrity {
-            valid_offset = offset as u16;
-        }
-
-        // check whether the current attribute is MessageIntegrity,
-        // if it is, mark this attribute has been found.
-        if key == AttrKind::MessageIntegrity as u16 {
-            find_integrity = true;
-        }
-
-        // get attribute size
-        let size =
-            u16::from_be_bytes([buf[offset + 2], buf[offset + 3]]) as usize;
-
-        // check if the attribute length has overflowed.
-        offset += 4;
-        if count_size - offset < size {
-            break;
-        }
-
-        // body range.
-        let range = offset..(offset + size);
-
-        // if there are padding bytes,
-        // skip padding size.
-        if size > 0 {
-            offset += size;
-            offset += util::pad_size(size);
-        }
-
-        // skip the attributes that are not supported.
-        let attrkind = match AttrKind::try_from(key) {
-            Err(_) => continue,
-            Ok(a) => a,
-        };
-
-        // get attribute body
-        // insert attribute to attributes list.
-        attributes.push((attrkind, &buf[range]));
-    }
 
         Ok(Self {
-            buf,
+            bytes,
             token,
             method,
             attributes,
@@ -461,13 +456,13 @@ impl<'a, 'b> MessageReader<'a, 'b> {
             return Err(StunError::InvalidInput);
         }
 
-        Ok((util::as_u16(&buf[2..4]) + 20) as usize)
+        Ok((u16::from_be_bytes(buf[2..4].try_into()?) + 20) as usize)
     }
 }
 
 impl<'a> AsRef<[u8]> for MessageReader<'a, '_> {
     fn as_ref(&self) -> &'a [u8] {
-        self.buf
+        self.bytes
     }
 }
 
@@ -475,6 +470,6 @@ impl<'a> std::ops::Deref for MessageReader<'a, '_> {
     type Target = [u8];
 
     fn deref(&self) -> &'a Self::Target {
-        self.buf
+        self.bytes
     }
 }

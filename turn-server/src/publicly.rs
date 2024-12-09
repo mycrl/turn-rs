@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use crate::{config::Config, statistics::Statistics};
+use crate::{config::Config, observer::Observer, statistics::Statistics};
 
 use axum::{
     extract::{Query, State},
@@ -37,7 +37,7 @@ static RID: Lazy<String> = Lazy::new(|| random_string(16));
 
 struct AppState {
     config: Arc<Config>,
-    service: Service,
+    service: Service<Observer>,
     statistics: Statistics,
     uptime: Instant,
 }
@@ -59,7 +59,7 @@ struct QueryFilter {
 /// directly to an unsafe environment.
 pub async fn start_server(
     config: Arc<Config>,
-    service: Service,
+    service: Service<Observer>,
     statistics: Statistics,
 ) -> anyhow::Result<()> {
     let state = Arc::new(AppState {
@@ -73,14 +73,14 @@ pub async fn start_server(
     let mut app = Router::new()
         .route(
             "/info",
-            get(|State(state): State<Arc<AppState>>| async move {
-                let router = state.service.get_router();
+            get(|State(app_state): State<Arc<AppState>>| async move {
+                let state = app_state.service.get_state();
                 Json(json!({
                     "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
-                    "uptime": state.uptime.elapsed().as_secs(),
-                    "port_allocated": router.len(),
-                    "port_capacity": turn::Router::capacity(),
-                    "interfaces": state.config.turn.interfaces,
+                    "uptime": app_state.uptime.elapsed().as_secs(),
+                    "interfaces": app_state.config.turn.interfaces,
+                    "port_capacity": turn::State::<Observer>::capacity(),
+                    "port_allocated": state.len(),
                 }))
             }),
         )
@@ -89,7 +89,7 @@ pub async fn start_server(
             get(
                 |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
                     let addrs = if let Some(username) = query.username {
-                        state.service.get_router().get_user_addrs(&username)
+                        state.service.get_state().get_user_addrs(&username)
                     } else if let Some(addr) = query.addr {
                         vec![addr]
                     } else {
@@ -98,7 +98,7 @@ pub async fn start_server(
 
                     let mut res = Vec::with_capacity(addrs.len());
                     for addr in addrs {
-                        if let Some(socket) = state.service.get_router().get_socket(&addr) {
+                        if let Some(socket) = state.service.get_state().get_socket(&addr) {
                             res.push(json!({
                                 "address": addr,
                                 "username": socket.username,
@@ -141,7 +141,7 @@ pub async fn start_server(
             delete(
                 |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
                     let addrs = if let Some(username) = query.username {
-                        state.service.get_router().get_user_addrs(&username)
+                        state.service.get_state().get_user_addrs(&username)
                     } else if let Some(addr) = query.addr {
                         vec![addr]
                     } else {
@@ -149,7 +149,7 @@ pub async fn start_server(
                     };
 
                     for addr in addrs {
-                        if state.service.get_router().remove(&Arc::new(addr)).is_none() {
+                        if state.service.get_state().remove(&Arc::new(addr)).is_none() {
                             return StatusCode::EXPECTATION_FAILED;
                         }
                     }

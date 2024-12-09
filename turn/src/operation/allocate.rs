@@ -1,62 +1,17 @@
-use super::{verify_message, Context, Response};
-use crate::{StunClass, SOFTWARE};
-
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
 
 use bytes::BytesMut;
-use stun::attribute::ErrKind::*;
-use stun::attribute::*;
-use stun::*;
+use stun::{
+    attribute::{
+        ErrKind::{AllocationMismatch, ServerError, Unauthorized},
+        Lifetime, Nonce, ReqeestedTransport, Software, XorMappedAddress, XorRelayedAddress,
+    },
+    MessageReader,
+};
 
-/// return allocate error response
-#[inline(always)]
-fn reject<'a>(
-    ctx: Context,
-    reader: MessageReader,
-    bytes: &'a mut BytesMut,
-    err: ErrKind,
-) -> Result<Option<Response<'a>>, StunError> {
-    let method = Method::Allocate(Kind::Error);
-    let nonce = ctx.env.router.get_nonce(&ctx.addr);
-    let mut pack = MessageWriter::extend(method, &reader, bytes);
-    pack.append::<ErrorCode>(Error::from(err));
-    pack.append::<Realm>(&ctx.env.realm);
-    pack.append::<Nonce>(&nonce);
-    pack.flush(None)?;
-    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
-}
+use super::{MessageRouter, Requet, Response, RouterError};
+use crate::{ensure, ensure_optional, Observer, SOFTWARE};
 
-/// return allocate ok response
-///
-/// NOTE: The use of randomized port assignments to avoid certain
-/// types of attacks is described in [RFC6056].  It is RECOMMENDED
-/// that a TURN server implement a randomized port assignment
-/// algorithm from [RFC6056].  This is especially applicable to
-/// servers that choose to pre-allocate a number of ports from the
-/// underlying OS and then later assign them to allocations; for
-/// example, a server may choose this technique to implement the
-/// EVEN-PORT attribute.
-#[inline(always)]
-fn resolve<'a>(
-    ctx: &Context,
-    reader: &MessageReader,
-    key: &[u8; 16],
-    port: u16,
-    bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>, StunError> {
-    let method = Method::Allocate(Kind::Response);
-    let alloc_addr = Arc::new(SocketAddr::new(ctx.env.external.ip(), port));
-    let mut pack = MessageWriter::extend(method, reader, bytes);
-    pack.append::<XorRelayedAddress>(*alloc_addr.as_ref());
-    pack.append::<XorMappedAddress>(ctx.addr);
-    pack.append::<Lifetime>(600);
-    pack.append::<Software>(SOFTWARE);
-    pack.flush(Some(key))?;
-    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
-}
-
-/// process allocate request
-///
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
 ///
 /// In all cases, the server SHOULD only allocate ports from the range
@@ -71,29 +26,30 @@ fn resolve<'a>(
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
-pub async fn process<'a>(
-    ctx: Context,
-    reader: MessageReader<'_, '_>,
-    bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>, StunError> {
-    if reader.get::<ReqeestedTransport>().is_none() {
-        return reject(ctx, reader, bytes, ServerError);
+pub(crate) struct Allocate;
+
+impl<'a, T> MessageRouter<'a, T> for Allocate
+where
+    T: Observer + 'static,
+{
+    const AUTH: bool = true;
+
+    #[rustfmt::skip]
+    fn handle(bytes: &'a mut BytesMut, req: Requet<'a, T, MessageReader<'a, 'a>>) -> Result<Option<Response<'a>>, RouterError> {
+        ensure!(!req.service.state.is_port_allcated(&req.address), ServerError);
+        ensure!(req.message.get::<ReqeestedTransport>().is_none(), AllocationMismatch);
+
+        let auth = ensure_optional!(&req.auth, Unauthorized);
+        let port = ensure_optional!(req.service.state.alloc_port(&req.address), AllocationMismatch);
+        req.service.observer.allocated(&req.address, auth.username, port);
+
+        let mut message = req.create_message(bytes)?;
+        message.append::<Nonce>(req.service.state.get_nonce(&req.address).as_str());
+        message.append::<XorRelayedAddress>(SocketAddr::new(req.service.external.ip(), port));
+        message.append::<XorMappedAddress>(req.address);
+        message.append::<Lifetime>(600);
+        message.append::<Software>(SOFTWARE);
+
+        Ok(Some(req.create_response(message)?))
     }
-
-    let (username, key) = match verify_message(&ctx, &reader).await {
-        None => return reject(ctx, reader, bytes, Unauthorized),
-        Some(ret) => ret,
-    };
-
-    if ctx.env.router.is_port_allcated(&ctx.addr) {
-        return reject(ctx, reader, bytes, AllocationMismatch);
-    }
-
-    let port = match ctx.env.router.alloc_port(&ctx.addr) {
-        None => return reject(ctx, reader, bytes, Unauthorized),
-        Some(p) => p,
-    };
-
-    ctx.env.observer.allocated(&ctx.addr, username, port);
-    resolve(&ctx, &reader, &key, port, bytes)
 }

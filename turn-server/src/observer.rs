@@ -6,15 +6,16 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::json;
 
+#[derive(Clone)]
 pub struct Observer {
-    hooks: HooksService,
+    hooks: Arc<HooksService>,
     statistics: Statistics,
 }
 
 impl Observer {
     pub async fn new(config: Arc<Config>, statistics: Statistics) -> Result<Self> {
         Ok(Self {
-            hooks: HooksService::new(config)?,
+            hooks: Arc::new(HooksService::new(config)?),
             statistics,
         })
     }

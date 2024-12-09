@@ -117,29 +117,27 @@ impl PortPools {
     ///
     /// assert!(pool.alloc(None).is_some());
     /// ```
-    #[rustfmt::skip]
     pub fn alloc(&mut self, si: Option<usize>) -> Option<u16> {
         let mut start = si.unwrap_or_else(|| self.random() as usize);
         let previous = if start == 0 { self.peak } else { start - 1 };
         let mut index = None;
 
-    // warn: loop
-    loop {
-        if let Some(i) = self.find_high(start) {
-            index = Some(i as usize);
-            break;
-        }
+        loop {
+            if let Some(i) = self.find_high(start) {
+                index = Some(i as usize);
+                break;
+            }
 
-        if start == self.peak {
-            start = 0;
-        } else {
-            start += 1;
-        }
+            if start == self.peak {
+                start = 0;
+            } else {
+                start += 1;
+            }
 
-        if start == previous {
-            break;
+            if start == previous {
+                break;
+            }
         }
-    }
 
         let bi = match index {
             None => return None,

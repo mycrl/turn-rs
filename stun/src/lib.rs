@@ -49,44 +49,31 @@ pub mod channel;
 pub mod message;
 pub mod util;
 
-use std::{error, fmt};
-
 pub use channel::ChannelData;
 pub use message::*;
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum StunError {
+    #[error("InvalidInput")]
     InvalidInput,
-    UnsupportedIpFamily,
-    ShaFailed,
+    #[error("SummaryFailed")]
+    SummaryFailed,
+    #[error("NotIntegrity")]
     NotIntegrity,
+    #[error("IntegrityFailed")]
     IntegrityFailed,
+    #[error("NotCookie")]
     NotCookie,
+    #[error("UnknownMethod")]
     UnknownMethod,
+    #[error("FatalError")]
     FatalError,
-    Utf8Error,
-}
-
-impl error::Error for StunError {}
-
-impl fmt::Display for StunError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::InvalidInput => "InvalidInput",
-                Self::UnsupportedIpFamily => "UnsupportedIpFamily",
-                Self::ShaFailed => "ShaFailed",
-                Self::NotIntegrity => "NotIntegrity",
-                Self::IntegrityFailed => "IntegrityFailed",
-                Self::NotCookie => "NotCookie",
-                Self::UnknownMethod => "UnknownMethod",
-                Self::FatalError => "FatalError",
-                Self::Utf8Error => "Utf8Error",
-            }
-        )
-    }
+    #[error("Utf8Error")]
+    Utf8Error(#[from] std::str::Utf8Error),
+    #[error("TryFromSliceError")]
+    TryFromSliceError(#[from] std::array::TryFromSliceError),
 }
 
 /// STUN Methods Registry
@@ -136,6 +123,33 @@ pub enum Method {
     Refresh(Kind),
     SendIndication,
     DataIndication,
+}
+
+impl Method {
+    #[rustfmt::skip]
+    pub fn into_response(self) -> Option<Self> {
+        Some(match self {
+            Method::Binding(Kind::Request) => Method::Binding(Kind::Response),
+            Method::Allocate(Kind::Request) => Method::Allocate(Kind::Response),
+            Method::CreatePermission(Kind::Request) => Method::CreatePermission(Kind::Response),
+            Method::ChannelBind(Kind::Request) => Method::ChannelBind(Kind::Response),
+            Method::Refresh(Kind::Request) => Method::Refresh(Kind::Response),
+            Method::SendIndication => Method::DataIndication,
+            _ => return None,
+        })
+    }
+
+    #[rustfmt::skip]
+    pub fn into_error(self) -> Option<Self> {
+        Some(match self {
+            Method::Binding(Kind::Request) => Method::Binding(Kind::Error),
+            Method::Allocate(Kind::Request) => Method::Allocate(Kind::Error),
+            Method::CreatePermission(Kind::Request) => Method::CreatePermission(Kind::Error),
+            Method::ChannelBind(Kind::Request) => Method::ChannelBind(Kind::Error),
+            Method::Refresh(Kind::Request) => Method::Refresh(Kind::Error),
+            _ => return None,
+        })
+    }
 }
 
 impl TryFrom<u16> for Method {
@@ -322,13 +336,13 @@ impl Decoder {
     ///     assert!(reader.get::<UserName>().is_some())
     /// }
     /// ```
-    pub fn decode<'a>(&mut self, buf: &'a [u8]) -> Result<Payload<'a, '_>, StunError> {
-        assert!(buf.len() >= 4);
+    pub fn decode<'a>(&mut self, bytes: &'a [u8]) -> Result<Payload<'a, '_>, StunError> {
+        assert!(bytes.len() >= 4);
         if !self.attrs.is_empty() {
             self.attrs.clear();
         }
 
-        let flag = buf[0] >> 6;
+        let flag = bytes[0] >> 6;
         if flag > 3 {
             return Err(StunError::InvalidInput);
         }
@@ -338,11 +352,11 @@ impl Decoder {
             // reference is safe. Unsafe is used here to make the external life
             // cycle declaration cleaner.
             Payload::Message(MessageReader::decode(
-                unsafe { std::mem::transmute::<&'a [u8], &[u8]>(buf) },
+                unsafe { std::mem::transmute::<&'a [u8], &[u8]>(bytes) },
                 &mut self.attrs,
             )?)
         } else {
-            Payload::ChannelData(ChannelData::try_from(buf)?)
+            Payload::ChannelData(ChannelData::try_from(bytes)?)
         })
     }
 
@@ -366,16 +380,16 @@ impl Decoder {
     /// let size = Decoder::message_size(&buffer, false).unwrap();
     /// assert_eq!(size, 96);
     /// ```
-    pub fn message_size(buf: &[u8], is_tcp: bool) -> Result<usize, StunError> {
-        let flag = buf[0] >> 6;
+    pub fn message_size(bytes: &[u8], is_tcp: bool) -> Result<usize, StunError> {
+        let flag = bytes[0] >> 6;
         if flag > 3 {
             return Err(StunError::InvalidInput);
         }
 
         Ok(if flag == 0 {
-            MessageReader::message_size(buf)?
+            MessageReader::message_size(bytes)?
         } else {
-            ChannelData::message_size(buf, is_tcp)?
+            ChannelData::message_size(bytes, is_tcp)?
         })
     }
 }

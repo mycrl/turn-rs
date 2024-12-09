@@ -18,6 +18,7 @@ md-5 = "0.10"
 hmac = "0.12"
 sha-1 = "0.10"
 crc = "3"
+thiserror = "2.0.4"
 
 [dev-dependencies]
 criterion = "0.5"

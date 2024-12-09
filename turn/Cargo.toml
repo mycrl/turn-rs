@@ -18,10 +18,3 @@ async-trait = "0.1"
 bytes = "1"
 rand = "0.8"
 parking_lot = "0.12"
-
-[dev-dependencies]
-criterion = "0.5"
-
-[[bench]]
-name = "benchmark"
-harness = false
