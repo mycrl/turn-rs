@@ -1,17 +1,78 @@
+use super::{Requet, Response};
+use crate::{Observer, StunClass, SOFTWARE};
+
 use std::net::SocketAddr;
 
-use bytes::BytesMut;
 use stun::{
     attribute::{
-        ErrKind::{AllocationMismatch, ServerError, Unauthorized},
-        Lifetime, Nonce, ReqeestedTransport, Software, XorMappedAddress, XorRelayedAddress,
+        ErrKind, Error, ErrorCode, Lifetime, Nonce, Realm, ReqeestedTransport, Software,
+        XorMappedAddress, XorRelayedAddress,
     },
-    MessageReader,
+    Kind, MessageReader, MessageWriter, Method,
 };
 
-use super::{MessageRouter, Requet, Response, RouterError};
-use crate::{ensure, ensure_optional, Observer, SOFTWARE};
+/// return allocate error response
+#[inline(always)]
+fn reject<'a, T: Observer>(
+    req: Requet<'_, 'a, T, MessageReader<'_>>,
+    err: ErrKind,
+) -> Option<Response<'a>> {
+    {
+        let mut message =
+            MessageWriter::extend(Method::Allocate(Kind::Error), req.message, req.bytes);
 
+        message.append::<ErrorCode>(Error::from(err));
+        message.append::<Realm>(&req.service.realm);
+        message.flush(None).ok()?;
+    }
+
+    Some(Response {
+        kind: StunClass::Message,
+        bytes: req.bytes,
+        interface: None,
+        relay: None,
+    })
+}
+
+/// return allocate ok response
+///
+/// NOTE: The use of randomized port assignments to avoid certain
+/// types of attacks is described in [RFC6056].  It is RECOMMENDED
+/// that a TURN server implement a randomized port assignment
+/// algorithm from [RFC6056].  This is especially applicable to
+/// servers that choose to pre-allocate a number of ports from the
+/// underlying OS and then later assign them to allocations; for
+/// example, a server may choose this technique to implement the
+/// EVEN-PORT attribute.
+#[inline(always)]
+fn resolve<'a, T: Observer>(
+    req: Requet<'_, 'a, T, MessageReader<'_>>,
+    nonce: &str,
+    digest: &[u8; 16],
+    port: u16,
+) -> Option<Response<'a>> {
+    {
+        let mut message =
+            MessageWriter::extend(Method::Allocate(Kind::Response), req.message, req.bytes);
+
+        message.append::<XorRelayedAddress>(SocketAddr::new(req.service.external.ip(), port));
+        message.append::<XorMappedAddress>(req.symbol.address);
+        message.append::<Lifetime>(600);
+        message.append::<Software>(SOFTWARE);
+        message.append::<Nonce>(nonce);
+        message.flush(Some(digest)).ok()?;
+    }
+
+    Some(Response {
+        kind: StunClass::Message,
+        bytes: req.bytes,
+        interface: None,
+        relay: None,
+    })
+}
+
+/// process allocate request
+///
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
 ///
 /// In all cases, the server SHOULD only allocate ports from the range
@@ -26,30 +87,31 @@ use crate::{ensure, ensure_optional, Observer, SOFTWARE};
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard services.
-pub(crate) struct Allocate;
-
-impl<'a, T> MessageRouter<'a, T> for Allocate
-where
-    T: Observer + 'static,
-{
-    const AUTH: bool = true;
-
-    #[rustfmt::skip]
-    fn handle(bytes: &'a mut BytesMut, req: Requet<'a, T, MessageReader<'a, 'a>>) -> Result<Option<Response<'a>>, RouterError> {
-        ensure!(!req.service.state.is_port_allcated(&req.address), ServerError);
-        ensure!(req.message.get::<ReqeestedTransport>().is_none(), AllocationMismatch);
-
-        let auth = ensure_optional!(&req.auth, Unauthorized);
-        let port = ensure_optional!(req.service.state.alloc_port(&req.address), AllocationMismatch);
-        req.service.observer.allocated(&req.address, auth.username, port);
-
-        let mut message = req.create_message(bytes)?;
-        message.append::<Nonce>(req.service.state.get_nonce(&req.address).as_str());
-        message.append::<XorRelayedAddress>(SocketAddr::new(req.service.external.ip(), port));
-        message.append::<XorMappedAddress>(req.address);
-        message.append::<Lifetime>(600);
-        message.append::<Software>(SOFTWARE);
-
-        Ok(Some(req.create_response(message)?))
+pub async fn process<'a, T: Observer>(
+    req: Requet<'_, 'a, T, MessageReader<'_>>,
+) -> Option<Response<'a>> {
+    if req.message.get::<ReqeestedTransport>().is_none() {
+        return reject(req, ErrKind::ServerError);
     }
+
+    let (username, digest) = match req.auth().await {
+        Some(it) => it,
+        None => return reject(req, ErrKind::Unauthorized),
+    };
+
+    let lock = req.service.sessions.get_session(req.symbol);
+    let session = lock.get_ref()?;
+    if session.allocate.port.is_some() {
+        return reject(req, ErrKind::AllocationMismatch);
+    }
+
+    let port = match req.service.sessions.allocate(req.symbol) {
+        Some(it) => it,
+        None => return reject(req, ErrKind::Unauthorized),
+    };
+
+    req.service
+        .observer
+        .allocated(&req.symbol.address, username, port);
+    resolve(req, &session.nonce, &digest, port)
 }

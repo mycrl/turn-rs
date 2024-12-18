@@ -49,6 +49,8 @@ pub mod channel;
 pub mod message;
 pub mod util;
 
+use std::ops::Range;
+
 pub use channel::ChannelData;
 pub use message::*;
 
@@ -297,13 +299,13 @@ impl From<Method> for u16 {
 }
 
 #[derive(Debug)]
-pub enum Payload<'a, 'b> {
-    Message(MessageReader<'a, 'b>),
+pub enum Payload<'a> {
+    Message(MessageReader<'a>),
     ChannelData(ChannelData<'a>),
 }
 
 pub struct Decoder {
-    attrs: Vec<(attribute::AttrKind, &'static [u8])>,
+    attrs: Vec<(attribute::AttrKind, Range<usize>)>,
 }
 
 impl Decoder {
@@ -336,7 +338,7 @@ impl Decoder {
     ///     assert!(reader.get::<UserName>().is_some())
     /// }
     /// ```
-    pub fn decode<'a>(&mut self, bytes: &'a [u8]) -> Result<Payload<'a, '_>, StunError> {
+    pub fn decode<'a>(&'a mut self, bytes: &'a [u8]) -> Result<Payload<'a>, StunError> {
         assert!(bytes.len() >= 4);
         if !self.attrs.is_empty() {
             self.attrs.clear();
@@ -348,13 +350,7 @@ impl Decoder {
         }
 
         Ok(if flag == 0 {
-            // attrs will not be used again after decode is used, so the
-            // reference is safe. Unsafe is used here to make the external life
-            // cycle declaration cleaner.
-            Payload::Message(MessageReader::decode(
-                unsafe { std::mem::transmute::<&'a [u8], &[u8]>(bytes) },
-                &mut self.attrs,
-            )?)
+            Payload::Message(MessageReader::decode(bytes, &mut self.attrs)?)
         } else {
             Payload::ChannelData(ChannelData::try_from(bytes)?)
         })

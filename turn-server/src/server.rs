@@ -173,9 +173,9 @@ async fn tcp_server(
 
                     let chunk = buf.split_to(size);
                     if let Ok(Some(res)) = operationer.route(&chunk, addr).await {
-                        let target = res.relay.map(|it| it.address).unwrap_or(addr);
-                        if let Some(relay) = res.relay {
-                            router.send(&relay.interface, res.kind, &target, res.bytes);
+                        let target = res.relay.unwrap_or(addr);
+                        if let Some(interface) = res.interface {
+                            router.send(&interface, res.kind, &target, res.bytes);
                         } else {
                             if writer.lock().await.write_all(res.bytes).await.is_err() {
                                 break 'a;
@@ -252,9 +252,9 @@ async fn udp_server(
                 // excluding content)
                 if size >= 4 {
                     if let Ok(Some(res)) = operationer.route(&buf[..size], addr).await {
-                        let target = res.relay.map(|it| it.address).unwrap_or(addr);
-                        if let Some(relay) = res.relay {
-                            router.send(&relay.interface, res.kind, &target, res.bytes);
+                        let target = res.relay.unwrap_or(addr);
+                        if let Some(interface) = res.interface {
+                            router.send(&interface, res.kind, &target, res.bytes);
                         } else {
                             if let Err(e) = socket.send_to(res.bytes, &target).await {
                                 if e.kind() != ConnectionReset {

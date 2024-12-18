@@ -1,4 +1,5 @@
 pub mod operation;
+pub mod sessions;
 pub mod state;
 
 pub use operation::Operationer;
@@ -24,12 +25,6 @@ static SOFTWARE: &str = concat!(
 
 #[async_trait]
 pub trait Observer: Send + Sync {
-    /// turn auth request with block
-    #[allow(unused)]
-    fn get_password_blocking(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        None
-    }
-
     /// turn auth request
     #[allow(unused)]
     async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
@@ -266,13 +261,15 @@ where
     /// service.get_operationer(addr, addr);
     /// ```
     pub fn get_operationer(&self, interface: SocketAddr, external: SocketAddr) -> Operationer<T> {
-        Operationer::new(ServiceContext {
-            externals: self.externals.clone(),
-            observer: self.observer.clone(),
-            state: self.state.clone(),
-            realm: self.realm.clone(),
-            interface,
-            external,
-        })
+        // Operationer::new(ServiceContext {
+        //     externals: self.externals.clone(),
+        //     observer: self.observer.clone(),
+        //     state: self.state.clone(),
+        //     realm: self.realm.clone(),
+        //     interface,
+        //     external,
+        // })
+
+        todo!()
     }
 }

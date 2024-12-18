@@ -336,59 +336,6 @@ where
     /// get the password of the socket SocketAddr.
     ///
     /// require remote control service to distribute keys.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::net::SocketAddr;
-    /// use std::sync::Arc;
-    /// use turn::router::*;
-    /// use turn::*;
-    ///
-    /// struct ObserverTest;
-    ///
-    /// impl Observer for ObserverTest {
-    ///     fn get_password_blocking(
-    ///         &self,
-    ///         _: &SocketAddr,
-    ///         _: &str,
-    ///     ) -> Option<String> {
-    ///         Some("test".to_string())
-    ///     }
-    /// }
-    ///
-    /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    /// let secret = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let router = State::new("test".to_string(), Arc::new(ObserverTest));
-    /// let key = router.get_key_block(&addr, &addr, &addr, "test").unwrap();
-    ///
-    /// assert_eq!(key.as_slice(), &secret);
-    /// ```
-    pub fn get_key_block(
-        &self,
-        addr: &SocketAddr,
-        interface: &SocketAddr,
-        external: &SocketAddr,
-        username: &str,
-    ) -> Option<Arc<[u8; 16]>> {
-        let key = self.sockets.get_secret(addr);
-        if key.is_some() {
-            return key;
-        }
-
-        let pwd = self.observer.get_password_blocking(addr, username)?;
-        let key = self.sockets.insert(addr, &self.realm, username, &pwd)?;
-        self.interfaces.insert(*addr, *interface, *external);
-        Some(key)
-    }
-
-    /// get the password of the socket SocketAddr.
-    ///
-    /// require remote control service to distribute keys.
     pub async fn get_key(
         &self,
         addr: &SocketAddr,

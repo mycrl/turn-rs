@@ -329,7 +329,7 @@ impl TurnClient {
         assert_eq!(value, self.token_buf.as_slice());
     }
 
-    fn get_message_from_payload<'a, 'b>(payload: Payload<'a, 'b>) -> MessageReader<'a, 'b> {
+    fn get_message_from_payload<'a>(payload: Payload<'a>) -> MessageReader<'a> {
         if let Payload::Message(m) = payload {
             m
         } else {

@@ -1,6 +1,7 @@
 use bytes::{BufMut, BytesMut};
 
 use std::convert::TryFrom;
+use std::ops::Range;
 
 use crate::StunError;
 
@@ -48,7 +49,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
     /// assert_eq!(&buf[..], &buffer[..]);
     /// ```
-    pub fn extend(method: Method, reader: &MessageReader<'a, 'b>, bytes: &'a mut BytesMut) -> Self {
+    pub fn extend(method: Method, reader: &MessageReader<'a>, bytes: &'a mut BytesMut) -> Self {
         let token = reader.token;
 
         unsafe { bytes.set_len(0) }
@@ -228,7 +229,7 @@ impl<'a, 'b> MessageWriter<'a> {
 }
 
 #[derive(Debug)]
-pub struct MessageReader<'a, 'b> {
+pub struct MessageReader<'a> {
     /// message type.
     pub method: Method,
     /// message transaction id.
@@ -238,10 +239,10 @@ pub struct MessageReader<'a, 'b> {
     /// message valid block bytes size.
     valid_offset: u16,
     // message attribute list.
-    attributes: &'b Vec<(AttrKind, &'a [u8])>,
+    attributes: &'a Vec<(AttrKind, Range<usize>)>,
 }
 
-impl<'a, 'b> MessageReader<'a, 'b> {
+impl<'a> MessageReader<'a> {
     /// get attribute.
     ///
     /// get attribute from message attribute list.
@@ -266,7 +267,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
         self.attributes
             .iter()
             .find(|(k, _)| *k == T::KIND)
-            .and_then(|(_, v)| T::decode(v, self.token).ok())
+            .and_then(|(_, v)| T::decode(&self.bytes[v.clone()], self.token).ok())
     }
 
     /// check MessageReaderIntegrity attribute.
@@ -349,8 +350,8 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     /// ```
     pub fn decode(
         bytes: &'a [u8],
-        attributes: &'b mut Vec<(AttrKind, &'a [u8])>,
-    ) -> Result<MessageReader<'a, 'b>, StunError> {
+        attributes: &'a mut Vec<(AttrKind, Range<usize>)>,
+    ) -> Result<MessageReader<'a>, StunError> {
         if bytes.len() < 20 {
             return Err(StunError::InvalidInput);
         }
@@ -426,7 +427,7 @@ impl<'a, 'b> MessageReader<'a, 'b> {
 
             // get attribute body
             // insert attribute to attributes list.
-            attributes.push((attrkind, &bytes[range]));
+            attributes.push((attrkind, range));
         }
 
         Ok(Self {
@@ -460,13 +461,13 @@ impl<'a, 'b> MessageReader<'a, 'b> {
     }
 }
 
-impl<'a> AsRef<[u8]> for MessageReader<'a, '_> {
+impl<'a> AsRef<[u8]> for MessageReader<'a> {
     fn as_ref(&self) -> &'a [u8] {
         self.bytes
     }
 }
 
-impl<'a> std::ops::Deref for MessageReader<'a, '_> {
+impl<'a> std::ops::Deref for MessageReader<'a> {
     type Target = [u8];
 
     fn deref(&self) -> &'a Self::Target {
