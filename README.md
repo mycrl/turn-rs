@@ -53,6 +53,8 @@ This is an obvious drawback, unlike coturn which provides various transport laye
 
 ## Features
 
+> Compared with the standard RFC, some restrictions are added: turn-rs only allows operations on addresses in the current server interface, and does not allow clients to forward data or create bindings to addresses that are not in the turn server address list. Fortunately, most turn clients currently follow this convention, such as Firefox and Chrome's WebRTC implementation.
+
 - Prometheus metrics exporter.
 - Only long-term authentication mechanisms are used.
 - Static authentication lists can be used in configuration files.
