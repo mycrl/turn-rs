@@ -1,4 +1,7 @@
+use bytes::{BufMut, BytesMut};
+
 use crate::StunError;
+
 use std::convert::TryFrom;
 
 /// The ChannelData Message
@@ -46,13 +49,21 @@ impl ChannelData<'_> {
     /// # Unit Test
     ///
     /// ```
+    /// use bytes::{BufMut, BytesMut};
     /// use std::convert::TryFrom;
     /// use stun::*;
     ///
-    /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
+    /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
+    /// let mut bytes = BytesMut::with_capacity(1500);
     ///
-    /// let size = ChannelData::message_size(&buffer[..], false).unwrap();
-    /// assert_eq!(size, 68);
+    /// ChannelData {
+    ///     number: 16384,
+    ///     bytes: &data[..],
+    /// }
+    /// .encode(&mut bytes);
+    ///
+    /// let size = ChannelData::message_size(&bytes[..], false).unwrap();
+    /// assert_eq!(size, 8);
     /// ```
     pub fn message_size(bytes: &[u8], is_tcp: bool) -> Result<usize, StunError> {
         if bytes.len() < 4 {
@@ -70,6 +81,33 @@ impl ChannelData<'_> {
 
         Ok(size)
     }
+
+    /// # Unit Test
+    ///
+    /// ```
+    /// use bytes::{BufMut, BytesMut};
+    /// use std::convert::TryFrom;
+    /// use stun::*;
+    ///
+    /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
+    /// let mut bytes = BytesMut::with_capacity(1500);
+    ///
+    /// ChannelData {
+    ///     number: 16384,
+    ///     bytes: &data[..],
+    /// }
+    /// .encode(&mut bytes);
+    ///
+    /// let ret = ChannelData::try_from(&bytes[..]).unwrap();
+    /// assert_eq!(ret.number, 16384);
+    /// assert_eq!(ret.bytes, &data[..]);
+    /// ```
+    pub fn encode(self, bytes: &mut BytesMut) {
+        unsafe { bytes.set_len(0) }
+        bytes.put_u16(self.number);
+        bytes.put_u16(self.bytes.len() as u16);
+        bytes.extend_from_slice(self.bytes);
+    }
 }
 
 impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
@@ -78,13 +116,22 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     /// # Unit Test
     ///
     /// ```
+    /// use bytes::{BufMut, BytesMut};
     /// use std::convert::TryFrom;
     /// use stun::*;
     ///
-    /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x00];
+    /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
+    /// let mut bytes = BytesMut::with_capacity(1500);
     ///
-    /// let data = ChannelData::try_from(&buffer[..]).unwrap();
-    /// assert_eq!(data.number, 16384);
+    /// ChannelData {
+    ///     number: 16384,
+    ///     bytes: &data[..],
+    /// }
+    /// .encode(&mut bytes);
+    ///
+    /// let ret = ChannelData::try_from(&bytes[..]).unwrap();
+    /// assert_eq!(ret.number, 16384);
+    /// assert_eq!(ret.bytes, &data[..]);
     /// ```
     fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
         if bytes.len() < 4 {
@@ -101,20 +148,9 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
             return Err(StunError::InvalidInput);
         }
 
-        Ok(Self { bytes, number })
-    }
-}
-
-impl AsRef<[u8]> for ChannelData<'_> {
-    fn as_ref(&self) -> &[u8] {
-        self.bytes
-    }
-}
-
-impl std::ops::Deref for ChannelData<'_> {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        self.bytes
+        Ok(Self {
+            bytes: &bytes[4..],
+            number,
+        })
     }
 }

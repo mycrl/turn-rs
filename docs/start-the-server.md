@@ -8,7 +8,6 @@ turn-server --config ./turn-server.toml
 
 Starting the service is that simple.
 
-
 ### Linux service
 
 If you need to run turn-rs as a systemd service, first, create a service description file:

@@ -33,14 +33,14 @@ fn reject<'a, T: Observer>(
 pub fn resolve<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
     lifetime: u32,
-    key: &[u8; 16],
+    digest: &[u8; 16],
 ) -> Option<Response<'a>> {
     {
         let mut message =
             MessageWriter::extend(Method::Refresh(Kind::Response), &req.message, req.bytes);
 
         message.append::<Lifetime>(lifetime);
-        message.flush(Some(key)).ok()?;
+        message.flush(Some(digest)).ok()?;
     }
 
     Some(Response {
@@ -92,7 +92,7 @@ pub fn resolve<'a, T: Observer>(
 pub async fn process<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
 ) -> Option<Response<'a>> {
-    let (username, key) = match req.auth().await {
+    let (username, digest) = match req.auth().await {
         None => return reject(req, ErrKind::Unauthorized),
         Some(it) => it,
     };
@@ -104,6 +104,6 @@ pub async fn process<'a, T: Observer>(
 
     req.service
         .observer
-        .refresh(&req.symbol.address, username, lifetime);
-    resolve(req, lifetime, &key)
+        .refresh(&req.symbol, username, lifetime);
+    resolve(req, lifetime, &digest)
 }

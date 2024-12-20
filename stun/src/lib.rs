@@ -51,6 +51,7 @@ pub mod util;
 
 use std::ops::Range;
 
+pub use attribute::Transport;
 pub use channel::ChannelData;
 pub use message::*;
 
@@ -72,9 +73,9 @@ pub enum StunError {
     UnknownMethod,
     #[error("FatalError")]
     FatalError,
-    #[error("Utf8Error")]
+    #[error("Utf8Error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
-    #[error("TryFromSliceError")]
+    #[error("TryFromSliceError: {0}")]
     TryFromSliceError(#[from] std::array::TryFromSliceError),
 }
 

@@ -22,6 +22,7 @@ fn reject<'a, T: Observer>(
             MessageWriter::extend(Method::Allocate(Kind::Error), req.message, req.bytes);
 
         message.append::<ErrorCode>(Error::from(err));
+        message.append::<Nonce>(&req.service.sessions.get_nonce(&req.symbol).get_ref()?.nonce);
         message.append::<Realm>(&req.service.realm);
         message.flush(None).ok()?;
     }
@@ -47,7 +48,6 @@ fn reject<'a, T: Observer>(
 #[inline(always)]
 fn resolve<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
-    nonce: &str,
     digest: &[u8; 16],
     port: u16,
 ) -> Option<Response<'a>> {
@@ -59,7 +59,6 @@ fn resolve<'a, T: Observer>(
         message.append::<XorMappedAddress>(req.symbol.address);
         message.append::<Lifetime>(600);
         message.append::<Software>(SOFTWARE);
-        message.append::<Nonce>(nonce);
         message.flush(Some(digest)).ok()?;
     }
 
@@ -99,9 +98,15 @@ pub async fn process<'a, T: Observer>(
         None => return reject(req, ErrKind::Unauthorized),
     };
 
-    let lock = req.service.sessions.get_session(req.symbol);
-    let session = lock.get_ref()?;
-    if session.allocate.port.is_some() {
+    if req
+        .service
+        .sessions
+        .get_session(req.symbol)
+        .get_ref()?
+        .allocate
+        .port
+        .is_some()
+    {
         return reject(req, ErrKind::AllocationMismatch);
     }
 
@@ -110,8 +115,6 @@ pub async fn process<'a, T: Observer>(
         None => return reject(req, ErrKind::Unauthorized),
     };
 
-    req.service
-        .observer
-        .allocated(&req.symbol.address, username, port);
-    resolve(req, &session.nonce, &digest, port)
+    req.service.observer.allocated(&req.symbol, username, port);
+    resolve(req, &digest, port)
 }

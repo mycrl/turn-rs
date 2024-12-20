@@ -40,7 +40,6 @@ pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Op
         message.flush(None).ok()?;
     }
 
-    req.service.observer.binding(&req.symbol.address);
     Some(Response {
         kind: StunClass::Message,
         bytes: req.bytes,

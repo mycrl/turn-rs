@@ -1,5 +1,5 @@
 use crate::{
-    config::{Config, Interface, Transport},
+    config::{Config, Interface},
     observer::Observer,
     router::Router,
     statistics::{Statistics, Stats},
@@ -8,7 +8,7 @@ use crate::{
 use std::{io::ErrorKind::ConnectionReset, net::SocketAddr, sync::Arc};
 
 use bytes::BytesMut;
-use stun::Decoder;
+use stun::{Decoder, Transport};
 use tokio::{
     io::AsyncReadExt,
     io::AsyncWriteExt,
@@ -17,51 +17,6 @@ use tokio::{
 };
 
 use turn::{Service, StunClass};
-
-/// start turn server.
-///
-/// create a specified number of threads,
-/// each thread processes udp data separately.
-pub async fn run(
-    config: Arc<Config>,
-    statistics: Statistics,
-    service: &Service<Observer>,
-) -> anyhow::Result<()> {
-    let router = Arc::new(Router::default());
-    for Interface {
-        transport,
-        external,
-        bind,
-    } in config.turn.interfaces.clone()
-    {
-        if transport == Transport::UDP {
-            tokio::spawn(udp_server(
-                UdpSocket::bind(bind).await?,
-                external,
-                service.clone(),
-                router.clone(),
-                statistics.clone(),
-            ));
-        } else {
-            tokio::spawn(tcp_server(
-                TcpListener::bind(bind).await?,
-                external,
-                service.clone(),
-                router.clone(),
-                statistics.clone(),
-            ));
-        }
-
-        log::info!(
-            "turn server listening: addr={}, external={}, transport={:?}",
-            bind,
-            external,
-            transport,
-        );
-    }
-
-    Ok(())
-}
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
 
@@ -86,7 +41,7 @@ async fn tcp_server(
         let router = router.clone();
         let reporter = statistics.get_reporter();
         let mut receiver = router.get_receiver(addr);
-        let mut operationer = service.get_operationer(addr, external);
+        let mut operationer = service.get_operationer(Transport::TCP, addr, external);
 
         log::info!(
             "tcp socket accept: addr={:?}, interface={:?}",
@@ -226,7 +181,7 @@ async fn udp_server(
         let socket = socket.clone();
         let router = router.clone();
         let reporter = statistics.get_reporter();
-        let mut operationer = service.get_operationer(external, external);
+        let mut operationer = service.get_operationer(Transport::UDP, external, external);
 
         tokio::spawn(async move {
             let mut buf = vec![0u8; 2048];
@@ -294,4 +249,49 @@ async fn udp_server(
 
     router.remove(&external);
     log::error!("udp server close: interface={:?}", local_addr);
+}
+
+/// start turn server.
+///
+/// create a specified number of threads,
+/// each thread processes udp data separately.
+pub async fn run(
+    config: Arc<Config>,
+    statistics: Statistics,
+    service: &Service<Observer>,
+) -> anyhow::Result<()> {
+    let router = Arc::new(Router::default());
+    for Interface {
+        transport,
+        external,
+        bind,
+    } in config.turn.interfaces.clone()
+    {
+        if transport == crate::config::Transport::UDP {
+            tokio::spawn(udp_server(
+                UdpSocket::bind(bind).await?,
+                external,
+                service.clone(),
+                router.clone(),
+                statistics.clone(),
+            ));
+        } else {
+            tokio::spawn(tcp_server(
+                TcpListener::bind(bind).await?,
+                external,
+                service.clone(),
+                router.clone(),
+                statistics.clone(),
+            ));
+        }
+
+        log::info!(
+            "turn server listening: addr={}, external={}, transport={:?}",
+            bind,
+            external,
+            transport,
+        );
+    }
+
+    Ok(())
 }

@@ -33,11 +33,11 @@ fn reject<'a, T: Observer>(
 #[inline(always)]
 fn resolve<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
-    key: &[u8; 16],
+    digest: &[u8; 16],
 ) -> Option<Response<'a>> {
     {
         MessageWriter::extend(Method::ChannelBind(Kind::Response), req.message, req.bytes)
-            .flush(Some(key))
+            .flush(Some(digest))
             .ok()?;
     }
 
@@ -92,30 +92,29 @@ pub async fn process<'a, T: Observer>(
         Some(it) => it,
     };
 
-    if req.service.external.ip() != peer.ip() {
-        return reject(req, ErrKind::Forbidden);
-    }
-
     if !(0x4000..=0x7FFF).contains(&number) {
         return reject(req, ErrKind::BadRequest);
     }
 
-    let (username, key) = match req.auth().await {
+    if req.service.external.ip() != peer.ip() {
+        return reject(req, ErrKind::Forbidden);
+    }
+
+    let (username, digest) = match req.auth().await {
         None => return reject(req, ErrKind::Unauthorized),
         Some(it) => it,
     };
 
-    if req
+    if !req
         .service
         .sessions
         .bind_channel(&req.symbol, peer.port(), number)
-        .is_none()
     {
-        return reject(req, ErrKind::InsufficientCapacity);
+        return reject(req, ErrKind::BadRequest);
     }
 
     req.service
         .observer
-        .channel_bind(&req.symbol.address, username, number);
-    resolve(req, &key)
+        .channel_bind(&req.symbol, username, number);
+    resolve(req, &digest)
 }

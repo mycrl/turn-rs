@@ -13,6 +13,24 @@ pub enum Transport {
     UDP = 1,
 }
 
+impl Into<stun::Transport> for Transport {
+    fn into(self) -> stun::Transport {
+        match self {
+            Self::TCP => stun::Transport::TCP,
+            Self::UDP => stun::Transport::UDP,
+        }
+    }
+}
+
+impl From<stun::Transport> for Transport {
+    fn from(value: stun::Transport) -> Self {
+        match value {
+            stun::Transport::TCP => Self::TCP,
+            stun::Transport::UDP => Self::UDP,
+        }
+    }
+}
+
 impl FromStr for Transport {
     type Err = anyhow::Error;
 

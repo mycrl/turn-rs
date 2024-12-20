@@ -136,11 +136,11 @@ impl Addr {
     /// let source = "192.168.0.107:56748".parse().unwrap();
     ///
     /// let mut buffer = BytesMut::with_capacity(1280);
-    /// Addr::into(&source, &token, &mut buffer, true);
+    /// Addr::encode(&source, &token, &mut buffer, true);
     /// assert_eq!(&xor_addr_bytes, &buffer[..]);
     ///
     /// let mut buffer = BytesMut::with_capacity(1280);
-    /// Addr::into(&source, &token, &mut buffer, false);
+    /// Addr::encode(&source, &token, &mut buffer, false);
     /// assert_eq!(&addr_bytes, &buffer[..]);
     /// ```
     pub fn encode(addr: &SocketAddr, token: &[u8], bytes: &mut BytesMut, is_xor: bool) {
@@ -181,10 +181,10 @@ impl Addr {
     ///
     /// let source = "192.168.0.107:56748".parse().unwrap();
     ///
-    /// let addr = Addr::try_from(&xor_addr_bytes, &token, true).unwrap();
+    /// let addr = Addr::decode(&xor_addr_bytes, &token, true).unwrap();
     /// assert_eq!(addr, source);
     ///
-    /// let addr = Addr::try_from(&addr_bytes, &token, false).unwrap();
+    /// let addr = Addr::decode(&addr_bytes, &token, false).unwrap();
     /// assert_eq!(addr, source);
     /// ```
     pub fn decode(packet: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr, StunError> {
@@ -211,7 +211,7 @@ impl Addr {
 ///
 /// ```
 /// use std::net::IpAddr;
-/// use stun::attribute::address::*;
+/// use stun::attribute::*;
 ///
 /// let bytes: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
 ///
@@ -233,7 +233,7 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, StunError> {
 ///
 /// ```
 /// use std::net::IpAddr;
-/// use stun::attribute::address::*;
+/// use stun::attribute::*;
 ///
 /// let bytes: [u8; 20] = [
 ///     0x00, 0x01, 0xdd, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -258,7 +258,7 @@ pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr, StunError> {
 ///
 /// ```
 /// use std::net::SocketAddr;
-/// use stun::attribute::address::*;
+/// use stun::attribute::*;
 ///
 /// let source: SocketAddr = "192.168.0.107:1".parse().unwrap();
 ///
@@ -285,7 +285,7 @@ pub fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
 ///
 /// ```
 /// use std::net::{IpAddr, Ipv4Addr};
-/// use stun::attribute::address::*;
+/// use stun::attribute::*;
 ///
 /// let source: Ipv4Addr = "192.168.0.107".parse().unwrap();
 ///
@@ -307,7 +307,7 @@ pub fn xor_v4(addr: Ipv4Addr) -> IpAddr {
 ///
 /// ```
 /// use std::net::{IpAddr, Ipv6Addr};
-/// use stun::attribute::address::*;
+/// use stun::attribute::*;
 ///
 /// let source: Ipv6Addr = "::ffff:192.10.47.15".parse().unwrap();
 ///
@@ -937,7 +937,7 @@ impl Error<'_> {
     ///
     /// let mut buf = BytesMut::with_capacity(1280);
     /// let error = Error::from(ErrKind::TryAlternate);
-    /// error.into(&mut buf);
+    /// error.encode(&mut buf);
     /// assert_eq!(&buf[..], &buffer);
     /// ```
     pub fn encode(self, bytes: &mut BytesMut) {
@@ -1171,7 +1171,7 @@ impl<'a> Attribute<'a> for ChannelNumber {
     }
 
     fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        Ok(u16::from_be_bytes(bytes.try_into()?))
+        Ok(u16::from_be_bytes(bytes[..2].try_into()?))
     }
 }
 

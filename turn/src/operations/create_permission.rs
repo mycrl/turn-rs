@@ -36,7 +36,7 @@ fn reject<'a, T: Observer>(
 #[inline(always)]
 fn resolve<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
-    key: &[u8; 16],
+    digest: &[u8; 16],
 ) -> Option<Response<'a>> {
     {
         let mut message = MessageWriter::extend(
@@ -46,7 +46,7 @@ fn resolve<'a, T: Observer>(
         );
 
         message.append::<Software>(SOFTWARE);
-        message.flush(Some(key)).ok()?;
+        message.flush(Some(digest)).ok()?;
     }
 
     Some(Response {
@@ -99,7 +99,7 @@ fn resolve<'a, T: Observer>(
 pub async fn process<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
 ) -> Option<Response<'a>> {
-    let (username, key) = match req.auth().await {
+    let (username, digest) = match req.auth().await {
         None => return reject(req, ErrKind::Unauthorized),
         Some(it) => it,
     };
@@ -109,12 +109,12 @@ pub async fn process<'a, T: Observer>(
         Some(it) => it,
     };
 
-    if !req.ip_is_local(&peer) {
+    if !req.verify_ip(&peer) {
         return reject(req, ErrKind::Forbidden);
     }
 
     req.service
         .observer
-        .create_permission(&req.symbol.address, username, &peer);
-    resolve(req, &key)
+        .create_permission(&req.symbol, username, &peer);
+    resolve(req, &digest)
 }

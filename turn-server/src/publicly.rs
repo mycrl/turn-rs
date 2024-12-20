@@ -2,10 +2,14 @@ use core::str;
 use std::{
     net::SocketAddr,
     sync::Arc,
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, Instant},
 };
 
-use crate::{config::Config, observer::Observer, statistics::Statistics};
+use crate::{
+    config::{Config, Transport},
+    observer::Observer,
+    statistics::Statistics,
+};
 
 use axum::{
     extract::{Query, State},
@@ -31,7 +35,7 @@ use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedSender},
 };
 
-use turn::Service;
+use turn::{sessions::Symbol, PortAllocatePools, Service};
 
 static RID: Lazy<String> = Lazy::new(|| random_string(16));
 
@@ -43,9 +47,20 @@ struct AppState {
 }
 
 #[derive(Deserialize)]
-struct QueryFilter {
-    addr: Option<SocketAddr>,
-    username: Option<String>,
+struct SessionQueryFilter {
+    address: SocketAddr,
+    interface: SocketAddr,
+    transport: Transport,
+}
+
+impl Into<Symbol> for SessionQueryFilter {
+    fn into(self) -> Symbol {
+        Symbol {
+            address: self.address,
+            interface: self.interface,
+            transport: self.transport.into(),
+        }
+    }
 }
 
 /// start http server
@@ -70,94 +85,84 @@ pub async fn start_server(
     });
 
     #[allow(unused_mut)]
-    let mut app = Router::new()
-        .route(
-            "/info",
-            get(|State(app_state): State<Arc<AppState>>| async move {
-                let state = app_state.service.get_state();
-                Json(json!({
-                    "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
-                    "uptime": app_state.uptime.elapsed().as_secs(),
-                    "interfaces": app_state.config.turn.interfaces,
-                    "port_capacity": turn::State::<Observer>::capacity(),
-                    "port_allocated": state.len(),
-                }))
-            }),
-        )
-        .route(
-            "/session",
-            get(
-                |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
-                    let addrs = if let Some(username) = query.username {
-                        state.service.get_state().get_user_addrs(&username)
-                    } else if let Some(addr) = query.addr {
-                        vec![addr]
-                    } else {
-                        return StatusCode::NOT_FOUND.into_response();
-                    };
-
-                    let mut res = Vec::with_capacity(addrs.len());
-                    for addr in addrs {
-                        if let Some(socket) = state.service.get_state().get_socket(&addr) {
-                            res.push(json!({
-                                "address": addr,
-                                "username": socket.username,
-                                "password": socket.password,
-                                "channel": socket.channel,
-                                "port": socket.port,
-                                "expiration": socket.expiration,
-                                "lifetime": socket.lifetime.elapsed().as_secs(),
-                            }));
+    let mut app =
+        Router::new()
+            .route(
+                "/info",
+                get(|State(app_state): State<Arc<AppState>>| async move {
+                    let sessions = app_state.service.get_sessions();
+                    Json(json!({
+                        "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
+                        "uptime": app_state.uptime.elapsed().as_secs(),
+                        "interfaces": app_state.config.turn.interfaces,
+                        "port_capacity": PortAllocatePools::capacity(),
+                        "port_allocated": sessions.allocated(),
+                    }))
+                }),
+            )
+            .route(
+                "/session",
+                get(
+                    |Query(query): Query<SessionQueryFilter>,
+                     State(state): State<Arc<AppState>>| async move {
+                        if let Some(session) = state
+                            .service
+                            .get_sessions()
+                            .get_session(&query.into())
+                            .get_ref()
+                        {
+                            Json(json!({
+                                "username": session.auth.username,
+                                "password": session.auth.password,
+                                "channel": session.allocate.channel,
+                                "port": session.allocate.port,
+                                "expires": session.expires,
+                            }))
+                            .into_response()
+                        } else {
+                            StatusCode::NOT_FOUND.into_response()
                         }
-                    }
-
-                    Json(Value::Array(res)).into_response()
-                },
-            ),
-        )
-        .route(
-            "/session/statistics",
-            get(
-                |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
-                    if let Some(addr) = query.addr {
-                        if let Some(counts) = state.statistics.get(&addr) {
-                            return Json(json!({
+                    },
+                ),
+            )
+            .route(
+                "/session/statistics",
+                get(
+                    |Query(query): Query<SessionQueryFilter>,
+                     State(state): State<Arc<AppState>>| async move {
+                        let symbol: Symbol = query.into();
+                        if let Some(counts) = state.statistics.get(&symbol.address) {
+                            Json(json!({
                                 "received_bytes": counts.received_bytes,
                                 "send_bytes": counts.send_bytes,
                                 "received_pkts": counts.received_pkts,
                                 "send_pkts": counts.send_pkts,
                                 "error_pkts": counts.error_pkts,
                             }))
-                            .into_response();
+                            .into_response()
+                        } else {
+                            StatusCode::NOT_FOUND.into_response()
                         }
-                    }
-
-                    StatusCode::NOT_FOUND.into_response()
-                },
-            ),
-        )
-        .route(
-            "/session",
-            delete(
-                |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
-                    let addrs = if let Some(username) = query.username {
-                        state.service.get_state().get_user_addrs(&username)
-                    } else if let Some(addr) = query.addr {
-                        vec![addr]
-                    } else {
-                        return StatusCode::NOT_FOUND;
-                    };
-
-                    for addr in addrs {
-                        if state.service.get_state().remove(&Arc::new(addr)).is_none() {
-                            return StatusCode::EXPECTATION_FAILED;
+                    },
+                ),
+            )
+            .route(
+                "/session",
+                delete(
+                    |Query(query): Query<SessionQueryFilter>,
+                     State(state): State<Arc<AppState>>| async move {
+                        if state
+                            .service
+                            .get_sessions()
+                            .refresh(&Arc::new(&query.into()), 0)
+                        {
+                            StatusCode::EXPECTATION_FAILED
+                        } else {
+                            StatusCode::OK
                         }
-                    }
-
-                    StatusCode::OK
-                },
-            ),
-        );
+                    },
+                ),
+            );
 
     #[cfg(feature = "prometheus")]
     {
@@ -221,6 +226,8 @@ impl HooksService {
                 .build()?,
         );
 
+        // It keeps taking queued events from the queue and sending them to an external
+        // hook service.
         let config_ = config.clone();
         let client_ = client.clone();
         let (tx, mut rx) = unbounded_channel::<Value>();
@@ -239,50 +246,31 @@ impl HooksService {
         Ok(Self { client, config, tx })
     }
 
-    pub async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        if let Some(pwd) = self.config.auth.static_credentials.get(name) {
+    pub async fn get_password(&self, key: &Symbol, username: &str) -> Option<String> {
+        // Match the static authentication information first.
+        if let Some(pwd) = self.config.auth.static_credentials.get(username) {
             return Some(pwd.clone());
         }
 
+        // Try again to match the static authentication key.
         if let Some(secret) = &self.config.auth.static_auth_secret {
-            let parts = name.split(':').collect::<Vec<&str>>();
-            if parts.len() != 2 {
-                return None;
-            }
-            println!("parts: {:?}", parts);
-            let timestamp = parts[0].parse::<i64>();
-            println!("timestamp: {:?}", timestamp);
-            if let Ok(timestamp) = timestamp {
-                let current_time = SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .ok()?;
-
-                // 根据时间戳长度判断单位
-                let is_expired = if timestamp > 1_000_000_000_000 {
-                    // 毫秒时间戳 (13位)
-                    timestamp < current_time.as_millis() as i64
-                } else {
-                    // 秒时间戳 (10位)
-                    timestamp < current_time.as_secs() as i64
-                };
-
-                if timestamp < 0 || is_expired {
-                    println!("timestamp is invalid");
-                    return None;
-                }
-            } else {
-                return None;
-            }
-            println!("secret: {:?}", secret);
-            let ret = encode_password(secret, name);
-            println!("ret: {:?}", ret);
-            return ret;
+            // Because (TURN REST api) this RFC does not mandate the format of the username,
+            // only suggested values. In principle, the RFC also indicates that the
+            // timestamp part of username can be set at will, so the timestamp is not
+            // verified here, and the external web service guarantees its security by
+            // itself.
+            return encode_password(secret, username);
         }
 
+        // There are no matching static entries, get the password from an external hook
+        // service.
         if let Some(server) = &self.config.api.hooks {
             if let Ok(res) = self
                 .client
-                .get(format!("{}/password?addr={}&name={}", server, addr, name))
+                .get(format!(
+                    "{}/password?address={}&interface={}&transport={:?}&username={}",
+                    server, key.address, key.interface, key.transport, username
+                ))
                 .send()
                 .await
             {
@@ -295,7 +283,10 @@ impl HooksService {
         None
     }
 
-    pub fn send_event(&self, event: Value) {
+    // Notifications for all events are all added to the queue, which has the
+    // advantage of not blocking the current call, which is useful for scenarios
+    // requiring high real-time performance.
+    pub fn emit(&self, event: Value) {
         if self.config.api.hooks.is_some() {
             if let Err(e) = self.tx.send(event) {
                 log::error!("failed to send event, err={}", e)

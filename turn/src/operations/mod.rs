@@ -8,7 +8,7 @@ pub mod refresh;
 
 use crate::{
     sessions::{Sessions, Symbol},
-    Observer, StunClass,
+    Observer, StunClass, Transport,
 };
 
 use std::{net::SocketAddr, sync::Arc};
@@ -21,9 +21,8 @@ use stun::{attribute::UserName, Decoder, Kind, MessageReader, Method, Payload, S
 /// A service corresponds to a Net Socket, different sockets have different
 /// addresses and so on, but other things are basically the same.
 pub struct ServiceContext<T: Observer> {
-    pub interface: SocketAddr,
     pub realm: Arc<String>,
-    pub sessions: Arc<Sessions>,
+    pub sessions: Arc<Sessions<T>>,
     pub external: SocketAddr,
     pub externals: Arc<Vec<SocketAddr>>,
     pub observer: T,
@@ -94,13 +93,7 @@ where
         let digest = self
             .service
             .sessions
-            .get_digest(&self.symbol, async move {
-                self.service
-                    .observer
-                    .get_password(&self.symbol.address, username)
-                    .await
-                    .map(|it| (username.to_string(), it))
-            })
+            .get_digest(&self.symbol, username, self.service.realm.as_str())
             .await?;
 
         self.message.integrity(&digest).ok()?;
@@ -109,7 +102,7 @@ where
 
     /// Check if the ip address belongs to the current turn server.
     #[inline(always)]
-    pub(crate) fn ip_is_local(&self, address: &SocketAddr) -> bool {
+    pub(crate) fn verify_ip(&self, address: &SocketAddr) -> bool {
         self.service
             .externals
             .iter()
@@ -132,17 +125,27 @@ where
     service: ServiceContext<T>,
     decoder: Decoder,
     bytes: BytesMut,
+    symbol: Symbol,
 }
 
 impl<T> Operationer<T>
 where
     T: Observer + 'static,
 {
-    pub(crate) fn new(service: ServiceContext<T>) -> Self {
+    pub(crate) fn new(
+        transport: Transport,
+        interface: SocketAddr,
+        service: ServiceContext<T>,
+    ) -> Self {
         Self {
-            bytes: BytesMut::with_capacity(4096),
-            decoder: Decoder::new(),
             service,
+            decoder: Decoder::new(),
+            bytes: BytesMut::with_capacity(4096),
+            symbol: Symbol {
+                address: "0.0.0.0:0".parse().unwrap(),
+                transport,
+                interface,
+            },
         }
     }
 
@@ -260,21 +263,23 @@ where
     pub async fn route<'a, 'b: 'a>(
         &'b mut self,
         bytes: &'b [u8],
-        symbol: &Symbol,
+        address: SocketAddr,
     ) -> Result<Option<Response<'a>>, StunError> {
+        self.symbol.address = address;
+
         Ok(match self.decoder.decode(bytes)? {
-            Payload::ChannelData(channel) => channel_data::process(Requet {
+            Payload::ChannelData(channel) => channel_data::process(bytes, Requet {
                 bytes: &mut self.bytes,
                 service: &self.service,
+                symbol: &self.symbol,
                 message: &channel,
-                symbol,
             }),
             Payload::Message(message) => {
                 let req = Requet {
                     bytes: &mut self.bytes,
                     service: &self.service,
+                    symbol: &self.symbol,
                     message: &message,
-                    symbol,
                 };
 
                 match req.message.method {

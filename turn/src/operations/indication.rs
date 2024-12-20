@@ -54,26 +54,35 @@ use stun::{
 /// The resulting UDP datagram is then sent to the peer.
 pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Option<Response<'a>> {
     let peer = req.message.get::<XorPeerAddress>()?;
-    if !req.ip_is_local(&peer) {
+    if !req.verify_ip(&peer) {
         return None;
     }
 
     let data = req.message.get::<Data>()?;
-    let relay = req.service.state.get_port_addr(peer.port())?;
-    let port = req.service.state.get_addr_port(&req.address)?;
-    let interface = req.service.state.get_interface(&relay)?;
+    let relay = req.service.sessions.get_port_bind(peer.port())?;
+    let local_port = req
+        .service
+        .sessions
+        .get_session(req.symbol)
+        .get_ref()?
+        .allocate
+        .port?;
 
     {
         let mut message = MessageWriter::extend(Method::DataIndication, &req.message, req.bytes);
-        message.append::<XorPeerAddress>(SocketAddr::new(interface.external.ip(), port));
+        message.append::<XorPeerAddress>(SocketAddr::new(req.service.external.ip(), local_port));
         message.append::<Data>(data);
         message.flush(None).ok()?;
     }
 
     Some(Response {
-        interface: (req.service.interface != interface.addr).then(|| interface.addr),
+        interface: if req.symbol.interface != relay.interface {
+            Some(relay.interface)
+        } else {
+            None
+        },
+        relay: Some(relay.address),
         kind: StunClass::Message,
-        relay: Some(relay),
         bytes: req.bytes,
     })
 }

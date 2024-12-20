@@ -10,8 +10,7 @@ use std::{
 
 use ahash::AHashMap;
 use parking_lot::RwLock;
-
-use crate::config::Transport;
+use stun::Transport;
 
 /// [issue](https://github.com/mycrl/turn-rs/issues/101)
 ///
@@ -278,7 +277,8 @@ impl Statistics {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_server::{config::Transport, statistics::*};
+    /// use stun::attribute::Transport;
+    /// use turn_server::statistics::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
