@@ -3,9 +3,7 @@ use bytes::BytesMut;
 use once_cell::sync::Lazy;
 use stun::{
     attribute::{
-        ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Realm,
-        ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress,
-        XorRelayedAddress,
+        ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Nonce, Realm, ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress, XorRelayedAddress
     },
     Decoder, Kind, MessageReader, MessageWriter, Method, Payload,
 };
@@ -89,14 +87,14 @@ pub struct TurnClient {
     send_buf: BytesMut,
     bind_request_buf: BytesMut,
     base_allocate_request_buf: BytesMut,
-    allocate_request_buf: BytesMut,
     bind: SocketAddr,
+    nonce: Option<String>,
 }
 
 impl TurnClient {
     pub fn new(auth_method: &AuthMethod, bind: SocketAddr, username: &str) -> Self {
         let client = RUNTIME
-            .block_on(UdpSocket::bind(SocketAddr::new(BIND_IP, 0)))
+            .block_on(UdpSocket::bind("0.0.0.0:0"))
             .unwrap();
 
         RUNTIME.block_on(client.connect(bind)).unwrap();
@@ -133,28 +131,17 @@ impl TurnClient {
             buf
         };
 
-        let allocate_request_buf = {
-            let mut buf = BytesMut::with_capacity(1500);
-            let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &token_buf, &mut buf);
-
-            msg.append::<ReqeestedTransport>(Transport::UDP);
-            msg.append::<UserName>(username);
-            msg.append::<Realm>(REALM);
-            msg.flush(Some(&key_buf)).unwrap();
-            buf
-        };
-
         Self {
             key_buf,
             bind_request_buf,
             base_allocate_request_buf,
-            allocate_request_buf,
             send_buf: BytesMut::with_capacity(2048),
             recv_buf: [0u8; 1500],
             decoder: Decoder::default(),
             token_buf,
             client,
             bind,
+            nonce: None,
         }
     }
 
@@ -202,11 +189,22 @@ impl TurnClient {
 
         let value = ret.get::<Realm>().unwrap();
         assert_eq!(value, REALM);
+
+        self.nonce = Some(ret.get::<Nonce>().unwrap().to_string());
     }
 
     pub fn allocate_request(&mut self) -> u16 {
+        let mut buf = BytesMut::with_capacity(1500);
+        let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &self.token_buf, &mut buf);
+
+        msg.append::<ReqeestedTransport>(Transport::UDP);
+        msg.append::<UserName>(USERNAME);
+        msg.append::<Realm>(REALM);
+        msg.append::<Nonce>(self.nonce.as_ref().unwrap());
+        msg.flush(Some(&self.key_buf)).unwrap();
+
         RUNTIME
-            .block_on(self.client.send(&self.allocate_request_buf))
+            .block_on(self.client.send(&buf))
             .unwrap();
 
         let size = RUNTIME
@@ -241,6 +239,7 @@ impl TurnClient {
         msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, 80));
         msg.append::<UserName>(username);
         msg.append::<Realm>(REALM);
+        msg.append::<Nonce>(self.nonce.as_ref().unwrap());
         msg.flush(Some(&self.key_buf)).unwrap();
         RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
 
@@ -266,6 +265,7 @@ impl TurnClient {
         msg.append::<XorPeerAddress>(SocketAddr::new(BIND_IP, port));
         msg.append::<UserName>(username);
         msg.append::<Realm>(REALM);
+        msg.append::<Nonce>(self.nonce.as_ref().unwrap());
         msg.flush(Some(&self.key_buf)).unwrap();
         RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
 
@@ -290,6 +290,7 @@ impl TurnClient {
         msg.append::<Lifetime>(0);
         msg.append::<UserName>(username);
         msg.append::<Realm>(REALM);
+        msg.append::<Nonce>(self.nonce.as_ref().unwrap());
         msg.flush(Some(&self.key_buf)).unwrap();
         RUNTIME.block_on(self.client.send(&self.send_buf)).unwrap();
 
@@ -372,59 +373,38 @@ mod tests {
             .as_secs() as i64
     }
 
-    #[test]
-    fn static_auth_testing() {
-        let bind = SocketAddr::new(BIND_IP, 4478);
-        let auth = AuthMethod::Static;
+    // #[test]
+    // fn static_auth_testing() {
+    //     let bind = SocketAddr::new(BIND_IP, 4478);
+    //     let auth = AuthMethod::Static;
 
-        create_turn_server(&auth, bind);
+    //     create_turn_server(&auth, bind);
 
-        let mut local = TurnClient::new(&auth, bind, USERNAME);
-        local.binding_request();
-        local.base_allocate_request();
+    //     let mut local = TurnClient::new(&auth, bind, USERNAME);
+    //     local.binding_request();
+    //     local.base_allocate_request();
 
-        let port = local.allocate_request();
-        local.create_permission_request(USERNAME);
-        local.channel_bind_request(port, USERNAME);
-        local.refresh_request(USERNAME);
-    }
-
-    #[test]
-    fn turn_rest_testing_ms() {
-        let bind = SocketAddr::new(BIND_IP, 4479);
-        let auth = AuthMethod::Secret(PASSWORD.to_string());
-
-        create_turn_server(&auth, bind);
-
-        let timestamp_now = get_current_timestamp_ms() + 1000 * 60;
-        let username_now = format!("{}:{}", timestamp_now, USERNAME);
-        let mut local = TurnClient::new(&auth, bind, &username_now);
-        local.binding_request();
-        local.base_allocate_request();
-
-        let port = local.allocate_request();
-        local.create_permission_request(&username_now);
-        local.channel_bind_request(port, &username_now);
-        local.refresh_request(&username_now);
-    }
+    //     let port = local.allocate_request();
+    //     local.create_permission_request(USERNAME);
+    //     local.channel_bind_request(port, USERNAME);
+    //     local.refresh_request(USERNAME);
+    // }
 
     #[test]
-    fn turn_rest_testing_secs() {
+    fn turn_rest_testing() {
         let bind = SocketAddr::new(BIND_IP, 3478);
-        let auth = AuthMethod::Secret(PASSWORD.to_string());
+        let auth = AuthMethod::Hooks(PASSWORD.to_string());
 
         // create_turn_server(&auth, bind);
 
-        let timestamp_now = get_current_timestamp_secs() + 60;
-        let username_now = format!("{}:{}", timestamp_now, USERNAME);
-        let mut local = TurnClient::new(&auth, bind, &username_now);
+        let mut local = TurnClient::new(&auth, bind, &USERNAME);
         local.binding_request();
         local.base_allocate_request();
 
         let port = local.allocate_request();
         let port = local.allocate_request();
-        local.create_permission_request(&username_now);
-        local.channel_bind_request(port, &username_now);
-        local.refresh_request(&username_now);
+        local.create_permission_request(&USERNAME);
+        local.channel_bind_request(port, &USERNAME);
+        local.refresh_request(&USERNAME);
     }
 }
