@@ -316,6 +316,12 @@ impl PortAllocatePools {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Address {
+    Inner(u16),
+    External(SocketAddr),
+}
+
 /// Authentication information for the session.
 ///
 /// Digest data is data that summarises usernames and passwords by means of
@@ -373,12 +379,12 @@ pub struct Symbol {
 ///
 /// This timer does not stack automatically and needs to be stacked externally
 /// and manually.
-/// 
+///
 /// ```
 /// use turn::sessions::Timer;
-/// 
+///
 /// let timer = Timer::default();
-/// 
+///
 /// assert_eq!(timer.get(), 0);
 /// assert_eq!(timer.add(), 1);
 /// assert_eq!(timer.get(), 1);
@@ -589,7 +595,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// let a = sessions.get_nonce(&symbol).get_ref().unwrap().clone();
     /// assert!(a.nonce.len() == 16);
     /// assert!(a.expires == 3600);
-    /// 
+    ///
     /// let b = sessions.get_nonce(&symbol).get_ref().unwrap().clone();
     /// assert_eq!(a.nonce, b.nonce);
     /// assert!(b.expires == 3600);
@@ -800,6 +806,11 @@ impl<T: Observer + 'static> Sessions<T> {
         // Write the allocation port binding table.
         self.pbt.write().insert(port, *key);
         Some(port)
+    }
+
+    /// Create permission for the session.
+    pub fn create_permission(&self, key: &Symbol, addrs: &[SocketAddr]) -> bool {
+        todo!()
     }
 
     /// Binding a channel to the session.

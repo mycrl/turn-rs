@@ -27,7 +27,7 @@ use std::{
 
 static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
 
-static BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+static BIND_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 168, 31, 62));
 static USERNAME: &str = "user1";
 static PASSWORD: &str = "test";
 static REALM: &str = "localhost";
@@ -151,7 +151,7 @@ impl TurnClient {
             allocate_request_buf,
             send_buf: BytesMut::with_capacity(2048),
             recv_buf: [0u8; 1500],
-            decoder: Decoder::new(),
+            decoder: Decoder::default(),
             token_buf,
             client,
             bind,
@@ -410,10 +410,10 @@ mod tests {
 
     #[test]
     fn turn_rest_testing_secs() {
-        let bind = SocketAddr::new(BIND_IP, 4479);
+        let bind = SocketAddr::new(BIND_IP, 3478);
         let auth = AuthMethod::Secret(PASSWORD.to_string());
 
-        create_turn_server(&auth, bind);
+        // create_turn_server(&auth, bind);
 
         let timestamp_now = get_current_timestamp_secs() + 60;
         let username_now = format!("{}:{}", timestamp_now, USERNAME);
@@ -421,6 +421,7 @@ mod tests {
         local.binding_request();
         local.base_allocate_request();
 
+        let port = local.allocate_request();
         let port = local.allocate_request();
         local.create_permission_request(&username_now);
         local.channel_bind_request(port, &username_now);

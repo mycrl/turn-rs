@@ -14,7 +14,10 @@ use crate::{
 use std::{net::SocketAddr, sync::Arc};
 
 use bytes::BytesMut;
-use stun::{attribute::UserName, Decoder, Kind, MessageReader, Method, Payload, StunError};
+use stun::{
+    attribute::{Nonce, UserName},
+    Decoder, Kind, MessageReader, Method, Payload, StunError,
+};
 
 /// The context of the service.
 ///
@@ -28,6 +31,7 @@ pub struct ServiceContext<T: Observer> {
     pub observer: T,
 }
 
+/// The request of the service.
 pub struct Requet<'a, 'b, T, M>
 where
     T: Observer + 'static,
@@ -96,6 +100,21 @@ where
             .get_digest(&self.symbol, username, self.service.realm.as_str())
             .await?;
 
+        // if nonce is not empty, check nonce
+        if let Some(nonce) = self.message.get::<Nonce>() {
+            if self
+                .service
+                .sessions
+                .get_nonce(&self.symbol)
+                .get_ref()?
+                .nonce
+                .as_str()
+                != nonce
+            {
+                return None;
+            }
+        }
+
         self.message.integrity(&digest).ok()?;
         Some((username, digest))
     }
@@ -110,6 +129,7 @@ where
     }
 }
 
+/// The response of the service.
 pub struct Response<'a> {
     pub kind: StunClass,
     pub bytes: &'a [u8],
@@ -139,7 +159,7 @@ where
     ) -> Self {
         Self {
             service,
-            decoder: Decoder::new(),
+            decoder: Decoder::default(),
             bytes: BytesMut::with_capacity(4096),
             symbol: Symbol {
                 address: "0.0.0.0:0".parse().unwrap(),

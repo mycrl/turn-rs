@@ -49,11 +49,13 @@ pub mod channel;
 pub mod message;
 pub mod util;
 
-use std::ops::Range;
+pub use self::{
+    attribute::{AttrKind, Transport},
+    channel::ChannelData,
+    message::*,
+};
 
-pub use attribute::Transport;
-pub use channel::ChannelData;
-pub use message::*;
+use std::ops::Range;
 
 use thiserror::Error;
 
@@ -305,17 +307,56 @@ pub enum Payload<'a> {
     ChannelData(ChannelData<'a>),
 }
 
-pub struct Decoder {
-    attrs: Vec<(attribute::AttrKind, Range<usize>)>,
+/// A cache of the list of attributes, this is for internal use only.
+#[derive(Debug)]
+pub struct Attributes(Vec<(AttrKind, Range<usize>)>);
+
+impl Default for Attributes {
+    fn default() -> Self {
+        Self(Vec::with_capacity(20))
+    }
 }
 
-impl Decoder {
-    pub fn new() -> Self {
-        Self {
-            attrs: Vec::with_capacity(10),
-        }
+impl Attributes {
+    /// Adds an attribute to the list.
+    pub fn append(&mut self, kind: AttrKind, range: Range<usize>) {
+        self.0.push((kind, range));
     }
 
+    /// Gets an attribute from the list.
+    ///
+    /// Note: This function will only look for the first matching property in
+    /// the list and return it.
+    pub fn get(&self, kind: &AttrKind) -> Option<Range<usize>> {
+        self.0
+            .iter()
+            .find(|(k, _)| k == kind)
+            .map(|(_, v)| v.clone())
+    }
+
+    /// Gets all the values of an attribute from a list.
+    ///
+    /// Normally a stun message can have multiple attributes with the same name,
+    /// and this function will all the values of the current attribute.
+    pub fn get_all<'a>(&'a self, kind: &'a AttrKind) -> impl Iterator<Item = &'a Range<usize>> {
+        self.0
+            .iter()
+            .filter(move |(k, _)| k == kind)
+            .map(|(_, v)| v)
+            .into_iter()
+    }
+
+    pub fn clear(&mut self) {
+        if !self.0.is_empty() {
+            self.0.clear();
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Decoder(Attributes);
+
+impl Decoder {
     /// # Unit Test
     ///
     /// ```
@@ -333,7 +374,7 @@ impl Decoder {
     ///     0xcf, 0xf5, 0xde, 0x82, 0x80, 0x28, 0x00, 0x04, 0x56, 0xf7, 0xa3, 0xed,
     /// ];
     ///
-    /// let mut decoder = Decoder::new();
+    /// let mut decoder = Decoder::default();
     /// let payload = decoder.decode(&buffer).unwrap();
     /// if let Payload::Message(reader) = payload {
     ///     assert!(reader.get::<UserName>().is_some())
@@ -341,9 +382,6 @@ impl Decoder {
     /// ```
     pub fn decode<'a>(&'a mut self, bytes: &'a [u8]) -> Result<Payload<'a>, StunError> {
         assert!(bytes.len() >= 4);
-        if !self.attrs.is_empty() {
-            self.attrs.clear();
-        }
 
         let flag = bytes[0] >> 6;
         if flag > 3 {
@@ -351,7 +389,9 @@ impl Decoder {
         }
 
         Ok(if flag == 0 {
-            Payload::Message(MessageReader::decode(bytes, &mut self.attrs)?)
+            self.0.clear();
+
+            Payload::Message(MessageReader::decode(bytes, &mut self.0)?)
         } else {
             Payload::ChannelData(ChannelData::try_from(bytes)?)
         })
@@ -388,11 +428,5 @@ impl Decoder {
         } else {
             ChannelData::message_size(bytes, is_tcp)?
         })
-    }
-}
-
-impl Default for Decoder {
-    fn default() -> Self {
-        Self::new()
     }
 }

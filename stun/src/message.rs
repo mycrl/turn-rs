@@ -1,12 +1,11 @@
 use bytes::{BufMut, BytesMut};
 
 use std::convert::TryFrom;
-use std::ops::Range;
 
-use crate::StunError;
-
-use super::attribute::{AttrKind, Attribute, MessageIntegrity};
-use super::{util, Method};
+use super::{
+    attribute::{AttrKind, Attribute, MessageIntegrity},
+    util, Attributes, Method, StunError,
+};
 
 const ZOER_BUF: [u8; 10] = [0u8; 10];
 const COOKIE: [u8; 4] = 0x2112A442u32.to_be_bytes();
@@ -43,7 +42,7 @@ impl<'a, 'b> MessageWriter<'a> {
     ///     0x42, 0x72, 0x52, 0x64, 0x48, 0x57, 0x62, 0x4b, 0x2b,
     /// ];
     ///
-    /// let mut attributes = Vec::new();
+    /// let mut attributes = Attributes::default();
     /// let mut buf = BytesMut::new();
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
@@ -84,10 +83,11 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ];
     ///
     /// let mut buf = BytesMut::new();
-    /// let mut attributes = Vec::new();
+    /// let mut attributes = Attributes::default();
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message =
     ///     MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
+    ///
     /// message.append::<UserName>("panda");
     /// assert_eq!(&new_buf[..], &buf[..]);
     /// ```
@@ -137,7 +137,7 @@ impl<'a, 'b> MessageWriter<'a> {
     ///     171, 86,
     /// ];
     ///
-    /// let mut attributes = Vec::new();
+    /// let mut attributes = Attributes::default();
     /// let mut buf = BytesMut::with_capacity(1280);
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message =
@@ -184,7 +184,7 @@ impl<'a, 'b> MessageWriter<'a> {
     ///     171, 86,
     /// ];
     ///
-    /// let mut attributes = Vec::new();
+    /// let mut attributes = Attributes::default();
     /// let mut buf = BytesMut::from(&buffer[..]);
     /// let old = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let mut message =
@@ -239,7 +239,7 @@ pub struct MessageReader<'a> {
     /// message valid block bytes size.
     valid_offset: u16,
     // message attribute list.
-    attributes: &'a Vec<(AttrKind, Range<usize>)>,
+    attributes: &'a Attributes,
 }
 
 impl<'a> MessageReader<'a> {
@@ -259,15 +259,45 @@ impl<'a> MessageReader<'a> {
     ///     0x42, 0x72, 0x52, 0x64, 0x48, 0x57, 0x62, 0x4b, 0x2b,
     /// ];
     ///
-    /// let mut attributes = Vec::new();
+    /// let mut attributes = Attributes::default();
     /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// assert!(message.get::<UserName>().is_none());
     /// ```
     pub fn get<T: Attribute<'a>>(&self) -> Option<T::Item> {
-        self.attributes
-            .iter()
-            .find(|(k, _)| *k == T::KIND)
-            .and_then(|(_, v)| T::decode(&self.bytes[v.clone()], self.token).ok())
+        let range = self.attributes.get(&T::KIND)?;
+        T::decode(&self.bytes[range.clone()], self.token).ok()
+    }
+
+    /// Gets all the values of an attribute from a list.
+    ///
+    /// Normally a stun message can have multiple attributes with the same name,
+    /// and this function will all the values of the current attribute.
+    ///
+    /// # Unit Test
+    ///
+    /// ```
+    /// use std::convert::TryFrom;
+    /// use stun::attribute::*;
+    /// use stun::*;
+    ///
+    /// let buffer = [
+    ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
+    ///     0x42, 0x72, 0x52, 0x64, 0x48, 0x57, 0x62, 0x4b, 0x2b,
+    /// ];
+    ///
+    /// let mut attributes = Attributes::default();
+    /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
+    ///
+    /// let mut values = Vec::new();
+    /// message.get_all::<UserName>(&mut values);
+    /// assert_eq!(values.is_empty(), true);
+    /// ```
+    pub fn get_all<T: Attribute<'a>>(&self, values: &mut Vec<T::Item>) {
+        for it in self.attributes.get_all(&T::KIND) {
+            if let Ok(value) = T::decode(&self.bytes[it.clone()], self.token) {
+                values.push(value);
+            }
+        }
     }
 
     /// check MessageReaderIntegrity attribute.
@@ -293,7 +323,7 @@ impl<'a> MessageReader<'a> {
     ///     0xc5, 0xb1, 0x03, 0xb2, 0x6d,
     /// ];
     ///
-    /// let mut attributes = Vec::new();
+    /// let mut attributes = Attributes::default();
     /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let result = message
     ///     .integrity(&util::long_key("panda", "panda", "raspberry"))
@@ -343,14 +373,14 @@ impl<'a> MessageReader<'a> {
     ///     0x72, 0x52, 0x64, 0x48, 0x57, 0x62, 0x4b, 0x2b,
     /// ];
     ///
-    /// let mut attributes = Vec::new();
+    /// let mut attributes = Attributes::default();
     /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// assert_eq!(message.method, Method::Binding(Kind::Request));
     /// assert!(message.get::<UserName>().is_none());
     /// ```
     pub fn decode(
         bytes: &'a [u8],
-        attributes: &'a mut Vec<(AttrKind, Range<usize>)>,
+        attributes: &'a mut Attributes,
     ) -> Result<MessageReader<'a>, StunError> {
         if bytes.len() < 20 {
             return Err(StunError::InvalidInput);
@@ -427,7 +457,7 @@ impl<'a> MessageReader<'a> {
 
             // get attribute body
             // insert attribute to attributes list.
-            attributes.push((attrkind, range));
+            attributes.append(attrkind, range);
         }
 
         Ok(Self {
@@ -458,19 +488,5 @@ impl<'a> MessageReader<'a> {
         }
 
         Ok((u16::from_be_bytes(buf[2..4].try_into()?) + 20) as usize)
-    }
-}
-
-impl<'a> AsRef<[u8]> for MessageReader<'a> {
-    fn as_ref(&self) -> &'a [u8] {
-        self.bytes
-    }
-}
-
-impl<'a> std::ops::Deref for MessageReader<'a> {
-    type Target = [u8];
-
-    fn deref(&self) -> &'a Self::Target {
-        self.bytes
     }
 }

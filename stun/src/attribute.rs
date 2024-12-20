@@ -403,8 +403,10 @@ pub fn xor_v6(addr: Ipv6Addr, token: &[u8]) -> IpAddr {
 /// 0x8002: PASSWORD-ALGORITHMS
 /// 0x8003: ALTERNATE-DOMAIN
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, TryFromPrimitive)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Debug, TryFromPrimitive)]
 pub enum AttrKind {
+    #[default]
+    Unknown = 0x0000,
     MappedAddress = 0x0001,
     UserName = 0x0006,
     MessageIntegrity = 0x0008,
