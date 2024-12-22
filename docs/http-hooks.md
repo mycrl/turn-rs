@@ -44,7 +44,7 @@ create permission request:
 -   `session` - <sup>Session</sup>
 -   `kind` - <sup>string</sup> - "create_permission"
 -   `username` - <sup>string</sup> - The username used for the turn session.
--   `relay` - <sup>uint16</sup> - The port number of the other side specified when the privilege was created.
+-   `ports` - <sup>uint16[]</sup> - The port number of the other side specified when the privilege was created.
 
 refresh request:
 

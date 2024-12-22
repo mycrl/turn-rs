@@ -1,15 +1,18 @@
 use crate::StunError;
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::{
+    fmt::Debug,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+};
 
 use bytes::{BufMut, BytesMut};
 use num_enum::TryFromPrimitive;
 
-#[repr(u8)]
+#[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
 pub enum Transport {
-    TCP = 0x06,
-    UDP = 0x11,
+    TCP = 0x06000000,
+    UDP = 0x11000000,
 }
 
 #[repr(u8)]
@@ -118,7 +121,7 @@ pub struct Addr;
 impl Addr {
     /// encoder SocketAddr as Bytes.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use bytes::BytesMut;
@@ -165,7 +168,7 @@ impl Addr {
 
     /// decoder Bytes as SocketAddr.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use stun::attribute::*;
@@ -207,7 +210,7 @@ impl Addr {
     }
 }
 
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// use std::net::IpAddr;
@@ -229,7 +232,7 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, StunError> {
     Ok(IpAddr::V4(bytes.into()))
 }
 
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// use std::net::IpAddr;
@@ -254,7 +257,7 @@ pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr, StunError> {
     Ok(IpAddr::V6(bytes.into()))
 }
 
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// use std::net::SocketAddr;
@@ -281,7 +284,7 @@ pub fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
     SocketAddr::new(ip_addr, port)
 }
 
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// use std::net::{IpAddr, Ipv4Addr};
@@ -303,7 +306,7 @@ pub fn xor_v4(addr: Ipv4Addr) -> IpAddr {
     IpAddr::V4(From::from(octets))
 }
 
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// use std::net::{IpAddr, Ipv6Addr};
@@ -438,7 +441,7 @@ pub enum AttrKind {
 
 /// dyn stun/turn message attribute.
 pub trait Attribute<'a> {
-    type Error;
+    type Error: Debug;
 
     /// current attribute inner type.
     type Item;
@@ -926,7 +929,7 @@ impl From<ErrKind> for Error<'_> {
 impl Error<'_> {
     /// encode the error type as bytes.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use bytes::BytesMut;
@@ -952,7 +955,7 @@ impl Error<'_> {
 impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     type Error = StunError;
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::TryFrom;
@@ -984,7 +987,7 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
 }
 
 impl From<ErrKind> for &'static str {
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::Into;
@@ -1096,11 +1099,12 @@ impl<'a> Attribute<'a> for ReqeestedTransport {
     const KIND: AttrKind = AttrKind::ReqeestedTransport;
 
     fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
-        bytes.put_u8(value as u8)
+        bytes.put_u32(value as u32)
     }
 
     fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        Transport::try_from(bytes[0]).map_err(|_| StunError::InvalidInput)
+        let value = u32::from_be_bytes(bytes.try_into()?);
+        Transport::try_from(value).map_err(|_| StunError::InvalidInput)
     }
 }
 

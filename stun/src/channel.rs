@@ -46,7 +46,7 @@ pub struct ChannelData<'a> {
 }
 
 impl ChannelData<'_> {
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use bytes::{BufMut, BytesMut};
@@ -82,7 +82,7 @@ impl ChannelData<'_> {
         Ok(size)
     }
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use bytes::{BufMut, BytesMut};
@@ -113,7 +113,7 @@ impl ChannelData<'_> {
 impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     type Error = StunError;
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use bytes::{BufMut, BytesMut};

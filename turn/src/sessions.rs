@@ -1,7 +1,9 @@
+use crate::Observer;
+
 use std::{
     hash::Hash,
     net::SocketAddr,
-    ops::Range,
+    ops::{Deref, DerefMut, Range},
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -15,7 +17,977 @@ use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use stun::{util::long_key, Transport};
 
-use crate::Observer;
+/// Authentication information for the session.
+///
+/// Digest data is data that summarises usernames and passwords by means of
+/// long-term authentication.
+#[derive(Debug, Clone)]
+pub struct Auth {
+    pub username: String,
+    pub password: String,
+    pub digest: [u8; 16],
+}
+
+/// Assignment information for the session.
+///
+/// Sessions are all bound to only one port and one channel.
+#[derive(Debug, Clone)]
+pub struct Allocate {
+    pub port: Option<u16>,
+    pub channels: Vec<u16>,
+}
+
+/// turn session information.
+///
+/// A user can have many sessions.
+///
+/// The default survival time for a session is 600 seconds.
+#[derive(Debug, Clone)]
+pub struct Session {
+    pub auth: Auth,
+    pub allocate: Allocate,
+    pub permissions: Vec<u16>,
+    pub expires: u64,
+}
+
+/// The identifier of the session or socket.
+///
+/// Each session needs to be identified by a combination of three pieces of
+/// information: the socket address, the source interface, and the transport
+/// protocol.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Symbol {
+    pub address: SocketAddr,
+    pub interface: SocketAddr,
+    pub transport: Transport,
+}
+
+/// A specially optimised timer.
+///
+/// This timer does not stack automatically and needs to be stacked externally
+/// and manually.
+///
+/// ```
+/// use turn::sessions::Timer;
+///
+/// let timer = Timer::default();
+///
+/// assert_eq!(timer.get(), 0);
+/// assert_eq!(timer.add(), 1);
+/// assert_eq!(timer.get(), 1);
+/// ```
+#[derive(Default)]
+pub struct Timer(AtomicU64);
+
+impl Timer {
+    pub fn get(&self) -> u64 {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    pub fn add(&self) -> u64 {
+        self.0.fetch_add(1, Ordering::Relaxed) + 1
+    }
+}
+
+#[derive(Default)]
+pub struct State {
+    sessions: RwLock<Table<Symbol, Session>>,
+    port_allocate_pool: Mutex<PortAllocatePools>,
+    // Records the sessions corresponding to each assigned port, which will be needed when looking
+    // up sessions assigned to this port based on the port number.
+    port_mapping_table: RwLock<Table</* port */ u16, Symbol>>,
+    // Records the nonce value for each network connection, which is independent of the session
+    // because it can exist before it is authenticated.
+    address_nonce_tanle: RwLock<Table<Symbol, (String, /* expires */ u64)>>,
+    // Stores the address to which the session should be forwarded when it sends indication to a
+    // port. This is written when permissions are created to allow a certain address to be
+    // forwarded to the current session.
+    port_relay_table: RwLock<Table<Symbol, HashMap</* port */ u16, Symbol>>>,
+    // Indicates to which session the data sent by a session to a channel should be forwarded.
+    channel_relay_table: RwLock<Table<Symbol, HashMap</* channel */ u16, Symbol>>>,
+}
+
+pub struct Sessions<T> {
+    timer: Timer,
+    state: State,
+    observer: T,
+}
+
+impl<T: Observer + 'static> Sessions<T> {
+    pub fn new(observer: T) -> Arc<Self> {
+        let this = Arc::new(Self {
+            state: State::default(),
+            timer: Timer::default(),
+            observer,
+        });
+
+        // This is a background thread that silently handles expiring sessions and
+        // cleans up session information when it expires.
+        let this_ = Arc::downgrade(&this);
+        thread::spawn(move || {
+            let mut address = Vec::with_capacity(255);
+
+            while let Some(this) = this_.upgrade() {
+                // The timer advances one second and gets the current time offset.
+                let now = this.timer.add();
+
+                // This is the part that deletes the session information.
+                {
+                    // Finds sessions that have expired.
+                    {
+                        this.state
+                            .sessions
+                            .read()
+                            .iter()
+                            .filter(|(_, v)| v.expires <= now)
+                            .for_each(|(k, _)| address.push(*k));
+                    }
+
+                    // Delete the expired sessions.
+                    if !address.is_empty() {
+                        let mut sessions = this.state.sessions.write();
+                        let mut port_allocate_pool = this.state.port_allocate_pool.lock();
+                        let mut port_mapping_table = this.state.port_mapping_table.write();
+                        let mut port_relay_table = this.state.port_relay_table.write();
+                        let mut channel_relay_table = this.state.channel_relay_table.write();
+
+                        address.iter().for_each(|k| {
+                            port_relay_table.remove(k);
+                            channel_relay_table.remove(k);
+
+                            if let Some(session) = sessions.remove(k) {
+                                // Removes the session-bound port from the port binding table and
+                                // releases the port back into the allocation pool.
+                                if let Some(port) = session.allocate.port {
+                                    port_mapping_table.remove(&port);
+                                    port_allocate_pool.restore(port);
+                                }
+
+                                // Notifies that the external session has been closed.
+                                this.observer.closed(k, &session.auth.username);
+                            }
+                        });
+
+                        address.clear();
+                    }
+                }
+
+                // Because nonce does not follow session creation, nonce is created for each
+                // socket, so nonce deletion is handled independently.
+                {
+                    this.state
+                        .address_nonce_tanle
+                        .read()
+                        .iter()
+                        .filter(|(_, v)| v.1 <= now)
+                        .for_each(|(k, _)| address.push(*k));
+
+                    if !address.is_empty() {
+                        let mut address_nonce_tanle = this.state.address_nonce_tanle.write();
+
+                        address.iter().for_each(|k| {
+                            address_nonce_tanle.remove(k);
+                        });
+
+                        address.clear();
+                    }
+                }
+
+                // Fixing a second tick.
+                sleep(Duration::from_secs(1));
+            }
+        });
+
+        this
+    }
+
+    /// Get session for symbol.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use async_trait::async_trait;
+    /// use stun::Transport;
+    /// use turn::*;
+    ///
+    /// #[derive(Clone)]
+    /// struct ObserverTest;
+    ///
+    /// #[async_trait]
+    /// impl Observer for ObserverTest {
+    ///     async fn get_password(
+    ///         &self,
+    ///         symbol: &Symbol,
+    ///         username: &str,
+    ///     ) -> Option<String> {
+    ///         if username == "test" {
+    ///             Some("test".to_string())
+    ///         } else {
+    ///             None
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let symbol = Symbol {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let digest = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let sessions = Sessions::new(ObserverTest);
+    ///
+    /// assert!(sessions.get_session(&symbol).get_ref().is_none());
+    ///
+    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    ///
+    /// let lock = sessions.get_session(&symbol);
+    /// let session = lock.get_ref().unwrap();
+    /// assert_eq!(session.auth.username, "test");
+    /// assert_eq!(session.auth.password, "test");
+    /// assert_eq!(session.allocate.port, None);
+    /// assert_eq!(session.allocate.channel, None);
+    /// ```
+    pub fn get_session<'a, 'b>(
+        &'a self,
+        key: &'b Symbol,
+    ) -> ReadLock<'b, 'a, Symbol, Table<Symbol, Session>> {
+        ReadLock {
+            lock: self.state.sessions.read(),
+            key,
+        }
+    }
+
+    /// Get nonce for symbol.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use async_trait::async_trait;
+    /// use stun::Transport;
+    /// use turn::*;
+    ///
+    /// #[derive(Clone)]
+    /// struct ObserverTest;
+    ///
+    /// #[async_trait]
+    /// impl Observer for ObserverTest {}
+    ///
+    /// let symbol = Symbol {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let sessions = Sessions::new(ObserverTest);
+    ///
+    /// let a = sessions.get_nonce(&symbol).get_ref().unwrap().clone();
+    /// assert!(a.0.len() == 16);
+    /// assert!(a.1 == 600 || a.1 == 601 || a.1 == 602);
+    ///
+    /// let b = sessions.get_nonce(&symbol).get_ref().unwrap().clone();
+    /// assert_eq!(a.0, b.0);
+    /// assert!(b.1 == 600 || b.1 == 601 || b.1 == 602);
+    /// ```
+    pub fn get_nonce<'a, 'b>(
+        &'a self,
+        key: &'b Symbol,
+    ) -> ReadLock<'b, 'a, Symbol, Table<Symbol, (String, u64)>> {
+        // If no nonce is created, create a new one.
+        {
+            if !self.state.address_nonce_tanle.read().contains_key(key) {
+                self.state.address_nonce_tanle.write().insert(
+                    *key,
+                    (
+                        // A random string of length 16.
+                        {
+                            let mut rng = thread_rng();
+                            std::iter::repeat(())
+                                .map(|_| rng.sample(Alphanumeric) as char)
+                                .take(16)
+                                .collect::<String>()
+                                .to_lowercase()
+                        },
+                        // Current time stacks for 600 seconds.
+                        self.timer.get() + 600,
+                    ),
+                );
+            }
+        }
+
+        ReadLock {
+            lock: self.state.address_nonce_tanle.read(),
+            key,
+        }
+    }
+
+    /// Get digest for symbol.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use async_trait::async_trait;
+    /// use stun::Transport;
+    /// use turn::*;
+    ///
+    /// #[derive(Clone)]
+    /// struct ObserverTest;
+    ///
+    /// #[async_trait]
+    /// impl Observer for ObserverTest {
+    ///     async fn get_password(
+    ///         &self,
+    ///         symbol: &Symbol,
+    ///         username: &str,
+    ///     ) -> Option<String> {
+    ///         if username == "test" {
+    ///             Some("test".to_string())
+    ///         } else {
+    ///             None
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let symbol = Symbol {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let digest = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let sessions = Sessions::new(ObserverTest);
+    ///
+    /// assert_eq!(
+    ///     pollster::block_on(sessions.get_digest(&symbol, "test1", "test")),
+    ///     None
+    /// );
+    ///
+    /// assert_eq!(
+    ///     pollster::block_on(sessions.get_digest(&symbol, "test", "test")),
+    ///     Some(digest)
+    /// );
+    ///
+    /// assert_eq!(
+    ///     pollster::block_on(sessions.get_digest(&symbol, "test", "test")),
+    ///     Some(digest)
+    /// );
+    /// ```
+    pub async fn get_digest(
+        &self,
+        symbol: &Symbol,
+        username: &str,
+        realm: &str,
+    ) -> Option<[u8; 16]> {
+        // Already authenticated, get the cached digest directly.
+        {
+            if let Some(it) = self.state.sessions.read().get(symbol) {
+                return Some(it.auth.digest);
+            }
+        }
+
+        // Get the current user's password from an external observer and create a
+        // digest.
+        let password = self.observer.get_password(symbol, username).await?;
+        let digest = long_key(&username, &password, realm);
+
+        // Record a new session.
+        {
+            self.state.sessions.write().insert(
+                *symbol,
+                Session {
+                    permissions: Vec::with_capacity(10),
+                    expires: self.timer.get() + 600,
+                    auth: Auth {
+                        username: username.to_string(),
+                        password,
+                        digest,
+                    },
+                    allocate: Allocate {
+                        channels: Vec::with_capacity(10),
+                        port: None,
+                    },
+                },
+            );
+        }
+
+        Some(digest)
+    }
+
+    pub fn allocated(&self) -> usize {
+        self.state.port_allocate_pool.lock().len()
+    }
+
+    /// Assign a port number to the session.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use async_trait::async_trait;
+    /// use stun::Transport;
+    /// use turn::*;
+    ///
+    /// #[derive(Clone)]
+    /// struct ObserverTest;
+    ///
+    /// #[async_trait]
+    /// impl Observer for ObserverTest {
+    ///     async fn get_password(
+    ///         &self,
+    ///         symbol: &Symbol,
+    ///         username: &str,
+    ///     ) -> Option<String> {
+    ///         if username == "test" {
+    ///             Some("test".to_string())
+    ///         } else {
+    ///             None
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let symbol = Symbol {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let digest = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let sessions = Sessions::new(ObserverTest);
+    ///
+    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    ///
+    /// {
+    ///     let lock = sessions.get_session(&symbol);
+    ///     let session = lock.get_ref().unwrap();
+    ///     assert_eq!(session.auth.username, "test");
+    ///     assert_eq!(session.auth.password, "test");
+    ///     assert_eq!(session.allocate.port, None);
+    ///     assert_eq!(session.allocate.channel, None);
+    /// }
+    ///
+    /// let port = sessions.allocate(&symbol).unwrap();
+    /// {
+    ///     let lock = sessions.get_session(&symbol);
+    ///     let session = lock.get_ref().unwrap();
+    ///     assert_eq!(session.auth.username, "test");
+    ///     assert_eq!(session.auth.password, "test");
+    ///     assert_eq!(session.allocate.port, Some(port));
+    ///     assert_eq!(session.allocate.channel, None);
+    /// }
+    ///
+    /// assert!(sessions.allocate(&symbol).is_none());
+    /// ```
+    pub fn allocate(&self, symbol: &Symbol) -> Option<u16> {
+        let mut lock = self.state.sessions.write();
+        let session = lock.get_mut(symbol)?;
+
+        // If the port has already been allocated, re-allocation is not allowed.
+        if session.allocate.port.is_some() {
+            return None;
+        }
+
+        // Records the port assigned to the current session and resets the alive time.
+        let port = self.state.port_allocate_pool.lock().alloc(None)?;
+        session.expires = self.timer.get() + 600;
+        session.allocate.port = Some(port);
+
+        // Write the allocation port binding table.
+        self.state.port_mapping_table.write().insert(port, *symbol);
+        Some(port)
+    }
+
+    /// Create permission for session.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use async_trait::async_trait;
+    /// use stun::Transport;
+    /// use turn::*;
+    ///
+    /// #[derive(Clone)]
+    /// struct ObserverTest;
+    ///
+    /// #[async_trait]
+    /// impl Observer for ObserverTest {
+    ///     async fn get_password(
+    ///         &self,
+    ///         symbol: &Symbol,
+    ///         username: &str,
+    ///     ) -> Option<String> {
+    ///         if username == "test" {
+    ///             Some("test".to_string())
+    ///         } else {
+    ///             None
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let symbol = Symbol {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let peer_symbol = Symbol {
+    ///     address: "127.0.0.1:8081".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let digest = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let sessions = Sessions::new(ObserverTest);
+    ///
+    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
+    ///
+    /// let port = sessions.allocate(&symbol).unwrap();
+    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
+    ///
+    /// assert!(!sessions.create_permission(&symbol, &[port]));
+    /// assert!(sessions.create_permission(&symbol, &[peer_port]));
+    ///
+    /// assert!(!sessions.create_permission(&peer_symbol, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_symbol, &[port]));
+    /// ```
+    pub fn create_permission(&self, symbol: &Symbol, ports: &[u16]) -> bool {
+        let mut sessions = self.state.sessions.write();
+        let mut port_relay_table = self.state.port_relay_table.write();
+        let port_mapping_table = self.state.port_mapping_table.read();
+
+        // Finds information about the current session.
+        let session = if let Some(it) = sessions.get_mut(symbol) {
+            it
+        } else {
+            return false;
+        };
+
+        // The port number assigned to the current session.
+        let local_port = if let Some(it) = session.allocate.port {
+            it
+        } else {
+            return false;
+        };
+
+        // You cannot create permissions for yourself.
+        if ports.contains(&local_port) {
+            return false;
+        }
+
+        // Each peer port must be present.
+        let mut peers = Vec::with_capacity(15);
+        for port in ports {
+            if let Some(it) = port_mapping_table.get(&port) {
+                peers.push((it, *port));
+            } else {
+                return false;
+            }
+        }
+
+        // Create a port forwarding mapping relationship for each peer session.
+        for (peer, port) in peers {
+            port_relay_table
+                .entry(*peer)
+                .or_insert_with(|| HashMap::with_capacity(20))
+                .insert(local_port, *symbol);
+
+            // Do not store the same peer ports to the permission list over and over again.
+            if !session.permissions.contains(&port) {
+                session.permissions.push(port);
+            }
+        }
+
+        true
+    }
+
+    /// Binding a channel to the session.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use async_trait::async_trait;
+    /// use stun::Transport;
+    /// use turn::*;
+    ///
+    /// #[derive(Clone)]
+    /// struct ObserverTest;
+    ///
+    /// #[async_trait]
+    /// impl Observer for ObserverTest {
+    ///     async fn get_password(
+    ///         &self,
+    ///         symbol: &Symbol,
+    ///         username: &str,
+    ///     ) -> Option<String> {
+    ///         if username == "test" {
+    ///             Some("test".to_string())
+    ///         } else {
+    ///             None
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let symbol = Symbol {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let peer_symbol = Symbol {
+    ///     address: "127.0.0.1:8081".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let digest = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let sessions = Sessions::new(ObserverTest);
+    ///
+    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
+    ///
+    /// let port = sessions.allocate(&symbol).unwrap();
+    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
+    /// assert_eq!(
+    ///     sessions
+    ///         .get_session(&symbol)
+    ///         .get_ref()
+    ///         .unwrap()
+    ///         .allocate
+    ///         .channel,
+    ///     None
+    /// );
+    ///
+    /// assert_eq!(
+    ///     sessions
+    ///         .get_session(&peer_symbol)
+    ///         .get_ref()
+    ///         .unwrap()
+    ///         .allocate
+    ///         .channel,
+    ///     None
+    /// );
+    ///
+    /// assert!(sessions.bind_channel(&symbol, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_symbol, port, 0x4000));
+    /// assert_eq!(
+    ///     sessions
+    ///         .get_session(&symbol)
+    ///         .get_ref()
+    ///         .unwrap()
+    ///         .allocate
+    ///         .channel,
+    ///     Some(0x4000)
+    /// );
+    ///
+    /// assert_eq!(
+    ///     sessions
+    ///         .get_session(&peer_symbol)
+    ///         .get_ref()
+    ///         .unwrap()
+    ///         .allocate
+    ///         .channel,
+    ///     Some(0x4000)
+    /// );
+    /// ```
+    pub fn bind_channel(&self, symbol: &Symbol, port: u16, channel: u16) -> bool {
+        // Finds the address of the bound opposing port.
+        let peer = if let Some(it) = self.state.port_mapping_table.read().get(&port) {
+            *it
+        } else {
+            return false;
+        };
+
+        // Records the channel used for the current session.
+        {
+            let mut lock = self.state.sessions.write();
+            if let Some(session) = lock.get_mut(symbol) {
+                if !session.allocate.channels.contains(&channel) {
+                    session.allocate.channels.push(channel);
+                }
+            }
+        }
+
+        // Binding ports also creates permissions.
+        if !self.create_permission(symbol, &[port]) {
+            return false;
+        }
+
+        // Create channel forwarding mapping relationships for peers.
+        self.state
+            .channel_relay_table
+            .write()
+            .entry(peer)
+            .or_insert_with(|| HashMap::with_capacity(10))
+            .insert(channel, *symbol);
+
+        true
+    }
+
+    /// Gets the peer of the current session bound channel.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use async_trait::async_trait;
+    /// use stun::Transport;
+    /// use turn::*;
+    ///
+    /// #[derive(Clone)]
+    /// struct ObserverTest;
+    ///
+    /// #[async_trait]
+    /// impl Observer for ObserverTest {
+    ///     async fn get_password(
+    ///         &self,
+    ///         symbol: &Symbol,
+    ///         username: &str,
+    ///     ) -> Option<String> {
+    ///         if username == "test" {
+    ///             Some("test".to_string())
+    ///         } else {
+    ///             None
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let symbol = Symbol {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let peer_symbol = Symbol {
+    ///     address: "127.0.0.1:8081".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let digest = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let sessions = Sessions::new(ObserverTest);
+    ///
+    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
+    ///
+    /// let port = sessions.allocate(&symbol).unwrap();
+    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
+    ///
+    /// assert!(sessions.bind_channel(&symbol, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_symbol, port, 0x4000));
+    /// assert_eq!(
+    ///     sessions.get_channel_relay_address(&symbol, 0x4000),
+    ///     Some(peer_symbol)
+    /// );
+    ///
+    /// assert_eq!(
+    ///     sessions.get_channel_relay_address(&peer_symbol, 0x4000),
+    ///     Some(symbol)
+    /// );
+    /// ```
+    pub fn get_channel_relay_address(&self, symbol: &Symbol, channel: u16) -> Option<Symbol> {
+        self.state
+            .channel_relay_table
+            .read()
+            .get(&symbol)?
+            .get(&channel)
+            .copied()
+    }
+
+    /// Get the address of the port binding.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use async_trait::async_trait;
+    /// use stun::Transport;
+    /// use turn::*;
+    ///
+    /// #[derive(Clone)]
+    /// struct ObserverTest;
+    ///
+    /// #[async_trait]
+    /// impl Observer for ObserverTest {
+    ///     async fn get_password(
+    ///         &self,
+    ///         symbol: &Symbol,
+    ///         username: &str,
+    ///     ) -> Option<String> {
+    ///         if username == "test" {
+    ///             Some("test".to_string())
+    ///         } else {
+    ///             None
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let symbol = Symbol {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let peer_symbol = Symbol {
+    ///     address: "127.0.0.1:8081".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let digest = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let sessions = Sessions::new(ObserverTest);
+    ///
+    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
+    ///
+    /// let port = sessions.allocate(&symbol).unwrap();
+    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
+    ///
+    /// assert!(sessions.create_permission(&symbol, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_symbol, &[port]));
+    ///
+    /// assert_eq!(
+    ///     sessions.get_relay_address(&symbol, peer_port),
+    ///     Some(peer_symbol)
+    /// );
+    /// assert_eq!(sessions.get_relay_address(&peer_symbol, port), Some(symbol));
+    /// ```
+    pub fn get_relay_address(&self, symbol: &Symbol, port: u16) -> Option<Symbol> {
+        self.state
+            .port_relay_table
+            .read()
+            .get(&symbol)?
+            .get(&port)
+            .copied()
+    }
+
+    /// Refresh the session for symbol.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use async_trait::async_trait;
+    /// use stun::Transport;
+    /// use turn::*;
+    ///
+    /// #[derive(Clone)]
+    /// struct ObserverTest;
+    ///
+    /// #[async_trait]
+    /// impl Observer for ObserverTest {
+    ///     async fn get_password(
+    ///         &self,
+    ///         symbol: &Symbol,
+    ///         username: &str,
+    ///     ) -> Option<String> {
+    ///         if username == "test" {
+    ///             Some("test".to_string())
+    ///         } else {
+    ///             None
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let symbol = Symbol {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::UDP,
+    /// };
+    ///
+    /// let digest = [
+    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
+    ///     239,
+    /// ];
+    ///
+    /// let sessions = Sessions::new(ObserverTest);
+    ///
+    /// assert!(sessions.get_session(&symbol).get_ref().is_none());
+    ///
+    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    ///
+    /// let expires = sessions.get_session(&symbol).get_ref().unwrap().expires;
+    /// assert!(expires == 600 || expires == 601 || expires == 602);
+    ///
+    /// assert!(sessions.refresh(&symbol, 0));
+    /// std::thread::sleep(std::time::Duration::from_secs(2));
+    ///
+    /// assert!(sessions.get_session(&symbol).get_ref().is_none());
+    /// ```
+    pub fn refresh(&self, symbol: &Symbol, lifetime: u32) -> bool {
+        if lifetime > 3600 {
+            return false;
+        }
+
+        if let Some(session) = self.state.sessions.write().get_mut(symbol) {
+            session.expires = self.timer.get() + lifetime as u64;
+        } else {
+            return false;
+        }
+
+        if let Some(nonce) = self.state.address_nonce_tanle.write().get_mut(symbol) {
+            nonce.1 = self.timer.get() + lifetime as u64;
+        }
+
+        true
+    }
+}
+
+/// The default HashMap is created without allocating capacity. To improve
+/// performance, the turn server needs to pre-allocate the available capacity.
+///
+/// So here the HashMap is rewrapped to allocate a large capacity (number of
+/// ports that can be allocated) at the default creation time as well.
+pub struct Table<K, V>(HashMap<K, V>);
+
+impl<K, V> Default for Table<K, V> {
+    fn default() -> Self {
+        Self(HashMap::with_capacity(PortAllocatePools::capacity()))
+    }
+}
+
+impl<K, V> AsRef<HashMap<K, V>> for Table<K, V> {
+    fn as_ref(&self) -> &HashMap<K, V> {
+        &self.0
+    }
+}
+
+impl<K, V> Deref for Table<K, V> {
+    type Target = HashMap<K, V>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<K, V> DerefMut for Table<K, V> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 /// Used to lengthen the timing of the release of a readable lock guard and to
 /// provide a more convenient way for external access to the lock's internal
@@ -25,7 +997,7 @@ pub struct ReadLock<'a, 'b, K, R> {
     lock: RwLockReadGuard<'b, R>,
 }
 
-impl<'a, 'b, K, V> ReadLock<'a, 'b, K, HashMap<K, V>>
+impl<'a, 'b, K, V> ReadLock<'a, 'b, K, Table<K, V>>
 where
     K: Eq + Hash,
 {
@@ -89,7 +1061,7 @@ impl Default for PortAllocatePools {
 impl PortAllocatePools {
     /// compute bucket size.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use turn::sessions::*;
@@ -102,7 +1074,7 @@ impl PortAllocatePools {
 
     /// compute bucket last bit max offset.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use turn::sessions::*;
@@ -115,7 +1087,7 @@ impl PortAllocatePools {
 
     /// get pools capacity.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use turn::sessions::Bit;
@@ -129,7 +1101,7 @@ impl PortAllocatePools {
 
     /// get port range.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use turn::sessions::*;
@@ -170,7 +1142,7 @@ impl PortAllocatePools {
 
     /// random assign a port.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use turn::sessions::PortAllocatePools;
@@ -241,7 +1213,7 @@ impl PortAllocatePools {
 
     /// write bit flag in the bucket.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use turn::sessions::Bit;
@@ -274,7 +1246,7 @@ impl PortAllocatePools {
 
     /// restore port in the buckets.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use turn::sessions::PortAllocatePools;
@@ -313,807 +1285,5 @@ impl PortAllocatePools {
 
         self.set_bit(bucket, index, Bit::Low);
         self.allocated -= 1;
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Address {
-    Inner(u16),
-    External(SocketAddr),
-}
-
-/// Authentication information for the session.
-///
-/// Digest data is data that summarises usernames and passwords by means of
-/// long-term authentication.
-#[derive(Debug, Clone)]
-pub struct Auth {
-    pub username: String,
-    pub password: String,
-    pub digest: [u8; 16],
-}
-
-/// Assignment information for the session.
-///
-/// Sessions are all bound to only one port and one channel.
-#[derive(Debug, Clone, Copy)]
-pub struct Allocate {
-    pub port: Option<u16>,
-    pub channel: Option<u16>,
-}
-
-/// turn session information.
-///
-/// A user can have many sessions.
-///
-/// The default survival time for a session is 600 seconds.
-#[derive(Debug, Clone)]
-pub struct Session {
-    pub auth: Auth,
-    pub allocate: Allocate,
-    pub expires: u64,
-}
-
-/// Each socket is assigned a nonce.
-///
-/// A nonce is a random string with a typical survival time of 3600 seconds.
-#[derive(Debug, Clone)]
-pub struct Nonce {
-    pub nonce: String,
-    pub expires: u64,
-}
-
-/// The identifier of the session or socket.
-///
-/// Each session needs to be identified by a combination of three pieces of
-/// information: the socket address, the source interface, and the transport
-/// protocol.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Symbol {
-    pub address: SocketAddr,
-    pub interface: SocketAddr,
-    pub transport: Transport,
-}
-
-/// A specially optimised timer.
-///
-/// This timer does not stack automatically and needs to be stacked externally
-/// and manually.
-///
-/// ```
-/// use turn::sessions::Timer;
-///
-/// let timer = Timer::default();
-///
-/// assert_eq!(timer.get(), 0);
-/// assert_eq!(timer.add(), 1);
-/// assert_eq!(timer.get(), 1);
-/// ```
-#[derive(Default)]
-pub struct Timer(AtomicU64);
-
-impl Timer {
-    pub fn get(&self) -> u64 {
-        self.0.load(Ordering::Relaxed)
-    }
-
-    pub fn add(&self) -> u64 {
-        self.0.fetch_add(1, Ordering::Relaxed) + 1
-    }
-}
-
-pub struct Sessions<T> {
-    sessions: RwLock<HashMap<Symbol, Session>>,
-    // port allocate pool
-    pap: Mutex<PortAllocatePools>,
-    // port bind table
-    pbt: RwLock<HashMap<u16, Symbol>>,
-    // channel bind table
-    cbt: RwLock<HashMap<(Symbol, u16), Symbol>>,
-    // address nonce table
-    ant: RwLock<HashMap<Symbol, Nonce>>,
-    observer: T,
-    timer: Timer,
-}
-
-impl<T: Observer + 'static> Sessions<T> {
-    pub fn new(observer: T) -> Arc<Self> {
-        let this = Arc::new(Self {
-            sessions: RwLock::new(HashMap::with_capacity(PortAllocatePools::capacity())),
-            pbt: RwLock::new(HashMap::with_capacity(PortAllocatePools::capacity())),
-            cbt: RwLock::new(HashMap::with_capacity(PortAllocatePools::capacity())),
-            ant: RwLock::new(HashMap::with_capacity(1024)),
-            pap: Default::default(),
-            timer: Default::default(),
-            observer,
-        });
-
-        // This is a background thread that silently handles expiring sessions and
-        // cleans up session information when it expires.
-        let this_ = Arc::downgrade(&this);
-        thread::spawn(move || {
-            let mut keys = Vec::with_capacity(255);
-
-            while let Some(this) = this_.upgrade() {
-                // The timer advances one second and gets the current time offset.
-                let now = this.timer.add();
-
-                // This is the part that deletes the session information.
-                {
-                    // Finds sessions that have expired.
-                    {
-                        this.sessions
-                            .read()
-                            .iter()
-                            .filter(|(_, v)| v.expires <= now)
-                            .for_each(|(k, _)| keys.push(*k));
-                    }
-
-                    // Delete the expired sessions.
-                    if !keys.is_empty() {
-                        let mut sessions_lock = this.sessions.write();
-                        let mut pbt_lock = this.pbt.write();
-                        let mut cbt_lock = this.cbt.write();
-                        let mut pap_lock = this.pap.lock();
-
-                        keys.iter().for_each(|k| {
-                            if let Some(session) = sessions_lock.remove(k) {
-                                // Removes the session-bound port from the port binding table and
-                                // releases the port back into the allocation pool.
-                                if let Some(port) = session.allocate.port {
-                                    pbt_lock.remove(&port);
-                                    pap_lock.restore(port);
-                                }
-
-                                // Removes a session's binding relationship from the channel binding
-                                // table.
-                                if let Some(channel) = session.allocate.channel {
-                                    cbt_lock.remove(&(*k, channel));
-                                }
-
-                                // Notifies that the external session has been closed.
-                                this.observer.closed(k, &session.auth.username);
-                            }
-                        });
-
-                        keys.clear();
-                    }
-                }
-
-                // Because nonce does not follow session creation, nonce is created for each
-                // socket, so nonce deletion is handled independently.
-                {
-                    this.ant
-                        .read()
-                        .iter()
-                        .filter(|(_, v)| v.expires <= now)
-                        .for_each(|(k, _)| keys.push(*k));
-
-                    if !keys.is_empty() {
-                        let mut ant_lock = this.ant.write();
-
-                        keys.iter().for_each(|k| {
-                            ant_lock.remove(k);
-                        });
-
-                        keys.clear();
-                    }
-                }
-
-                // Fixing a second tick.
-                sleep(Duration::from_secs(1));
-            }
-        });
-
-        this
-    }
-
-    /// Get session for symbol.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_trait::async_trait;
-    /// use stun::Transport;
-    /// use turn::*;
-    ///
-    /// #[derive(Clone)]
-    /// struct ObserverTest;
-    ///
-    /// #[async_trait]
-    /// impl Observer for ObserverTest {
-    ///     async fn get_password(
-    ///         &self,
-    ///         key: &Symbol,
-    ///         username: &str,
-    ///     ) -> Option<String> {
-    ///         if username == "test" {
-    ///             Some("test".to_string())
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let symbol = Symbol {
-    ///     address: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let digest = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let sessions = Sessions::new(ObserverTest);
-    ///
-    /// assert!(sessions.get_session(&symbol).get_ref().is_none());
-    ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    ///
-    /// let lock = sessions.get_session(&symbol);
-    /// let session = lock.get_ref().unwrap();
-    /// assert_eq!(session.auth.username, "test");
-    /// assert_eq!(session.auth.password, "test");
-    /// assert_eq!(session.allocate.port, None);
-    /// assert_eq!(session.allocate.channel, None);
-    /// ```
-    pub fn get_session<'a, 'b>(
-        &'a self,
-        key: &'b Symbol,
-    ) -> ReadLock<'b, 'a, Symbol, HashMap<Symbol, Session>> {
-        ReadLock {
-            lock: self.sessions.read(),
-            key,
-        }
-    }
-
-    /// Get digest for symbol.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_trait::async_trait;
-    /// use stun::Transport;
-    /// use turn::*;
-    ///
-    /// #[derive(Clone)]
-    /// struct ObserverTest;
-    ///
-    /// #[async_trait]
-    /// impl Observer for ObserverTest {}
-    ///
-    /// let symbol = Symbol {
-    ///     address: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let sessions = Sessions::new(ObserverTest);
-    ///
-    /// let a = sessions.get_nonce(&symbol).get_ref().unwrap().clone();
-    /// assert!(a.nonce.len() == 16);
-    /// assert!(a.expires == 3600);
-    ///
-    /// let b = sessions.get_nonce(&symbol).get_ref().unwrap().clone();
-    /// assert_eq!(a.nonce, b.nonce);
-    /// assert!(b.expires == 3600);
-    /// ```
-    pub fn get_nonce<'a, 'b>(
-        &'a self,
-        key: &'b Symbol,
-    ) -> ReadLock<'b, 'a, Symbol, HashMap<Symbol, Nonce>> {
-        // If no nonce is created, create a new one.
-        {
-            if !self.ant.read().contains_key(key) {
-                self.ant.write().insert(
-                    *key,
-                    Nonce {
-                        // Current time stacks for 3600 seconds.
-                        expires: self.timer.get() + 3600,
-                        // A random string of length 16.
-                        nonce: {
-                            let mut rng = thread_rng();
-                            std::iter::repeat(())
-                                .map(|_| rng.sample(Alphanumeric) as char)
-                                .take(16)
-                                .collect::<String>()
-                                .to_lowercase()
-                        },
-                    },
-                );
-            }
-        }
-
-        ReadLock {
-            lock: self.ant.read(),
-            key,
-        }
-    }
-
-    /// Get digest for symbol.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_trait::async_trait;
-    /// use stun::Transport;
-    /// use turn::*;
-    ///
-    /// #[derive(Clone)]
-    /// struct ObserverTest;
-    ///
-    /// #[async_trait]
-    /// impl Observer for ObserverTest {
-    ///     async fn get_password(
-    ///         &self,
-    ///         key: &Symbol,
-    ///         username: &str,
-    ///     ) -> Option<String> {
-    ///         if username == "test" {
-    ///             Some("test".to_string())
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let symbol = Symbol {
-    ///     address: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let digest = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let sessions = Sessions::new(ObserverTest);
-    ///
-    /// assert_eq!(
-    ///     pollster::block_on(sessions.get_digest(&symbol, "test1", "test")),
-    ///     None
-    /// );
-    ///
-    /// assert_eq!(
-    ///     pollster::block_on(sessions.get_digest(&symbol, "test", "test")),
-    ///     Some(digest)
-    /// );
-    ///
-    /// assert_eq!(
-    ///     pollster::block_on(sessions.get_digest(&symbol, "test", "test")),
-    ///     Some(digest)
-    /// );
-    /// ```
-    pub async fn get_digest(&self, key: &Symbol, username: &str, realm: &str) -> Option<[u8; 16]> {
-        // Already authenticated, get the cached digest directly.
-        {
-            if let Some(it) = self.sessions.read().get(key) {
-                return Some(it.auth.digest);
-            }
-        }
-
-        // Get the current user's password from an external observer and create a
-        // digest.
-        let password = self.observer.get_password(key, username).await?;
-        let digest = long_key(&username, &password, realm);
-
-        // Record a new session.
-        {
-            self.sessions.write().insert(
-                *key,
-                Session {
-                    expires: self.timer.get() + 600,
-                    auth: Auth {
-                        username: username.to_string(),
-                        password,
-                        digest,
-                    },
-                    allocate: Allocate {
-                        port: None,
-                        channel: None,
-                    },
-                },
-            );
-        }
-
-        Some(digest)
-    }
-
-    pub fn allocated(&self) -> usize {
-        self.pap.lock().len()
-    }
-
-    /// Assign a port number to the session.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_trait::async_trait;
-    /// use stun::Transport;
-    /// use turn::*;
-    ///
-    /// #[derive(Clone)]
-    /// struct ObserverTest;
-    ///
-    /// #[async_trait]
-    /// impl Observer for ObserverTest {
-    ///     async fn get_password(
-    ///         &self,
-    ///         key: &Symbol,
-    ///         username: &str,
-    ///     ) -> Option<String> {
-    ///         if username == "test" {
-    ///             Some("test".to_string())
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let symbol = Symbol {
-    ///     address: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let digest = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let sessions = Sessions::new(ObserverTest);
-    ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    ///
-    /// {
-    ///     let lock = sessions.get_session(&symbol);
-    ///     let session = lock.get_ref().unwrap();
-    ///     assert_eq!(session.auth.username, "test");
-    ///     assert_eq!(session.auth.password, "test");
-    ///     assert_eq!(session.allocate.port, None);
-    ///     assert_eq!(session.allocate.channel, None);
-    /// }
-    ///
-    /// let port = sessions.allocate(&symbol).unwrap();
-    /// {
-    ///     let lock = sessions.get_session(&symbol);
-    ///     let session = lock.get_ref().unwrap();
-    ///     assert_eq!(session.auth.username, "test");
-    ///     assert_eq!(session.auth.password, "test");
-    ///     assert_eq!(session.allocate.port, Some(port));
-    ///     assert_eq!(session.allocate.channel, None);
-    /// }
-    ///
-    /// assert!(sessions.allocate(&symbol).is_none());
-    /// ```
-    pub fn allocate(&self, key: &Symbol) -> Option<u16> {
-        let mut lock = self.sessions.write();
-        let session = lock.get_mut(key)?;
-
-        // If the port has already been allocated, re-allocation is not allowed.
-        if session.allocate.port.is_some() {
-            return None;
-        }
-
-        // Records the port assigned to the current session and resets the alive time.
-        let port = self.pap.lock().alloc(None)?;
-        session.expires = self.timer.get() + 600;
-        session.allocate.port = Some(port);
-
-        // Write the allocation port binding table.
-        self.pbt.write().insert(port, *key);
-        Some(port)
-    }
-
-    /// Create permission for the session.
-    pub fn create_permission(&self, key: &Symbol, addrs: &[SocketAddr]) -> bool {
-        todo!()
-    }
-
-    /// Binding a channel to the session.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_trait::async_trait;
-    /// use stun::Transport;
-    /// use turn::*;
-    ///
-    /// #[derive(Clone)]
-    /// struct ObserverTest;
-    ///
-    /// #[async_trait]
-    /// impl Observer for ObserverTest {
-    ///     async fn get_password(
-    ///         &self,
-    ///         key: &Symbol,
-    ///         username: &str,
-    ///     ) -> Option<String> {
-    ///         if username == "test" {
-    ///             Some("test".to_string())
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let symbol = Symbol {
-    ///     address: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let peer_symbol = Symbol {
-    ///     address: "127.0.0.1:8081".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let digest = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let sessions = Sessions::new(ObserverTest);
-    ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
-    ///
-    /// let port = sessions.allocate(&symbol).unwrap();
-    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
-    /// assert_eq!(
-    ///     sessions
-    ///         .get_session(&symbol)
-    ///         .get_ref()
-    ///         .unwrap()
-    ///         .allocate
-    ///         .channel,
-    ///     None
-    /// );
-    ///
-    /// assert_eq!(
-    ///     sessions
-    ///         .get_session(&peer_symbol)
-    ///         .get_ref()
-    ///         .unwrap()
-    ///         .allocate
-    ///         .channel,
-    ///     None
-    /// );
-    ///
-    /// assert!(sessions.bind_channel(&symbol, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_symbol, port, 0x4000));
-    /// assert_eq!(
-    ///     sessions
-    ///         .get_session(&symbol)
-    ///         .get_ref()
-    ///         .unwrap()
-    ///         .allocate
-    ///         .channel,
-    ///     Some(0x4000)
-    /// );
-    ///
-    /// assert_eq!(
-    ///     sessions
-    ///         .get_session(&peer_symbol)
-    ///         .get_ref()
-    ///         .unwrap()
-    ///         .allocate
-    ///         .channel,
-    ///     Some(0x4000)
-    /// );
-    /// ```
-    pub fn bind_channel(&self, key: &Symbol, port: u16, channel: u16) -> bool {
-        // Finds the address of the bound opposing port.
-        let peer = if let Some(it) = self.pbt.read().get(&port) {
-            *it
-        } else {
-            return false;
-        };
-
-        // Checks if the current session is already bound to a channel, if it is already
-        // bound and is not a duplicate binding, rejects the binding, if it is a normal
-        // binding records the bound channel to the session.
-        {
-            let mut lock = self.sessions.write();
-            if let Some(session) = lock.get_mut(key) {
-                if let Some(it) = session.allocate.channel {
-                    if it != channel {
-                        return false;
-                    }
-                }
-
-                session.allocate.channel = Some(channel);
-            }
-        }
-
-        // Records the binding relationship to the channel binding mapping table.
-        {
-            self.cbt.write().insert((*key, channel), peer);
-        }
-
-        true
-    }
-
-    /// Gets the peer of the current session bound channel.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_trait::async_trait;
-    /// use stun::Transport;
-    /// use turn::*;
-    ///
-    /// #[derive(Clone)]
-    /// struct ObserverTest;
-    ///
-    /// #[async_trait]
-    /// impl Observer for ObserverTest {
-    ///     async fn get_password(
-    ///         &self,
-    ///         key: &Symbol,
-    ///         username: &str,
-    ///     ) -> Option<String> {
-    ///         if username == "test" {
-    ///             Some("test".to_string())
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let symbol = Symbol {
-    ///     address: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let peer_symbol = Symbol {
-    ///     address: "127.0.0.1:8081".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let digest = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let sessions = Sessions::new(ObserverTest);
-    ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
-    ///
-    /// let port = sessions.allocate(&symbol).unwrap();
-    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
-    ///
-    /// assert!(sessions.bind_channel(&symbol, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_symbol, port, 0x4000));
-    /// assert_eq!(
-    ///     sessions.get_channel_bind(&symbol, 0x4000),
-    ///     Some(peer_symbol)
-    /// );
-    ///
-    /// assert_eq!(
-    ///     sessions.get_channel_bind(&peer_symbol, 0x4000),
-    ///     Some(symbol)
-    /// );
-    /// ```
-    pub fn get_channel_bind(&self, key: &Symbol, channel: u16) -> Option<Symbol> {
-        self.cbt.read().get(&(*key, channel)).copied()
-    }
-
-    /// Get the address of the port binding.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_trait::async_trait;
-    /// use stun::Transport;
-    /// use turn::*;
-    ///
-    /// #[derive(Clone)]
-    /// struct ObserverTest;
-    ///
-    /// #[async_trait]
-    /// impl Observer for ObserverTest {
-    ///     async fn get_password(
-    ///         &self,
-    ///         key: &Symbol,
-    ///         username: &str,
-    ///     ) -> Option<String> {
-    ///         if username == "test" {
-    ///             Some("test".to_string())
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let symbol = Symbol {
-    ///     address: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let digest = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let sessions = Sessions::new(ObserverTest);
-    ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    ///
-    /// let port = sessions.allocate(&symbol).unwrap();
-    /// assert_eq!(sessions.get_port_bind(port), Some(symbol));
-    /// ```
-    pub fn get_port_bind(&self, port: u16) -> Option<Symbol> {
-        self.pbt.read().get(&port).copied()
-    }
-
-    /// Refresh the session for symbol.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_trait::async_trait;
-    /// use stun::Transport;
-    /// use turn::*;
-    ///
-    /// #[derive(Clone)]
-    /// struct ObserverTest;
-    ///
-    /// #[async_trait]
-    /// impl Observer for ObserverTest {
-    ///     async fn get_password(
-    ///         &self,
-    ///         key: &Symbol,
-    ///         username: &str,
-    ///     ) -> Option<String> {
-    ///         if username == "test" {
-    ///             Some("test".to_string())
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let symbol = Symbol {
-    ///     address: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
-    /// };
-    ///
-    /// let digest = [
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ];
-    ///
-    /// let sessions = Sessions::new(ObserverTest);
-    ///
-    /// assert!(sessions.get_session(&symbol).get_ref().is_none());
-    ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    ///
-    /// let expires = sessions.get_session(&symbol).get_ref().unwrap().expires;
-    /// assert!(expires == 600 || expires == 601 || expires == 602);
-    ///
-    /// assert!(sessions.refresh(&symbol, 0));
-    /// std::thread::sleep(std::time::Duration::from_secs(2));
-    ///
-    /// assert!(sessions.get_session(&symbol).get_ref().is_none());
-    /// ```
-    pub fn refresh(&self, key: &Symbol, lifetime: u32) -> bool {
-        if let Some(session) = self.sessions.write().get_mut(key) {
-            session.expires = self.timer.get() + lifetime as u64;
-
-            true
-        } else {
-            false
-        }
     }
 }

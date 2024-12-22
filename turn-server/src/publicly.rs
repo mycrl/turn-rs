@@ -114,7 +114,8 @@ pub async fn start_server(
                             Json(json!({
                                 "username": session.auth.username,
                                 "password": session.auth.password,
-                                "channel": session.allocate.channel,
+                                "permissions": session.permissions,
+                                "channels": session.allocate.channels,
                                 "port": session.allocate.port,
                                 "expires": session.expires,
                             }))

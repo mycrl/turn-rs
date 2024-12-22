@@ -104,17 +104,21 @@ pub async fn process<'a, T: Observer>(
         Some(it) => it,
     };
 
-    let peer = match req.message.get::<XorPeerAddress>() {
-        None => return reject(req, ErrKind::BadRequest),
-        Some(it) => it,
-    };
+    let mut ports = Vec::with_capacity(15);
+    for it in req.message.get_all::<XorPeerAddress>() {
+        if !req.verify_ip(&it) {
+            return reject(req, ErrKind::Forbidden);
+        }
 
-    if !req.verify_ip(&peer) {
+        ports.push(it.port());
+    }
+
+    if !req.service.sessions.create_permission(&req.symbol, &ports) {
         return reject(req, ErrKind::Forbidden);
     }
 
     req.service
         .observer
-        .create_permission(&req.symbol, username, &peer);
+        .create_permission(&req.symbol, username, &ports);
     resolve(req, &digest)
 }

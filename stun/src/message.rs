@@ -30,7 +30,7 @@ impl<'a, 'b> MessageWriter<'a> {
 
     /// rely on old message to create new message.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use bytes::BytesMut;
@@ -63,7 +63,7 @@ impl<'a, 'b> MessageWriter<'a> {
     ///
     /// append attribute to message attribute list.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use bytes::BytesMut;
@@ -118,7 +118,7 @@ impl<'a, 'b> MessageWriter<'a> {
 
     /// try decoder bytes as message.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use bytes::BytesMut;
@@ -165,7 +165,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// add the `MessageIntegrity` attribute to the stun message
     /// and serialize the message into a buffer.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use bytes::BytesMut;
@@ -247,7 +247,7 @@ impl<'a> MessageReader<'a> {
     ///
     /// get attribute from message attribute list.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::TryFrom;
@@ -273,7 +273,7 @@ impl<'a> MessageReader<'a> {
     /// Normally a stun message can have multiple attributes with the same name,
     /// and this function will all the values of the current attribute.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::TryFrom;
@@ -292,12 +292,12 @@ impl<'a> MessageReader<'a> {
     /// message.get_all::<UserName>(&mut values);
     /// assert_eq!(values.is_empty(), true);
     /// ```
-    pub fn get_all<T: Attribute<'a>>(&self, values: &mut Vec<T::Item>) {
-        for it in self.attributes.get_all(&T::KIND) {
-            if let Ok(value) = T::decode(&self.bytes[it.clone()], self.token) {
-                values.push(value);
-            }
-        }
+    pub fn get_all<T: Attribute<'a>>(&self) -> impl Iterator<Item = T::Item> {
+        self.attributes
+            .get_all(&T::KIND)
+            .map(|it| T::decode(&self.bytes[it.clone()], self.token))
+            .filter(|it| it.is_ok())
+            .map(|it| it.unwrap())
     }
 
     /// check MessageReaderIntegrity attribute.
@@ -305,7 +305,7 @@ impl<'a> MessageReader<'a> {
     /// return whether the `MessageReaderIntegrity` attribute
     /// contained in the message can pass the check.
     ///
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::TryFrom;
@@ -361,7 +361,7 @@ impl<'a> MessageReader<'a> {
         Ok(())
     }
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::TryFrom;
@@ -469,7 +469,7 @@ impl<'a> MessageReader<'a> {
         })
     }
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use stun::*;

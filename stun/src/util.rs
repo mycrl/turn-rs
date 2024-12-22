@@ -9,7 +9,7 @@ use crate::StunError;
 /// RFC5766 stipulates that the attribute
 /// content is a multiple of 4.
 ///
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// assert_eq!(stun::util::pad_size(4), 0);
@@ -47,7 +47,7 @@ pub fn long_key(username: &str, password: &str, realm: &str) -> [u8; 16] {
 
 /// HMAC SHA1 digest.
 ///
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// let buffer = [
@@ -90,7 +90,7 @@ pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<CtOutput<Hmac<sha1::Sha
 
 /// CRC32 Fingerprint.
 ///
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// assert_eq!(stun::util::fingerprint(b"1"), 3498621689);

@@ -3,7 +3,9 @@ use bytes::BytesMut;
 use once_cell::sync::Lazy;
 use stun::{
     attribute::{
-        ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Nonce, Realm, ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress, XorRelayedAddress
+        ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Nonce, Realm,
+        ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress,
+        XorRelayedAddress,
     },
     Decoder, Kind, MessageReader, MessageWriter, Method, Payload,
 };
@@ -93,9 +95,7 @@ pub struct TurnClient {
 
 impl TurnClient {
     pub fn new(auth_method: &AuthMethod, bind: SocketAddr, username: &str) -> Self {
-        let client = RUNTIME
-            .block_on(UdpSocket::bind("0.0.0.0:0"))
-            .unwrap();
+        let client = RUNTIME.block_on(UdpSocket::bind("0.0.0.0:0")).unwrap();
 
         RUNTIME.block_on(client.connect(bind)).unwrap();
 
@@ -195,7 +195,8 @@ impl TurnClient {
 
     pub fn allocate_request(&mut self) -> u16 {
         let mut buf = BytesMut::with_capacity(1500);
-        let mut msg = MessageWriter::new(Method::Allocate(Kind::Request), &self.token_buf, &mut buf);
+        let mut msg =
+            MessageWriter::new(Method::Allocate(Kind::Request), &self.token_buf, &mut buf);
 
         msg.append::<ReqeestedTransport>(Transport::UDP);
         msg.append::<UserName>(USERNAME);
@@ -203,9 +204,7 @@ impl TurnClient {
         msg.append::<Nonce>(self.nonce.as_ref().unwrap());
         msg.flush(Some(&self.key_buf)).unwrap();
 
-        RUNTIME
-            .block_on(self.client.send(&buf))
-            .unwrap();
+        RUNTIME.block_on(self.client.send(&buf)).unwrap();
 
         let size = RUNTIME
             .block_on(self.client.recv(&mut self.recv_buf))
@@ -354,7 +353,8 @@ impl TurnClient {
 mod tests {
     use std::{
         net::SocketAddr,
-        time::{SystemTime, UNIX_EPOCH},
+        thread::sleep,
+        time::{Duration, SystemTime, UNIX_EPOCH},
     };
 
     use crate::{create_turn_server, AuthMethod, TurnClient, BIND_IP, PASSWORD, USERNAME};
@@ -401,7 +401,6 @@ mod tests {
         local.binding_request();
         local.base_allocate_request();
 
-        let port = local.allocate_request();
         let port = local.allocate_request();
         local.create_permission_request(&USERNAME);
         local.channel_bind_request(port, &USERNAME);

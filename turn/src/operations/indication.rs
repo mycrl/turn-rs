@@ -54,16 +54,17 @@ use stun::{
 /// The resulting UDP datagram is then sent to the peer.
 pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Option<Response<'a>> {
     let peer = req.message.get::<XorPeerAddress>()?;
-    if !req.verify_ip(&peer) {
-        return None;
-    }
-
     let data = req.message.get::<Data>()?;
-    let relay = req.service.sessions.get_port_bind(peer.port())?;
+
+    let relay = req
+        .service
+        .sessions
+        .get_relay_address(&req.symbol, peer.port())?;
+
     let local_port = req
         .service
         .sessions
-        .get_session(req.symbol)
+        .get_session(&req.symbol)
         .get_ref()?
         .allocate
         .port?;

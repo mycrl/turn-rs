@@ -160,7 +160,7 @@ impl Method {
 impl TryFrom<u16> for Method {
     type Error = StunError;
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::TryFrom;
@@ -254,7 +254,7 @@ impl TryFrom<u16> for Method {
 }
 
 impl From<Method> for u16 {
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::Into;
@@ -357,7 +357,7 @@ impl Attributes {
 pub struct Decoder(Attributes);
 
 impl Decoder {
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use stun::attribute::*;
@@ -397,7 +397,7 @@ impl Decoder {
         })
     }
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use stun::attribute::*;

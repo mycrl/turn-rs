@@ -22,7 +22,7 @@ fn reject<'a, T: Observer>(
             MessageWriter::extend(Method::Allocate(Kind::Error), req.message, req.bytes);
 
         message.append::<ErrorCode>(Error::from(err));
-        message.append::<Nonce>(&req.service.sessions.get_nonce(&req.symbol).get_ref()?.nonce);
+        message.append::<Nonce>(&req.service.sessions.get_nonce(&req.symbol).get_ref()?.0);
         message.append::<Realm>(&req.service.realm);
         message.flush(None).ok()?;
     }
@@ -97,18 +97,6 @@ pub async fn process<'a, T: Observer>(
         Some(it) => it,
         None => return reject(req, ErrKind::Unauthorized),
     };
-
-    if req
-        .service
-        .sessions
-        .get_session(req.symbol)
-        .get_ref()?
-        .allocate
-        .port
-        .is_some()
-    {
-        return reject(req, ErrKind::AllocationMismatch);
-    }
 
     let port = match req.service.sessions.allocate(req.symbol) {
         Some(it) => it,

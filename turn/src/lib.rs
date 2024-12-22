@@ -21,15 +21,14 @@ pub enum StunClass {
 
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
-    env!("CARGO_PKG_NAME"), 
-    "-", 
+    "turn-rs.",
     env!("CARGO_PKG_VERSION")
 );
 
 #[allow(unused)]
 #[async_trait]
 pub trait Observer: Send + Sync {
-    async fn get_password(&self, key: &Symbol, name: &str) -> Option<String> {
+    async fn get_password(&self, symbol: &Symbol, username: &str) -> Option<String> {
         None
     }
 
@@ -49,7 +48,7 @@ pub trait Observer: Send + Sync {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    fn allocated(&self, key: &Symbol, name: &str, port: u16) {}
+    fn allocated(&self, symbol: &Symbol, username: &str, port: u16) {}
 
     /// channel binding request
     ///
@@ -81,7 +80,7 @@ pub trait Observer: Send + Sync {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
-    fn channel_bind(&self, key: &Symbol, name: &str, num: u16) {}
+    fn channel_bind(&self, symbol: &Symbol, username: &str, channel: u16) {}
 
     /// create permission request
     ///
@@ -122,7 +121,7 @@ pub trait Observer: Send + Sync {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
-    fn create_permission(&self, key: &Symbol, name: &str, relay: &SocketAddr) {}
+    fn create_permission(&self, symbol: &Symbol, username: &str, ports: &[u16]) {}
 
     /// refresh request
     ///
@@ -163,14 +162,14 @@ pub trait Observer: Send + Sync {
     /// will cause a 437 (Allocation Mismatch) response if the
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
-    fn refresh(&self, key: &Symbol, name: &str, time: u32) {}
+    fn refresh(&self, symbol: &Symbol, username: &str, lifetime: u32) {}
 
     /// session closed
     ///
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    fn closed(&self, key: &Symbol, name: &str) {}
+    fn closed(&self, symbol: &Symbol, username: &str) {}
 }
 
 /// Turn service.
@@ -192,7 +191,7 @@ where
 
     /// Create turn service.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use turn::*;
@@ -215,7 +214,7 @@ where
 
     /// Get operationer.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use std::net::SocketAddr;

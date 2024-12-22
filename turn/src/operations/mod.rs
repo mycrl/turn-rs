@@ -46,6 +46,15 @@ impl<'a, 'b, T> Requet<'a, 'b, T, MessageReader<'a>>
 where
     T: Observer + 'static,
 {
+    /// Check if the ip address belongs to the current turn server.
+    #[inline(always)]
+    pub(crate) fn verify_ip(&self, address: &SocketAddr) -> bool {
+        self.service
+            .externals
+            .iter()
+            .any(|item| item.ip() == address.ip())
+    }
+
     /// The key for the HMAC depends on whether long-term or short-term
     /// credentials are in use.  For long-term credentials, the key is 16
     /// bytes:
@@ -107,7 +116,7 @@ where
                 .sessions
                 .get_nonce(&self.symbol)
                 .get_ref()?
-                .nonce
+                .0
                 .as_str()
                 != nonce
             {
@@ -117,15 +126,6 @@ where
 
         self.message.integrity(&digest).ok()?;
         Some((username, digest))
-    }
-
-    /// Check if the ip address belongs to the current turn server.
-    #[inline(always)]
-    pub(crate) fn verify_ip(&self, address: &SocketAddr) -> bool {
-        self.service
-            .externals
-            .iter()
-            .any(|item| item.ip() == address.ip())
     }
 }
 

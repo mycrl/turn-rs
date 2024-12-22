@@ -38,7 +38,7 @@ pub fn process<'a, T: Observer>(
     let relay = req
         .service
         .sessions
-        .get_channel_bind(&req.symbol, req.message.number)?;
+        .get_channel_relay_address(&req.symbol, req.message.number)?;
 
     Some(Response {
         interface: if req.symbol.interface != relay.interface {

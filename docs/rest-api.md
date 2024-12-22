@@ -36,10 +36,10 @@ Session:
 -   `address` - <sup>string</sup> - The IP address and port number currently used by the session
 -   `username` - <sup>string</sup> - Username used in session authentication
 -   `password` - <sup>string</sup> - The password used in session authentication
--   `channel?` - <sup>uint16</sup> - Channel numbers that have been assigned to the session
+-   `channels` - <sup>uint16[]</sup> - Channel numbers that have been assigned to the session
 -   `port?` - <sup>uint16</sup> - Port numbers that have been assigned to the session
--   `expiration` - <sup>uint32</sup> - The validity period of the current session application, in seconds
--   `lifetime` - <sup>uint32</sup> - The lifetime of the session currently in use, in seconds
+-   `expires` - <sup>uint32</sup> - The validity period of the current session application, in seconds
+-   `permissions` - <sup>uint16[]</sup> - What ports have forwarding privileges for the session.
 
 Get session information. A session corresponds to each UDP socket. It should be noted that a user can have multiple sessions at the same time.
 

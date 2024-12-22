@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     config::{Config, Transport},
@@ -176,12 +176,12 @@ impl turn::Observer for Observer {
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
     #[allow(clippy::let_underscore_future)]
-    fn create_permission(&self, key: &Symbol, name: &str, relay: &SocketAddr) {
+    fn create_permission(&self, key: &Symbol, name: &str, ports: &[u16]) {
         log::info!(
-            "create permission: address={:?}, interface={:?}, transport={:?}, username={:?}, realy={:?}",
+            "create permission: address={:?}, interface={:?}, transport={:?}, username={:?}, ports={:?}",
             key.address, key.interface, key.transport,
             name,
-            relay
+            ports
         );
 
         self.hooks.emit(json!({
@@ -192,7 +192,7 @@ impl turn::Observer for Observer {
                 "transport": Transport::from(key.transport),
             },
             "username": name,
-            "relay": relay,
+            "ports": ports,
         }));
     }
 

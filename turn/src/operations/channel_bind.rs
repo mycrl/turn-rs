@@ -87,6 +87,10 @@ pub async fn process<'a, T: Observer>(
         Some(it) => it,
     };
 
+    if !req.verify_ip(&peer) {
+        return reject(req, ErrKind::Forbidden);
+    }
+
     let number = match req.message.get::<ChannelNumber>() {
         None => return reject(req, ErrKind::BadRequest),
         Some(it) => it,
@@ -94,10 +98,6 @@ pub async fn process<'a, T: Observer>(
 
     if !(0x4000..=0x7FFF).contains(&number) {
         return reject(req, ErrKind::BadRequest);
-    }
-
-    if req.service.external.ip() != peer.ip() {
-        return reject(req, ErrKind::Forbidden);
     }
 
     let (username, digest) = match req.auth().await {
