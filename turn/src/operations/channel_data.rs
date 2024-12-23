@@ -1,5 +1,6 @@
-use super::{Context, Response};
-use crate::StunClass;
+use super::{Requet, Response};
+use crate::{Observer, StunClass};
+
 use stun::ChannelData;
 
 /// process channel data
@@ -30,9 +31,24 @@ use stun::ChannelData;
 /// the Length field in the ChannelData message is 0, then there will be
 /// no data in the UDP datagram, but the UDP datagram is still formed and
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
-pub fn process(ctx: Context, data: ChannelData<'_>) -> Option<Response<'_>> {
-    let addr = ctx.env.router.get_channel_bind(&ctx.addr, data.number)?;
-    let interface = ctx.env.router.get_interface(&addr)?;
-    let to = (ctx.env.interface != interface.addr).then(|| interface.addr);
-    Some(Response::new(data.buf, StunClass::Channel, Some(addr), to))
+pub fn process<'a, T: Observer>(
+    bytes: &'a [u8],
+    req: Requet<'_, 'a, T, ChannelData<'a>>,
+) -> Option<Response<'a>> {
+    let relay = req
+        .service
+        .sessions
+        .get_channel_relay_address(&req.symbol, req.message.number)?;
+
+    Some(Response {
+        interface: if req.symbol.interface != relay.interface {
+            Some(relay.interface)
+        } else {
+            None
+        },
+        relay: Some(relay.address),
+        kind: StunClass::Channel,
+        reject: false,
+        bytes,
+    })
 }

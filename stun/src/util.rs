@@ -9,7 +9,7 @@ use crate::StunError;
 /// RFC5766 stipulates that the attribute
 /// content is a multiple of 4.
 ///
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// assert_eq!(stun::util::pad_size(4), 0);
@@ -39,15 +39,15 @@ pub fn pad_size(size: usize) -> usize {
 /// let key = stun::util::long_key("panda", "panda", "raspberry");
 /// assert_eq!(key, buffer);
 /// ```
-pub fn long_key(username: &str, key: &str, realm: &str) -> [u8; 16] {
+pub fn long_key(username: &str, password: &str, realm: &str) -> [u8; 16] {
     let mut hasher = Md5::new();
-    hasher.update([username, realm, key].join(":"));
+    hasher.update([username, realm, password].join(":"));
     hasher.finalize().into()
 }
 
 /// HMAC SHA1 digest.
 ///
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// let buffer = [
@@ -77,7 +77,7 @@ pub fn long_key(username: &str, key: &str, realm: &str) -> [u8; 16] {
 /// ```
 pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<CtOutput<Hmac<sha1::Sha1>>, StunError> {
     match Hmac::<sha1::Sha1>::new_from_slice(key) {
-        Err(_) => Err(StunError::ShaFailed),
+        Err(_) => Err(StunError::SummaryFailed),
         Ok(mut mac) => {
             for buf in source {
                 mac.update(buf);
@@ -90,76 +90,11 @@ pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<CtOutput<Hmac<sha1::Sha
 
 /// CRC32 Fingerprint.
 ///
-/// # Unit Test
+/// # Test
 ///
 /// ```
 /// assert_eq!(stun::util::fingerprint(b"1"), 3498621689);
 /// ```
-pub fn fingerprint(buffer: &[u8]) -> u32 {
-    Crc::<u32>::new(&CRC_32_ISO_HDLC).checksum(buffer) ^ 0x5354_554e
-}
-
-/// slice as u16.
-///
-/// # Unit Test
-///
-/// ```
-/// let int = stun::util::as_u16(&[0x00, 0x04]);
-/// assert_eq!(int, 4);
-/// ```
-#[rustfmt::skip]
-#[inline(always)]
-pub fn as_u16(buf: &[u8]) -> u16 {
-    assert!(buf.len() >= 2);
-    u16::from_be_bytes([
-        buf[0], 
-        buf[1]
-    ])
-}
-
-/// slice as u32.
-///
-/// # Unit Test
-///
-/// ```
-/// let int = stun::util::as_u32(&[0x00, 0x00, 0x00, 0x04]);
-///
-/// assert_eq!(int, 4);
-/// ```
-#[rustfmt::skip]
-#[inline(always)]
-pub fn as_u32(buf: &[u8]) -> u32 {
-    assert!(buf.len() >= 4);
-    u32::from_be_bytes([
-        buf[0], 
-        buf[1], 
-        buf[2], 
-        buf[3]
-    ])
-}
-
-/// slice as u64.
-///
-/// # Unit Test
-///
-/// ```
-/// let int =
-///     stun::util::as_u64(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04]);
-///
-/// assert_eq!(int, 4);
-/// ```
-#[rustfmt::skip]
-#[inline(always)]
-pub fn as_u64(buf: &[u8]) -> u64 {
-    assert!(buf.len() >= 8);
-    u64::from_be_bytes([
-        buf[0], 
-        buf[1], 
-        buf[2], 
-        buf[3], 
-        buf[4], 
-        buf[5], 
-        buf[6], 
-        buf[7],
-    ])
+pub fn fingerprint(bytes: &[u8]) -> u32 {
+    Crc::<u32>::new(&CRC_32_ISO_HDLC).checksum(bytes) ^ 0x5354_554e
 }

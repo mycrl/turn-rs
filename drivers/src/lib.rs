@@ -6,20 +6,25 @@ use axum::{
     http::HeaderMap,
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
+    Router,
 };
 
 use reqwest::{Client, Response, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tokio::net::TcpListener;
 
-#[repr(C)]
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Transport {
-    TCP = 0,
-    UDP = 1,
+    TCP,
+    UDP,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Symbol {
+    pub address: SocketAddr,
+    pub interface: SocketAddr,
+    pub transport: Transport,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -54,13 +59,12 @@ pub struct Session {
     /// The password used in session authentication
     pub password: String,
     /// Channel numbers that have been assigned to the session
-    pub channel: Option<u16>,
+    pub channels: Vec<u16>,
     /// Port numbers that have been assigned to the session
     pub port: Option<u16>,
     /// The validity period of the current session application, in seconds
-    pub expiration: u32,
-    /// The lifetime of the session currently in use, in seconds
-    pub lifetime: u32,
+    pub expires: u32,
+    pub permissions: Vec<u16>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -77,25 +81,15 @@ pub struct Statistics {
     pub error_pkts: u64,
 }
 
-/// Controller Query Filters
-#[derive(Debug)]
-pub enum QueryFilter<'a> {
-    /// Use the session address match directly
-    Addr(SocketAddr),
-    /// Use the session username match, this will match all sessions under the
-    /// current user
-    UserName(&'a str),
-}
-
-impl<'a> Display for QueryFilter<'a> {
+impl<'a> Display for Symbol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
-            match self {
-                QueryFilter::UserName(name) => format!("username={}", name),
-                QueryFilter::Addr(addr) => format!("addr={}", addr),
-            }
+            format!(
+                "address={}&interface={}&transport={:?}",
+                self.address, self.interface, self.transport
+            )
         )
     }
 }
@@ -105,10 +99,10 @@ impl<'a> Display for QueryFilter<'a> {
 pub struct Message<T> {
     /// turn server realm
     pub realm: String,
-    /// The runtime ID of the turn server. A new ID is generated each time the
+    /// The runtime id of the turn server. A new ID is generated each time the
     /// server is started. This is a random string. Its main function is to
     /// determine whether the turn server has been restarted.
-    pub rid: String,
+    pub nonce: String,
     pub payload: T,
 }
 
@@ -117,11 +111,11 @@ impl<T> Message<T> {
         res: Response,
         handler: impl FnOnce(Response) -> F,
     ) -> Option<Self> {
-        let (realm, rid) = get_realm_and_rid(res.headers())?;
+        let (realm, nonce) = get_realm_and_nonce(res.headers())?;
         Some(Self {
+            realm: realm.to_string(),
+            nonce: nonce.to_string(),
             payload: handler(res).await?,
-            realm,
-            rid,
         })
     }
 }
@@ -159,7 +153,7 @@ impl Controller {
 
     /// Get session information. A session corresponds to each UDP socket. It
     /// should be noted that a user can have multiple sessions at the same time.
-    pub async fn get_session(&self, query: &QueryFilter<'_>) -> Option<Message<Vec<Session>>> {
+    pub async fn get_session(&self, query: &Symbol) -> Option<Message<Session>> {
         Message::from_res(
             self.client
                 .get(format!("{}/session?{}", self.server, query))
@@ -173,10 +167,7 @@ impl Controller {
 
     /// Get session statistics, which is mainly the traffic statistics of the
     /// current session
-    pub async fn get_session_statistics(
-        &self,
-        query: &QueryFilter<'_>,
-    ) -> Option<Message<Statistics>> {
+    pub async fn get_session_statistics(&self, query: &Symbol) -> Option<Message<Statistics>> {
         Message::from_res(
             self.client
                 .get(format!("{}/session/statistics?{}", self.server, query))
@@ -191,7 +182,7 @@ impl Controller {
     /// Delete the session. Deleting the session will cause the turn server to
     /// delete all routing information of the current session. If there is a
     /// peer, the peer will also be disconnected.
-    pub async fn remove_session(&self, query: &QueryFilter<'_>) -> Option<Message<bool>> {
+    pub async fn remove_session(&self, query: &Symbol) -> Option<Message<bool>> {
         Message::from_res(
             self.client
                 .delete(format!("{}/session?{}", self.server, query))
@@ -224,33 +215,10 @@ pub enum Events {
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
     Allocated {
-        name: String,
-        addr: SocketAddr,
+        session: Symbol,
+        username: String,
         port: u16,
     },
-    /// binding request
-    ///
-    /// [rfc8489](https://tools.ietf.org/html/rfc8489)
-    ///
-    /// In the Binding request/response transaction, a Binding request is
-    /// sent from a STUN client to a STUN server.  When the Binding request
-    /// arrives at the STUN server, it may have passed through one or more
-    /// NATs between the STUN client and the STUN server (in Figure 1, there
-    /// are two such NATs).  As the Binding request message passes through a
-    /// NAT, the NAT will modify the source transport address (that is, the
-    /// source IP address and the source port) of the packet.  As a result,
-    /// the source transport address of the request received by the server
-    /// will be the public IP address and port created by the NAT closest to
-    /// the server.  This is called a "reflexive transport address".  The
-    /// STUN server copies that source transport address into an XOR-MAPPED-
-    /// ADDRESS attribute in the STUN Binding response and sends the Binding
-    /// response back to the STUN client.  As this packet passes back through
-    /// a NAT, the NAT will modify the destination transport address in the
-    /// IP header, but the transport address in the XOR-MAPPED-ADDRESS
-    /// attribute within the body of the STUN response will remain untouched.
-    /// In this way, the client can learn its reflexive transport address
-    /// allocated by the outermost NAT with respect to the STUN server.
-    Binding { addr: SocketAddr },
     /// channel binding request
     ///
     /// The server MAY impose restrictions on the IP address and port values
@@ -282,8 +250,8 @@ pub enum Events {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     ChannelBind {
-        name: String,
-        addr: SocketAddr,
+        session: Symbol,
+        username: String,
         channel: u16,
     },
     /// create permission request
@@ -326,9 +294,9 @@ pub enum Events {
     /// Retransmitted CreatePermission requests will simply refresh the
     /// permissions.
     CreatePermission {
-        name: String,
-        addr: SocketAddr,
-        relay: SocketAddr,
+        session: Symbol,
+        username: String,
+        ports: Vec<u16>,
     },
     /// refresh request
     ///
@@ -369,16 +337,16 @@ pub enum Events {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     Refresh {
-        name: String,
-        addr: SocketAddr,
-        expiration: u32,
+        session: Symbol,
+        username: String,
+        lifetime: u32,
     },
     /// session closed
     ///
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    Abort { name: String, addr: SocketAddr },
+    Closed { session: Symbol, username: String },
 }
 
 /// Abstraction that handles turn server communication with the outside world
@@ -402,21 +370,28 @@ pub trait Hooks {
     /// When the turn server needs to authenticate the current user, hooks only
     /// needs to find the key according to the username and other information of
     /// the current session and return it
+    #[allow(unused_variables)]
     async fn auth(
         &self,
-        addr: SocketAddr,
-        name: String,
-        realm: String,
-        rid: String,
-    ) -> Option<&str>;
+        session: &Symbol,
+        username: &str,
+        realm: &str,
+        nonce: &str,
+    ) -> Option<&str> {
+        None
+    }
+
     /// Called when the turn server pushes an event
-    async fn on(&self, event: Events, realm: String, rid: String);
+    #[allow(unused_variables)]
+    async fn on(&self, event: &Events, realm: &str, nonce: &str) {}
 }
 
 #[derive(Deserialize)]
 struct GetPasswordQuery {
-    addr: SocketAddr,
-    name: String,
+    address: SocketAddr,
+    interface: SocketAddr,
+    transport: Transport,
+    username: String,
 }
 
 /// Create a hooks service, which will create an HTTP server. The turn server
@@ -432,11 +407,15 @@ where
                 |headers: HeaderMap,
                  State(state): State<Arc<T>>,
                  Query(query): Query<GetPasswordQuery>| async move {
-                    if let Some((realm, rid)) = get_realm_and_rid(&headers) {
+                    if let Some((realm, nonce)) = get_realm_and_nonce(&headers) {
                         if let Some(password) =
-                            state.auth(query.addr, query.name, realm, rid).await
+                            state.auth(&Symbol {
+                                address: query.address,
+                                interface: query.interface,
+                                transport: query.transport,
+                            }, &query.username, realm, nonce).await
                         {
-                            return Json(Value::String(password.to_string())).into_response();
+                            return password.to_string().into_response();
                         }
                     }
 
@@ -448,8 +427,8 @@ where
             "/events",
             post(
                 |headers: HeaderMap, State(state): State<Arc<T>>, Body(event): Body<Events>| async move {
-                    if let Some((realm, rid)) = get_realm_and_rid(&headers) {
-                        state.on(event, realm, rid).await;
+                    if let Some((realm, nonce)) = get_realm_and_nonce(&headers) {
+                        state.on(&event, realm, nonce).await;
                     }
 
                     StatusCode::OK
@@ -463,12 +442,12 @@ where
     Ok(())
 }
 
-fn get_realm_and_rid(headers: &HeaderMap) -> Option<(String, String)> {
-    if let (Some(Ok(realm)), Some(Ok(rid))) = (
+fn get_realm_and_nonce(headers: &HeaderMap) -> Option<(&str, &str)> {
+    if let (Some(Ok(realm)), Some(Ok(nonce))) = (
         headers.get("realm").map(|it| it.to_str()),
-        headers.get("rid").map(|it| it.to_str()),
+        headers.get("nonce").map(|it| it.to_str()),
     ) {
-        Some((realm.to_string(), rid.to_string()))
+        Some((realm, nonce))
     } else {
         None
     }

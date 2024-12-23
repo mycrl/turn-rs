@@ -10,15 +10,14 @@ use std::{
 
 use ahash::AHashMap;
 use parking_lot::RwLock;
-
-use crate::config::Transport;
+use stun::Transport;
 
 /// [issue](https://github.com/mycrl/turn-rs/issues/101)
 ///
 /// Integrated Prometheus Metrics Exporter
 pub mod prometheus {
     use anyhow::Result;
-    use lazy_static::lazy_static;
+    use once_cell::sync::Lazy;
     use prometheus::{
         register_int_counter, register_int_gauge, Encoder, IntCounter, IntGauge, TextEncoder,
     };
@@ -38,9 +37,7 @@ pub mod prometheus {
         };
     }
 
-    lazy_static! {
-        pub static ref METRICS: Metrics = Metrics::default();
-    }
+    pub static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics::default());
 
     /// # Example
     ///
@@ -278,7 +275,8 @@ impl Statistics {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use turn_server::{config::Transport, statistics::*};
+    /// use stun::attribute::Transport;
+    /// use turn_server::statistics::*;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -401,7 +399,7 @@ impl StatisticsReporter {
         #[cfg(feature = "prometheus")]
         {
             for report in reports {
-                self::prometheus::METRICS.add(transport, report);
+                self::prometheus::METRICS.add(transport.into(), report);
             }
         }
 

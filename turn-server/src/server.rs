@@ -1,5 +1,6 @@
 use crate::{
-    config::{Config, Interface, Transport},
+    config::{Config, Interface},
+    observer::Observer,
     router::Router,
     statistics::{Statistics, Stats},
 };
@@ -7,7 +8,7 @@ use crate::{
 use std::{io::ErrorKind::ConnectionReset, net::SocketAddr, sync::Arc};
 
 use bytes::BytesMut;
-use stun::Decoder;
+use stun::{Decoder, Transport};
 use tokio::{
     io::AsyncReadExt,
     io::AsyncWriteExt,
@@ -16,51 +17,6 @@ use tokio::{
 };
 
 use turn::{Service, StunClass};
-
-/// start turn server.
-///
-/// create a specified number of threads,
-/// each thread processes udp data separately.
-pub async fn run(
-    config: Arc<Config>,
-    statistics: Statistics,
-    service: &Service,
-) -> anyhow::Result<()> {
-    let router = Arc::new(Router::default());
-    for Interface {
-        transport,
-        external,
-        bind,
-    } in config.turn.interfaces.clone()
-    {
-        if transport == Transport::UDP {
-            tokio::spawn(udp_server(
-                UdpSocket::bind(bind).await?,
-                external,
-                service.clone(),
-                router.clone(),
-                statistics.clone(),
-            ));
-        } else {
-            tokio::spawn(tcp_server(
-                TcpListener::bind(bind).await?,
-                external,
-                service.clone(),
-                router.clone(),
-                statistics.clone(),
-            ));
-        }
-
-        log::info!(
-            "turn server listening: addr={}, external={}, transport={:?}",
-            bind,
-            external,
-            transport,
-        );
-    }
-
-    Ok(())
-}
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
 
@@ -71,7 +27,7 @@ static ZERO_BUF: [u8; 4] = [0u8; 4];
 async fn tcp_server(
     listen: TcpListener,
     external: SocketAddr,
-    service: Service,
+    service: Service<Observer>,
     router: Arc<Router>,
     statistics: Statistics,
 ) {
@@ -85,7 +41,7 @@ async fn tcp_server(
         let router = router.clone();
         let reporter = statistics.get_reporter();
         let mut receiver = router.get_receiver(addr);
-        let mut operationer = service.get_operationer(addr, external);
+        let mut operationer = service.get_operationer(Transport::TCP, addr, external);
 
         log::info!(
             "tcp socket accept: addr={:?}, interface={:?}",
@@ -171,23 +127,29 @@ async fn tcp_server(
                     };
 
                     let chunk = buf.split_to(size);
-                    if let Ok(Some(res)) = operationer.process(&chunk, addr).await {
-                        let target = res.relay.unwrap_or(addr);
-                        if let Some(to) = res.interface {
-                            router.send(&to, res.kind, &target, res.data);
-                        } else {
-                            if writer.lock().await.write_all(res.data).await.is_err() {
-                                break 'a;
+                    if let Ok(ret) = operationer.route(&chunk, addr).await {
+                        if let Some(res) = ret {
+                            let target = res.relay.unwrap_or(addr);
+                            if let Some(interface) = res.interface {
+                                router.send(&interface, res.kind, &target, res.bytes);
+                            } else {
+                                if writer.lock().await.write_all(res.bytes).await.is_err() {
+                                    break 'a;
+                                }
+
+                                reporter.send(
+                                    Transport::TCP,
+                                    &addr,
+                                    &[Stats::SendBytes(res.bytes.len() as u64), Stats::SendPkts(1)],
+                                );
                             }
 
-                            reporter.send(
-                                Transport::TCP,
-                                &addr,
-                                &[Stats::SendBytes(res.data.len() as u64), Stats::SendPkts(1)],
-                            );
+                            if res.reject {
+                                reporter.send(Transport::TCP, &addr, &[Stats::ErrorPkts(1)]);
+                            }
                         }
                     } else {
-                        reporter.send(Transport::TCP, &addr, &[Stats::ErrorPkts(1)]);
+                        break 'a;
                     }
                 }
             }
@@ -212,7 +174,7 @@ async fn tcp_server(
 async fn udp_server(
     socket: UdpSocket,
     external: SocketAddr,
-    service: Service,
+    service: Service<Observer>,
     router: Arc<Router>,
     statistics: Statistics,
 ) {
@@ -225,7 +187,7 @@ async fn udp_server(
         let socket = socket.clone();
         let router = router.clone();
         let reporter = statistics.get_reporter();
-        let mut operationer = service.get_operationer(external, external);
+        let mut operationer = service.get_operationer(Transport::UDP, external, external);
 
         tokio::spawn(async move {
             let mut buf = vec![0u8; 2048];
@@ -250,12 +212,12 @@ async fn udp_server(
                 // smallest stun message is channel data,
                 // excluding content)
                 if size >= 4 {
-                    if let Ok(Some(res)) = operationer.process(&buf[..size], addr).await {
+                    if let Ok(Some(res)) = operationer.route(&buf[..size], addr).await {
                         let target = res.relay.unwrap_or(addr);
-                        if let Some(to) = res.interface {
-                            router.send(&to, res.kind, &target, res.data);
+                        if let Some(interface) = res.interface {
+                            router.send(&interface, res.kind, &target, res.bytes);
                         } else {
-                            if let Err(e) = socket.send_to(res.data, &target).await {
+                            if let Err(e) = socket.send_to(res.bytes, &target).await {
                                 if e.kind() != ConnectionReset {
                                     break;
                                 }
@@ -264,11 +226,13 @@ async fn udp_server(
                             reporter.send(
                                 Transport::UDP,
                                 &addr,
-                                &[Stats::SendBytes(res.data.len() as u64), Stats::SendPkts(1)],
+                                &[Stats::SendBytes(res.bytes.len() as u64), Stats::SendPkts(1)],
                             );
                         }
-                    } else {
-                        reporter.send(Transport::UDP, &addr, &[Stats::ErrorPkts(1)]);
+
+                        if res.reject {
+                            reporter.send(Transport::UDP, &addr, &[Stats::ErrorPkts(1)]);
+                        }
                     }
                 }
             }
@@ -293,4 +257,49 @@ async fn udp_server(
 
     router.remove(&external);
     log::error!("udp server close: interface={:?}", local_addr);
+}
+
+/// start turn server.
+///
+/// create a specified number of threads,
+/// each thread processes udp data separately.
+pub async fn run(
+    config: Arc<Config>,
+    statistics: Statistics,
+    service: &Service<Observer>,
+) -> anyhow::Result<()> {
+    let router = Arc::new(Router::default());
+    for Interface {
+        transport,
+        external,
+        bind,
+    } in config.turn.interfaces.clone()
+    {
+        if transport == crate::config::Transport::UDP {
+            tokio::spawn(udp_server(
+                UdpSocket::bind(bind).await?,
+                external,
+                service.clone(),
+                router.clone(),
+                statistics.clone(),
+            ));
+        } else {
+            tokio::spawn(tcp_server(
+                TcpListener::bind(bind).await?,
+                external,
+                service.clone(),
+                router.clone(),
+                statistics.clone(),
+            ));
+        }
+
+        log::info!(
+            "turn server listening: addr={}, external={}, transport={:?}",
+            bind,
+            external,
+            transport,
+        );
+    }
+
+    Ok(())
 }

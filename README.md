@@ -35,42 +35,44 @@ I don't think turn servers should be concerned about user information, just do t
 
 This is an obvious drawback, unlike coturn which provides various transport layer encryption, turn-rs doesn't provide any transport layer encryption, but turn-rs mainly serves WebRTC business, WebRTC comes with transport layer encryption, and the packets transmitted in turn are already encrypted, so in order to reduce the overhead, turn -rs does not provide transport layer encryption.
 
+##### "Only allow turn-rs as transit address"
+
+Some clients currently use local addresses for the turn server to create bindings and permissions under certain NAT types, coturn supports this behaviour. However, turn-rs does not allow this behaviour, any client must use the turn server's transit address to communicate, which provides help for clients to hide their IP addresses.
+
 ## Table of contents
 
-* [features](#features)
-* [usage](#usage)
-  * [docker](#docker)  
-  * [linux service](#linux-service)
-* [building](#building)
-* [document](./docs)
-  * [install](./docs/install.md)
-  * [build](./docs/build.md)
-  * [start the server](./docs/start-the-server.md)
-  * [configure](./docs/configure.md)
-  * [rest api](./docs/rest-api.md)
-  * [http hooks](./docs/http-hooks.md)
-* [driver](./drivers)
+-   [features](#features)
+-   [usage](#usage)
+    -   [docker](#docker)
+    -   [linux service](#linux-service)
+-   [building](#building)
+-   [document](./docs)
+    -   [install](./docs/install.md)
+    -   [build](./docs/build.md)
+    -   [start the server](./docs/start-the-server.md)
+    -   [configure](./docs/configure.md)
+    -   [rest api](./docs/rest-api.md)
+    -   [http hooks](./docs/http-hooks.md)
+-   [driver](./drivers)
 
 ## Features
 
-> Compared with the standard RFC, some restrictions are added: turn-rs only allows operations on addresses in the current server interface, and does not allow clients to forward data or create bindings to addresses that are not in the turn server address list. Fortunately, most turn clients currently follow this convention, such as Firefox and Chrome's WebRTC implementation.
-
-- Prometheus metrics exporter.
-- Only long-term authentication mechanisms are used.
-- Static authentication lists can be used in configuration files.
-- Only virtual ports are always allocated and no real system ports are occupied.
-- The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
-- The REST API can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
+-   Prometheus metrics exporter.
+-   Only long-term authentication mechanisms are used.
+-   Static authentication lists can be used in configuration files.
+-   Only virtual ports are always allocated and no real system ports are occupied.
+-   The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
+-   The REST API can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
 
 #### RFC
 
-* [RFC 3489](https://datatracker.ietf.org/doc/html/rfc3489) - "classic" STUN
-* [RFC 5389](https://datatracker.ietf.org/doc/html/rfc5389) - base "new" STUN specs
-* [RFC 5769](https://datatracker.ietf.org/doc/html/rfc5769) - test vectors for STUN protocol testing
-* [RFC 5766](https://datatracker.ietf.org/doc/html/rfc5766) - base TURN specs
-* [RFC 6062](https://datatracker.ietf.org/doc/html/rfc6062) - TCP relaying TURN extension
-* [RFC 6156](https://datatracker.ietf.org/doc/html/rfc6156) - IPv6 extension for TURN
-* TURN REST API (http://tools.ietf.org/html/draft-uberti-behave-turn-rest-00)
+-   [RFC 3489](https://datatracker.ietf.org/doc/html/rfc3489) - "classic" STUN
+-   [RFC 5389](https://datatracker.ietf.org/doc/html/rfc5389) - base "new" STUN specs
+-   [RFC 5769](https://datatracker.ietf.org/doc/html/rfc5769) - test vectors for STUN protocol testing
+-   [RFC 5766](https://datatracker.ietf.org/doc/html/rfc5766) - base TURN specs
+-   [RFC 6062](https://datatracker.ietf.org/doc/html/rfc6062) - TCP relaying TURN extension
+-   [RFC 6156](https://datatracker.ietf.org/doc/html/rfc6156) - IPv6 extension for TURN
+-   TURN REST API (http://tools.ietf.org/html/draft-uberti-behave-turn-rest-00)
 
 ## Usage
 
@@ -84,12 +86,12 @@ turn-server --config=/etc/turn-server/config.toml
 
 Please check the example configuration file for details: [turn-server.toml](./turn-server.toml)
 
-
 #### Docker
 
 ```bash
 docker pull ghcr.io/mycrl/turn-server
 ```
+
 The custom configuration file overrides the `/etc/turn-server/config.toml` path inside the image through `-v`.
 
 #### Linux service
@@ -99,7 +101,6 @@ The custom configuration file overrides the `/etc/turn-server/config.toml` path 
 ```
 
 This will compile the project and install and start the service.
-
 
 ## Building
 

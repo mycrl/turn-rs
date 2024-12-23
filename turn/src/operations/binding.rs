@@ -1,9 +1,10 @@
-use super::{Context, Response};
-use crate::{StunClass, SOFTWARE};
+use super::{Requet, Response};
+use crate::{Observer, StunClass, SOFTWARE};
 
-use bytes::BytesMut;
-use stun::attribute::*;
-use stun::*;
+use stun::{
+    attribute::{MappedAddress, ResponseOrigin, Software, XorMappedAddress},
+    Kind, MessageReader, MessageWriter, Method,
+};
 
 /// process binding request
 ///
@@ -27,18 +28,23 @@ use stun::*;
 /// attribute within the body of the STUN response will remain untouched.
 /// In this way, the client can learn its reflexive transport address
 /// allocated by the outermost NAT with respect to the STUN server.
-pub fn process<'a>(
-    ctx: Context,
-    payload: MessageReader,
-    bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>, StunError> {
-    let method = Method::Binding(Kind::Response);
-    let mut pack = MessageWriter::extend(method, &payload, bytes);
-    pack.append::<XorMappedAddress>(ctx.addr);
-    pack.append::<MappedAddress>(ctx.addr);
-    pack.append::<ResponseOrigin>(*ctx.env.external.as_ref());
-    pack.append::<Software>(SOFTWARE);
-    pack.flush(None)?;
-    ctx.env.observer.binding(&ctx.addr);
-    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
+pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Option<Response<'a>> {
+    {
+        let mut message =
+            MessageWriter::extend(Method::Binding(Kind::Response), &req.message, req.bytes);
+
+        message.append::<XorMappedAddress>(req.symbol.address);
+        message.append::<MappedAddress>(req.symbol.address);
+        message.append::<ResponseOrigin>(req.service.external);
+        message.append::<Software>(SOFTWARE);
+        message.flush(None).ok()?;
+    }
+
+    Some(Response {
+        kind: StunClass::Message,
+        bytes: req.bytes,
+        interface: None,
+        reject: false,
+        relay: None,
+    })
 }

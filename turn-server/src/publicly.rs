@@ -5,7 +5,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{config::Config, statistics::Statistics};
+use crate::{
+    config::{Config, Transport},
+    observer::Observer,
+    statistics::Statistics,
+};
 
 use axum::{
     extract::{Query, State},
@@ -31,21 +35,32 @@ use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedSender},
 };
 
-use turn::Service;
+use turn::{sessions::Symbol, PortAllocatePools, Service};
 
 static RID: Lazy<String> = Lazy::new(|| random_string(16));
 
 struct AppState {
     config: Arc<Config>,
-    service: Service,
+    service: Service<Observer>,
     statistics: Statistics,
     uptime: Instant,
 }
 
 #[derive(Deserialize)]
-struct QueryFilter {
-    addr: Option<SocketAddr>,
-    username: Option<String>,
+struct SessionQueryFilter {
+    address: SocketAddr,
+    interface: SocketAddr,
+    transport: Transport,
+}
+
+impl Into<Symbol> for SessionQueryFilter {
+    fn into(self) -> Symbol {
+        Symbol {
+            address: self.address,
+            interface: self.interface,
+            transport: self.transport.into(),
+        }
+    }
 }
 
 /// start http server
@@ -59,7 +74,7 @@ struct QueryFilter {
 /// directly to an unsafe environment.
 pub async fn start_server(
     config: Arc<Config>,
-    service: Service,
+    service: Service<Observer>,
     statistics: Statistics,
 ) -> anyhow::Result<()> {
     let state = Arc::new(AppState {
@@ -70,94 +85,81 @@ pub async fn start_server(
     });
 
     #[allow(unused_mut)]
-    let mut app = Router::new()
-        .route(
-            "/info",
-            get(|State(state): State<Arc<AppState>>| async move {
-                let router = state.service.get_router();
-                Json(json!({
-                    "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
-                    "uptime": state.uptime.elapsed().as_secs(),
-                    "port_allocated": router.len(),
-                    "port_capacity": turn::Router::capacity(),
-                    "interfaces": state.config.turn.interfaces,
-                }))
-            }),
-        )
-        .route(
-            "/session",
-            get(
-                |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
-                    let addrs = if let Some(username) = query.username {
-                        state.service.get_router().get_user_addrs(&username)
-                    } else if let Some(addr) = query.addr {
-                        vec![addr]
-                    } else {
-                        return StatusCode::NOT_FOUND.into_response();
-                    };
-
-                    let mut res = Vec::with_capacity(addrs.len());
-                    for addr in addrs {
-                        if let Some(socket) = state.service.get_router().get_socket(&addr) {
-                            res.push(json!({
-                                "address": addr,
-                                "username": socket.username,
-                                "password": socket.password,
-                                "channel": socket.channel,
-                                "port": socket.port,
-                                "expiration": socket.expiration,
-                                "lifetime": socket.lifetime.elapsed().as_secs(),
-                            }));
+    let mut app =
+        Router::new()
+            .route(
+                "/info",
+                get(|State(app_state): State<Arc<AppState>>| async move {
+                    let sessions = app_state.service.get_sessions();
+                    Json(json!({
+                        "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
+                        "uptime": app_state.uptime.elapsed().as_secs(),
+                        "interfaces": app_state.config.turn.interfaces,
+                        "port_capacity": PortAllocatePools::capacity(),
+                        "port_allocated": sessions.allocated(),
+                    }))
+                }),
+            )
+            .route(
+                "/session",
+                get(
+                    |Query(query): Query<SessionQueryFilter>,
+                     State(state): State<Arc<AppState>>| async move {
+                        if let Some(session) = state
+                            .service
+                            .get_sessions()
+                            .get_session(&query.into())
+                            .get_ref()
+                        {
+                            Json(json!({
+                                "username": session.auth.username,
+                                "password": session.auth.password,
+                                "permissions": session.permissions,
+                                "channels": session.allocate.channels,
+                                "port": session.allocate.port,
+                                "expires": session.expires,
+                            }))
+                            .into_response()
+                        } else {
+                            StatusCode::NOT_FOUND.into_response()
                         }
-                    }
-
-                    Json(Value::Array(res)).into_response()
-                },
-            ),
-        )
-        .route(
-            "/session/statistics",
-            get(
-                |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
-                    if let Some(addr) = query.addr {
-                        if let Some(counts) = state.statistics.get(&addr) {
-                            return Json(json!({
+                    },
+                ),
+            )
+            .route(
+                "/session/statistics",
+                get(
+                    |Query(query): Query<SessionQueryFilter>,
+                     State(state): State<Arc<AppState>>| async move {
+                        let symbol: Symbol = query.into();
+                        if let Some(counts) = state.statistics.get(&symbol.address) {
+                            Json(json!({
                                 "received_bytes": counts.received_bytes,
                                 "send_bytes": counts.send_bytes,
                                 "received_pkts": counts.received_pkts,
                                 "send_pkts": counts.send_pkts,
                                 "error_pkts": counts.error_pkts,
                             }))
-                            .into_response();
+                            .into_response()
+                        } else {
+                            StatusCode::NOT_FOUND.into_response()
                         }
-                    }
-
-                    StatusCode::NOT_FOUND.into_response()
-                },
-            ),
-        )
-        .route(
-            "/session",
-            delete(
-                |Query(query): Query<QueryFilter>, State(state): State<Arc<AppState>>| async move {
-                    let addrs = if let Some(username) = query.username {
-                        state.service.get_router().get_user_addrs(&username)
-                    } else if let Some(addr) = query.addr {
-                        vec![addr]
-                    } else {
-                        return StatusCode::NOT_FOUND;
-                    };
-
-                    for addr in addrs {
-                        if state.service.get_router().remove(&Arc::new(addr)).is_none() {
-                            return StatusCode::EXPECTATION_FAILED;
+                    },
+                ),
+            )
+            .route(
+                "/session",
+                delete(
+                    |Query(query): Query<SessionQueryFilter>,
+                     State(state): State<Arc<AppState>>| async move {
+                        if state.service.get_sessions().refresh(&query.into(), 0) {
+                            StatusCode::OK
+                        } else {
+                            StatusCode::EXPECTATION_FAILED
                         }
-                    }
-
-                    StatusCode::OK
-                },
-            ),
-        );
+                    },
+                ),
+            );
 
     #[cfg(feature = "prometheus")]
     {
@@ -185,7 +187,7 @@ pub async fn start_server(
             state.clone(),
             |State(state): State<Arc<AppState>>, mut res: Response| async move {
                 let headers = res.headers_mut();
-                headers.insert("Rid", HeaderValue::from_str(&RID).unwrap());
+                headers.insert("Nonce", HeaderValue::from_str(&RID).unwrap());
                 headers.insert(
                     "Realm",
                     HeaderValue::from_str(&state.config.turn.realm).unwrap(),
@@ -212,7 +214,7 @@ impl HooksService {
     pub fn new(config: Arc<Config>) -> anyhow::Result<Self> {
         let mut headers = HeaderMap::new();
         headers.insert("Realm", HeaderValue::from_str(&config.turn.realm)?);
-        headers.insert("Rid", HeaderValue::from_str(&RID)?);
+        headers.insert("Nonce", HeaderValue::from_str(&RID)?);
 
         let client = Arc::new(
             ClientBuilder::new()
@@ -221,6 +223,8 @@ impl HooksService {
                 .build()?,
         );
 
+        // It keeps taking queued events from the queue and sending them to an external
+        // hook service.
         let config_ = config.clone();
         let client_ = client.clone();
         let (tx, mut rx) = unbounded_channel::<Value>();
@@ -239,19 +243,38 @@ impl HooksService {
         Ok(Self { client, config, tx })
     }
 
-    pub async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        if let Some(pwd) = self.config.auth.static_credentials.get(name) {
+    pub async fn get_password(&self, key: &Symbol, username: &str) -> Option<String> {
+        // Match the static authentication information first.
+        if let Some(pwd) = self.config.auth.static_credentials.get(username) {
             return Some(pwd.clone());
         }
 
+        // Try again to match the static authentication key.
         if let Some(secret) = &self.config.auth.static_auth_secret {
-            return encode_password(secret, name);
+            // Because (TURN REST api) this RFC does not mandate the format of the username,
+            // only suggested values. In principle, the RFC also indicates that the
+            // timestamp part of username can be set at will, so the timestamp is not
+            // verified here, and the external web service guarantees its security by
+            // itself.
+            return encode_password(secret, username);
         }
 
+        // There are no matching static entries, get the password from an external hook
+        // service.
         if let Some(server) = &self.config.api.hooks {
             if let Ok(res) = self
                 .client
-                .get(format!("{}/password?addr={}&name={}", server, addr, name))
+                .get(format!(
+                    "{}/password?address={}&interface={}&transport={}&username={}",
+                    server,
+                    key.address,
+                    key.interface,
+                    match Transport::from(key.transport) {
+                        Transport::TCP => "tcp",
+                        Transport::UDP => "udp",
+                    },
+                    username
+                ))
                 .send()
                 .await
             {
@@ -264,7 +287,10 @@ impl HooksService {
         None
     }
 
-    pub fn send_event(&self, event: Value) {
+    // Notifications for all events are all added to the queue, which has the
+    // advantage of not blocking the current call, which is useful for scenarios
+    // requiring high real-time performance.
+    pub fn emit(&self, event: Value) {
         if self.config.api.hooks.is_some() {
             if let Err(e) = self.tx.send(event) {
                 log::error!("failed to send event, err={}", e)

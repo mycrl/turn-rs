@@ -1,38 +1,56 @@
-use super::{verify_message, Context, Response};
-use crate::StunClass;
+use stun::{
+    attribute::{ErrKind, Error, ErrorCode, Lifetime},
+    Kind, MessageReader, MessageWriter, Method,
+};
 
-use bytes::BytesMut;
-use stun::attribute::ErrKind::*;
-use stun::attribute::*;
-use stun::*;
+use super::{Requet, Response};
+use crate::{Observer, StunClass};
 
 /// return refresh error response
 #[inline(always)]
-fn reject<'a>(
-    reader: MessageReader,
-    bytes: &'a mut BytesMut,
+fn reject<'a, T: Observer>(
+    req: Requet<'_, 'a, T, MessageReader<'_>>,
     err: ErrKind,
-) -> Result<Option<Response<'a>>, StunError> {
-    let method = Method::Refresh(Kind::Error);
-    let mut pack = MessageWriter::extend(method, &reader, bytes);
-    pack.append::<ErrorCode>(Error::from(err));
-    pack.flush(None)?;
-    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
+) -> Option<Response<'a>> {
+    {
+        let mut message =
+            MessageWriter::extend(Method::Refresh(Kind::Error), &req.message, req.bytes);
+
+        message.append::<ErrorCode>(Error::from(err));
+        message.flush(None).ok()?;
+    }
+
+    Some(Response {
+        kind: StunClass::Message,
+        bytes: req.bytes,
+        interface: None,
+        reject: true,
+        relay: None,
+    })
 }
 
 /// return refresh ok response
 #[inline(always)]
-pub fn resolve<'a>(
-    reader: &MessageReader,
+pub fn resolve<'a, T: Observer>(
+    req: Requet<'_, 'a, T, MessageReader<'_>>,
     lifetime: u32,
-    key: &[u8; 16],
-    bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>, StunError> {
-    let method = Method::Refresh(Kind::Response);
-    let mut pack = MessageWriter::extend(method, reader, bytes);
-    pack.append::<Lifetime>(lifetime);
-    pack.flush(Some(key))?;
-    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
+    digest: &[u8; 16],
+) -> Option<Response<'a>> {
+    {
+        let mut message =
+            MessageWriter::extend(Method::Refresh(Kind::Response), &req.message, req.bytes);
+
+        message.append::<Lifetime>(lifetime);
+        message.flush(Some(digest)).ok()?;
+    }
+
+    Some(Response {
+        kind: StunClass::Message,
+        bytes: req.bytes,
+        interface: None,
+        reject: false,
+        relay: None,
+    })
 }
 
 /// process refresh request
@@ -73,18 +91,21 @@ pub fn resolve<'a>(
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-pub async fn process<'a>(
-    ctx: Context,
-    reader: MessageReader<'_, '_>,
-    bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>, StunError> {
-    let (username, key) = match verify_message(&ctx, &reader).await {
-        None => return reject(reader, bytes, Unauthorized),
-        Some(ret) => ret,
+pub async fn process<'a, T: Observer>(
+    req: Requet<'_, 'a, T, MessageReader<'_>>,
+) -> Option<Response<'a>> {
+    let (username, digest) = match req.auth().await {
+        None => return reject(req, ErrKind::Unauthorized),
+        Some(it) => it,
     };
 
-    let time = reader.get::<Lifetime>().unwrap_or(600);
-    ctx.env.observer.refresh(&ctx.addr, username, time);
-    ctx.env.router.refresh(&ctx.addr, time);
-    resolve(&reader, time, &key, bytes)
+    let lifetime = req.message.get::<Lifetime>().unwrap_or(600);
+    if !req.service.sessions.refresh(&req.symbol, lifetime) {
+        return reject(req, ErrKind::AllocationMismatch);
+    }
+
+    req.service
+        .observer
+        .refresh(&req.symbol, username, lifetime);
+    resolve(req, lifetime, &digest)
 }

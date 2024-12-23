@@ -13,4 +13,3 @@ docker pull ghcr.io/mycrl/turn-server:latest
 ```
 
 It should be noted that using this image requires a custom configuration file. You can use the `-v` option to override the default configuration file path inside the image. The default configuration file path is `/etc/turn-server/config.toml`
-

@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use clap::Parser;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use stun::Transport as StunTransport;
 
 #[repr(C)]
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -11,6 +12,24 @@ use serde::{Deserialize, Serialize};
 pub enum Transport {
     TCP = 0,
     UDP = 1,
+}
+
+impl Into<StunTransport> for Transport {
+    fn into(self) -> StunTransport {
+        match self {
+            Self::TCP => StunTransport::TCP,
+            Self::UDP => StunTransport::UDP,
+        }
+    }
+}
+
+impl From<StunTransport> for Transport {
+    fn from(value: StunTransport) -> Self {
+        match value {
+            StunTransport::TCP => Self::TCP,
+            StunTransport::UDP => Self::UDP,
+        }
+    }
 }
 
 impl FromStr for Transport {

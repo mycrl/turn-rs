@@ -1,11 +1,12 @@
 use std::net::SocketAddr;
 
-use super::{ip_is_local, Context, Response};
-use crate::StunClass;
+use super::{Requet, Response};
+use crate::{Observer, StunClass};
 
-use bytes::BytesMut;
-use stun::attribute::{Data, XorPeerAddress};
-use stun::{MessageReader, MessageWriter, Method, StunError};
+use stun::{
+    attribute::{Data, XorPeerAddress},
+    MessageReader, MessageWriter, Method,
+};
 
 /// process send indication request
 ///
@@ -51,46 +52,39 @@ use stun::{MessageReader, MessageWriter, Method, StunError};
 /// and [15](https://tools.ietf.org/html/rfc8656#section-15).
 ///
 /// The resulting UDP datagram is then sent to the peer.
-pub async fn process<'a>(
-    ctx: Context,
-    reader: MessageReader<'_, '_>,
-    bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>, StunError> {
-    let peer = match reader.get::<XorPeerAddress>() {
-        None => return Ok(None),
-        Some(x) => x,
-    };
+pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Option<Response<'a>> {
+    let peer = req.message.get::<XorPeerAddress>()?;
+    let data = req.message.get::<Data>()?;
 
-    if !ip_is_local(&ctx, &peer) {
-        return Ok(None);
+    let relay = req
+        .service
+        .sessions
+        .get_relay_address(&req.symbol, peer.port())?;
+
+    let local_port = req
+        .service
+        .sessions
+        .get_session(&req.symbol)
+        .get_ref()?
+        .allocate
+        .port?;
+
+    {
+        let mut message = MessageWriter::extend(Method::DataIndication, &req.message, req.bytes);
+        message.append::<XorPeerAddress>(SocketAddr::new(req.service.external.ip(), local_port));
+        message.append::<Data>(data);
+        message.flush(None).ok()?;
     }
 
-    let data = match reader.get::<Data>() {
-        None => return Ok(None),
-        Some(x) => x,
-    };
-
-    let addr = match ctx.env.router.get_port_addr(peer.port()) {
-        None => return Ok(None),
-        Some(a) => a,
-    };
-
-    let port = match ctx.env.router.get_addr_port(&ctx.addr) {
-        None => return Ok(None),
-        Some(p) => p,
-    };
-
-    let interface = match ctx.env.router.get_interface(&addr) {
-        None => return Ok(None),
-        Some(p) => p,
-    };
-
-    let method = Method::DataIndication;
-    let mut pack = MessageWriter::extend(method, &reader, bytes);
-    pack.append::<XorPeerAddress>(SocketAddr::new(interface.external.ip(), port));
-    pack.append::<Data>(data);
-    pack.flush(None)?;
-
-    let to = (ctx.env.interface != interface.addr).then(|| interface.addr);
-    Ok(Some(Response::new(bytes, StunClass::Msg, Some(addr), to)))
+    Some(Response {
+        interface: if req.symbol.interface != relay.interface {
+            Some(relay.interface)
+        } else {
+            None
+        },
+        relay: Some(relay.address),
+        kind: StunClass::Message,
+        bytes: req.bytes,
+        reject: false,
+    })
 }

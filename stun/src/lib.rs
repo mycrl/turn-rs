@@ -49,44 +49,36 @@ pub mod channel;
 pub mod message;
 pub mod util;
 
-use std::{error, fmt};
+pub use self::{
+    attribute::{AttrKind, Transport},
+    channel::ChannelData,
+    message::*,
+};
 
-pub use channel::ChannelData;
-pub use message::*;
+use std::ops::Range;
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum StunError {
+    #[error("InvalidInput")]
     InvalidInput,
-    UnsupportedIpFamily,
-    ShaFailed,
+    #[error("SummaryFailed")]
+    SummaryFailed,
+    #[error("NotIntegrity")]
     NotIntegrity,
+    #[error("IntegrityFailed")]
     IntegrityFailed,
+    #[error("NotCookie")]
     NotCookie,
+    #[error("UnknownMethod")]
     UnknownMethod,
+    #[error("FatalError")]
     FatalError,
-    Utf8Error,
-}
-
-impl error::Error for StunError {}
-
-impl fmt::Display for StunError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::InvalidInput => "InvalidInput",
-                Self::UnsupportedIpFamily => "UnsupportedIpFamily",
-                Self::ShaFailed => "ShaFailed",
-                Self::NotIntegrity => "NotIntegrity",
-                Self::IntegrityFailed => "IntegrityFailed",
-                Self::NotCookie => "NotCookie",
-                Self::UnknownMethod => "UnknownMethod",
-                Self::FatalError => "FatalError",
-                Self::Utf8Error => "Utf8Error",
-            }
-        )
-    }
+    #[error("Utf8Error: {0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
+    #[error("TryFromSliceError: {0}")]
+    TryFromSliceError(#[from] std::array::TryFromSliceError),
 }
 
 /// STUN Methods Registry
@@ -138,10 +130,37 @@ pub enum Method {
     DataIndication,
 }
 
+impl Method {
+    #[rustfmt::skip]
+    pub fn into_response(self) -> Option<Self> {
+        Some(match self {
+            Method::Binding(Kind::Request) => Method::Binding(Kind::Response),
+            Method::Allocate(Kind::Request) => Method::Allocate(Kind::Response),
+            Method::CreatePermission(Kind::Request) => Method::CreatePermission(Kind::Response),
+            Method::ChannelBind(Kind::Request) => Method::ChannelBind(Kind::Response),
+            Method::Refresh(Kind::Request) => Method::Refresh(Kind::Response),
+            Method::SendIndication => Method::DataIndication,
+            _ => return None,
+        })
+    }
+
+    #[rustfmt::skip]
+    pub fn into_error(self) -> Option<Self> {
+        Some(match self {
+            Method::Binding(Kind::Request) => Method::Binding(Kind::Error),
+            Method::Allocate(Kind::Request) => Method::Allocate(Kind::Error),
+            Method::CreatePermission(Kind::Request) => Method::CreatePermission(Kind::Error),
+            Method::ChannelBind(Kind::Request) => Method::ChannelBind(Kind::Error),
+            Method::Refresh(Kind::Request) => Method::Refresh(Kind::Error),
+            _ => return None,
+        })
+    }
+}
+
 impl TryFrom<u16> for Method {
     type Error = StunError;
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::TryFrom;
@@ -235,7 +254,7 @@ impl TryFrom<u16> for Method {
 }
 
 impl From<Method> for u16 {
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use std::convert::Into;
@@ -283,23 +302,62 @@ impl From<Method> for u16 {
 }
 
 #[derive(Debug)]
-pub enum Payload<'a, 'b> {
-    Message(MessageReader<'a, 'b>),
+pub enum Payload<'a> {
+    Message(MessageReader<'a>),
     ChannelData(ChannelData<'a>),
 }
 
-pub struct Decoder {
-    attrs: Vec<(attribute::AttrKind, &'static [u8])>,
+/// A cache of the list of attributes, this is for internal use only.
+#[derive(Debug)]
+pub struct Attributes(Vec<(AttrKind, Range<usize>)>);
+
+impl Default for Attributes {
+    fn default() -> Self {
+        Self(Vec::with_capacity(20))
+    }
 }
 
-impl Decoder {
-    pub fn new() -> Self {
-        Self {
-            attrs: Vec::with_capacity(10),
-        }
+impl Attributes {
+    /// Adds an attribute to the list.
+    pub fn append(&mut self, kind: AttrKind, range: Range<usize>) {
+        self.0.push((kind, range));
     }
 
-    /// # Unit Test
+    /// Gets an attribute from the list.
+    ///
+    /// Note: This function will only look for the first matching property in
+    /// the list and return it.
+    pub fn get(&self, kind: &AttrKind) -> Option<Range<usize>> {
+        self.0
+            .iter()
+            .find(|(k, _)| k == kind)
+            .map(|(_, v)| v.clone())
+    }
+
+    /// Gets all the values of an attribute from a list.
+    ///
+    /// Normally a stun message can have multiple attributes with the same name,
+    /// and this function will all the values of the current attribute.
+    pub fn get_all<'a>(&'a self, kind: &'a AttrKind) -> impl Iterator<Item = &'a Range<usize>> {
+        self.0
+            .iter()
+            .filter(move |(k, _)| k == kind)
+            .map(|(_, v)| v)
+            .into_iter()
+    }
+
+    pub fn clear(&mut self) {
+        if !self.0.is_empty() {
+            self.0.clear();
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Decoder(Attributes);
+
+impl Decoder {
+    /// # Test
     ///
     /// ```
     /// use stun::attribute::*;
@@ -316,37 +374,30 @@ impl Decoder {
     ///     0xcf, 0xf5, 0xde, 0x82, 0x80, 0x28, 0x00, 0x04, 0x56, 0xf7, 0xa3, 0xed,
     /// ];
     ///
-    /// let mut decoder = Decoder::new();
+    /// let mut decoder = Decoder::default();
     /// let payload = decoder.decode(&buffer).unwrap();
     /// if let Payload::Message(reader) = payload {
     ///     assert!(reader.get::<UserName>().is_some())
     /// }
     /// ```
-    pub fn decode<'a>(&mut self, buf: &'a [u8]) -> Result<Payload<'a, '_>, StunError> {
-        assert!(buf.len() >= 4);
-        if !self.attrs.is_empty() {
-            self.attrs.clear();
-        }
+    pub fn decode<'a>(&'a mut self, bytes: &'a [u8]) -> Result<Payload<'a>, StunError> {
+        assert!(bytes.len() >= 4);
 
-        let flag = buf[0] >> 6;
+        let flag = bytes[0] >> 6;
         if flag > 3 {
             return Err(StunError::InvalidInput);
         }
 
         Ok(if flag == 0 {
-            // attrs will not be used again after decode is used, so the
-            // reference is safe. Unsafe is used here to make the external life
-            // cycle declaration cleaner.
-            Payload::Message(MessageReader::decode(
-                unsafe { std::mem::transmute::<&'a [u8], &[u8]>(buf) },
-                &mut self.attrs,
-            )?)
+            self.0.clear();
+
+            Payload::Message(MessageReader::decode(bytes, &mut self.0)?)
         } else {
-            Payload::ChannelData(ChannelData::try_from(buf)?)
+            Payload::ChannelData(ChannelData::try_from(bytes)?)
         })
     }
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
     /// use stun::attribute::*;
@@ -366,22 +417,16 @@ impl Decoder {
     /// let size = Decoder::message_size(&buffer, false).unwrap();
     /// assert_eq!(size, 96);
     /// ```
-    pub fn message_size(buf: &[u8], is_tcp: bool) -> Result<usize, StunError> {
-        let flag = buf[0] >> 6;
+    pub fn message_size(bytes: &[u8], is_tcp: bool) -> Result<usize, StunError> {
+        let flag = bytes[0] >> 6;
         if flag > 3 {
             return Err(StunError::InvalidInput);
         }
 
         Ok(if flag == 0 {
-            MessageReader::message_size(buf)?
+            MessageReader::message_size(bytes)?
         } else {
-            ChannelData::message_size(buf, is_tcp)?
+            ChannelData::message_size(bytes, is_tcp)?
         })
-    }
-}
-
-impl Default for Decoder {
-    fn default() -> Self {
-        Self::new()
     }
 }

@@ -2,141 +2,225 @@
 <html>
     <head>
         <meta charset="utf-8" />
-        <title>Peer connection</title>
-
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-            }
-
-            body {
-                display: flex;
-            }
-
-            video {
-                width: 50%;
-                height: 100vh;
-            }
-        </style>
+        <title>turn-rs webrtc examples</title>
+        <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     </head>
 
     <body>
-        <!--
-        This is a local preview of the screen, showing the tab card or desktop 
-        of your choice.
-        -->
-        <video id="localVideo" autoplay controls></video>
+        <div id="app">
+            <div id="local">
+                <video autoplay controls @click="start"></video>
+                <Controls @change="(it) => { localControls = it }" />
+            </div>
 
-        <!--
-        This is the remote screen, showing a mirror image of the local preview.
-        -->
-        <video id="remoteVideo" autoplay controls></video>
+            <div id="remote">
+                <video autoplay controls></video>
+                <Controls @change="(it) => { remoteControls = it }" />
+            </div>
+        </div>
     </body>
-
-    <script>
-        window.addEventListener("load", async () => {
-            const localVideo = document.getElementById("localVideo");
-            const remoteVideo = document.getElementById("remoteVideo");
-
-            /**
-             * This is a local RTC connection that forces the use of forwarding.
-             * you can configure the ice server parameters yourself.
-             */
-            let localRtc = new RTCPeerConnection({
-                iceTransportPolicy: "relay",
-                iceServers: [
-                    {
-                        urls: "turn:localhost:3478",
-                        username: "user1",
-                        credential: "test",
-                    },
-                ],
-            });
-
-            /**
-             * This is a remote RTC connection that forces the use of forwarding.
-             * you can configure the parameters of the ice server yourself.
-             */
-            let remoteRtc = new RTCPeerConnection({
-                iceTransportPolicy: "relay",
-                iceServers: [
-                    {
-                        urls: "turn:localhost:3478",
-                        username: "user2",
-                        credential: "test",
-                    },
-                ],
-            });
-
-            /**
-             * The local ice candidate is added to the remote session.
-             */
-            localRtc.addEventListener("icecandidate", async (event) => {
-                await remoteRtc.addIceCandidate(event.candidate);
-            });
-
-            /**
-             * The remote ice candidate is added to the local session.
-             */
-            remoteRtc.addEventListener("icecandidate", async (event) => {
-                await localRtc.addIceCandidate(event.candidate);
-            });
-
-            /**
-             * Create a media stream and add all audio and video tracks received
-             * by the remote session to this media stream.
-             */
-            {
-                const remoteStream = new MediaStream();
-                remoteVideo.srcObject = remoteStream;
-
-                remoteRtc.addEventListener("track", (event) => {
-                    remoteStream.addTrack(event.track);
-                });
-            }
-
-            /**
-             * Click Local Preview to start the connection process.
-             */
-            localVideo.addEventListener("click", async () => {
-                /**
-                 * Get the capture stream of the desktop or tab, here it is
-                 * capturing video not audio.
-                 */
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
-                });
-
-                /**
-                 * The local video player previews the captured stream.
-                 */
-                localVideo.srcObject = stream;
-
-                /**
-                 * The local capture streams are all added to the local RTC
-                 * session.
-                 */
-                for (const track of stream.getTracks()) {
-                    localRtc.addTrack(track, stream);
-                }
-
-                /**
-                 * The local connection creates the OFFER to submit to the
-                 * remote connection.
-                 */
-                const offer = await localRtc.createOffer();
-                await localRtc.setLocalDescription(offer);
-                await remoteRtc.setRemoteDescription(offer);
-
-                /**
-                 * Remote connections create ANSWER submissions to the local
-                 * connection.
-                 */
-                const answer = await remoteRtc.createAnswer();
-                await remoteRtc.setLocalDescription(answer);
-                await localRtc.setRemoteDescription(answer);
-            });
-        });
-    </script>
 </html>
+
+<template id="Controls">
+    <div class="controls">
+        <div class="item">
+            <span>server:</span>
+            <input v-model="server" type="text" value="localhost" />
+        </div>
+        <div class="item">
+            <span>transport:</span>
+            <select v-model="transport">
+                <option value="tcp">tcp</option>
+                <option value="udp">udp</option>
+            </select>
+        </div>
+        <div class="item">
+            <span>auth:</span>
+            <select v-model="username">
+                <option value="user1">user1:test</option>
+                <option value="user2">user2:test</option>
+            </select>
+        </div>
+    </div>
+</template>
+
+<script>
+    const { createApp, ref, watch } = Vue;
+
+    const app = createApp({
+        setup() {
+            const localControls = ref({});
+            const remoteControls = ref({});
+
+            return {
+                localControls,
+                remoteControls,
+                async start() {
+                    const localVideo = document.querySelector("#local video");
+                    const remoteVideo = document.querySelector("#remote video");
+
+                    console.log({
+                        urls: `turn:${localControls.value.server}:3478?transport=${localControls.value.transport}`,
+                        username: localControls.value.username,
+                        credential: "test",
+                    });
+
+                    /**
+                     * This is a local RTC connection that forces the use of forwarding.
+                     * you can configure the ice server parameters yourself.
+                     */
+                    let localRtc = new RTCPeerConnection({
+                        iceTransportPolicy: "relay",
+                        iceServers: [
+                            {
+                                urls: `turn:${localControls.value.server}:3478?transport=${localControls.value.transport}`,
+                                username: localControls.value.username,
+                                credential: "test",
+                            },
+                        ],
+                    });
+                    /**
+                     * This is a remote RTC connection that forces the use of forwarding.
+                     * you can configure the parameters of the ice server yourself.
+                     */
+                    let remoteRtc = new RTCPeerConnection({
+                        iceTransportPolicy: "relay",
+                        iceServers: [
+                            {
+                                urls: `turn:${remoteControls.value.server}:3478?transport=${remoteControls.value.transport}`,
+                                username: remoteControls.value.username,
+                                credential: "test",
+                            },
+                        ],
+                    });
+                    /**
+                     * The local ice candidate is added to the remote session.
+                     */
+                    localRtc.addEventListener("icecandidate", async (event) => {
+                        await remoteRtc.addIceCandidate(event.candidate);
+                    });
+                    /**
+                     * The remote ice candidate is added to the local session.
+                     */
+                    remoteRtc.addEventListener("icecandidate", async (event) => {
+                        await localRtc.addIceCandidate(event.candidate);
+                    });
+                    /**
+                     * Create a media stream and add all audio and video tracks received
+                     * by the remote session to this media stream.
+                     */
+                    {
+                        const remoteStream = new MediaStream();
+                        remoteVideo.srcObject = remoteStream;
+                        remoteRtc.addEventListener("track", (event) => {
+                            remoteStream.addTrack(event.track);
+                        });
+                    }
+                    /**
+                     * Get the capture stream of the desktop or tab, here it is
+                     * capturing video not audio.
+                     */
+                    const stream = await navigator.mediaDevices.getDisplayMedia({
+                        video: true,
+                    });
+                    /**
+                     * The local video player previews the captured stream.
+                     */
+                    localVideo.srcObject = stream;
+                    /**
+                     * The local capture streams are all added to the local RTC
+                     * session.
+                     */
+                    for (const track of stream.getTracks()) {
+                        localRtc.addTrack(track, stream);
+                    }
+                    /**
+                     * The local connection creates the OFFER to submit to the
+                     * remote connection.
+                     */
+                    const offer = await localRtc.createOffer();
+                    await localRtc.setLocalDescription(offer);
+                    await remoteRtc.setRemoteDescription(offer);
+                    /**
+                     * Remote connections create ANSWER submissions to the local
+                     * connection.
+                     */
+                    const answer = await remoteRtc.createAnswer();
+                    await remoteRtc.setLocalDescription(answer);
+                    await localRtc.setRemoteDescription(answer);
+                },
+            };
+        },
+    });
+
+    app.component("Controls", {
+        template: document.getElementById("Controls").innerHTML,
+        emits: ["change"],
+        setup(props, context) {
+            const server = ref("127.0.0.1");
+            const transport = ref("udp");
+            const username = ref("user1");
+
+            context.emit("change", { server, transport, username });
+
+            watch([server, transport, username], () => {
+                context.emit("change", { server, transport, username });
+            });
+
+            return {
+                server,
+                transport,
+                username,
+            };
+        },
+    });
+
+    app.mount("#app");
+</script>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        font-size: 12px;
+    }
+
+    #app {
+        display: flex;
+    }
+
+    #local,
+    #remote {
+        width: 50%;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #local video,
+    #remote video {
+        flex: 1;
+        width: 100%;
+    }
+
+    .controls {
+        display: flex;
+        padding: 10px;
+    }
+
+    .controls .item {
+        flex: 1;
+    }
+
+    .controls .item span {
+        font-style: oblique;
+    }
+
+    .controls .item input,
+    .controls .item select,
+    .controls .item option {
+        border: 1px solid #ddd;
+        padding: 3px 5px;
+        border-radius: 3px;
+    }
+</style>

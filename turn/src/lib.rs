@@ -1,37 +1,34 @@
-pub mod operation;
-pub mod router;
+pub mod operations;
+pub mod sessions;
 
-pub use operation::Operationer;
-pub use router::{sockets::Socket, Router};
+use self::operations::ServiceContext;
+
+pub use self::{
+    operations::Operationer,
+    sessions::{PortAllocatePools, Session, Sessions, Symbol},
+};
 
 use std::{net::SocketAddr, sync::Arc};
 
 use async_trait::async_trait;
+use stun::Transport;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StunClass {
-    Msg,
+    Message,
     Channel,
 }
 
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
-    env!("CARGO_PKG_NAME"), 
-    "-", 
+    "turn-rs.",
     env!("CARGO_PKG_VERSION")
 );
 
+#[allow(unused)]
 #[async_trait]
 pub trait Observer: Send + Sync {
-    /// turn auth request with block
-    #[allow(unused)]
-    fn get_password_blocking(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        None
-    }
-
-    /// turn auth request
-    #[allow(unused)]
-    async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
+    async fn get_password(&self, symbol: &Symbol, username: &str) -> Option<String> {
         None
     }
 
@@ -51,33 +48,7 @@ pub trait Observer: Send + Sync {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    #[allow(unused)]
-    fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {}
-
-    /// binding request
-    ///
-    /// [rfc8489](https://tools.ietf.org/html/rfc8489)
-    ///
-    /// In the Binding request/response transaction, a Binding request is
-    /// sent from a STUN client to a STUN server.  When the Binding request
-    /// arrives at the STUN server, it may have passed through one or more
-    /// NATs between the STUN client and the STUN server (in Figure 1, there
-    /// are two such NATs).  As the Binding request message passes through a
-    /// NAT, the NAT will modify the source transport address (that is, the
-    /// source IP address and the source port) of the packet.  As a result,
-    /// the source transport address of the request received by the server
-    /// will be the public IP address and port created by the NAT closest to
-    /// the server.  This is called a "reflexive transport address".  The
-    /// STUN server copies that source transport address into an XOR-MAPPED-
-    /// ADDRESS attribute in the STUN Binding response and sends the Binding
-    /// response back to the STUN client.  As this packet passes back through
-    /// a NAT, the NAT will modify the destination transport address in the
-    /// IP header, but the transport address in the XOR-MAPPED-ADDRESS
-    /// attribute within the body of the STUN response will remain untouched.
-    /// In this way, the client can learn its reflexive transport address
-    /// allocated by the outermost NAT with respect to the STUN server.
-    #[allow(unused)]
-    fn binding(&self, addr: &SocketAddr) {}
+    fn allocated(&self, symbol: &Symbol, username: &str, port: u16) {}
 
     /// channel binding request
     ///
@@ -109,8 +80,7 @@ pub trait Observer: Send + Sync {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
-    #[allow(unused)]
-    fn channel_bind(&self, addr: &SocketAddr, name: &str, num: u16) {}
+    fn channel_bind(&self, symbol: &Symbol, username: &str, channel: u16) {}
 
     /// create permission request
     ///
@@ -151,8 +121,7 @@ pub trait Observer: Send + Sync {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
-    #[allow(unused)]
-    fn create_permission(&self, addr: &SocketAddr, name: &str, relay: &SocketAddr) {}
+    fn create_permission(&self, symbol: &Symbol, username: &str, ports: &[u16]) {}
 
     /// refresh request
     ///
@@ -193,83 +162,91 @@ pub trait Observer: Send + Sync {
     /// will cause a 437 (Allocation Mismatch) response if the
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
-    #[allow(unused)]
-    fn refresh(&self, addr: &SocketAddr, name: &str, time: u32) {}
+    fn refresh(&self, symbol: &Symbol, username: &str, lifetime: u32) {}
 
-    /// session abort
+    /// session closed
     ///
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    #[allow(unused)]
-    fn abort(&self, addr: &SocketAddr, name: &str) {}
+    fn closed(&self, symbol: &Symbol, username: &str) {}
 }
 
-/// TUTN service.
+/// Turn service.
 #[derive(Clone)]
-pub struct Service {
-    router: Arc<Router>,
-    observer: Arc<dyn Observer>,
+pub struct Service<T> {
     externals: Arc<Vec<SocketAddr>>,
-    realm: String,
+    sessions: Arc<Sessions<T>>,
+    realm: Arc<String>,
+    observer: T,
 }
 
-impl Service {
-    pub fn get_router(&self) -> &Arc<Router> {
-        &self.router
+impl<T> Service<T>
+where
+    T: Clone + Observer + 'static,
+{
+    pub fn get_sessions(&self) -> Arc<Sessions<T>> {
+        self.sessions.clone()
     }
 
     /// Create turn service.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use turn::*;
     ///
+    /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {}
     ///
     /// Service::new("test".to_string(), vec![], ObserverTest);
     /// ```
-    pub fn new<T>(realm: String, externals: Vec<SocketAddr>, observer: T) -> Self
-    where
-        T: Observer + 'static,
-    {
-        let observer = Arc::new(observer);
-        let router = Router::new(realm.clone(), observer.clone());
+    pub fn new(realm: String, externals: Vec<SocketAddr>, observer: T) -> Self {
         Self {
+            sessions: Sessions::new(observer.clone()),
             externals: Arc::new(externals),
+            realm: Arc::new(realm),
             observer,
-            router,
-            realm,
         }
     }
 
     /// Get operationer.
     ///
-    /// # Examples
+    /// # Test
     ///
     /// ```
     /// use std::net::SocketAddr;
+    /// use stun::attribute::Transport;
     /// use turn::*;
     ///
+    /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
     /// impl Observer for ObserverTest {}
     ///
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let service = Service::new("test".to_string(), vec![], ObserverTest);
-    /// service.get_operationer(addr, addr);
+    ///
+    /// service.get_operationer(Transport::UDP, addr, addr);
     /// ```
-    pub fn get_operationer(&self, interface: SocketAddr, external: SocketAddr) -> Operationer {
+    pub fn get_operationer(
+        &self,
+        transport: Transport,
+        interface: SocketAddr,
+        external: SocketAddr,
+    ) -> Operationer<T> {
         Operationer::new(
+            transport,
             interface,
-            external,
-            self.externals.clone(),
-            self.realm.clone(),
-            self.router.clone(),
-            self.observer.clone(),
+            ServiceContext {
+                externals: self.externals.clone(),
+                observer: self.observer.clone(),
+                sessions: self.sessions.clone(),
+                realm: self.realm.clone(),
+                external,
+            },
         )
     }
 }

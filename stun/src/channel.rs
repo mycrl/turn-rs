@@ -1,4 +1,7 @@
-use crate::{util, StunError};
+use bytes::{BufMut, BytesMut};
+
+use crate::StunError;
+
 use std::convert::TryFrom;
 
 /// The ChannelData Message
@@ -37,84 +40,117 @@ use std::convert::TryFrom;
 #[derive(Debug)]
 pub struct ChannelData<'a> {
     /// channnel data bytes.
-    pub buf: &'a [u8],
+    pub bytes: &'a [u8],
     /// channel number.
     pub number: u16,
 }
 
 impl ChannelData<'_> {
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
+    /// use bytes::{BufMut, BytesMut};
     /// use std::convert::TryFrom;
     /// use stun::*;
     ///
-    /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
+    /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
+    /// let mut bytes = BytesMut::with_capacity(1500);
     ///
-    /// let size = ChannelData::message_size(&buffer[..], false).unwrap();
-    /// assert_eq!(size, 68);
+    /// ChannelData {
+    ///     number: 16384,
+    ///     bytes: &data[..],
+    /// }
+    /// .encode(&mut bytes);
+    ///
+    /// let size = ChannelData::message_size(&bytes[..], false).unwrap();
+    /// assert_eq!(size, 8);
     /// ```
-    pub fn message_size(buf: &[u8], is_tcp: bool) -> Result<usize, StunError> {
-        if buf.len() < 4 {
+    pub fn message_size(bytes: &[u8], is_tcp: bool) -> Result<usize, StunError> {
+        if bytes.len() < 4 {
             return Err(StunError::InvalidInput);
         }
 
-        if !(1..3).contains(&(buf[0] >> 6)) {
+        if !(1..3).contains(&(bytes[0] >> 6)) {
             return Err(StunError::InvalidInput);
         }
 
-        let mut size = (util::as_u16(&buf[2..4]) + 4) as usize;
+        let mut size = (u16::from_be_bytes(bytes[2..4].try_into()?) + 4) as usize;
         if is_tcp && (size % 4) > 0 {
             size += 4 - (size % 4);
         }
 
         Ok(size)
     }
+
+    /// # Test
+    ///
+    /// ```
+    /// use bytes::{BufMut, BytesMut};
+    /// use std::convert::TryFrom;
+    /// use stun::*;
+    ///
+    /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
+    /// let mut bytes = BytesMut::with_capacity(1500);
+    ///
+    /// ChannelData {
+    ///     number: 16384,
+    ///     bytes: &data[..],
+    /// }
+    /// .encode(&mut bytes);
+    ///
+    /// let ret = ChannelData::try_from(&bytes[..]).unwrap();
+    /// assert_eq!(ret.number, 16384);
+    /// assert_eq!(ret.bytes, &data[..]);
+    /// ```
+    pub fn encode(self, bytes: &mut BytesMut) {
+        unsafe { bytes.set_len(0) }
+        bytes.put_u16(self.number);
+        bytes.put_u16(self.bytes.len() as u16);
+        bytes.extend_from_slice(self.bytes);
+    }
 }
 
 impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     type Error = StunError;
 
-    /// # Unit Test
+    /// # Test
     ///
     /// ```
+    /// use bytes::{BufMut, BytesMut};
     /// use std::convert::TryFrom;
     /// use stun::*;
     ///
-    /// let buffer: [u8; 4] = [0x40, 0x00, 0x00, 0x00];
+    /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
+    /// let mut bytes = BytesMut::with_capacity(1500);
     ///
-    /// let data = ChannelData::try_from(&buffer[..]).unwrap();
-    /// assert_eq!(data.number, 16384);
+    /// ChannelData {
+    ///     number: 16384,
+    ///     bytes: &data[..],
+    /// }
+    /// .encode(&mut bytes);
+    ///
+    /// let ret = ChannelData::try_from(&bytes[..]).unwrap();
+    /// assert_eq!(ret.number, 16384);
+    /// assert_eq!(ret.bytes, &data[..]);
     /// ```
-    fn try_from(buf: &'a [u8]) -> Result<Self, Self::Error> {
-        if buf.len() < 4 {
+    fn try_from(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+        if bytes.len() < 4 {
             return Err(StunError::InvalidInput);
         }
 
-        let number = util::as_u16(&buf[..2]);
+        let number = u16::from_be_bytes(bytes[..2].try_into()?);
         if !(0x4000..0xFFFF).contains(&number) {
             return Err(StunError::InvalidInput);
         }
 
-        let size = util::as_u16(&buf[2..4]) as usize;
-        if size > buf.len() - 4 {
+        let size = u16::from_be_bytes(bytes[2..4].try_into()?) as usize;
+        if size > bytes.len() - 4 {
             return Err(StunError::InvalidInput);
         }
 
-        Ok(Self { buf, number })
-    }
-}
-
-impl AsRef<[u8]> for ChannelData<'_> {
-    fn as_ref(&self) -> &[u8] {
-        self.buf
-    }
-}
-
-impl std::ops::Deref for ChannelData<'_> {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        self.buf
+        Ok(Self {
+            bytes: &bytes[4..],
+            number,
+        })
     }
 }

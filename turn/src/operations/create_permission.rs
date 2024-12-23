@@ -1,39 +1,62 @@
-use super::{ip_is_local, verify_message, Context, Response};
-use crate::{StunClass, SOFTWARE};
+use super::{Requet, Response};
+use crate::{Observer, StunClass, SOFTWARE};
 
-use bytes::BytesMut;
-use stun::attribute::ErrKind::*;
-use stun::attribute::*;
-use stun::*;
+use stun::{
+    attribute::{ErrKind, Error, ErrorCode, Realm, Software, XorPeerAddress},
+    Kind, MessageReader, MessageWriter, Method,
+};
 
 /// return create permission error response
 #[inline(always)]
-fn reject<'a>(
-    ctx: Context,
-    reader: MessageReader,
-    bytes: &'a mut BytesMut,
+fn reject<'a, T: Observer>(
+    req: Requet<'_, 'a, T, MessageReader<'_>>,
     err: ErrKind,
-) -> Result<Option<Response<'a>>, StunError> {
-    let method = Method::CreatePermission(Kind::Error);
-    let mut pack = MessageWriter::extend(method, &reader, bytes);
-    pack.append::<ErrorCode>(Error::from(err));
-    pack.append::<Realm>(&ctx.env.realm);
-    pack.flush(None)?;
-    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
+) -> Option<Response<'a>> {
+    {
+        let mut message = MessageWriter::extend(
+            Method::CreatePermission(Kind::Error),
+            req.message,
+            req.bytes,
+        );
+
+        message.append::<ErrorCode>(Error::from(err));
+        message.append::<Realm>(&req.service.realm);
+        message.flush(None).ok()?;
+    }
+
+    Some(Response {
+        kind: StunClass::Message,
+        bytes: req.bytes,
+        interface: None,
+        reject: true,
+        relay: None,
+    })
 }
 
 /// return create permission ok response
 #[inline(always)]
-fn resolve<'a>(
-    reader: &MessageReader,
-    key: &[u8; 16],
-    bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>, StunError> {
-    let method = Method::CreatePermission(Kind::Response);
-    let mut pack = MessageWriter::extend(method, reader, bytes);
-    pack.append::<Software>(SOFTWARE);
-    pack.flush(Some(key))?;
-    Ok(Some(Response::new(bytes, StunClass::Msg, None, None)))
+fn resolve<'a, T: Observer>(
+    req: Requet<'_, 'a, T, MessageReader<'_>>,
+    digest: &[u8; 16],
+) -> Option<Response<'a>> {
+    {
+        let mut message = MessageWriter::extend(
+            Method::CreatePermission(Kind::Response),
+            req.message,
+            req.bytes,
+        );
+
+        message.append::<Software>(SOFTWARE);
+        message.flush(Some(digest)).ok()?;
+    }
+
+    Some(Response {
+        kind: StunClass::Message,
+        bytes: req.bytes,
+        interface: None,
+        reject: false,
+        relay: None,
+    })
 }
 
 /// process create permission request
@@ -75,27 +98,29 @@ fn resolve<'a>(
 /// > CreatePermission requests over UDP using the "stateless stack approach".
 /// > Retransmitted CreatePermission requests will simply refresh the
 /// > permissions.
-pub async fn process<'a>(
-    ctx: Context,
-    reader: MessageReader<'_, '_>,
-    bytes: &'a mut BytesMut,
-) -> Result<Option<Response<'a>>, StunError> {
-    let (username, key) = match verify_message(&ctx, &reader).await {
-        None => return reject(ctx, reader, bytes, Unauthorized),
-        Some(ret) => ret,
+pub async fn process<'a, T: Observer>(
+    req: Requet<'_, 'a, T, MessageReader<'_>>,
+) -> Option<Response<'a>> {
+    let (username, digest) = match req.auth().await {
+        None => return reject(req, ErrKind::Unauthorized),
+        Some(it) => it,
     };
 
-    let peer = match reader.get::<XorPeerAddress>() {
-        None => return reject(ctx, reader, bytes, BadRequest),
-        Some(a) => a,
-    };
+    let mut ports = Vec::with_capacity(15);
+    for it in req.message.get_all::<XorPeerAddress>() {
+        if !req.verify_ip(&it) {
+            return reject(req, ErrKind::Forbidden);
+        }
 
-    if !ip_is_local(&ctx, &peer) {
-        return reject(ctx, reader, bytes, Forbidden);
+        ports.push(it.port());
     }
 
-    ctx.env
+    if !req.service.sessions.create_permission(&req.symbol, &ports) {
+        return reject(req, ErrKind::Forbidden);
+    }
+
+    req.service
         .observer
-        .create_permission(&ctx.addr, username, &peer);
-    resolve(&reader, &key, bytes)
+        .create_permission(&req.symbol, username, &ports);
+    resolve(req, &digest)
 }

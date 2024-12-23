@@ -1,20 +1,26 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
-use crate::{config::Config, publicly::HooksService, statistics::Statistics};
+use crate::{
+    config::{Config, Transport},
+    publicly::HooksService,
+    statistics::Statistics,
+};
 
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::json;
+use turn::Symbol;
 
+#[derive(Clone)]
 pub struct Observer {
-    hooks: HooksService,
+    hooks: Arc<HooksService>,
     statistics: Statistics,
 }
 
 impl Observer {
     pub async fn new(config: Arc<Config>, statistics: Statistics) -> Result<Self> {
         Ok(Self {
-            hooks: HooksService::new(config)?,
+            hooks: Arc::new(HooksService::new(config)?),
             statistics,
         })
     }
@@ -22,9 +28,18 @@ impl Observer {
 
 #[async_trait]
 impl turn::Observer for Observer {
-    async fn get_password(&self, addr: &SocketAddr, name: &str) -> Option<String> {
-        let pwd = self.hooks.get_password(addr, name).await;
-        log::info!("auth: addr={:?}, name={:?}, pwd={:?}", addr, name, pwd);
+    async fn get_password(&self, key: &Symbol, name: &str) -> Option<String> {
+        let pwd = self.hooks.get_password(key, name).await;
+
+        log::info!(
+            "auth: address={:?}, interface={:?}, transport={:?}, username={:?}, password={:?}",
+            key.address,
+            key.interface,
+            key.transport,
+            name,
+            pwd
+        );
+
         pwd
     }
 
@@ -45,46 +60,27 @@ impl turn::Observer for Observer {
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
     #[allow(clippy::let_underscore_future)]
-    fn allocated(&self, addr: &SocketAddr, name: &str, port: u16) {
-        log::info!("allocate: addr={:?}, name={:?}, port={}", addr, name, port);
-        self.statistics.register(*addr);
-        self.hooks.send_event(json!({
+    fn allocated(&self, key: &Symbol, name: &str, port: u16) {
+        log::info!(
+            "allocate: address={:?}, interface={:?}, transport={:?}, username={:?}, port={}",
+            key.address,
+            key.interface,
+            key.transport,
+            name,
+            port
+        );
+
+        self.statistics.register(key.address);
+        self.hooks.emit(json!({
             "kind": "allocated",
-            "name": name,
-            "addr": addr,
+            "session": {
+                "address": key.address,
+                "interface": key.interface,
+                "transport": Transport::from(key.transport),
+            },
+            "username": name,
             "port": port,
         }));
-    }
-
-    /// binding request
-    ///
-    /// [rfc8489](https://tools.ietf.org/html/rfc8489)
-    ///
-    /// In the Binding request/response transaction, a Binding request is
-    /// sent from a STUN client to a STUN server.  When the Binding request
-    /// arrives at the STUN server, it may have passed through one or more
-    /// NATs between the STUN client and the STUN server (in Figure 1, there
-    /// are two such NATs).  As the Binding request message passes through a
-    /// NAT, the NAT will modify the source transport address (that is, the
-    /// source IP address and the source port) of the packet.  As a result,
-    /// the source transport address of the request received by the server
-    /// will be the public IP address and port created by the NAT closest to
-    /// the server.  This is called a "reflexive transport address".  The
-    /// STUN server copies that source transport address into an XOR-MAPPED-
-    /// ADDRESS attribute in the STUN Binding response and sends the Binding
-    /// response back to the STUN client.  As this packet passes back through
-    /// a NAT, the NAT will modify the destination transport address in the
-    /// IP header, but the transport address in the XOR-MAPPED-ADDRESS
-    /// attribute within the body of the STUN response will remain untouched.
-    /// In this way, the client can learn its reflexive transport address
-    /// allocated by the outermost NAT with respect to the STUN server.
-    #[allow(clippy::let_underscore_future)]
-    fn binding(&self, addr: &SocketAddr) {
-        log::info!("binding: addr={:?}", addr);
-        self.hooks.send_event(json!({
-            "kind": "binding",
-            "addr": addr,
-        }))
     }
 
     /// channel binding request
@@ -118,18 +114,24 @@ impl turn::Observer for Observer {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     #[allow(clippy::let_underscore_future)]
-    fn channel_bind(&self, addr: &SocketAddr, name: &str, channel: u16) {
+    fn channel_bind(&self, key: &Symbol, name: &str, channel: u16) {
         log::info!(
-            "channel bind: addr={:?}, name={:?}, channel={}",
-            addr,
+            "channel bind: address={:?}, interface={:?}, transport={:?}, username={:?}, channel={}",
+            key.address,
+            key.interface,
+            key.transport,
             name,
             channel
         );
 
-        self.hooks.send_event(json!({
+        self.hooks.emit(json!({
             "kind": "channel_bind",
-            "name": name,
-            "addr": addr,
+            "session": {
+                "address": key.address,
+                "interface": key.interface,
+                "transport": Transport::from(key.transport),
+            },
+            "username": name,
             "channel": channel,
         }));
     }
@@ -174,19 +176,23 @@ impl turn::Observer for Observer {
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
     #[allow(clippy::let_underscore_future)]
-    fn create_permission(&self, addr: &SocketAddr, name: &str, relay: &SocketAddr) {
+    fn create_permission(&self, key: &Symbol, name: &str, ports: &[u16]) {
         log::info!(
-            "create permission: addr={:?}, name={:?}, realy={:?}",
-            addr,
+            "create permission: address={:?}, interface={:?}, transport={:?}, username={:?}, ports={:?}",
+            key.address, key.interface, key.transport,
             name,
-            relay
+            ports
         );
 
-        self.hooks.send_event(json!({
+        self.hooks.emit(json!({
             "kind": "create_permission",
-            "name": name,
-            "addr": addr,
-            "relay": relay,
+            "session": {
+                "address": key.address,
+                "interface": key.interface,
+                "transport": Transport::from(key.transport),
+            },
+            "username": name,
+            "ports": ports,
         }));
     }
 
@@ -230,19 +236,25 @@ impl turn::Observer for Observer {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     #[allow(clippy::let_underscore_future)]
-    fn refresh(&self, addr: &SocketAddr, name: &str, expiration: u32) {
+    fn refresh(&self, key: &Symbol, name: &str, lifetime: u32) {
         log::info!(
-            "refresh: addr={:?}, name={:?}, expiration={}",
-            addr,
+            "refresh: address={:?}, interface={:?}, transport={:?}, username={:?}, lifetime={}",
+            key.address,
+            key.interface,
+            key.transport,
             name,
-            expiration
+            lifetime
         );
 
-        self.hooks.send_event(json!({
+        self.hooks.emit(json!({
             "kind": "refresh",
-            "name": name,
-            "addr": addr,
-            "expiration": expiration,
+            "session": {
+                "address": key.address,
+                "interface": key.interface,
+                "transport": Transport::from(key.transport),
+            },
+            "username": name,
+            "lifetime": lifetime,
         }))
     }
 
@@ -252,13 +264,24 @@ impl turn::Observer for Observer {
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
     #[allow(clippy::let_underscore_future)]
-    fn abort(&self, addr: &SocketAddr, name: &str) {
-        log::info!("node abort: addr={:?}, name={:?}", addr, name);
-        self.statistics.unregister(addr);
-        self.hooks.send_event(json!({
-            "kind": "abort",
-            "name": name,
-            "addr": addr,
+    fn closed(&self, key: &Symbol, name: &str) {
+        log::info!(
+            "closed: address={:?}, interface={:?}, transport={:?}, username={:?}",
+            key.address,
+            key.interface,
+            key.transport,
+            name
+        );
+
+        self.statistics.unregister(&key.address);
+        self.hooks.emit(json!({
+            "kind": "closed",
+            "session": {
+                "address": key.address,
+                "interface": key.interface,
+                "transport": Transport::from(key.transport),
+            },
+            "username": name,
         }))
     }
 }
