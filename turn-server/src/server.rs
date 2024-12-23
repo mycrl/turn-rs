@@ -127,23 +127,29 @@ async fn tcp_server(
                     };
 
                     let chunk = buf.split_to(size);
-                    if let Ok(Some(res)) = operationer.route(&chunk, addr).await {
-                        let target = res.relay.unwrap_or(addr);
-                        if let Some(interface) = res.interface {
-                            router.send(&interface, res.kind, &target, res.bytes);
-                        } else {
-                            if writer.lock().await.write_all(res.bytes).await.is_err() {
-                                break 'a;
+                    if let Ok(ret) = operationer.route(&chunk, addr).await {
+                        if let Some(res) = ret {
+                            let target = res.relay.unwrap_or(addr);
+                            if let Some(interface) = res.interface {
+                                router.send(&interface, res.kind, &target, res.bytes);
+                            } else {
+                                if writer.lock().await.write_all(res.bytes).await.is_err() {
+                                    break 'a;
+                                }
+
+                                reporter.send(
+                                    Transport::TCP,
+                                    &addr,
+                                    &[Stats::SendBytes(res.bytes.len() as u64), Stats::SendPkts(1)],
+                                );
                             }
 
-                            reporter.send(
-                                Transport::TCP,
-                                &addr,
-                                &[Stats::SendBytes(res.bytes.len() as u64), Stats::SendPkts(1)],
-                            );
+                            if res.reject {
+                                reporter.send(Transport::TCP, &addr, &[Stats::ErrorPkts(1)]);
+                            }
                         }
                     } else {
-                        reporter.send(Transport::TCP, &addr, &[Stats::ErrorPkts(1)]);
+                        break 'a;
                     }
                 }
             }
@@ -223,8 +229,10 @@ async fn udp_server(
                                 &[Stats::SendBytes(res.bytes.len() as u64), Stats::SendPkts(1)],
                             );
                         }
-                    } else {
-                        reporter.send(Transport::UDP, &addr, &[Stats::ErrorPkts(1)]);
+
+                        if res.reject {
+                            reporter.send(Transport::UDP, &addr, &[Stats::ErrorPkts(1)]);
+                        }
                     }
                 }
             }

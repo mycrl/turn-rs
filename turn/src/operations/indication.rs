@@ -85,5 +85,6 @@ pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Op
         relay: Some(relay.address),
         kind: StunClass::Message,
         bytes: req.bytes,
+        reject: false,
     })
 }

@@ -155,11 +155,11 @@ pub async fn start_server(
                         if state
                             .service
                             .get_sessions()
-                            .refresh(&Arc::new(&query.into()), 0)
+                            .refresh(&query.into(), 0)
                         {
-                            StatusCode::EXPECTATION_FAILED
-                        } else {
                             StatusCode::OK
+                        } else {
+                            StatusCode::EXPECTATION_FAILED
                         }
                     },
                 ),

@@ -48,6 +48,7 @@ pub fn process<'a, T: Observer>(
         },
         relay: Some(relay.address),
         kind: StunClass::Channel,
+        reject: false,
         bytes,
     })
 }

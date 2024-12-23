@@ -131,6 +131,7 @@ where
 
 /// The response of the service.
 pub struct Response<'a> {
+    pub reject: bool,
     pub kind: StunClass,
     pub bytes: &'a [u8],
     pub relay: Option<SocketAddr>,

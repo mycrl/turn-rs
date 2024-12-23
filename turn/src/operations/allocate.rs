@@ -31,6 +31,7 @@ fn reject<'a, T: Observer>(
         kind: StunClass::Message,
         bytes: req.bytes,
         interface: None,
+        reject: true,
         relay: None,
     })
 }
@@ -66,6 +67,7 @@ fn resolve<'a, T: Observer>(
         kind: StunClass::Message,
         bytes: req.bytes,
         interface: None,
+        reject: false,
         relay: None,
     })
 }
