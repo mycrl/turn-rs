@@ -399,7 +399,7 @@ impl StatisticsReporter {
         #[cfg(feature = "prometheus")]
         {
             for report in reports {
-                self::prometheus::METRICS.add(transport, report);
+                self::prometheus::METRICS.add(transport.into(), report);
             }
         }
 

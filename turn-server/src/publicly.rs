@@ -152,11 +152,7 @@ pub async fn start_server(
                 delete(
                     |Query(query): Query<SessionQueryFilter>,
                      State(state): State<Arc<AppState>>| async move {
-                        if state
-                            .service
-                            .get_sessions()
-                            .refresh(&query.into(), 0)
-                        {
+                        if state.service.get_sessions().refresh(&query.into(), 0) {
                             StatusCode::OK
                         } else {
                             StatusCode::EXPECTATION_FAILED
