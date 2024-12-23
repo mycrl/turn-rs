@@ -236,14 +236,14 @@ impl turn::Observer for Observer {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     #[allow(clippy::let_underscore_future)]
-    fn refresh(&self, key: &Symbol, name: &str, expiration: u32) {
+    fn refresh(&self, key: &Symbol, name: &str, lifetime: u32) {
         log::info!(
-            "refresh: address={:?}, interface={:?}, transport={:?}, username={:?}, expiration={}",
+            "refresh: address={:?}, interface={:?}, transport={:?}, username={:?}, lifetime={}",
             key.address,
             key.interface,
             key.transport,
             name,
-            expiration
+            lifetime
         );
 
         self.hooks.emit(json!({
@@ -254,7 +254,7 @@ impl turn::Observer for Observer {
                 "transport": Transport::from(key.transport),
             },
             "username": name,
-            "expiration": expiration,
+            "lifetime": lifetime,
         }))
     }
 

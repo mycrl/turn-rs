@@ -250,7 +250,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// assert_eq!(session.auth.username, "test");
     /// assert_eq!(session.auth.password, "test");
     /// assert_eq!(session.allocate.port, None);
-    /// assert_eq!(session.allocate.channel, None);
+    /// assert_eq!(session.allocate.channels.len(), 0);
     /// ```
     pub fn get_session<'a, 'b>(
         &'a self,
@@ -473,7 +473,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     assert_eq!(session.auth.username, "test");
     ///     assert_eq!(session.auth.password, "test");
     ///     assert_eq!(session.allocate.port, None);
-    ///     assert_eq!(session.allocate.channel, None);
+    ///     assert_eq!(session.allocate.channels.len(), 0);
     /// }
     ///
     /// let port = sessions.allocate(&symbol).unwrap();
@@ -483,7 +483,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     assert_eq!(session.auth.username, "test");
     ///     assert_eq!(session.auth.password, "test");
     ///     assert_eq!(session.allocate.port, Some(port));
-    ///     assert_eq!(session.allocate.channel, None);
+    ///     assert_eq!(session.allocate.channels.len(), 0);
     /// }
     ///
     /// assert!(sessions.allocate(&symbol).is_none());
@@ -672,8 +672,9 @@ impl<T: Observer + 'static> Sessions<T> {
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
-    ///         .channel,
-    ///     None
+    ///         .channels
+    ///         .len(),
+    ///     0
     /// );
     ///
     /// assert_eq!(
@@ -682,8 +683,9 @@ impl<T: Observer + 'static> Sessions<T> {
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
-    ///         .channel,
-    ///     None
+    ///         .channels
+    ///         .len(),
+    ///     0
     /// );
     ///
     /// assert!(sessions.bind_channel(&symbol, peer_port, 0x4000));
@@ -694,8 +696,8 @@ impl<T: Observer + 'static> Sessions<T> {
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
-    ///         .channel,
-    ///     Some(0x4000)
+    ///         .channels,
+    ///     vec![0x4000]
     /// );
     ///
     /// assert_eq!(
@@ -704,8 +706,8 @@ impl<T: Observer + 'static> Sessions<T> {
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
-    ///         .channel,
-    ///     Some(0x4000)
+    ///         .channels,
+    ///     vec![0x4000]
     /// );
     /// ```
     pub fn bind_channel(&self, symbol: &Symbol, port: u16, channel: u16) -> bool {

@@ -3,9 +3,9 @@
 #### Global Response Headers
 
 -   `realm` - <sup>string</sup> - turn server realm
--   `rid` - <sup>string</sup> - The runtime ID of the turn server
+-   `nonce` - <sup>string</sup> - The runtime id of the turn server
 
-rid: A new ID is generated each time the server is started. This is a random string. Its main function is to determine whether the turn server has been restarted.
+nonce: A new ID is generated each time the server is started. This is a random string. Its main function is to determine whether the turn server has been restarted.
 
 ---
 

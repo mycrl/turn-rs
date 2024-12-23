@@ -191,7 +191,7 @@ pub async fn start_server(
             state.clone(),
             |State(state): State<Arc<AppState>>, mut res: Response| async move {
                 let headers = res.headers_mut();
-                headers.insert("Rid", HeaderValue::from_str(&RID).unwrap());
+                headers.insert("Nonce", HeaderValue::from_str(&RID).unwrap());
                 headers.insert(
                     "Realm",
                     HeaderValue::from_str(&state.config.turn.realm).unwrap(),
@@ -218,7 +218,7 @@ impl HooksService {
     pub fn new(config: Arc<Config>) -> anyhow::Result<Self> {
         let mut headers = HeaderMap::new();
         headers.insert("Realm", HeaderValue::from_str(&config.turn.realm)?);
-        headers.insert("Rid", HeaderValue::from_str(&RID)?);
+        headers.insert("Nonce", HeaderValue::from_str(&RID)?);
 
         let client = Arc::new(
             ClientBuilder::new()
@@ -269,8 +269,15 @@ impl HooksService {
             if let Ok(res) = self
                 .client
                 .get(format!(
-                    "{}/password?address={}&interface={}&transport={:?}&username={}",
-                    server, key.address, key.interface, key.transport, username
+                    "{}/password?address={}&interface={}&transport={}&username={}",
+                    server,
+                    key.address,
+                    key.interface,
+                    match Transport::from(key.transport) {
+                        Transport::TCP => "tcp",
+                        Transport::UDP => "udp",
+                    },
+                    username
                 ))
                 .send()
                 .await

@@ -17,7 +17,7 @@ use stun::Transport;
 /// Integrated Prometheus Metrics Exporter
 pub mod prometheus {
     use anyhow::Result;
-    use lazy_static::lazy_static;
+    use once_cell::sync::Lazy;
     use prometheus::{
         register_int_counter, register_int_gauge, Encoder, IntCounter, IntGauge, TextEncoder,
     };
@@ -37,9 +37,7 @@ pub mod prometheus {
         };
     }
 
-    lazy_static! {
-        pub static ref METRICS: Metrics = Metrics::default();
-    }
+    pub static METRICS: Lazy<Metrics> = Lazy::new(|| Metrics::default());
 
     /// # Example
     ///

@@ -288,9 +288,7 @@ impl<'a> MessageReader<'a> {
     /// let mut attributes = Attributes::default();
     /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     ///
-    /// let mut values = Vec::new();
-    /// message.get_all::<UserName>(&mut values);
-    /// assert_eq!(values.is_empty(), true);
+    /// assert_eq!(message.get_all::<UserName>().next(), None);
     /// ```
     pub fn get_all<T: Attribute<'a>>(&self) -> impl Iterator<Item = T::Item> {
         self.attributes

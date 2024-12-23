@@ -3,13 +3,13 @@
 #### Global Request Headers
 
 -   `realm` - <sup>string</sup> - turn server realm
--   `rid` - <sup>string</sup> - The runtime ID of the turn server
+-   `nonce` - <sup>string</sup> - The runtime id of the turn server
 
-rid: A new ID is generated each time the server is started. This is a random string. Its main function is to determine whether the turn server has been restarted.
+nonce: A new ID is generated each time the server is started. This is a random string. Its main function is to determine whether the turn server has been restarted.
 
 ---
 
-### GET - `/password?addr=&name=`
+### GET - `/password?address=&interface=&transport=&username=`
 
 Get the current user's password, which is mainly used to provide authentication for the turn server.
 
@@ -51,7 +51,7 @@ refresh request:
 -   `session` - <sup>Session</sup>
 -   `kind` - <sup>string</sup> - "refresh"
 -   `username` - <sup>string</sup> - The username used for the turn session.
--   `expiration` - <sup>uint32</sup> - Time to expiration in seconds.
+-   `lifetime` - <sup>uint32</sup> - Time to expiration in seconds.
 
 session closed:
 

@@ -1,9 +1,9 @@
-use std::{io::stdin, net::SocketAddr, str::FromStr};
+use std::net::SocketAddr;
 
 use async_trait::async_trait;
 use clap::Parser;
 use tabled::{Table, Tabled};
-use turn_driver::{start_hooks_server, Controller, Events, Hooks, QueryFilter, Transport};
+use turn_driver::{start_hooks_server, Controller, Events, Hooks, Symbol, Transport};
 
 struct HooksImpl;
 
@@ -11,38 +11,21 @@ struct HooksImpl;
 impl Hooks for HooksImpl {
     async fn auth(
         &self,
-        addr: SocketAddr,
-        name: String,
-        realm: String,
-        rid: String,
+        session: &Symbol,
+        username: &str,
+        realm: &str,
+        nonce: &str,
     ) -> Option<&str> {
         println!(
-            "auth: addr={}, name={}, realm={}, rid={}",
-            addr, name, realm, rid
+            "auth: address={:?}, interface={:?}, transport={:?}, username={:?}, realm={}, nonce={}",
+            session.address, session.interface, session.transport, username, realm, nonce
         );
 
         Some("test")
     }
 
-    async fn on(&self, event: Events, realm: String, rid: String) {
-        println!("event={:?}, realm={}, rid={}", event, realm, rid)
-    }
-}
-
-struct Repl;
-
-impl Iterator for Repl {
-    type Item = String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        println!("\nPlease enter the address or username to query session information:");
-
-        let mut input = String::new();
-        if let Ok(_) = stdin().read_line(&mut input) {
-            Some(input.replace("\n", ""))
-        } else {
-            None
-        }
+    async fn on(&self, event: &Events, realm: &str, nonce: &str) {
+        println!("event={:?}, realm={}, nonce={}", event, realm, nonce)
     }
 }
 
@@ -112,16 +95,5 @@ async fn main() {
     } else {
         println!("turn server not runing!");
         return;
-    }
-
-    for input in Repl {
-        let query = SocketAddr::from_str(&input)
-            .map(|it| QueryFilter::Addr(it))
-            .unwrap_or_else(|_| QueryFilter::UserName(&input));
-
-        if let Some(session) = controller.get_session(&query).await {
-            println!("\r\nSessions:");
-            println!("{:#?}", session.payload);
-        }
     }
 }
