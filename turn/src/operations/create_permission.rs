@@ -2,7 +2,7 @@ use super::{Requet, Response};
 use crate::{Observer, StunClass, SOFTWARE};
 
 use stun::{
-    attribute::{ErrKind, Error, ErrorCode, Realm, Software, XorPeerAddress},
+    attribute::{ErrorKind, Error, ErrorCode, Realm, Software, XorPeerAddress},
     Kind, MessageReader, MessageWriter, Method,
 };
 
@@ -10,7 +10,7 @@ use stun::{
 #[inline(always)]
 fn reject<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
-    err: ErrKind,
+    err: ErrorKind,
 ) -> Option<Response<'a>> {
     {
         let mut message = MessageWriter::extend(
@@ -102,21 +102,21 @@ pub async fn process<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
 ) -> Option<Response<'a>> {
     let (username, digest) = match req.auth().await {
-        None => return reject(req, ErrKind::Unauthorized),
+        None => return reject(req, ErrorKind::Unauthorized),
         Some(it) => it,
     };
 
     let mut ports = Vec::with_capacity(15);
     for it in req.message.get_all::<XorPeerAddress>() {
         if !req.verify_ip(&it) {
-            return reject(req, ErrKind::Forbidden);
+            return reject(req, ErrorKind::PeerAddressFamilyMismatch);
         }
 
         ports.push(it.port());
     }
 
     if !req.service.sessions.create_permission(&req.symbol, &ports) {
-        return reject(req, ErrKind::Forbidden);
+        return reject(req, ErrorKind::Forbidden);
     }
 
     req.service

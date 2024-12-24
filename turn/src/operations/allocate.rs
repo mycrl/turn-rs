@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 
 use stun::{
     attribute::{
-        ErrKind, Error, ErrorCode, Lifetime, Nonce, Realm, ReqeestedTransport, Software,
+        ErrorKind, Error, ErrorCode, Lifetime, Nonce, Realm, ReqeestedTransport, Software,
         XorMappedAddress, XorRelayedAddress,
     },
     Kind, MessageReader, MessageWriter, Method,
@@ -15,7 +15,7 @@ use stun::{
 #[inline(always)]
 fn reject<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
-    err: ErrKind,
+    err: ErrorKind,
 ) -> Option<Response<'a>> {
     {
         let mut message =
@@ -92,17 +92,17 @@ pub async fn process<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
 ) -> Option<Response<'a>> {
     if req.message.get::<ReqeestedTransport>().is_none() {
-        return reject(req, ErrKind::ServerError);
+        return reject(req, ErrorKind::ServerError);
     }
 
     let (username, digest) = match req.auth().await {
         Some(it) => it,
-        None => return reject(req, ErrKind::Unauthorized),
+        None => return reject(req, ErrorKind::Unauthorized),
     };
 
     let port = match req.service.sessions.allocate(req.symbol) {
         Some(it) => it,
-        None => return reject(req, ErrKind::Unauthorized),
+        None => return reject(req, ErrorKind::AllocationQuotaReached),
     };
 
     req.service.observer.allocated(&req.symbol, username, port);

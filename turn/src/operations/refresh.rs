@@ -1,5 +1,5 @@
 use stun::{
-    attribute::{ErrKind, Error, ErrorCode, Lifetime},
+    attribute::{ErrorKind, Error, ErrorCode, Lifetime},
     Kind, MessageReader, MessageWriter, Method,
 };
 
@@ -10,7 +10,7 @@ use crate::{Observer, StunClass};
 #[inline(always)]
 fn reject<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
-    err: ErrKind,
+    err: ErrorKind,
 ) -> Option<Response<'a>> {
     {
         let mut message =
@@ -95,13 +95,13 @@ pub async fn process<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
 ) -> Option<Response<'a>> {
     let (username, digest) = match req.auth().await {
-        None => return reject(req, ErrKind::Unauthorized),
+        None => return reject(req, ErrorKind::Unauthorized),
         Some(it) => it,
     };
 
     let lifetime = req.message.get::<Lifetime>().unwrap_or(600);
     if !req.service.sessions.refresh(&req.symbol, lifetime) {
-        return reject(req, ErrKind::AllocationMismatch);
+        return reject(req, ErrorKind::AllocationMismatch);
     }
 
     req.service

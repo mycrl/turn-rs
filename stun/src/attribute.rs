@@ -844,24 +844,27 @@ impl<'a> Attribute<'a> for ResponseOrigin {
 ///      
 /// 500  Server Error: The server has suffered a temporary error.  The
 ///      client should try again.
+const fn errno(code: u16) -> u16 {
+    ((code / 100) << 8) | (code % 100)
+}
+
 #[repr(u16)]
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash, TryFromPrimitive)]
-pub enum ErrKind {
-    TryAlternate = 0x0300,
-    BadRequest = 0x0400,
-    Unauthorized = 0x0401,
-    Forbidden = 0x0403,
-    RequestTimedout = 0x0408,
-    UnknownAttribute = 0x0414,
-    AllocationMismatch = 0x0425,
-    StaleNonce = 0x0426,
-    AddressFamilyNotSupported = 0x0428,
-    WrongCredentials = 0x0429,
-    UnsupportedTransportAddress = 0x042A,
-    PeerAddressFamilyMismatch = 0x42B,
-    AllocationQuotaReached = 0x0456,
-    ServerError = 0x0500,
-    InsufficientCapacity = 0x0508,
+pub enum ErrorKind {
+    TryAlternate = errno(300),
+    BadRequest = errno(400),
+    Unauthorized = errno(401),
+    Forbidden = errno(403),
+    UnknownAttribute = errno(420),
+    AllocationMismatch = errno(437),
+    StaleNonce = errno(438),
+    AddressFamilyNotSupported = errno(440),
+    WrongCredentials = errno(441),
+    UnsupportedTransportAddress = errno(442),
+    PeerAddressFamilyMismatch = errno(443),
+    AllocationQuotaReached = errno(486),
+    ServerError = errno(500),
+    InsufficientCapacity = errno(508),
 }
 
 /// [RFC3629]: https://datatracker.ietf.org/doc/html/rfc3629
@@ -908,7 +911,7 @@ pub struct Error<'a> {
     pub message: &'a str,
 }
 
-impl From<ErrKind> for Error<'_> {
+impl From<ErrorKind> for Error<'_> {
     /// create error from error type.
     ///
     /// # Example
@@ -916,9 +919,9 @@ impl From<ErrKind> for Error<'_> {
     /// ```no_run
     /// use stun::attribute::*;
     ///
-    /// Error::from(ErrKind::TryAlternate);
+    /// Error::from(ErrorKind::TryAlternate);
     /// ```
-    fn from(value: ErrKind) -> Self {
+    fn from(value: ErrorKind) -> Self {
         Self {
             code: value as u16,
             message: value.into(),
@@ -941,7 +944,7 @@ impl Error<'_> {
     /// ];
     ///
     /// let mut buf = BytesMut::with_capacity(1280);
-    /// let error = Error::from(ErrKind::TryAlternate);
+    /// let error = Error::from(ErrorKind::TryAlternate);
     /// error.encode(&mut buf);
     /// assert_eq!(&buf[..], &buffer);
     /// ```
@@ -967,7 +970,7 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     /// ];
     ///
     /// let error = Error::try_from(&buffer[..]).unwrap();
-    /// assert_eq!(error.code, ErrKind::TryAlternate as u16);
+    /// assert_eq!(error.code, ErrorKind::TryAlternate as u16);
     /// assert_eq!(error.message, "Try Alternate");
     /// ```
     fn try_from(packet: &'a [u8]) -> Result<Self, Self::Error> {
@@ -986,34 +989,33 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     }
 }
 
-impl From<ErrKind> for &'static str {
+impl From<ErrorKind> for &'static str {
     /// # Test
     ///
     /// ```
     /// use std::convert::Into;
     /// use stun::attribute::*;
     ///
-    /// let err: &'static str = ErrKind::TryAlternate.into();
+    /// let err: &'static str = ErrorKind::TryAlternate.into();
     /// assert_eq!(err, "Try Alternate");
     /// ```
     #[rustfmt::skip]
-    fn from(val: ErrKind) -> Self {
+    fn from(val: ErrorKind) -> Self {
         match val {
-            ErrKind::TryAlternate => "Try Alternate",
-            ErrKind::BadRequest => "Bad Request",
-            ErrKind::Unauthorized => "Unauthorized",
-            ErrKind::Forbidden => "Forbidden",
-            ErrKind::RequestTimedout => "Request Timed out",
-            ErrKind::UnknownAttribute => "Unknown Attribute",
-            ErrKind::AllocationMismatch => "Allocation Mismatch",
-            ErrKind::StaleNonce => "Stale Nonce",
-            ErrKind::AddressFamilyNotSupported => "Address Family not Supported",
-            ErrKind::WrongCredentials => "Wrong Credentials",
-            ErrKind::UnsupportedTransportAddress => "Unsupported Transport Address",
-            ErrKind::AllocationQuotaReached => "Allocation Quota Reached",
-            ErrKind::ServerError => "Server Error",
-            ErrKind::InsufficientCapacity => "Insufficient Capacity",
-            ErrKind::PeerAddressFamilyMismatch => "Peer Address Family Mismatch",
+            ErrorKind::TryAlternate => "Try Alternate",
+            ErrorKind::BadRequest => "Bad Request",
+            ErrorKind::Unauthorized => "Unauthorized",
+            ErrorKind::Forbidden => "Forbidden",
+            ErrorKind::UnknownAttribute => "Unknown Attribute",
+            ErrorKind::AllocationMismatch => "Allocation Mismatch",
+            ErrorKind::StaleNonce => "Stale Nonce",
+            ErrorKind::AddressFamilyNotSupported => "Address Family not Supported",
+            ErrorKind::WrongCredentials => "Wrong Credentials",
+            ErrorKind::UnsupportedTransportAddress => "Unsupported Transport Address",
+            ErrorKind::AllocationQuotaReached => "Allocation Quota Reached",
+            ErrorKind::ServerError => "Server Error",
+            ErrorKind::InsufficientCapacity => "Insufficient Capacity",
+            ErrorKind::PeerAddressFamilyMismatch => "Peer Address Family Mismatch",
         }
     }
 }

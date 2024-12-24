@@ -2,7 +2,7 @@ use super::{Requet, Response};
 use crate::{Observer, StunClass};
 
 use stun::{
-    attribute::{ChannelNumber, ErrKind, Error, ErrorCode, Realm, XorPeerAddress},
+    attribute::{ChannelNumber, ErrorKind, Error, ErrorCode, Realm, XorPeerAddress},
     Kind, MessageReader, MessageWriter, Method,
 };
 
@@ -10,7 +10,7 @@ use stun::{
 #[inline(always)]
 fn reject<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
-    err: ErrKind,
+    err: ErrorKind,
 ) -> Option<Response<'a>> {
     {
         let mut message =
@@ -85,25 +85,25 @@ pub async fn process<'a, T: Observer>(
     req: Requet<'_, 'a, T, MessageReader<'_>>,
 ) -> Option<Response<'a>> {
     let peer = match req.message.get::<XorPeerAddress>() {
-        None => return reject(req, ErrKind::BadRequest),
+        None => return reject(req, ErrorKind::BadRequest),
         Some(it) => it,
     };
 
     if !req.verify_ip(&peer) {
-        return reject(req, ErrKind::Forbidden);
+        return reject(req, ErrorKind::PeerAddressFamilyMismatch);
     }
 
     let number = match req.message.get::<ChannelNumber>() {
-        None => return reject(req, ErrKind::BadRequest),
+        None => return reject(req, ErrorKind::BadRequest),
         Some(it) => it,
     };
 
     if !(0x4000..=0x7FFF).contains(&number) {
-        return reject(req, ErrKind::BadRequest);
+        return reject(req, ErrorKind::BadRequest);
     }
 
     let (username, digest) = match req.auth().await {
-        None => return reject(req, ErrKind::Unauthorized),
+        None => return reject(req, ErrorKind::Unauthorized),
         Some(it) => it,
     };
 
@@ -112,7 +112,7 @@ pub async fn process<'a, T: Observer>(
         .sessions
         .bind_channel(&req.symbol, peer.port(), number)
     {
-        return reject(req, ErrKind::BadRequest);
+        return reject(req, ErrorKind::Forbidden);
     }
 
     req.service

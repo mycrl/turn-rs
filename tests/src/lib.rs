@@ -4,7 +4,7 @@ use anyhow::Result;
 use bytes::BytesMut;
 use stun::{
     attribute::{
-        ChannelNumber, Data, ErrKind, ErrorCode, Lifetime, MappedAddress, Nonce, Realm,
+        ChannelNumber, Data, ErrorKind, ErrorCode, Lifetime, MappedAddress, Nonce, Realm,
         ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress,
         XorRelayedAddress,
     },
@@ -171,7 +171,7 @@ impl TurnClient {
             assert_eq!(message.method, Method::Allocate(Kind::Error));
             assert_eq!(
                 message.get::<ErrorCode>().unwrap().code,
-                ErrKind::Unauthorized as u16
+                ErrorKind::Unauthorized as u16
             );
 
             self.state.nonce = message.get::<Nonce>().unwrap().to_string();
