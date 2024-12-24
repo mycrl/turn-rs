@@ -33,7 +33,7 @@ I don't think turn servers should be concerned about user information, just do t
 
 ##### "No transport layer encryption"
 
-This is an obvious drawback, unlike coturn which provides various transport layer encryption, turn-rs doesn't provide any transport layer encryption, but turn-rs mainly serves WebRTC business, WebRTC comes with transport layer encryption, and the packets transmitted in turn are already encrypted, so in order to reduce the overhead, turn -rs does not provide transport layer encryption.
+Unlike coturn, which provides various transport layer encryption, turn-rs does not provide any transport layer encryption. Currently turn clients that support encryption are relatively rare, and there is minimal benefit to the turn server in providing transport layer encryption, since for WebRTC the transport data is already encrypted.
 
 ##### "Only allow turn-rs as transit address"
 
