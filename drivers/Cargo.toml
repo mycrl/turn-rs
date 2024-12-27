@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 description = "Drivers for turn-rs."
 license = "MIT"
-readme = "./README.md"
+readme = "../README.md"
 repository = "https://github.com/mycrl/turn-rs"
 
 [dependencies]
