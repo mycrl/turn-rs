@@ -1,6 +1,5 @@
 use crate::{
     config::{Config, Interface},
-    observer::Observer,
     router::Router,
     statistics::{Statistics, Stats},
 };
@@ -16,7 +15,7 @@ use tokio::{
     sync::Mutex,
 };
 
-use turn::{Service, StunClass};
+use turn::{Observer, Service, StunClass};
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
 
@@ -24,10 +23,10 @@ static ZERO_BUF: [u8; 4] = [0u8; 4];
 ///
 /// This function is used to handle all connections coming from the tcp
 /// listener, and handle the receiving, sending and forwarding of messages.
-async fn tcp_server(
+async fn tcp_server<T: Clone + Observer + 'static>(
     listen: TcpListener,
     external: SocketAddr,
-    service: Service<Observer>,
+    service: Service<T>,
     router: Arc<Router>,
     statistics: Statistics,
 ) {
@@ -171,10 +170,10 @@ async fn tcp_server(
 /// read the data packet from the UDP socket and hand
 /// it to the proto for processing, and send the processed
 /// data packet to the specified address.
-async fn udp_server(
+async fn udp_server<T: Clone + Observer + 'static>(
     socket: UdpSocket,
     external: SocketAddr,
-    service: Service<Observer>,
+    service: Service<T>,
     router: Arc<Router>,
     statistics: Statistics,
 ) {
@@ -263,10 +262,10 @@ async fn udp_server(
 ///
 /// create a specified number of threads,
 /// each thread processes udp data separately.
-pub async fn run(
+pub async fn run<T: Clone + Observer + 'static>(
     config: Arc<Config>,
     statistics: Statistics,
-    service: &Service<Observer>,
+    service: &Service<T>,
 ) -> anyhow::Result<()> {
     let router = Arc::new(Router::default());
     for Interface {
