@@ -4,15 +4,13 @@ on:
         branches:
             - main
         paths:
-            - cli/**
+            - drivers/**
             - tests/**
             - stun/**
             - turn/**
             - turn-server/**
-            - turn-balance/**
             - Cargo.toml
             - Cargo.lock
-            - protos/**
     pull_request:
         branches:
             - main
