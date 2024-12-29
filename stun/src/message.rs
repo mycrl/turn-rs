@@ -11,7 +11,7 @@ const ZOER_BUF: [u8; 10] = [0u8; 10];
 const COOKIE: [u8; 4] = 0x2112A442u32.to_be_bytes();
 
 /// (username, password, realm)
-type Auth = [u8; 16];
+type Digest = [u8; 16];
 
 pub struct MessageWriter<'a> {
     pub token: &'a [u8],
@@ -144,16 +144,20 @@ impl<'a, 'b> MessageWriter<'a> {
     ///     MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
     ///
     /// message
-    ///     .flush(Some(&util::long_key("panda", "panda", "raspberry")))
+    ///     .flush(Some(&util::long_term_credential_digest(
+    ///         "panda",
+    ///         "panda",
+    ///         "raspberry",
+    ///     )))
     ///     .unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
-    pub fn flush(&mut self, auth: Option<&Auth>) -> Result<(), StunError> {
+    pub fn flush(&mut self, digest: Option<&Digest>) -> Result<(), StunError> {
         // write attribute list size.
         self.set_len(self.bytes.len() - 20);
 
         // if need message integrity?
-        if let Some(a) = auth {
+        if let Some(a) = digest {
             self.integrity(a)?;
         }
 
@@ -191,11 +195,15 @@ impl<'a, 'b> MessageWriter<'a> {
     ///     MessageWriter::extend(Method::Binding(Kind::Request), &old, &mut buf);
     ///
     /// message
-    ///     .flush(Some(&util::long_key("panda", "panda", "raspberry")))
+    ///     .flush(Some(&util::long_term_credential_digest(
+    ///         "panda",
+    ///         "panda",
+    ///         "raspberry",
+    ///     )))
     ///     .unwrap();
     /// assert_eq!(&buf[..], &result);
     /// ```
-    fn integrity(&mut self, auth: &Auth) -> Result<(), StunError> {
+    fn integrity(&mut self, digest: &Digest) -> Result<(), StunError> {
         assert!(self.bytes.len() >= 20);
         let len = self.bytes.len();
 
@@ -204,7 +212,7 @@ impl<'a, 'b> MessageWriter<'a> {
         self.set_len(len + 4);
 
         // write MessageIntegrity attribute.
-        let hmac_output = util::hmac_sha1(auth, &[self.bytes])?.into_bytes();
+        let hmac_output = util::hmac_sha1(digest, &[self.bytes])?.into_bytes();
         self.bytes.put_u16(AttrKind::MessageIntegrity as u16);
         self.bytes.put_u16(20);
         self.bytes.put(hmac_output.as_slice());
@@ -324,11 +332,15 @@ impl<'a> MessageReader<'a> {
     /// let mut attributes = Attributes::default();
     /// let message = MessageReader::decode(&buffer[..], &mut attributes).unwrap();
     /// let result = message
-    ///     .integrity(&util::long_key("panda", "panda", "raspberry"))
+    ///     .integrity(&util::long_term_credential_digest(
+    ///         "panda",
+    ///         "panda",
+    ///         "raspberry",
+    ///     ))
     ///     .is_ok();
     /// assert!(result);
     /// ```
-    pub fn integrity(&self, auth: &Auth) -> Result<(), StunError> {
+    pub fn integrity(&self, digest: &Digest) -> Result<(), StunError> {
         if self.bytes.is_empty() || self.valid_offset < 20 {
             return Err(StunError::InvalidInput);
         }
@@ -348,7 +360,7 @@ impl<'a> MessageReader<'a> {
         ];
 
         // digest the message buffer.
-        let hmac_output = util::hmac_sha1(auth, &body)?.into_bytes();
+        let hmac_output = util::hmac_sha1(digest, &body)?.into_bytes();
         let hmac_buf = hmac_output.as_slice();
 
         // Compare local and original attribute.
