@@ -58,7 +58,7 @@ Some clients currently use local addresses for the turn server to create binding
 ## Features
 
 -   Prometheus metrics exporter.
--   Only long-term authentication mechanisms are used.
+-   Only long-term credential mechanisms are used.
 -   Static authentication lists can be used in configuration files.
 -   Only virtual ports are always allocated and no real system ports are occupied.
 -   The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
