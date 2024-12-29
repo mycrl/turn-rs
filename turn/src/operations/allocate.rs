@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 
 use stun::{
     attribute::{
-        ErrorKind, Error, ErrorCode, Lifetime, Nonce, Realm, ReqeestedTransport, Software,
+        Error, ErrorCode, ErrorKind, Lifetime, Nonce, Realm, ReqeestedTransport, Software,
         XorMappedAddress, XorRelayedAddress,
     },
     Kind, MessageReader, MessageWriter, Method,

@@ -2,7 +2,7 @@ use super::{Requet, Response};
 use crate::{Observer, StunClass, SOFTWARE};
 
 use stun::{
-    attribute::{ErrorKind, Error, ErrorCode, Realm, Software, XorPeerAddress},
+    attribute::{Error, ErrorCode, ErrorKind, Realm, Software, XorPeerAddress},
     Kind, MessageReader, MessageWriter, Method,
 };
 

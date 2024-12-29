@@ -1,5 +1,5 @@
 use stun::{
-    attribute::{ErrorKind, Error, ErrorCode, Lifetime},
+    attribute::{Error, ErrorCode, ErrorKind, Lifetime},
     Kind, MessageReader, MessageWriter, Method,
 };
 
