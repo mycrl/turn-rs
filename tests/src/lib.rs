@@ -4,7 +4,7 @@ use anyhow::Result;
 use bytes::BytesMut;
 use stun::{
     attribute::{
-        ChannelNumber, Data, ErrorKind, ErrorCode, Lifetime, MappedAddress, Nonce, Realm,
+        ChannelNumber, Data, ErrorCode, ErrorKind, Lifetime, MappedAddress, Nonce, Realm,
         ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress,
         XorRelayedAddress,
     },
@@ -176,7 +176,7 @@ impl TurnClient {
 
             self.state.nonce = message.get::<Nonce>().unwrap().to_string();
             self.state.realm = message.get::<Realm>().unwrap().to_string();
-            self.state.digest = stun::util::long_key(
+            self.state.digest = stun::util::long_term_credential_digest(
                 &self.credentials.username,
                 &self.credentials.password,
                 &self.state.realm,

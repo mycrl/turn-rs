@@ -26,7 +26,7 @@ pub fn pad_size(size: usize) -> usize {
     4 - range
 }
 
-/// create long key.
+/// create long term credential.
 ///
 /// > key = MD5(username ":" OpaqueString(realm) ":" OpaqueString(password))
 ///
@@ -36,10 +36,11 @@ pub fn pad_size(size: usize) -> usize {
 ///     0x2f, 0x59, 0xb5, 0x0f, 0xd1,
 /// ];
 ///
-/// let key = stun::util::long_key("panda", "panda", "raspberry");
+/// let key =
+///     stun::util::long_term_credential_digest("panda", "panda", "raspberry");
 /// assert_eq!(key, buffer);
 /// ```
-pub fn long_key(username: &str, password: &str, realm: &str) -> [u8; 16] {
+pub fn long_term_credential_digest(username: &str, password: &str, realm: &str) -> [u8; 16] {
     let mut hasher = Md5::new();
     hasher.update([username, realm, password].join(":"));
     hasher.finalize().into()

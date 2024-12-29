@@ -15,7 +15,7 @@ use std::{
 use ahash::{HashMap, HashMapExt};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use stun::{util::long_key, Transport};
+use stun::{util::long_term_credential_digest, Transport};
 
 /// Authentication information for the session.
 ///
@@ -396,7 +396,7 @@ impl<T: Observer + 'static> Sessions<T> {
         // Get the current user's password from an external observer and create a
         // digest.
         let password = self.observer.get_password(symbol, username).await?;
-        let digest = long_key(&username, &password, realm);
+        let digest = long_term_credential_digest(&username, &password, realm);
 
         // Record a new session.
         {
