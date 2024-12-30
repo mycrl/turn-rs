@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
-use super::{Requet, Response};
-use crate::{Observer, StunClass};
+use super::{Requet, Response, ResponseMethod};
+use crate::Observer;
 
 use stun::{
     attribute::{Data, XorPeerAddress},
@@ -59,32 +59,31 @@ pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Op
     let relay = req
         .service
         .sessions
-        .get_relay_address(&req.symbol, peer.port())?;
+        .get_relay_address(&req.socket, peer.port())?;
 
     let local_port = req
         .service
         .sessions
-        .get_session(&req.symbol)
+        .get_session(&req.socket)
         .get_ref()?
         .allocate
         .port?;
 
     {
         let mut message = MessageWriter::extend(Method::DataIndication, &req.message, req.bytes);
-        message.append::<XorPeerAddress>(SocketAddr::new(req.service.external.ip(), local_port));
+        message.append::<XorPeerAddress>(SocketAddr::new(req.service.interface.ip(), local_port));
         message.append::<Data>(data);
         message.flush(None).ok()?;
     }
 
     Some(Response {
-        interface: if req.symbol.interface != relay.interface {
-            Some(relay.interface)
+        method: ResponseMethod::Stun(Method::DataIndication),
+        endpoint: if req.service.endpoint != relay.endpoint {
+            Some(relay.endpoint)
         } else {
             None
         },
         relay: Some(relay.address),
-        kind: StunClass::Message,
         bytes: req.bytes,
-        reject: false,
     })
 }

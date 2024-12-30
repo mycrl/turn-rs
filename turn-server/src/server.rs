@@ -15,7 +15,7 @@ use tokio::{
     sync::Mutex,
 };
 
-use turn::{Observer, Service, StunClass};
+use turn::{Observer, ResponseMethod, Service, Socket};
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
 
@@ -36,15 +36,15 @@ async fn tcp_server<T: Clone + Observer + 'static>(
 
     // Accept all connections on the current listener, but exit the entire
     // process when an error occurs.
-    while let Ok((socket, addr)) = listen.accept().await {
+    while let Ok((socket, address)) = listen.accept().await {
         let router = router.clone();
-        let reporter = statistics.get_reporter();
-        let mut receiver = router.get_receiver(addr);
-        let mut operationer = service.get_operationer(Transport::TCP, addr, external);
+        let reporter = statistics.get_reporter(Transport::TCP);
+        let mut receiver = router.get_receiver(address);
+        let mut operationer = service.get_operationer(address, external);
 
         log::info!(
             "tcp socket accept: addr={:?}, interface={:?}",
-            addr,
+            address,
             local_addr,
         );
 
@@ -52,8 +52,17 @@ async fn tcp_server<T: Clone + Observer + 'static>(
         // because to maintain real-time, any received data should be processed
         // as soon as possible.
         if let Err(e) = socket.set_nodelay(true) {
-            log::error!("tcp socket set nodelay failed!: addr={}, err={}", addr, e);
+            log::error!(
+                "tcp socket set nodelay failed!: addr={}, err={}",
+                address,
+                e
+            );
         }
+
+        let sock_addr = Socket {
+            interface: external,
+            address,
+        };
 
         let (mut reader, writer) = socket.into_split();
         let writer = Arc::new(Mutex::new(writer));
@@ -62,15 +71,14 @@ async fn tcp_server<T: Clone + Observer + 'static>(
 
         // Use a separate task to handle messages forwarded to this socket.
         tokio::spawn(async move {
-            while let Some((bytes, kind, _)) = receiver.recv().await {
+            while let Some((bytes, method, _)) = receiver.recv().await {
                 let mut writer = writer_.lock().await;
                 if writer.write_all(bytes.as_slice()).await.is_err() {
                     break;
                 } else {
                     reporter_.send(
-                        Transport::TCP,
-                        &addr,
-                        &[Stats::SendBytes(bytes.len() as u64), Stats::SendPkts(1)],
+                        &sock_addr,
+                        &[Stats::SendBytes(bytes.len() as u32), Stats::SendPkts(1)],
                     );
                 }
 
@@ -79,7 +87,7 @@ async fn tcp_server<T: Clone + Observer + 'static>(
                 // bit needs to be filled, because if the channel data comes
                 // from udp, it is not guaranteed to be aligned and needs to be
                 // checked.
-                if kind == StunClass::Channel {
+                if method == ResponseMethod::ChannelData {
                     let pad = bytes.len() % 4;
                     if pad > 0 && writer.write_all(&ZERO_BUF[..(4 - pad)]).await.is_err() {
                         break;
@@ -88,6 +96,7 @@ async fn tcp_server<T: Clone + Observer + 'static>(
             }
         });
 
+        let sessions = service.get_sessions();
         tokio::spawn(async move {
             let mut buf = BytesMut::new();
 
@@ -97,7 +106,7 @@ async fn tcp_server<T: Clone + Observer + 'static>(
                 if size == 0 {
                     break;
                 } else {
-                    reporter.send(Transport::TCP, &addr, &[Stats::ReceivedBytes(size as u64)]);
+                    reporter.send(&sock_addr, &[Stats::ReceivedBytes(size as u32)]);
                 }
 
                 // The minimum length of a stun message will not be less
@@ -119,32 +128,37 @@ async fn tcp_server<T: Clone + Observer + 'static>(
                         Ok(s) if s > buf.len() => break,
                         Err(_) => break,
                         Ok(s) => {
-                            reporter.send(Transport::TCP, &addr, &[Stats::ReceivedPkts(1)]);
+                            reporter.send(&sock_addr, &[Stats::ReceivedPkts(1)]);
 
                             s
                         }
                     };
 
                     let chunk = buf.split_to(size);
-                    if let Ok(ret) = operationer.route(&chunk, addr).await {
+                    if let Ok(ret) = operationer.route(&chunk, address).await {
                         if let Some(res) = ret {
-                            let target = res.relay.unwrap_or(addr);
-                            if let Some(interface) = res.interface {
-                                router.send(&interface, res.kind, &target, res.bytes);
+                            if let Some(ref inerface) = res.endpoint {
+                                router.send(
+                                    inerface,
+                                    res.method,
+                                    res.relay.as_ref().unwrap_or(&address),
+                                    res.bytes,
+                                );
                             } else {
                                 if writer.lock().await.write_all(res.bytes).await.is_err() {
                                     break 'a;
                                 }
 
                                 reporter.send(
-                                    Transport::TCP,
-                                    &addr,
-                                    &[Stats::SendBytes(res.bytes.len() as u64), Stats::SendPkts(1)],
+                                    &sock_addr,
+                                    &[Stats::SendBytes(res.bytes.len() as u32), Stats::SendPkts(1)],
                                 );
-                            }
 
-                            if res.reject {
-                                reporter.send(Transport::TCP, &addr, &[Stats::ErrorPkts(1)]);
+                                if let ResponseMethod::Stun(method) = res.method {
+                                    if method.is_error() {
+                                        reporter.send(&sock_addr, &[Stats::ErrorPkts(1)]);
+                                    }
+                                }
                             }
                         }
                     } else {
@@ -153,10 +167,16 @@ async fn tcp_server<T: Clone + Observer + 'static>(
                 }
             }
 
-            router.remove(&addr);
+            // When the tcp connection is closed, the procedure to close the session is
+            // process directly once, avoiding the connection being disconnected directly
+            // without going through the closing process.
+            sessions.refresh(&sock_addr, 0);
+
+            router.remove(&address);
+
             log::info!(
                 "tcp socket disconnect: addr={:?}, interface={:?}",
-                addr,
+                address,
                 local_addr,
             );
         });
@@ -185,8 +205,13 @@ async fn udp_server<T: Clone + Observer + 'static>(
     for _ in 0..num_cpus::get() {
         let socket = socket.clone();
         let router = router.clone();
-        let reporter = statistics.get_reporter();
-        let mut operationer = service.get_operationer(Transport::UDP, external, external);
+        let reporter = statistics.get_reporter(Transport::UDP);
+        let mut operationer = service.get_operationer(external, external);
+
+        let mut sock_addr = Socket {
+            address: external,
+            interface: external,
+        };
 
         tokio::spawn(async move {
             let mut buf = vec![0u8; 2048];
@@ -201,10 +226,11 @@ async fn udp_server<T: Clone + Observer + 'static>(
                     _ => continue,
                 };
 
+                sock_addr.address = addr;
+
                 reporter.send(
-                    Transport::UDP,
-                    &addr,
-                    &[Stats::ReceivedBytes(size as u64), Stats::ReceivedPkts(1)],
+                    &sock_addr,
+                    &[Stats::ReceivedBytes(size as u32), Stats::ReceivedPkts(1)],
                 );
 
                 // The stun message requires at least 4 bytes. (currently the
@@ -212,25 +238,26 @@ async fn udp_server<T: Clone + Observer + 'static>(
                 // excluding content)
                 if size >= 4 {
                     if let Ok(Some(res)) = operationer.route(&buf[..size], addr).await {
-                        let target = res.relay.unwrap_or(addr);
-                        if let Some(interface) = res.interface {
-                            router.send(&interface, res.kind, &target, res.bytes);
+                        let target = res.relay.as_ref().unwrap_or(&addr);
+                        if let Some(ref endpoint) = res.endpoint {
+                            router.send(endpoint, res.method, target, res.bytes);
                         } else {
-                            if let Err(e) = socket.send_to(res.bytes, &target).await {
+                            if let Err(e) = socket.send_to(res.bytes, target).await {
                                 if e.kind() != ConnectionReset {
                                     break;
                                 }
                             }
 
                             reporter.send(
-                                Transport::UDP,
-                                &addr,
-                                &[Stats::SendBytes(res.bytes.len() as u64), Stats::SendPkts(1)],
+                                &sock_addr,
+                                &[Stats::SendBytes(res.bytes.len() as u32), Stats::SendPkts(1)],
                             );
-                        }
 
-                        if res.reject {
-                            reporter.send(Transport::UDP, &addr, &[Stats::ErrorPkts(1)]);
+                            if let ResponseMethod::Stun(method) = res.method {
+                                if method.is_error() {
+                                    reporter.send(&sock_addr, &[Stats::ErrorPkts(1)]);
+                                }
+                            }
                         }
                     }
                 }
@@ -238,23 +265,32 @@ async fn udp_server<T: Clone + Observer + 'static>(
         });
     }
 
-    let reporter = statistics.get_reporter();
-    let mut receiver = router.get_receiver(external);
-    while let Some((bytes, _, addr)) = receiver.recv().await {
-        if let Err(e) = socket.send_to(&bytes, addr).await {
-            if e.kind() != ConnectionReset {
-                break;
+    {
+        let mut sock_addr = Socket {
+            address: external,
+            interface: external,
+        };
+
+        let reporter = statistics.get_reporter(Transport::UDP);
+        let mut receiver = router.get_receiver(external);
+        while let Some((bytes, _, addr)) = receiver.recv().await {
+            sock_addr.address = addr;
+
+            if let Err(e) = socket.send_to(&bytes, addr).await {
+                if e.kind() != ConnectionReset {
+                    break;
+                }
+            } else {
+                reporter.send(
+                    &sock_addr,
+                    &[Stats::SendBytes(bytes.len() as u32), Stats::SendPkts(1)],
+                );
             }
-        } else {
-            reporter.send(
-                Transport::UDP,
-                &addr,
-                &[Stats::SendBytes(bytes.len() as u64), Stats::SendPkts(1)],
-            );
         }
+
+        router.remove(&external);
     }
 
-    router.remove(&external);
     log::error!("udp server close: interface={:?}", local_addr);
 }
 

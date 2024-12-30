@@ -25,20 +25,20 @@ bind = "127.0.0.1:3478"
 # address and service listening port.
 external = "127.0.0.1:3478"
 #
-# [[turn.interfaces]]
-# transport = "tcp"
-# bind = "127.0.0.1:3478"
-# external = "127.0.0.1:3478"
-#
-# [[turn.interfaces]]
-# transport = "udp"
-# bind = "[::1]:3478"
-# external = "[::1]:3478"
-#
-# [[turn.interfaces]]
-# transport = "tcp"
-# bind = "[::1]:3478"
-# external = "[::1]:3478"
+[[turn.interfaces]]
+transport = "tcp"
+bind = "127.0.0.1:3478"
+external = "127.0.0.1:3478"
+
+[[turn.interfaces]]
+transport = "udp"
+bind = "[::1]:3478"
+external = "[::1]:3478"
+
+[[turn.interfaces]]
+transport = "tcp"
+bind = "[::1]:3478"
+external = "[::1]:3478"
 
 [api]
 # controller bind
@@ -88,6 +88,6 @@ level = "info"
 # The server will try to use static authentication first, and then use
 # external control service authentication.
 #
-# [auth.static_credentials]
-# user1 = "test"
-# user2 = "test"
+[auth.static_credentials]
+user1 = "test"
+user2 = "test"

@@ -1,5 +1,5 @@
-use super::{Requet, Response};
-use crate::{Observer, StunClass, SOFTWARE};
+use super::{Requet, Response, ResponseMethod};
+use crate::{Observer, SOFTWARE};
 
 use stun::{
     attribute::{MappedAddress, ResponseOrigin, Software, XorMappedAddress},
@@ -33,18 +33,17 @@ pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Op
         let mut message =
             MessageWriter::extend(Method::Binding(Kind::Response), &req.message, req.bytes);
 
-        message.append::<XorMappedAddress>(req.symbol.address);
-        message.append::<MappedAddress>(req.symbol.address);
-        message.append::<ResponseOrigin>(req.service.external);
+        message.append::<XorMappedAddress>(req.socket.address);
+        message.append::<MappedAddress>(req.socket.address);
+        message.append::<ResponseOrigin>(req.service.interface);
         message.append::<Software>(SOFTWARE);
         message.flush(None).ok()?;
     }
 
     Some(Response {
-        kind: StunClass::Message,
+        method: ResponseMethod::Stun(Method::Binding(Kind::Response)),
         bytes: req.bytes,
-        interface: None,
-        reject: false,
+        endpoint: None,
         relay: None,
     })
 }

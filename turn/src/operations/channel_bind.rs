@@ -1,5 +1,5 @@
-use super::{Requet, Response};
-use crate::{Observer, StunClass};
+use super::{Requet, Response, ResponseMethod};
+use crate::Observer;
 
 use stun::{
     attribute::{ChannelNumber, Error, ErrorCode, ErrorKind, Realm, XorPeerAddress},
@@ -22,10 +22,9 @@ fn reject<'a, T: Observer>(
     }
 
     Some(Response {
-        kind: StunClass::Message,
+        method: ResponseMethod::Stun(Method::ChannelBind(Kind::Error)),
         bytes: req.bytes,
-        interface: None,
-        reject: true,
+        endpoint: None,
         relay: None,
     })
 }
@@ -43,10 +42,9 @@ fn resolve<'a, T: Observer>(
     }
 
     Some(Response {
-        kind: StunClass::Message,
+        method: ResponseMethod::Stun(Method::ChannelBind(Kind::Response)),
         bytes: req.bytes,
-        interface: None,
-        reject: false,
+        endpoint: None,
         relay: None,
     })
 }
@@ -110,13 +108,13 @@ pub async fn process<'a, T: Observer>(
     if !req
         .service
         .sessions
-        .bind_channel(&req.symbol, peer.port(), number)
+        .bind_channel(&req.socket, &req.service.endpoint, peer.port(), number)
     {
         return reject(req, ErrorKind::Forbidden);
     }
 
     req.service
         .observer
-        .channel_bind(&req.symbol, username, number);
+        .channel_bind(&req.socket, username, number);
     resolve(req, &digest)
 }

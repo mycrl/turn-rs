@@ -1,5 +1,5 @@
-use super::{Requet, Response};
-use crate::{Observer, StunClass, SOFTWARE};
+use super::{Requet, Response, ResponseMethod};
+use crate::{Observer, SOFTWARE};
 
 use stun::{
     attribute::{Error, ErrorCode, ErrorKind, Realm, Software, XorPeerAddress},
@@ -25,10 +25,9 @@ fn reject<'a, T: Observer>(
     }
 
     Some(Response {
-        kind: StunClass::Message,
+        method: ResponseMethod::Stun(Method::CreatePermission(Kind::Error)),
         bytes: req.bytes,
-        interface: None,
-        reject: true,
+        endpoint: None,
         relay: None,
     })
 }
@@ -51,10 +50,9 @@ fn resolve<'a, T: Observer>(
     }
 
     Some(Response {
-        kind: StunClass::Message,
+        method: ResponseMethod::Stun(Method::CreatePermission(Kind::Response)),
         bytes: req.bytes,
-        interface: None,
-        reject: false,
+        endpoint: None,
         relay: None,
     })
 }
@@ -115,12 +113,16 @@ pub async fn process<'a, T: Observer>(
         ports.push(it.port());
     }
 
-    if !req.service.sessions.create_permission(&req.symbol, &ports) {
+    if !req
+        .service
+        .sessions
+        .create_permission(&req.socket, &req.service.endpoint, &ports)
+    {
         return reject(req, ErrorKind::Forbidden);
     }
 
     req.service
         .observer
-        .create_permission(&req.symbol, username, &ports);
+        .create_permission(&req.socket, username, &ports);
     resolve(req, &digest)
 }

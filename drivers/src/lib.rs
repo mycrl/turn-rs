@@ -21,10 +21,9 @@ pub enum Transport {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Symbol {
+pub struct Socket {
     pub address: SocketAddr,
     pub interface: SocketAddr,
-    pub transport: Transport,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -81,15 +80,12 @@ pub struct Statistics {
     pub error_pkts: u64,
 }
 
-impl<'a> Display for Symbol {
+impl<'a> Display for Socket {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{}",
-            format!(
-                "address={}&interface={}&transport={:?}",
-                self.address, self.interface, self.transport
-            )
+            format!("address={}&interface={}", self.address, self.interface)
         )
     }
 }
@@ -153,7 +149,7 @@ impl Controller {
 
     /// Get session information. A session corresponds to each UDP socket. It
     /// should be noted that a user can have multiple sessions at the same time.
-    pub async fn get_session(&self, query: &Symbol) -> Option<Message<Session>> {
+    pub async fn get_session(&self, query: &Socket) -> Option<Message<Session>> {
         Message::from_res(
             self.client
                 .get(format!("{}/session?{}", self.server, query))
@@ -167,7 +163,7 @@ impl Controller {
 
     /// Get session statistics, which is mainly the traffic statistics of the
     /// current session
-    pub async fn get_session_statistics(&self, query: &Symbol) -> Option<Message<Statistics>> {
+    pub async fn get_session_statistics(&self, query: &Socket) -> Option<Message<Statistics>> {
         Message::from_res(
             self.client
                 .get(format!("{}/session/statistics?{}", self.server, query))
@@ -182,7 +178,7 @@ impl Controller {
     /// Delete the session. Deleting the session will cause the turn server to
     /// delete all routing information of the current session. If there is a
     /// peer, the peer will also be disconnected.
-    pub async fn remove_session(&self, query: &Symbol) -> Option<Message<bool>> {
+    pub async fn remove_session(&self, query: &Socket) -> Option<Message<bool>> {
         Message::from_res(
             self.client
                 .delete(format!("{}/session?{}", self.server, query))
@@ -215,7 +211,7 @@ pub enum Events {
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
     Allocated {
-        session: Symbol,
+        session: Socket,
         username: String,
         port: u16,
     },
@@ -250,7 +246,7 @@ pub enum Events {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     ChannelBind {
-        session: Symbol,
+        session: Socket,
         username: String,
         channel: u16,
     },
@@ -294,7 +290,7 @@ pub enum Events {
     /// Retransmitted CreatePermission requests will simply refresh the
     /// permissions.
     CreatePermission {
-        session: Symbol,
+        session: Socket,
         username: String,
         ports: Vec<u16>,
     },
@@ -337,7 +333,7 @@ pub enum Events {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     Refresh {
-        session: Symbol,
+        session: Socket,
         username: String,
         lifetime: u32,
     },
@@ -346,7 +342,7 @@ pub enum Events {
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    Closed { session: Symbol, username: String },
+    Closed { session: Socket, username: String },
 }
 
 /// Abstraction that handles turn server communication with the outside world
@@ -373,7 +369,7 @@ pub trait Hooks {
     #[allow(unused_variables)]
     async fn auth(
         &self,
-        session: &Symbol,
+        session: &Socket,
         username: &str,
         realm: &str,
         nonce: &str,
@@ -390,7 +386,6 @@ pub trait Hooks {
 struct GetPasswordQuery {
     address: SocketAddr,
     interface: SocketAddr,
-    transport: Transport,
     username: String,
 }
 
@@ -409,10 +404,9 @@ where
                  Query(query): Query<GetPasswordQuery>| async move {
                     if let Some((realm, nonce)) = get_realm_and_nonce(&headers) {
                         if let Some(password) =
-                            state.auth(&Symbol {
+                            state.auth(&Socket {
                                 address: query.address,
                                 interface: query.interface,
-                                transport: query.transport,
                             }, &query.username, realm, nonce).await
                         {
                             return password.to_string().into_response();

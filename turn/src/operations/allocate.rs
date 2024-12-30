@@ -1,5 +1,5 @@
-use super::{Requet, Response};
-use crate::{Observer, StunClass, SOFTWARE};
+use super::{Requet, Response, ResponseMethod};
+use crate::{Observer, SOFTWARE};
 
 use std::net::SocketAddr;
 
@@ -22,16 +22,15 @@ fn reject<'a, T: Observer>(
             MessageWriter::extend(Method::Allocate(Kind::Error), req.message, req.bytes);
 
         message.append::<ErrorCode>(Error::from(err));
-        message.append::<Nonce>(&req.service.sessions.get_nonce(&req.symbol).get_ref()?.0);
+        message.append::<Nonce>(&req.service.sessions.get_nonce(&req.socket).get_ref()?.0);
         message.append::<Realm>(&req.service.realm);
         message.flush(None).ok()?;
     }
 
     Some(Response {
-        kind: StunClass::Message,
+        method: ResponseMethod::Stun(Method::Allocate(Kind::Error)),
         bytes: req.bytes,
-        interface: None,
-        reject: true,
+        endpoint: None,
         relay: None,
     })
 }
@@ -56,18 +55,17 @@ fn resolve<'a, T: Observer>(
         let mut message =
             MessageWriter::extend(Method::Allocate(Kind::Response), req.message, req.bytes);
 
-        message.append::<XorRelayedAddress>(SocketAddr::new(req.service.external.ip(), port));
-        message.append::<XorMappedAddress>(req.symbol.address);
+        message.append::<XorRelayedAddress>(SocketAddr::new(req.service.interface.ip(), port));
+        message.append::<XorMappedAddress>(req.socket.address);
         message.append::<Lifetime>(600);
         message.append::<Software>(SOFTWARE);
         message.flush(Some(digest)).ok()?;
     }
 
     Some(Response {
-        kind: StunClass::Message,
+        method: ResponseMethod::Stun(Method::Allocate(Kind::Response)),
         bytes: req.bytes,
-        interface: None,
-        reject: false,
+        endpoint: None,
         relay: None,
     })
 }
@@ -100,11 +98,11 @@ pub async fn process<'a, T: Observer>(
         None => return reject(req, ErrorKind::Unauthorized),
     };
 
-    let port = match req.service.sessions.allocate(req.symbol) {
+    let port = match req.service.sessions.allocate(req.socket) {
         Some(it) => it,
         None => return reject(req, ErrorKind::AllocationQuotaReached),
     };
 
-    req.service.observer.allocated(&req.symbol, username, port);
+    req.service.observer.allocated(&req.socket, username, port);
     resolve(req, &digest, port)
 }

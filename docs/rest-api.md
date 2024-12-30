@@ -29,7 +29,7 @@ Get the information of the turn server, including version information, listening
 
 ---
 
-### GET `/session?address=&interface=&transport=` - Session[]
+### GET `/session?address=&interface=` - Session[]
 
 Session:
 
@@ -45,7 +45,7 @@ Get session information. A session corresponds to each UDP socket. It should be 
 
 ---
 
-### GET - `/session/statistics?address=&interface=&transport=` - Statistics
+### GET - `/session/statistics?address=&interface=` - Statistics
 
 Statistics:
 
@@ -53,12 +53,11 @@ Statistics:
 -   `send_bytes` - <sup>uint64</sup> - The number of bytes sent by the current session
 -   `received_pkts` - <sup>uint64</sup> - Number of packets received in the current session
 -   `send_pkts` - <sup>uint64</sup> - The number of packets sent by the current session
--   `error_pkts` - <sup>uint64</sup> - The number of packets error by the current session
 
 Get session statistics, which is mainly the traffic statistics of the current session.
 
 ---
 
-### DELETE - `/session?address=&interface=&transport=`
+### DELETE - `/session?address=&interface=`
 
 Delete the session. Deleting the session will cause the turn server to delete all routing information of the current session. If there is a peer, the peer will also be disconnected.

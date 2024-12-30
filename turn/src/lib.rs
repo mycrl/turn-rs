@@ -4,20 +4,13 @@ pub mod sessions;
 use self::operations::ServiceContext;
 
 pub use self::{
-    operations::Operationer,
-    sessions::{PortAllocatePools, Session, Sessions, Symbol},
+    operations::{Operationer, ResponseMethod},
+    sessions::{PortAllocatePools, Session, Sessions, Socket},
 };
 
 use std::{net::SocketAddr, sync::Arc};
 
 use async_trait::async_trait;
-use stun::Transport;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StunClass {
-    Message,
-    Channel,
-}
 
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
@@ -28,7 +21,7 @@ static SOFTWARE: &str = concat!(
 #[allow(unused)]
 #[async_trait]
 pub trait Observer: Send + Sync {
-    async fn get_password(&self, symbol: &Symbol, username: &str) -> Option<String> {
+    async fn get_password(&self, socket: &Socket, username: &str) -> Option<String> {
         None
     }
 
@@ -48,7 +41,7 @@ pub trait Observer: Send + Sync {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    fn allocated(&self, symbol: &Symbol, username: &str, port: u16) {}
+    fn allocated(&self, socket: &Socket, username: &str, port: u16) {}
 
     /// channel binding request
     ///
@@ -80,7 +73,7 @@ pub trait Observer: Send + Sync {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
-    fn channel_bind(&self, symbol: &Symbol, username: &str, channel: u16) {}
+    fn channel_bind(&self, socket: &Socket, username: &str, channel: u16) {}
 
     /// create permission request
     ///
@@ -121,7 +114,7 @@ pub trait Observer: Send + Sync {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
-    fn create_permission(&self, symbol: &Symbol, username: &str, ports: &[u16]) {}
+    fn create_permission(&self, socket: &Socket, username: &str, ports: &[u16]) {}
 
     /// refresh request
     ///
@@ -162,20 +155,20 @@ pub trait Observer: Send + Sync {
     /// will cause a 437 (Allocation Mismatch) response if the
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
-    fn refresh(&self, symbol: &Symbol, username: &str, lifetime: u32) {}
+    fn refresh(&self, socket: &Socket, username: &str, lifetime: u32) {}
 
     /// session closed
     ///
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    fn closed(&self, symbol: &Symbol, username: &str) {}
+    fn closed(&self, socket: &Socket, username: &str) {}
 }
 
 /// Turn service.
 #[derive(Clone)]
 pub struct Service<T> {
-    externals: Arc<Vec<SocketAddr>>,
+    interfaces: Arc<Vec<SocketAddr>>,
     sessions: Arc<Sessions<T>>,
     realm: Arc<String>,
     observer: T,
@@ -203,10 +196,10 @@ where
     ///
     /// Service::new("test".to_string(), vec![], ObserverTest);
     /// ```
-    pub fn new(realm: String, externals: Vec<SocketAddr>, observer: T) -> Self {
+    pub fn new(realm: String, interfaces: Vec<SocketAddr>, observer: T) -> Self {
         Self {
             sessions: Sessions::new(observer.clone()),
-            externals: Arc::new(externals),
+            interfaces: Arc::new(interfaces),
             realm: Arc::new(realm),
             observer,
         }
@@ -229,24 +222,16 @@ where
     /// let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
     /// let service = Service::new("test".to_string(), vec![], ObserverTest);
     ///
-    /// service.get_operationer(Transport::UDP, addr, addr);
+    /// service.get_operationer(addr, addr);
     /// ```
-    pub fn get_operationer(
-        &self,
-        transport: Transport,
-        interface: SocketAddr,
-        external: SocketAddr,
-    ) -> Operationer<T> {
-        Operationer::new(
-            transport,
+    pub fn get_operationer(&self, endpoint: SocketAddr, interface: SocketAddr) -> Operationer<T> {
+        Operationer::new(ServiceContext {
+            interfaces: self.interfaces.clone(),
+            observer: self.observer.clone(),
+            sessions: self.sessions.clone(),
+            realm: self.realm.clone(),
             interface,
-            ServiceContext {
-                externals: self.externals.clone(),
-                observer: self.observer.clone(),
-                sessions: self.sessions.clone(),
-                realm: self.realm.clone(),
-                external,
-            },
-        )
+            endpoint,
+        })
     }
 }

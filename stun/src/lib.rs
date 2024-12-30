@@ -131,29 +131,15 @@ pub enum Method {
 }
 
 impl Method {
-    #[rustfmt::skip]
-    pub fn into_response(self) -> Option<Self> {
-        Some(match self {
-            Method::Binding(Kind::Request) => Method::Binding(Kind::Response),
-            Method::Allocate(Kind::Request) => Method::Allocate(Kind::Response),
-            Method::CreatePermission(Kind::Request) => Method::CreatePermission(Kind::Response),
-            Method::ChannelBind(Kind::Request) => Method::ChannelBind(Kind::Response),
-            Method::Refresh(Kind::Request) => Method::Refresh(Kind::Response),
-            Method::SendIndication => Method::DataIndication,
-            _ => return None,
-        })
-    }
-
-    #[rustfmt::skip]
-    pub fn into_error(self) -> Option<Self> {
-        Some(match self {
-            Method::Binding(Kind::Request) => Method::Binding(Kind::Error),
-            Method::Allocate(Kind::Request) => Method::Allocate(Kind::Error),
-            Method::CreatePermission(Kind::Request) => Method::CreatePermission(Kind::Error),
-            Method::ChannelBind(Kind::Request) => Method::ChannelBind(Kind::Error),
-            Method::Refresh(Kind::Request) => Method::Refresh(Kind::Error),
-            _ => return None,
-        })
+    pub fn is_error(&self) -> bool {
+        match self {
+            Method::Binding(Kind::Error)
+            | Method::Refresh(Kind::Error)
+            | Method::Allocate(Kind::Error)
+            | Method::CreatePermission(Kind::Error)
+            | Method::ChannelBind(Kind::Error) => true,
+            _ => false,
+        }
     }
 }
 
