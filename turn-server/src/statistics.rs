@@ -4,8 +4,6 @@ use std::{
         atomic::{AtomicU64, Ordering},
         Arc,
     },
-    thread::{self, sleep},
-    time::Duration,
 };
 
 use ahash::AHashMap;
@@ -252,16 +250,7 @@ pub struct Statistics(Arc<RwLock<AHashMap<SocketAddr, Counts<Count>>>>);
 
 impl Default for Statistics {
     fn default() -> Self {
-        let map: Arc<RwLock<AHashMap<SocketAddr, Counts<Count>>>> = Default::default();
-        let map_ = Arc::downgrade(&map);
-        thread::spawn(move || {
-            while let Some(map) = map_.upgrade() {
-                map.read().iter().for_each(|(_, it)| it.clear());
-                sleep(Duration::from_secs(1));
-            }
-        });
-
-        Self(map)
+        Self(Arc::new(RwLock::new(AHashMap::with_capacity(1024))))
     }
 }
 

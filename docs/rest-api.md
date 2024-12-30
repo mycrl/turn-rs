@@ -49,11 +49,11 @@ Get session information. A session corresponds to each UDP socket. It should be 
 
 Statistics:
 
--   `received_bytes` - <sup>uint64</sup> - Number of bytes received in the current session/s
--   `send_bytes` - <sup>uint64</sup> - The number of bytes sent by the current session/s
--   `received_pkts` - <sup>uint64</sup> - Number of packets received in the current session/s
--   `send_pkts` - <sup>uint64</sup> - The number of packets sent by the current session/s
--   `error_pkts` - <sup>uint64</sup> - The number of packets error by the current session/s
+-   `received_bytes` - <sup>uint64</sup> - Number of bytes received in the current session
+-   `send_bytes` - <sup>uint64</sup> - The number of bytes sent by the current session
+-   `received_pkts` - <sup>uint64</sup> - Number of packets received in the current session
+-   `send_pkts` - <sup>uint64</sup> - The number of packets sent by the current session
+-   `error_pkts` - <sup>uint64</sup> - The number of packets error by the current session
 
 Get session statistics, which is mainly the traffic statistics of the current session.
 
