@@ -1,15 +1,11 @@
 use std::sync::Arc;
 
-use crate::{
-    config::{Config, Transport},
-    publicly::HooksService,
-    statistics::Statistics,
-};
+use crate::{config::Config, publicly::HooksService, statistics::Statistics};
 
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::json;
-use turn::Symbol;
+use turn::Socket;
 
 #[derive(Clone)]
 pub struct Observer {
@@ -28,14 +24,13 @@ impl Observer {
 
 #[async_trait]
 impl turn::Observer for Observer {
-    async fn get_password(&self, key: &Symbol, name: &str) -> Option<String> {
+    async fn get_password(&self, key: &Socket, name: &str) -> Option<String> {
         let pwd = self.hooks.get_password(key, name).await;
 
         log::info!(
-            "auth: address={:?}, interface={:?}, transport={:?}, username={:?}, password={:?}",
+            "auth: address={:?}, interface={:?}, username={:?}, password={:?}",
             key.address,
             key.interface,
-            key.transport,
             name,
             pwd
         );
@@ -60,23 +55,21 @@ impl turn::Observer for Observer {
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
     #[allow(clippy::let_underscore_future)]
-    fn allocated(&self, key: &Symbol, name: &str, port: u16) {
+    fn allocated(&self, key: &Socket, name: &str, port: u16) {
         log::info!(
-            "allocate: address={:?}, interface={:?}, transport={:?}, username={:?}, port={}",
+            "allocate: address={:?}, interface={:?}, username={:?}, port={}",
             key.address,
             key.interface,
-            key.transport,
             name,
             port
         );
 
-        self.statistics.register(key.address);
+        self.statistics.register(*key);
         self.hooks.emit(json!({
             "kind": "allocated",
             "session": {
                 "address": key.address,
                 "interface": key.interface,
-                "transport": Transport::from(key.transport),
             },
             "username": name,
             "port": port,
@@ -99,7 +92,7 @@ impl turn::Observer for Observer {
     ///
     /// If the server can satisfy the request, then the server creates or
     /// refreshes the channel binding using the channel number in the
-    /// CHANNEL-NUMBER attribute and the transport address in the XOR-PEER-
+    /// CHANNEL-NUMBER attribute and the interface address in the XOR-PEER-
     /// ADDRESS attribute.  The server also installs or refreshes a
     /// permission for the IP address in the XOR-PEER-ADDRESS attribute as
     /// described in Section 9.
@@ -114,12 +107,11 @@ impl turn::Observer for Observer {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     #[allow(clippy::let_underscore_future)]
-    fn channel_bind(&self, key: &Symbol, name: &str, channel: u16) {
+    fn channel_bind(&self, key: &Socket, name: &str, channel: u16) {
         log::info!(
-            "channel bind: address={:?}, interface={:?}, transport={:?}, username={:?}, channel={}",
+            "channel bind: address={:?}, interface={:?}, username={:?}, channel={}",
             key.address,
             key.interface,
-            key.transport,
             name,
             channel
         );
@@ -129,7 +121,6 @@ impl turn::Observer for Observer {
             "session": {
                 "address": key.address,
                 "interface": key.interface,
-                "transport": Transport::from(key.transport),
             },
             "username": name,
             "channel": channel,
@@ -153,7 +144,7 @@ impl turn::Observer for Observer {
     /// (Insufficient Capacity) error is returned.
     ///
     /// If an XOR-PEER-ADDRESS attribute contains an address of an address
-    /// family that is not the same as that of a relayed transport address
+    /// family that is not the same as that of a relayed interface address
     /// for the allocation, the server MUST generate an error response with
     /// the 443 (Peer Address Family Mismatch) response code.
     ///
@@ -176,10 +167,10 @@ impl turn::Observer for Observer {
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
     #[allow(clippy::let_underscore_future)]
-    fn create_permission(&self, key: &Symbol, name: &str, ports: &[u16]) {
+    fn create_permission(&self, key: &Socket, name: &str, ports: &[u16]) {
         log::info!(
-            "create permission: address={:?}, interface={:?}, transport={:?}, username={:?}, ports={:?}",
-            key.address, key.interface, key.transport,
+            "create permission: address={:?}, interface={:?}, interface={:?}, username={:?}, ports={:?}",
+            key.address, key.interface, key.interface,
             name,
             ports
         );
@@ -189,7 +180,6 @@ impl turn::Observer for Observer {
             "session": {
                 "address": key.address,
                 "interface": key.interface,
-                "transport": Transport::from(key.transport),
             },
             "username": name,
             "ports": ports,
@@ -236,12 +226,12 @@ impl turn::Observer for Observer {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     #[allow(clippy::let_underscore_future)]
-    fn refresh(&self, key: &Symbol, name: &str, lifetime: u32) {
+    fn refresh(&self, key: &Socket, name: &str, lifetime: u32) {
         log::info!(
-            "refresh: address={:?}, interface={:?}, transport={:?}, username={:?}, lifetime={}",
+            "refresh: address={:?}, interface={:?}, interface={:?}, username={:?}, lifetime={}",
             key.address,
             key.interface,
-            key.transport,
+            key.interface,
             name,
             lifetime
         );
@@ -251,7 +241,6 @@ impl turn::Observer for Observer {
             "session": {
                 "address": key.address,
                 "interface": key.interface,
-                "transport": Transport::from(key.transport),
             },
             "username": name,
             "lifetime": lifetime,
@@ -264,22 +253,21 @@ impl turn::Observer for Observer {
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
     #[allow(clippy::let_underscore_future)]
-    fn closed(&self, key: &Symbol, name: &str) {
+    fn closed(&self, key: &Socket, name: &str) {
         log::info!(
-            "closed: address={:?}, interface={:?}, transport={:?}, username={:?}",
+            "closed: address={:?}, interface={:?}, interface={:?}, username={:?}",
             key.address,
             key.interface,
-            key.transport,
+            key.interface,
             name
         );
 
-        self.statistics.unregister(&key.address);
+        self.statistics.unregister(&key);
         self.hooks.emit(json!({
             "kind": "closed",
             "session": {
                 "address": key.address,
                 "interface": key.interface,
-                "transport": Transport::from(key.transport),
             },
             "username": name,
         }))

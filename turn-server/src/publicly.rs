@@ -5,11 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    config::{Config, Transport},
-    observer::Observer,
-    statistics::Statistics,
-};
+use crate::{config::Config, observer::Observer, statistics::Statistics};
 
 use axum::{
     extract::{Query, State},
@@ -35,7 +31,7 @@ use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedSender},
 };
 
-use turn::{sessions::Symbol, PortAllocatePools, Service};
+use turn::{sessions::Socket, PortAllocatePools, Service};
 
 static RID: Lazy<String> = Lazy::new(|| random_string(16));
 
@@ -50,15 +46,13 @@ struct AppState {
 struct SessionQueryFilter {
     address: SocketAddr,
     interface: SocketAddr,
-    transport: Transport,
 }
 
-impl Into<Symbol> for SessionQueryFilter {
-    fn into(self) -> Symbol {
-        Symbol {
+impl Into<Socket> for SessionQueryFilter {
+    fn into(self) -> Socket {
+        Socket {
             address: self.address,
             interface: self.interface,
-            transport: self.transport.into(),
         }
     }
 }
@@ -131,8 +125,8 @@ pub async fn start_server(
                 get(
                     |Query(query): Query<SessionQueryFilter>,
                      State(state): State<Arc<AppState>>| async move {
-                        let symbol: Symbol = query.into();
-                        if let Some(counts) = state.statistics.get(&symbol.address) {
+                        let socket: Socket = query.into();
+                        if let Some(counts) = state.statistics.get(&socket) {
                             Json(json!({
                                 "received_bytes": counts.received_bytes,
                                 "send_bytes": counts.send_bytes,
@@ -243,7 +237,7 @@ impl HooksService {
         Ok(Self { client, config, tx })
     }
 
-    pub async fn get_password(&self, key: &Symbol, username: &str) -> Option<String> {
+    pub async fn get_password(&self, key: &Socket, username: &str) -> Option<String> {
         // Match the static authentication information first.
         if let Some(pwd) = self.config.auth.static_credentials.get(username) {
             return Some(pwd.clone());
@@ -265,15 +259,8 @@ impl HooksService {
             if let Ok(res) = self
                 .client
                 .get(format!(
-                    "{}/password?address={}&interface={}&transport={}&username={}",
-                    server,
-                    key.address,
-                    key.interface,
-                    match Transport::from(key.transport) {
-                        Transport::TCP => "tcp",
-                        Transport::UDP => "udp",
-                    },
-                    username
+                    "{}/password?address={}&interface={}&username={}",
+                    server, key.address, key.interface, username
                 ))
                 .send()
                 .await

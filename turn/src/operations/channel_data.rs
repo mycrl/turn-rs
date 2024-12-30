@@ -1,5 +1,5 @@
-use super::{Requet, Response};
-use crate::{Observer, StunClass};
+use super::{Requet, Response, ResponseMethod};
+use crate::Observer;
 
 use stun::ChannelData;
 
@@ -38,17 +38,16 @@ pub fn process<'a, T: Observer>(
     let relay = req
         .service
         .sessions
-        .get_channel_relay_address(&req.symbol, req.message.number)?;
+        .get_channel_relay_address(&req.socket, req.message.number)?;
 
     Some(Response {
-        interface: if req.symbol.interface != relay.interface {
-            Some(relay.interface)
+        method: ResponseMethod::ChannelData,
+        endpoint: if req.service.endpoint != relay.endpoint {
+            Some(relay.endpoint)
         } else {
             None
         },
         relay: Some(relay.address),
-        kind: StunClass::Channel,
-        reject: false,
         bytes,
     })
 }

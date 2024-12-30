@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use async_trait::async_trait;
 use clap::Parser;
 use tabled::{Table, Tabled};
-use turn_driver::{start_hooks_server, Controller, Events, Hooks, Symbol, Transport};
+use turn_driver::{start_hooks_server, Controller, Events, Hooks, Socket, Transport};
 
 struct HooksImpl;
 
@@ -11,14 +11,14 @@ struct HooksImpl;
 impl Hooks for HooksImpl {
     async fn auth(
         &self,
-        session: &Symbol,
+        session: &Socket,
         username: &str,
         realm: &str,
         nonce: &str,
     ) -> Option<&str> {
         println!(
-            "auth: address={:?}, interface={:?}, transport={:?}, username={:?}, realm={}, nonce={}",
-            session.address, session.interface, session.transport, username, realm, nonce
+            "auth: address={:?}, interface={:?}, username={:?}, realm={}, nonce={}",
+            session.address, session.interface, username, realm, nonce
         );
 
         Some("test")

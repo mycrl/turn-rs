@@ -7,8 +7,8 @@ pub mod indication;
 pub mod refresh;
 
 use crate::{
-    sessions::{Sessions, Symbol},
-    Observer, StunClass, Transport,
+    sessions::{Sessions, Socket},
+    Observer,
 };
 
 use std::{net::SocketAddr, sync::Arc};
@@ -19,15 +19,22 @@ use stun::{
     Decoder, Kind, MessageReader, Method, Payload, StunError,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResponseMethod {
+    Stun(Method),
+    ChannelData,
+}
+
 /// The context of the service.
 ///
-/// A service corresponds to a Net Socket, different sockets have different
+/// A service corresponds to a Net Endpoint, different sockets have different
 /// addresses and so on, but other things are basically the same.
 pub struct ServiceContext<T: Observer> {
     pub realm: Arc<String>,
     pub sessions: Arc<Sessions<T>>,
-    pub external: SocketAddr,
-    pub externals: Arc<Vec<SocketAddr>>,
+    pub endpoint: SocketAddr,
+    pub interface: SocketAddr,
+    pub interfaces: Arc<Vec<SocketAddr>>,
     pub observer: T,
 }
 
@@ -36,7 +43,7 @@ pub struct Requet<'a, 'b, T, M>
 where
     T: Observer + 'static,
 {
-    pub symbol: &'a Symbol,
+    pub socket: &'a Socket,
     pub bytes: &'b mut BytesMut,
     pub service: &'a ServiceContext<T>,
     pub message: &'a M,
@@ -50,7 +57,7 @@ where
     #[inline(always)]
     pub(crate) fn verify_ip(&self, address: &SocketAddr) -> bool {
         self.service
-            .externals
+            .interfaces
             .iter()
             .any(|item| item.ip() == address.ip())
     }
@@ -106,7 +113,7 @@ where
         let digest = self
             .service
             .sessions
-            .get_digest(&self.symbol, username, self.service.realm.as_str())
+            .get_digest(&self.socket, username, self.service.realm.as_str())
             .await?;
 
         // if nonce is not empty, check nonce
@@ -114,7 +121,7 @@ where
             if self
                 .service
                 .sessions
-                .get_nonce(&self.symbol)
+                .get_nonce(&self.socket)
                 .get_ref()?
                 .0
                 .as_str()
@@ -131,11 +138,10 @@ where
 
 /// The response of the service.
 pub struct Response<'a> {
-    pub reject: bool,
-    pub kind: StunClass,
+    pub method: ResponseMethod,
     pub bytes: &'a [u8],
     pub relay: Option<SocketAddr>,
-    pub interface: Option<SocketAddr>,
+    pub endpoint: Option<SocketAddr>,
 }
 
 /// process udp message and return message + address
@@ -144,29 +150,24 @@ where
     T: Observer + 'static,
 {
     service: ServiceContext<T>,
+    socket: Socket,
     decoder: Decoder,
     bytes: BytesMut,
-    symbol: Symbol,
 }
 
 impl<T> Operationer<T>
 where
     T: Observer + 'static,
 {
-    pub(crate) fn new(
-        transport: Transport,
-        interface: SocketAddr,
-        service: ServiceContext<T>,
-    ) -> Self {
+    pub(crate) fn new(service: ServiceContext<T>) -> Self {
         Self {
-            service,
-            decoder: Decoder::default(),
-            bytes: BytesMut::with_capacity(4096),
-            symbol: Symbol {
+            socket: Socket {
                 address: "0.0.0.0:0".parse().unwrap(),
-                transport,
-                interface,
+                interface: service.interface,
             },
+            bytes: BytesMut::with_capacity(4096),
+            decoder: Decoder::default(),
+            service,
         }
     }
 
@@ -286,20 +287,20 @@ where
         bytes: &'b [u8],
         address: SocketAddr,
     ) -> Result<Option<Response<'a>>, StunError> {
-        self.symbol.address = address;
+        self.socket.address = address;
 
         Ok(match self.decoder.decode(bytes)? {
             Payload::ChannelData(channel) => channel_data::process(bytes, Requet {
                 bytes: &mut self.bytes,
                 service: &self.service,
-                symbol: &self.symbol,
+                socket: &self.socket,
                 message: &channel,
             }),
             Payload::Message(message) => {
                 let req = Requet {
                     bytes: &mut self.bytes,
                     service: &self.service,
-                    symbol: &self.symbol,
+                    socket: &self.socket,
                     message: &message,
                 };
 

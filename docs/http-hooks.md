@@ -21,7 +21,6 @@ Get the current user's password, which is mainly used to provide authentication 
 
 -   `address` - <sup>string</sup> - The IP address and port number of the UDP or TCP connection used by the client.
 -   `interface` - <sup>string</sup> - The network interface used by the current session.
--   `transport` - <sup>string</sup> - TCP | UDP.
 
 ---
 

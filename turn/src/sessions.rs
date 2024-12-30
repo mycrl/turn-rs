@@ -15,7 +15,7 @@ use std::{
 use ahash::{HashMap, HashMapExt};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use stun::{util::long_term_credential_digest, Transport};
+use stun::util::long_term_credential_digest;
 
 /// Authentication information for the session.
 ///
@@ -53,13 +53,20 @@ pub struct Session {
 /// The identifier of the session or socket.
 ///
 /// Each session needs to be identified by a combination of three pieces of
-/// information: the socket address, the source interface, and the transport
-/// protocol.
+/// information: the socket address, and the transport protocol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Symbol {
+pub struct Socket {
     pub address: SocketAddr,
     pub interface: SocketAddr,
-    pub transport: Transport,
+}
+
+/// The socket used to record the current session.
+///
+/// This is used when forwarding data.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Endpoint {
+    pub address: SocketAddr,
+    pub endpoint: SocketAddr,
 }
 
 /// A specially optimised timer.
@@ -91,20 +98,20 @@ impl Timer {
 
 #[derive(Default)]
 pub struct State {
-    sessions: RwLock<Table<Symbol, Session>>,
+    sessions: RwLock<Table<Socket, Session>>,
     port_allocate_pool: Mutex<PortAllocatePools>,
     // Records the sessions corresponding to each assigned port, which will be needed when looking
     // up sessions assigned to this port based on the port number.
-    port_mapping_table: RwLock<Table</* port */ u16, Symbol>>,
+    port_mapping_table: RwLock<Table</* port */ u16, Socket>>,
     // Records the nonce value for each network connection, which is independent of the session
     // because it can exist before it is authenticated.
-    address_nonce_tanle: RwLock<Table<Symbol, (String, /* expires */ u64)>>,
+    address_nonce_tanle: RwLock<Table<Socket, (String, /* expires */ u64)>>,
     // Stores the address to which the session should be forwarded when it sends indication to a
     // port. This is written when permissions are created to allow a certain address to be
     // forwarded to the current session.
-    port_relay_table: RwLock<Table<Symbol, HashMap</* port */ u16, Symbol>>>,
+    port_relay_table: RwLock<Table<Socket, HashMap</* port */ u16, Endpoint>>>,
     // Indicates to which session the data sent by a session to a channel should be forwarded.
-    channel_relay_table: RwLock<Table<Symbol, HashMap</* channel */ u16, Symbol>>>,
+    channel_relay_table: RwLock<Table<Socket, HashMap</* channel */ u16, Endpoint>>>,
 }
 
 pub struct Sessions<T> {
@@ -145,29 +152,7 @@ impl<T: Observer + 'static> Sessions<T> {
 
                     // Delete the expired sessions.
                     if !address.is_empty() {
-                        let mut sessions = this.state.sessions.write();
-                        let mut port_allocate_pool = this.state.port_allocate_pool.lock();
-                        let mut port_mapping_table = this.state.port_mapping_table.write();
-                        let mut port_relay_table = this.state.port_relay_table.write();
-                        let mut channel_relay_table = this.state.channel_relay_table.write();
-
-                        address.iter().for_each(|k| {
-                            port_relay_table.remove(k);
-                            channel_relay_table.remove(k);
-
-                            if let Some(session) = sessions.remove(k) {
-                                // Removes the session-bound port from the port binding table and
-                                // releases the port back into the allocation pool.
-                                if let Some(port) = session.allocate.port {
-                                    port_mapping_table.remove(&port);
-                                    port_allocate_pool.restore(port);
-                                }
-
-                                // Notifies that the external session has been closed.
-                                this.observer.closed(k, &session.auth.username);
-                            }
-                        });
-
+                        this.remove_session(&address);
                         address.clear();
                     }
                 }
@@ -183,12 +168,7 @@ impl<T: Observer + 'static> Sessions<T> {
                         .for_each(|(k, _)| address.push(*k));
 
                     if !address.is_empty() {
-                        let mut address_nonce_tanle = this.state.address_nonce_tanle.write();
-
-                        address.iter().for_each(|k| {
-                            address_nonce_tanle.remove(k);
-                        });
-
+                        this.remove_nonce(&address);
                         address.clear();
                     }
                 }
@@ -201,13 +181,45 @@ impl<T: Observer + 'static> Sessions<T> {
         this
     }
 
-    /// Get session for symbol.
+    fn remove_session(&self, sockets: &[Socket]) {
+        let mut sessions = self.state.sessions.write();
+        let mut port_allocate_pool = self.state.port_allocate_pool.lock();
+        let mut port_mapping_table = self.state.port_mapping_table.write();
+        let mut port_relay_table = self.state.port_relay_table.write();
+        let mut channel_relay_table = self.state.channel_relay_table.write();
+
+        sockets.iter().for_each(|k| {
+            port_relay_table.remove(k);
+            channel_relay_table.remove(k);
+
+            if let Some(session) = sessions.remove(k) {
+                // Removes the session-bound port from the port binding table and
+                // releases the port back into the allocation pool.
+                if let Some(port) = session.allocate.port {
+                    port_mapping_table.remove(&port);
+                    port_allocate_pool.restore(port);
+                }
+
+                // Notifies that the external session has been closed.
+                self.observer.closed(k, &session.auth.username);
+            }
+        });
+    }
+
+    fn remove_nonce(&self, sockets: &[Socket]) {
+        let mut address_nonce_tanle = self.state.address_nonce_tanle.write();
+
+        sockets.iter().for_each(|k| {
+            address_nonce_tanle.remove(k);
+        });
+    }
+
+    /// Get session for socket.
     ///
     /// # Test
     ///
     /// ```
     /// use async_trait::async_trait;
-    /// use stun::Transport;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
@@ -217,7 +229,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         symbol: &Symbol,
+    ///         socket: &Socket,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -228,10 +240,9 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let symbol = Symbol {
+    /// let socket = Socket {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
     /// let digest = [
@@ -241,11 +252,11 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// assert!(sessions.get_session(&symbol).get_ref().is_none());
+    /// assert!(sessions.get_session(&socket).get_ref().is_none());
     ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
     ///
-    /// let lock = sessions.get_session(&symbol);
+    /// let lock = sessions.get_session(&socket);
     /// let session = lock.get_ref().unwrap();
     /// assert_eq!(session.auth.username, "test");
     /// assert_eq!(session.auth.password, "test");
@@ -254,21 +265,20 @@ impl<T: Observer + 'static> Sessions<T> {
     /// ```
     pub fn get_session<'a, 'b>(
         &'a self,
-        key: &'b Symbol,
-    ) -> ReadLock<'b, 'a, Symbol, Table<Symbol, Session>> {
+        key: &'b Socket,
+    ) -> ReadLock<'b, 'a, Socket, Table<Socket, Session>> {
         ReadLock {
             lock: self.state.sessions.read(),
             key,
         }
     }
 
-    /// Get nonce for symbol.
+    /// Get nonce for socket.
     ///
     /// # Test
     ///
     /// ```
     /// use async_trait::async_trait;
-    /// use stun::Transport;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
@@ -277,26 +287,25 @@ impl<T: Observer + 'static> Sessions<T> {
     /// #[async_trait]
     /// impl Observer for ObserverTest {}
     ///
-    /// let symbol = Symbol {
+    /// let socket = Socket {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// let a = sessions.get_nonce(&symbol).get_ref().unwrap().clone();
+    /// let a = sessions.get_nonce(&socket).get_ref().unwrap().clone();
     /// assert!(a.0.len() == 16);
     /// assert!(a.1 == 600 || a.1 == 601 || a.1 == 602);
     ///
-    /// let b = sessions.get_nonce(&symbol).get_ref().unwrap().clone();
+    /// let b = sessions.get_nonce(&socket).get_ref().unwrap().clone();
     /// assert_eq!(a.0, b.0);
     /// assert!(b.1 == 600 || b.1 == 601 || b.1 == 602);
     /// ```
     pub fn get_nonce<'a, 'b>(
         &'a self,
-        key: &'b Symbol,
-    ) -> ReadLock<'b, 'a, Symbol, Table<Symbol, (String, u64)>> {
+        key: &'b Socket,
+    ) -> ReadLock<'b, 'a, Socket, Table<Socket, (String, u64)>> {
         // If no nonce is created, create a new one.
         {
             if !self.state.address_nonce_tanle.read().contains_key(key) {
@@ -325,13 +334,12 @@ impl<T: Observer + 'static> Sessions<T> {
         }
     }
 
-    /// Get digest for symbol.
+    /// Get digest for socket.
     ///
     /// # Test
     ///
     /// ```
     /// use async_trait::async_trait;
-    /// use stun::Transport;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
@@ -341,7 +349,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         symbol: &Symbol,
+    ///         socket: &Socket,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -352,10 +360,9 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let symbol = Symbol {
+    /// let socket = Socket {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
     /// let digest = [
@@ -366,42 +373,42 @@ impl<T: Observer + 'static> Sessions<T> {
     /// let sessions = Sessions::new(ObserverTest);
     ///
     /// assert_eq!(
-    ///     pollster::block_on(sessions.get_digest(&symbol, "test1", "test")),
+    ///     pollster::block_on(sessions.get_digest(&socket, "test1", "test")),
     ///     None
     /// );
     ///
     /// assert_eq!(
-    ///     pollster::block_on(sessions.get_digest(&symbol, "test", "test")),
+    ///     pollster::block_on(sessions.get_digest(&socket, "test", "test")),
     ///     Some(digest)
     /// );
     ///
     /// assert_eq!(
-    ///     pollster::block_on(sessions.get_digest(&symbol, "test", "test")),
+    ///     pollster::block_on(sessions.get_digest(&socket, "test", "test")),
     ///     Some(digest)
     /// );
     /// ```
     pub async fn get_digest(
         &self,
-        symbol: &Symbol,
+        socket: &Socket,
         username: &str,
         realm: &str,
     ) -> Option<[u8; 16]> {
         // Already authenticated, get the cached digest directly.
         {
-            if let Some(it) = self.state.sessions.read().get(symbol) {
+            if let Some(it) = self.state.sessions.read().get(socket) {
                 return Some(it.auth.digest);
             }
         }
 
         // Get the current user's password from an external observer and create a
         // digest.
-        let password = self.observer.get_password(symbol, username).await?;
+        let password = self.observer.get_password(socket, username).await?;
         let digest = long_term_credential_digest(&username, &password, realm);
 
         // Record a new session.
         {
             self.state.sessions.write().insert(
-                *symbol,
+                *socket,
                 Session {
                     permissions: Vec::with_capacity(10),
                     expires: self.timer.get() + 600,
@@ -431,7 +438,6 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// ```
     /// use async_trait::async_trait;
-    /// use stun::Transport;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
@@ -441,7 +447,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         symbol: &Symbol,
+    ///         socket: &Socket,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -452,10 +458,9 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let symbol = Symbol {
+    /// let socket = Socket {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
     /// let digest = [
@@ -465,10 +470,10 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
     ///
     /// {
-    ///     let lock = sessions.get_session(&symbol);
+    ///     let lock = sessions.get_session(&socket);
     ///     let session = lock.get_ref().unwrap();
     ///     assert_eq!(session.auth.username, "test");
     ///     assert_eq!(session.auth.password, "test");
@@ -476,9 +481,9 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     assert_eq!(session.allocate.channels.len(), 0);
     /// }
     ///
-    /// let port = sessions.allocate(&symbol).unwrap();
+    /// let port = sessions.allocate(&socket).unwrap();
     /// {
-    ///     let lock = sessions.get_session(&symbol);
+    ///     let lock = sessions.get_session(&socket);
     ///     let session = lock.get_ref().unwrap();
     ///     assert_eq!(session.auth.username, "test");
     ///     assert_eq!(session.auth.password, "test");
@@ -486,11 +491,11 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     assert_eq!(session.allocate.channels.len(), 0);
     /// }
     ///
-    /// assert!(sessions.allocate(&symbol).is_none());
+    /// assert!(sessions.allocate(&socket).is_none());
     /// ```
-    pub fn allocate(&self, symbol: &Symbol) -> Option<u16> {
+    pub fn allocate(&self, socket: &Socket) -> Option<u16> {
         let mut lock = self.state.sessions.write();
-        let session = lock.get_mut(symbol)?;
+        let session = lock.get_mut(socket)?;
 
         // If the port has already been allocated, re-allocation is not allowed.
         if session.allocate.port.is_some() {
@@ -503,7 +508,7 @@ impl<T: Observer + 'static> Sessions<T> {
         session.allocate.port = Some(port);
 
         // Write the allocation port binding table.
-        self.state.port_mapping_table.write().insert(port, *symbol);
+        self.state.port_mapping_table.write().insert(port, *socket);
         Some(port)
     }
 
@@ -513,7 +518,6 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// ```
     /// use async_trait::async_trait;
-    /// use stun::Transport;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
@@ -523,7 +527,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         symbol: &Symbol,
+    ///         socket: &Socket,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -534,16 +538,15 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let symbol = Symbol {
+    /// let endpoint = "127.0.0.1:3478".parse().unwrap();
+    /// let socket = Socket {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
-    /// let peer_symbol = Symbol {
+    /// let peer_socket = Socket {
     ///     address: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
     /// let digest = [
@@ -553,25 +556,25 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_socket, "test", "test"));
     ///
-    /// let port = sessions.allocate(&symbol).unwrap();
-    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
+    /// let port = sessions.allocate(&socket).unwrap();
+    /// let peer_port = sessions.allocate(&peer_socket).unwrap();
     ///
-    /// assert!(!sessions.create_permission(&symbol, &[port]));
-    /// assert!(sessions.create_permission(&symbol, &[peer_port]));
+    /// assert!(!sessions.create_permission(&socket, &endpoint, &[port]));
+    /// assert!(sessions.create_permission(&socket, &endpoint, &[peer_port]));
     ///
-    /// assert!(!sessions.create_permission(&peer_symbol, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_symbol, &[port]));
+    /// assert!(!sessions.create_permission(&peer_socket, &endpoint, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_socket, &endpoint, &[port]));
     /// ```
-    pub fn create_permission(&self, symbol: &Symbol, ports: &[u16]) -> bool {
+    pub fn create_permission(&self, socket: &Socket, endpoint: &SocketAddr, ports: &[u16]) -> bool {
         let mut sessions = self.state.sessions.write();
         let mut port_relay_table = self.state.port_relay_table.write();
         let port_mapping_table = self.state.port_mapping_table.read();
 
         // Finds information about the current session.
-        let session = if let Some(it) = sessions.get_mut(symbol) {
+        let session = if let Some(it) = sessions.get_mut(socket) {
             it
         } else {
             return false;
@@ -604,7 +607,13 @@ impl<T: Observer + 'static> Sessions<T> {
             port_relay_table
                 .entry(*peer)
                 .or_insert_with(|| HashMap::with_capacity(20))
-                .insert(local_port, *symbol);
+                .insert(
+                    local_port,
+                    Endpoint {
+                        address: socket.address,
+                        endpoint: *endpoint,
+                    },
+                );
 
             // Do not store the same peer ports to the permission list over and over again.
             if !session.permissions.contains(&port) {
@@ -621,7 +630,6 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// ```
     /// use async_trait::async_trait;
-    /// use stun::Transport;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
@@ -631,7 +639,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         symbol: &Symbol,
+    ///         socket: &Socket,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -642,16 +650,15 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let symbol = Symbol {
+    /// let endpoint = "127.0.0.1:3478".parse().unwrap();
+    /// let socket = Socket {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
-    /// let peer_symbol = Symbol {
+    /// let peer_socket = Socket {
     ///     address: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
     /// let digest = [
@@ -661,14 +668,14 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_socket, "test", "test"));
     ///
-    /// let port = sessions.allocate(&symbol).unwrap();
-    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
+    /// let port = sessions.allocate(&socket).unwrap();
+    /// let peer_port = sessions.allocate(&peer_socket).unwrap();
     /// assert_eq!(
     ///     sessions
-    ///         .get_session(&symbol)
+    ///         .get_session(&socket)
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
@@ -679,7 +686,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_session(&peer_symbol)
+    ///         .get_session(&peer_socket)
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
@@ -688,11 +695,11 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     0
     /// );
     ///
-    /// assert!(sessions.bind_channel(&symbol, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_symbol, port, 0x4000));
+    /// assert!(sessions.bind_channel(&socket, &endpoint, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_socket, &endpoint, port, 0x4000));
     /// assert_eq!(
     ///     sessions
-    ///         .get_session(&symbol)
+    ///         .get_session(&socket)
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
@@ -702,7 +709,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_session(&peer_symbol)
+    ///         .get_session(&peer_socket)
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
@@ -710,7 +717,13 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     vec![0x4000]
     /// );
     /// ```
-    pub fn bind_channel(&self, symbol: &Symbol, port: u16, channel: u16) -> bool {
+    pub fn bind_channel(
+        &self,
+        socket: &Socket,
+        endpoint: &SocketAddr,
+        port: u16,
+        channel: u16,
+    ) -> bool {
         // Finds the address of the bound opposing port.
         let peer = if let Some(it) = self.state.port_mapping_table.read().get(&port) {
             *it
@@ -721,15 +734,19 @@ impl<T: Observer + 'static> Sessions<T> {
         // Records the channel used for the current session.
         {
             let mut lock = self.state.sessions.write();
-            if let Some(session) = lock.get_mut(symbol) {
-                if !session.allocate.channels.contains(&channel) {
-                    session.allocate.channels.push(channel);
-                }
+            let session = if let Some(it) = lock.get_mut(socket) {
+                it
+            } else {
+                return false;
+            };
+
+            if !session.allocate.channels.contains(&channel) {
+                session.allocate.channels.push(channel);
             }
         }
 
         // Binding ports also creates permissions.
-        if !self.create_permission(symbol, &[port]) {
+        if !self.create_permission(socket, endpoint, &[port]) {
             return false;
         }
 
@@ -739,7 +756,13 @@ impl<T: Observer + 'static> Sessions<T> {
             .write()
             .entry(peer)
             .or_insert_with(|| HashMap::with_capacity(10))
-            .insert(channel, *symbol);
+            .insert(
+                channel,
+                Endpoint {
+                    address: socket.address,
+                    endpoint: *endpoint,
+                },
+            );
 
         true
     }
@@ -750,7 +773,6 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// ```
     /// use async_trait::async_trait;
-    /// use stun::Transport;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
@@ -760,7 +782,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         symbol: &Symbol,
+    ///         socket: &Socket,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -771,16 +793,15 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let symbol = Symbol {
+    /// let endpoint = "127.0.0.1:3478".parse().unwrap();
+    /// let socket = Socket {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
-    /// let peer_symbol = Symbol {
+    /// let peer_socket = Socket {
     ///     address: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
     /// let digest = [
@@ -790,29 +811,35 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_socket, "test", "test"));
     ///
-    /// let port = sessions.allocate(&symbol).unwrap();
-    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
+    /// let port = sessions.allocate(&socket).unwrap();
+    /// let peer_port = sessions.allocate(&peer_socket).unwrap();
     ///
-    /// assert!(sessions.bind_channel(&symbol, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_symbol, port, 0x4000));
+    /// assert!(sessions.bind_channel(&socket, &endpoint, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_socket, &endpoint, port, 0x4000));
     /// assert_eq!(
-    ///     sessions.get_channel_relay_address(&symbol, 0x4000),
-    ///     Some(peer_symbol)
+    ///     sessions
+    ///         .get_channel_relay_address(&socket, 0x4000)
+    ///         .unwrap()
+    ///         .endpoint,
+    ///     endpoint
     /// );
     ///
     /// assert_eq!(
-    ///     sessions.get_channel_relay_address(&peer_symbol, 0x4000),
-    ///     Some(symbol)
+    ///     sessions
+    ///         .get_channel_relay_address(&peer_socket, 0x4000)
+    ///         .unwrap()
+    ///         .endpoint,
+    ///     endpoint
     /// );
     /// ```
-    pub fn get_channel_relay_address(&self, symbol: &Symbol, channel: u16) -> Option<Symbol> {
+    pub fn get_channel_relay_address(&self, socket: &Socket, channel: u16) -> Option<Endpoint> {
         self.state
             .channel_relay_table
             .read()
-            .get(&symbol)?
+            .get(&socket)?
             .get(&channel)
             .copied()
     }
@@ -823,7 +850,6 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// ```
     /// use async_trait::async_trait;
-    /// use stun::Transport;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
@@ -833,7 +859,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         symbol: &Symbol,
+    ///         socket: &Socket,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -844,16 +870,15 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let symbol = Symbol {
+    /// let endpoint = "127.0.0.1:3478".parse().unwrap();
+    /// let socket = Socket {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
-    /// let peer_symbol = Symbol {
+    /// let peer_socket = Socket {
     ///     address: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
     /// let digest = [
@@ -863,37 +888,46 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_socket, "test", "test"));
     ///
-    /// let port = sessions.allocate(&symbol).unwrap();
-    /// let peer_port = sessions.allocate(&peer_symbol).unwrap();
+    /// let port = sessions.allocate(&socket).unwrap();
+    /// let peer_port = sessions.allocate(&peer_socket).unwrap();
     ///
-    /// assert!(sessions.create_permission(&symbol, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_symbol, &[port]));
+    /// assert!(sessions.create_permission(&socket, &endpoint, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_socket, &endpoint, &[port]));
     ///
     /// assert_eq!(
-    ///     sessions.get_relay_address(&symbol, peer_port),
-    ///     Some(peer_symbol)
+    ///     sessions
+    ///         .get_relay_address(&socket, peer_port)
+    ///         .unwrap()
+    ///         .endpoint,
+    ///     endpoint
     /// );
-    /// assert_eq!(sessions.get_relay_address(&peer_symbol, port), Some(symbol));
+    ///
+    /// assert_eq!(
+    ///     sessions
+    ///         .get_relay_address(&peer_socket, port)
+    ///         .unwrap()
+    ///         .endpoint,
+    ///     endpoint
+    /// );
     /// ```
-    pub fn get_relay_address(&self, symbol: &Symbol, port: u16) -> Option<Symbol> {
+    pub fn get_relay_address(&self, socket: &Socket, port: u16) -> Option<Endpoint> {
         self.state
             .port_relay_table
             .read()
-            .get(&symbol)?
+            .get(&socket)?
             .get(&port)
             .copied()
     }
 
-    /// Refresh the session for symbol.
+    /// Refresh the session for socket.
     ///
     /// # Test
     ///
     /// ```
     /// use async_trait::async_trait;
-    /// use stun::Transport;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
@@ -903,7 +937,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         symbol: &Symbol,
+    ///         socket: &Socket,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -914,10 +948,9 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let symbol = Symbol {
+    /// let socket = Socket {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::UDP,
     /// };
     ///
     /// let digest = [
@@ -927,31 +960,35 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// assert!(sessions.get_session(&symbol).get_ref().is_none());
+    /// assert!(sessions.get_session(&socket).get_ref().is_none());
     ///
-    /// pollster::block_on(sessions.get_digest(&symbol, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
     ///
-    /// let expires = sessions.get_session(&symbol).get_ref().unwrap().expires;
+    /// let expires = sessions.get_session(&socket).get_ref().unwrap().expires;
     /// assert!(expires == 600 || expires == 601 || expires == 602);
     ///
-    /// assert!(sessions.refresh(&symbol, 0));
-    /// std::thread::sleep(std::time::Duration::from_secs(2));
+    /// assert!(sessions.refresh(&socket, 0));
     ///
-    /// assert!(sessions.get_session(&symbol).get_ref().is_none());
+    /// assert!(sessions.get_session(&socket).get_ref().is_none());
     /// ```
-    pub fn refresh(&self, symbol: &Symbol, lifetime: u32) -> bool {
+    pub fn refresh(&self, socket: &Socket, lifetime: u32) -> bool {
         if lifetime > 3600 {
             return false;
         }
 
-        if let Some(session) = self.state.sessions.write().get_mut(symbol) {
-            session.expires = self.timer.get() + lifetime as u64;
+        if lifetime == 0 {
+            self.remove_session(&[*socket]);
+            self.remove_nonce(&[*socket]);
         } else {
-            return false;
-        }
+            if let Some(session) = self.state.sessions.write().get_mut(socket) {
+                session.expires = self.timer.get() + lifetime as u64;
+            } else {
+                return false;
+            }
 
-        if let Some(nonce) = self.state.address_nonce_tanle.write().get_mut(symbol) {
-            nonce.1 = self.timer.get() + lifetime as u64;
+            if let Some(nonce) = self.state.address_nonce_tanle.write().get_mut(socket) {
+                nonce.1 = self.timer.get() + lifetime as u64;
+            }
         }
 
         true

@@ -1,14 +1,12 @@
-use std::{
-    net::SocketAddr,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
 };
 
 use ahash::AHashMap;
 use parking_lot::RwLock;
 use stun::Transport;
+use turn::Socket;
 
 /// [issue](https://github.com/mycrl/turn-rs/issues/101)
 ///
@@ -21,7 +19,8 @@ pub mod prometheus {
     };
 
     use super::{Counts, Number, Stats};
-    use crate::config::Transport;
+
+    use stun::Transport;
 
     // The `register_int_counter` macro would be too long if written out in full,
     // with too many line breaks after formatting, and this is wrapped directly into
@@ -48,8 +47,8 @@ pub mod prometheus {
     /// count.add(1);
     /// assert_eq!(count.get(), 1);
     ///
-    /// count.clear();
-    /// assert_eq!(count.get(), 0);
+    /// count.add(1);
+    /// assert_eq!(count.get(), 2);
     /// ```
     impl Number for IntCounter {
         fn add(&self, value: u64) {
@@ -58,10 +57,6 @@ pub mod prometheus {
 
         fn get(&self) -> u64 {
             self.get()
-        }
-
-        fn clear(&self) {
-            self.reset();
         }
     }
 
@@ -107,10 +102,8 @@ pub mod prometheus {
         /// # Example
         ///
         /// ```
-        /// use turn_server::{
-        ///     config::Transport,
-        ///     statistics::{prometheus::*, *},
-        /// };
+        /// use stun::Transport;
+        /// use turn_server::statistics::{prometheus::*, *};
         ///
         /// METRICS.add(Transport::TCP, &Stats::ReceivedBytes(1));
         /// assert_eq!(METRICS.tcp.received_bytes.get(), 1);
@@ -139,17 +132,16 @@ pub mod prometheus {
 /// The type of information passed in the statisticsing channel
 #[derive(Debug, Clone, Copy)]
 pub enum Stats {
-    ReceivedBytes(u64),
-    SendBytes(u64),
-    ReceivedPkts(u64),
-    SendPkts(u64),
-    ErrorPkts(u64),
+    ReceivedBytes(u32),
+    SendBytes(u32),
+    ReceivedPkts(u32),
+    SendPkts(u32),
+    ErrorPkts(u32),
 }
 
 pub trait Number {
     fn add(&self, value: u64);
     fn get(&self) -> u64;
-    fn clear(&self);
 }
 
 #[derive(Default)]
@@ -162,10 +154,6 @@ impl Number for Count {
 
     fn get(&self) -> u64 {
         self.0.load(Ordering::Relaxed)
-    }
-
-    fn clear(&self) {
-        self.0.store(0, Ordering::Relaxed);
     }
 }
 
@@ -203,50 +191,21 @@ impl<T: Number> Counts<T> {
     ///
     /// counts.add(&Stats::SendPkts(1));
     /// assert_eq!(counts.send_pkts.get(), 1);
-    ///
-    /// counts.add(&Stats::ErrorPkts(1));
-    /// assert_eq!(counts.error_pkts.get(), 1);
     /// ```
     pub fn add(&self, payload: &Stats) {
         match payload {
-            Stats::ReceivedBytes(v) => self.received_bytes.add(*v),
-            Stats::ReceivedPkts(v) => self.received_pkts.add(*v),
-            Stats::SendBytes(v) => self.send_bytes.add(*v),
-            Stats::SendPkts(v) => self.send_pkts.add(*v),
-            Stats::ErrorPkts(v) => self.error_pkts.add(*v),
+            Stats::ReceivedBytes(v) => self.received_bytes.add(*v as u64),
+            Stats::ReceivedPkts(v) => self.received_pkts.add(*v as u64),
+            Stats::SendBytes(v) => self.send_bytes.add(*v as u64),
+            Stats::SendPkts(v) => self.send_pkts.add(*v as u64),
+            Stats::ErrorPkts(v) => self.error_pkts.add(*v as u64),
         }
-    }
-
-    /// # Example
-    ///
-    /// ```
-    /// use turn_server::statistics::*;
-    ///
-    /// let counts = Counts {
-    ///     received_bytes: Count::default(),
-    ///     send_bytes: Count::default(),
-    ///     received_pkts: Count::default(),
-    ///     send_pkts: Count::default(),
-    ///     error_pkts: Count::default(),
-    /// };
-    ///
-    /// counts.add(&Stats::ReceivedBytes(1));
-    /// assert_eq!(counts.received_bytes.get(), 1);
-    ///
-    /// counts.clear();
-    /// assert_eq!(counts.received_bytes.get(), 0);
-    /// ```
-    pub fn clear(&self) {
-        self.received_bytes.clear();
-        self.received_pkts.clear();
-        self.send_bytes.clear();
-        self.send_pkts.clear();
     }
 }
 
 /// worker cluster statistics
 #[derive(Clone)]
-pub struct Statistics(Arc<RwLock<AHashMap<SocketAddr, Counts<Count>>>>);
+pub struct Statistics(Arc<RwLock<AHashMap<Socket, Counts<Count>>>>);
 
 impl Default for Statistics {
     fn default() -> Self {
@@ -264,20 +223,25 @@ impl Statistics {
     ///
     /// ```
     /// use std::net::SocketAddr;
-    /// use stun::attribute::Transport;
+    /// use stun::Transport;
+    /// use turn::*;
     /// use turn_server::statistics::*;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    ///     let statistics = Statistics::default();
-    ///     let sender = statistics.get_reporter();
+    /// let statistics = Statistics::default();
+    /// let sender = statistics.get_reporter(Transport::UDP);
     ///
-    ///     sender.send(Transport::UDP, &addr, &[Stats::ReceivedBytes(100)]);
-    /// }
+    /// let socket = Socket {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    /// };
+    ///
+    /// sender.send(&socket, &[Stats::ReceivedBytes(100)]);
     /// ```
-    pub fn get_reporter(&self) -> StatisticsReporter {
-        StatisticsReporter(self.0.clone())
+    pub fn get_reporter(&self, transport: Transport) -> StatisticsReporter {
+        StatisticsReporter {
+            map: self.0.clone(),
+            transport,
+        }
     }
 
     /// Add an address to the watch list
@@ -286,25 +250,27 @@ impl Statistics {
     ///
     /// ```
     /// use std::net::SocketAddr;
+    /// use turn::*;
     /// use turn_server::statistics::*;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    ///     let statistics = Statistics::default();
+    /// let statistics = Statistics::default();
     ///
-    ///     statistics.register(addr.clone());
-    ///     assert_eq!(statistics.get(&addr).is_some(), true);
-    /// }
+    /// let socket = Socket {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    /// };
+    ///
+    /// statistics.register(socket.clone());
+    /// assert_eq!(statistics.get(&socket).is_some(), true);
     /// ```
-    pub fn register(&self, addr: SocketAddr) {
+    pub fn register(&self, socket: Socket) {
         #[cfg(feature = "prometheus")]
         {
             self::prometheus::METRICS.allocated.inc();
         }
 
         self.0.write().insert(
-            addr,
+            socket,
             Counts {
                 received_bytes: Count::default(),
                 send_bytes: Count::default(),
@@ -321,27 +287,29 @@ impl Statistics {
     ///
     /// ```
     /// use std::net::SocketAddr;
+    /// use turn::*;
     /// use turn_server::statistics::*;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    ///     let statistics = Statistics::default();
+    /// let statistics = Statistics::default();
     ///
-    ///     statistics.register(addr.clone());
-    ///     assert_eq!(statistics.get(&addr).is_some(), true);
+    /// let socket = Socket {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    /// };
     ///
-    ///     statistics.unregister(&addr);
-    ///     assert_eq!(statistics.get(&addr).is_some(), false);
-    /// }
+    /// statistics.register(socket.clone());
+    /// assert_eq!(statistics.get(&socket).is_some(), true);
+    ///
+    /// statistics.unregister(&socket);
+    /// assert_eq!(statistics.get(&socket).is_some(), false);
     /// ```
-    pub fn unregister(&self, addr: &SocketAddr) {
+    pub fn unregister(&self, socket: &Socket) {
         #[cfg(feature = "prometheus")]
         {
             self::prometheus::METRICS.allocated.dec();
         }
 
-        self.0.write().remove(addr);
+        self.0.write().remove(socket);
     }
 
     /// Obtain a list of statistics from statisticsing
@@ -352,19 +320,21 @@ impl Statistics {
     ///
     /// ```
     /// use std::net::SocketAddr;
+    /// use turn::*;
     /// use turn_server::statistics::*;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let addr = "127.0.0.1:8080".parse::<SocketAddr>().unwrap();
-    ///     let statistics = Statistics::default();
+    /// let statistics = Statistics::default();
     ///
-    ///     statistics.register(addr.clone());
-    ///     assert_eq!(statistics.get(&addr).is_some(), true);
-    /// }
+    /// let socket = Socket {
+    ///     address: "127.0.0.1:8080".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    /// };
+    ///
+    /// statistics.register(socket.clone());
+    /// assert_eq!(statistics.get(&socket).is_some(), true);
     /// ```
-    pub fn get(&self, addr: &SocketAddr) -> Option<Counts<u64>> {
-        self.0.read().get(addr).map(|counts| Counts {
+    pub fn get(&self, socket: &Socket) -> Option<Counts<u64>> {
+        self.0.read().get(socket).map(|counts| Counts {
             received_bytes: counts.received_bytes.get(),
             received_pkts: counts.received_pkts.get(),
             send_bytes: counts.send_bytes.get(),
@@ -380,19 +350,23 @@ impl Statistics {
 /// statisticsing instance through this instance to update the internal
 /// statistical information of the statistics.
 #[derive(Clone)]
-pub struct StatisticsReporter(Arc<RwLock<AHashMap<SocketAddr, Counts<Count>>>>);
+pub struct StatisticsReporter {
+    #[allow(unused)]
+    transport: Transport,
+    map: Arc<RwLock<AHashMap<Socket, Counts<Count>>>>,
+}
 
 impl StatisticsReporter {
     #[allow(unused_variables)]
-    pub fn send(&self, transport: Transport, addr: &SocketAddr, reports: &[Stats]) {
+    pub fn send(&self, socket: &Socket, reports: &[Stats]) {
         #[cfg(feature = "prometheus")]
         {
             for report in reports {
-                self::prometheus::METRICS.add(transport.into(), report);
+                self::prometheus::METRICS.add(self.transport, report);
             }
         }
 
-        if let Some(counts) = self.0.read().get(addr) {
+        if let Some(counts) = self.map.read().get(socket) {
             for item in reports {
                 counts.add(item);
             }

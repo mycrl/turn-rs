@@ -3,8 +3,8 @@ use stun::{
     Kind, MessageReader, MessageWriter, Method,
 };
 
-use super::{Requet, Response};
-use crate::{Observer, StunClass};
+use super::{Requet, Response, ResponseMethod};
+use crate::Observer;
 
 /// return refresh error response
 #[inline(always)]
@@ -21,10 +21,9 @@ fn reject<'a, T: Observer>(
     }
 
     Some(Response {
-        kind: StunClass::Message,
+        method: ResponseMethod::Stun(Method::Refresh(Kind::Error)),
         bytes: req.bytes,
-        interface: None,
-        reject: true,
+        endpoint: None,
         relay: None,
     })
 }
@@ -45,10 +44,9 @@ pub fn resolve<'a, T: Observer>(
     }
 
     Some(Response {
-        kind: StunClass::Message,
+        method: ResponseMethod::Stun(Method::Refresh(Kind::Response)),
         bytes: req.bytes,
-        interface: None,
-        reject: false,
+        endpoint: None,
         relay: None,
     })
 }
@@ -100,12 +98,12 @@ pub async fn process<'a, T: Observer>(
     };
 
     let lifetime = req.message.get::<Lifetime>().unwrap_or(600);
-    if !req.service.sessions.refresh(&req.symbol, lifetime) {
+    if !req.service.sessions.refresh(&req.socket, lifetime) {
         return reject(req, ErrorKind::AllocationMismatch);
     }
 
     req.service
         .observer
-        .refresh(&req.symbol, username, lifetime);
+        .refresh(&req.socket, username, lifetime);
     resolve(req, lifetime, &digest)
 }

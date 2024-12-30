@@ -320,7 +320,7 @@ mod tests {
     use async_trait::async_trait;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use tokio::time::sleep;
-    use turn_driver::{start_hooks_server, Controller, Events, Hooks, Symbol, Transport};
+    use turn_driver::{start_hooks_server, Controller, Events, Hooks, Socket, Transport};
     use turn_server::config::{Api, Auth};
 
     fn encode_password(username: &str, password: &str) -> Result<String> {
@@ -337,7 +337,7 @@ mod tests {
     impl Hooks for HooksImpl {
         async fn auth(
             &self,
-            _session: &Symbol,
+            _session: &Socket,
             username: &str,
             _realm: &str,
             _nonce: &str,
@@ -350,13 +350,13 @@ mod tests {
         }
 
         async fn on(&self, event: &Events, realm: &str, nonce: &str) {
-            let get_session = |symbol, username: String| async move {
-                let ret = self.0.get_session(symbol).await.unwrap();
+            let get_session = |socket, username: String| async move {
+                let ret = self.0.get_session(socket).await.unwrap();
                 assert_eq!(ret.realm, realm);
                 assert_eq!(ret.nonce, nonce);
 
                 let session = ret.payload;
-                assert_eq!(session.address, symbol.address);
+                assert_eq!(session.address, socket.address);
                 assert_eq!(session.username, username);
                 session
             };
