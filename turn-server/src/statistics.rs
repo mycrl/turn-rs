@@ -208,8 +208,15 @@ impl<T: Number> Counts<T> {
 pub struct Statistics(Arc<RwLock<AHashMap<SessionAddr, Counts<Count>>>>);
 
 impl Default for Statistics {
+    #[cfg(feature = "api")]
     fn default() -> Self {
         Self(Arc::new(RwLock::new(AHashMap::with_capacity(1024))))
+    }
+
+    // There's no need to take up so much memory when you don't have stats enabled.
+    #[cfg(not(feature = "api"))]
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
@@ -350,25 +357,28 @@ impl Statistics {
 /// statisticsing instance through this instance to update the internal
 /// statistical information of the statistics.
 #[derive(Clone)]
+#[allow(unused)]
 pub struct StatisticsReporter {
-    #[allow(unused)]
-    transport: Transport,
     map: Arc<RwLock<AHashMap<SessionAddr, Counts<Count>>>>,
+    transport: Transport,
 }
 
 impl StatisticsReporter {
     #[allow(unused_variables)]
     pub fn send(&self, addr: &SessionAddr, reports: &[Stats]) {
-        #[cfg(feature = "prometheus")]
+        #[cfg(feature = "api")]
         {
-            for report in reports {
-                self::prometheus::METRICS.add(self.transport, report);
+            #[cfg(feature = "prometheus")]
+            {
+                for report in reports {
+                    self::prometheus::METRICS.add(self.transport, report);
+                }
             }
-        }
 
-        if let Some(counts) = self.map.read().get(addr) {
-            for item in reports {
-                counts.add(item);
+            if let Some(counts) = self.map.read().get(addr) {
+                for item in reports {
+                    counts.add(item);
+                }
             }
         }
     }

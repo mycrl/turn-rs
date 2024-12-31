@@ -23,7 +23,18 @@ pub async fn startup(config: Arc<Config>) -> anyhow::Result<()> {
     );
 
     server::run(config.clone(), statistics.clone(), &service).await?;
-    publicly::start_server(config, service, statistics).await?;
+
+    #[cfg(feature = "api")]
+    {
+        publicly::api::start_server(config, service, statistics).await?;
+    }
+
+    // The turn server is non-blocking after it runs and needs to be kept from
+    // exiting immediately if the api server is not enabled.
+    #[cfg(not(feature = "api"))]
+    {
+        std::future::pending::<()>().await;
+    }
 
     Ok(())
 }

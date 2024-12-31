@@ -41,4 +41,7 @@ default-features = false
 features = ["json", "rustls-tls", "http2", "gzip"]
 
 [features]
-prometheus = []
+hooks = []
+api = []
+mimalloc = []
+prometheus = ["api"]

@@ -568,7 +568,12 @@ impl<T: Observer + 'static> Sessions<T> {
     /// assert!(!sessions.create_permission(&peer_addr, &endpoint, &[peer_port]));
     /// assert!(sessions.create_permission(&peer_addr, &endpoint, &[port]));
     /// ```
-    pub fn create_permission(&self, addr: &SessionAddr, endpoint: &SocketAddr, ports: &[u16]) -> bool {
+    pub fn create_permission(
+        &self,
+        addr: &SessionAddr,
+        endpoint: &SocketAddr,
+        ports: &[u16],
+    ) -> bool {
         let mut sessions = self.state.sessions.write();
         let mut port_relay_table = self.state.port_relay_table.write();
         let port_mapping_table = self.state.port_mapping_table.read();

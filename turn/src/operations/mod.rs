@@ -7,7 +7,7 @@ pub mod indication;
 pub mod refresh;
 
 use crate::{
-    sessions::{Sessions, SessionAddr},
+    sessions::{SessionAddr, Sessions},
     Observer,
 };
 

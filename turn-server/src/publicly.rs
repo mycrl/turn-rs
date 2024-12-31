@@ -1,86 +1,75 @@
-use core::str;
-use std::{
-    net::SocketAddr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-
-use crate::{config::Config, observer::Observer, statistics::Statistics};
-
-use axum::{
-    extract::{Query, State},
-    http::StatusCode,
-    middleware,
-    response::{IntoResponse, Response},
-    routing::{delete, get},
-    Json, Router,
-};
-
-use base64::prelude::*;
 use once_cell::sync::Lazy;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use reqwest::{
-    header::{HeaderMap, HeaderValue},
-    Client, ClientBuilder,
-};
 
-use serde::Deserialize;
-use serde_json::{json, Value};
-use tokio::{
-    net::TcpListener,
-    sync::mpsc::{unbounded_channel, UnboundedSender},
-};
-
-use turn::{sessions::SessionAddr, PortAllocatePools, Service};
-
+#[allow(dead_code)]
 static RID: Lazy<String> = Lazy::new(|| random_string(16));
 
-struct AppState {
-    config: Arc<Config>,
-    service: Service<Observer>,
-    statistics: Statistics,
-    uptime: Instant,
-}
+#[cfg(feature = "api")]
+pub mod api {
+    use std::{net::SocketAddr, sync::Arc, time::Instant};
 
-#[derive(Deserialize)]
-struct SessionQueryFilter {
-    address: SocketAddr,
-    interface: SocketAddr,
-}
+    use axum::{
+        extract::{Query, State},
+        http::HeaderValue,
+        middleware,
+        response::{IntoResponse, Response},
+        routing::{delete, get},
+        Json, Router,
+    };
+    use reqwest::StatusCode;
+    use serde::Deserialize;
+    use serde_json::json;
+    use tokio::net::TcpListener;
+    use turn::{PortAllocatePools, Service, SessionAddr};
 
-impl Into<SessionAddr> for SessionQueryFilter {
-    fn into(self) -> SessionAddr {
-        SessionAddr {
-            address: self.address,
-            interface: self.interface,
+    use super::RID;
+    use crate::{config::Config, observer::Observer, statistics::Statistics};
+
+    struct AppState {
+        config: Arc<Config>,
+        service: Service<Observer>,
+        statistics: Statistics,
+        uptime: Instant,
+    }
+
+    #[derive(Deserialize)]
+    struct SessionQueryFilter {
+        address: SocketAddr,
+        interface: SocketAddr,
+    }
+
+    impl Into<SessionAddr> for SessionQueryFilter {
+        fn into(self) -> SessionAddr {
+            SessionAddr {
+                address: self.address,
+                interface: self.interface,
+            }
         }
     }
-}
 
-/// start http server
-///
-/// Create an http server and start it, and you can access the controller
-/// instance through the http interface.
-///
-/// Warn: This http server does not contain
-/// any means of authentication, and sensitive information and dangerous
-/// operations can be obtained through this service, please do not expose it
-/// directly to an unsafe environment.
-pub async fn start_server(
-    config: Arc<Config>,
-    service: Service<Observer>,
-    statistics: Statistics,
-) -> anyhow::Result<()> {
-    let state = Arc::new(AppState {
-        config: config.clone(),
-        uptime: Instant::now(),
-        service,
-        statistics,
-    });
+    /// start http server
+    ///
+    /// Create an http server and start it, and you can access the controller
+    /// instance through the http interface.
+    ///
+    /// Warn: This http server does not contain
+    /// any means of authentication, and sensitive information and dangerous
+    /// operations can be obtained through this service, please do not expose it
+    /// directly to an unsafe environment.
+    pub async fn start_server(
+        config: Arc<Config>,
+        service: Service<Observer>,
+        statistics: Statistics,
+    ) -> anyhow::Result<()> {
+        let state = Arc::new(AppState {
+            config: config.clone(),
+            uptime: Instant::now(),
+            service,
+            statistics,
+        });
 
-    #[allow(unused_mut)]
-    let mut app =
-        Router::new()
+        #[allow(unused_mut)]
+        let mut app = Router::new()
             .route(
                 "/info",
                 get(|State(app_state): State<Arc<AppState>>| async move {
@@ -155,134 +144,162 @@ pub async fn start_server(
                 ),
             );
 
-    #[cfg(feature = "prometheus")]
-    {
-        use crate::statistics::prometheus::generate_metrics;
-        use axum::http::header::CONTENT_TYPE;
+        #[cfg(feature = "prometheus")]
+        {
+            use crate::statistics::prometheus::generate_metrics;
+            use axum::http::header::CONTENT_TYPE;
 
-        let mut metrics_bytes = Vec::with_capacity(4096);
+            let mut metrics_bytes = Vec::with_capacity(4096);
 
-        app = app.route(
-            "/metrics",
-            get(|| async move {
-                metrics_bytes.clear();
+            app = app.route(
+                "/metrics",
+                get(|| async move {
+                    metrics_bytes.clear();
 
-                if generate_metrics(&mut metrics_bytes).is_err() {
-                    StatusCode::EXPECTATION_FAILED.into_response()
-                } else {
-                    ([(CONTENT_TYPE, "text/plain")], metrics_bytes).into_response()
-                }
-            }),
-        );
+                    if generate_metrics(&mut metrics_bytes).is_err() {
+                        StatusCode::EXPECTATION_FAILED.into_response()
+                    } else {
+                        ([(CONTENT_TYPE, "text/plain")], metrics_bytes).into_response()
+                    }
+                }),
+            );
+        }
+
+        let app = app
+            .route_layer(middleware::map_response_with_state(
+                state.clone(),
+                |State(state): State<Arc<AppState>>, mut res: Response| async move {
+                    let headers = res.headers_mut();
+                    headers.insert("Nonce", HeaderValue::from_str(&RID).unwrap());
+                    headers.insert(
+                        "Realm",
+                        HeaderValue::from_str(&state.config.turn.realm).unwrap(),
+                    );
+
+                    res
+                },
+            ))
+            .with_state(state);
+
+        log::info!("api server listening={:?}", &config.api.bind);
+        axum::serve(TcpListener::bind(config.api.bind).await?, app).await?;
+
+        Ok(())
+    }
+}
+
+#[cfg(feature = "hooks")]
+pub mod hooks {
+    use std::{sync::Arc, time::Duration};
+
+    use axum::http::{HeaderMap, HeaderValue};
+    use base64::{prelude::BASE64_STANDARD, Engine};
+    use reqwest::{Client, ClientBuilder};
+    use serde_json::Value;
+    use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
+    use turn::SessionAddr;
+
+    use super::RID;
+    use crate::config::Config;
+
+    pub struct HooksService {
+        client: Arc<Client>,
+        tx: UnboundedSender<Value>,
+        config: Arc<Config>,
     }
 
-    let app = app
-        .route_layer(middleware::map_response_with_state(
-            state.clone(),
-            |State(state): State<Arc<AppState>>, mut res: Response| async move {
-                let headers = res.headers_mut();
-                headers.insert("Nonce", HeaderValue::from_str(&RID).unwrap());
-                headers.insert(
-                    "Realm",
-                    HeaderValue::from_str(&state.config.turn.realm).unwrap(),
-                );
+    impl HooksService {
+        pub fn new(config: Arc<Config>) -> anyhow::Result<Self> {
+            let mut headers = HeaderMap::new();
+            headers.insert("Realm", HeaderValue::from_str(&config.turn.realm)?);
+            headers.insert("Nonce", HeaderValue::from_str(&RID)?);
 
-                res
-            },
-        ))
-        .with_state(state);
+            let client = Arc::new(
+                ClientBuilder::new()
+                    .default_headers(headers)
+                    .timeout(Duration::from_secs(5))
+                    .build()?,
+            );
 
-    log::info!("controller server listening={:?}", &config.api.bind);
-    axum::serve(TcpListener::bind(config.api.bind).await?, app).await?;
+            // It keeps taking queued events from the queue and sending them to an external
+            // hook service.
+            let config_ = config.clone();
+            let client_ = client.clone();
+            let (tx, mut rx) = unbounded_channel::<Value>();
+            tokio::spawn(async move {
+                if let Some(server) = &config_.api.hooks {
+                    let uri = format!("{}/events", server);
 
-    Ok(())
-}
+                    while let Some(signal) = rx.recv().await {
+                        if let Err(e) = client_.post(&uri).json(&signal).send().await {
+                            log::error!("failed to request hooks server, err={}", e);
+                        }
+                    }
+                }
+            });
 
-pub struct HooksService {
-    client: Arc<Client>,
-    tx: UnboundedSender<Value>,
-    config: Arc<Config>,
-}
+            Ok(Self { client, config, tx })
+        }
 
-impl HooksService {
-    pub fn new(config: Arc<Config>) -> anyhow::Result<Self> {
-        let mut headers = HeaderMap::new();
-        headers.insert("Realm", HeaderValue::from_str(&config.turn.realm)?);
-        headers.insert("Nonce", HeaderValue::from_str(&RID)?);
+        pub async fn get_password(&self, addr: &SessionAddr, username: &str) -> Option<String> {
+            // Match the static authentication information first.
+            if let Some(pwd) = self.config.auth.static_credentials.get(username) {
+                return Some(pwd.clone());
+            }
 
-        let client = Arc::new(
-            ClientBuilder::new()
-                .default_headers(headers)
-                .timeout(Duration::from_secs(5))
-                .build()?,
-        );
+            // Try again to match the static authentication key.
+            if let Some(secret) = &self.config.auth.static_auth_secret {
+                // Because (TURN REST api) this RFC does not mandate the format of the username,
+                // only suggested values. In principle, the RFC also indicates that the
+                // timestamp part of username can be set at will, so the timestamp is not
+                // verified here, and the external web service guarantees its security by
+                // itself.
+                return encode_password(secret, username);
+            }
 
-        // It keeps taking queued events from the queue and sending them to an external
-        // hook service.
-        let config_ = config.clone();
-        let client_ = client.clone();
-        let (tx, mut rx) = unbounded_channel::<Value>();
-        tokio::spawn(async move {
-            if let Some(server) = &config_.api.hooks {
-                let uri = format!("{}/events", server);
-
-                while let Some(signal) = rx.recv().await {
-                    if let Err(e) = client_.post(&uri).json(&signal).send().await {
-                        log::error!("failed to request hooks server, err={}", e);
+            // There are no matching static entries, get the password from an external hook
+            // service.
+            if let Some(server) = &self.config.api.hooks {
+                if let Ok(res) = self
+                    .client
+                    .get(format!(
+                        "{}/password?address={}&interface={}&username={}",
+                        server, addr.address, addr.interface, username
+                    ))
+                    .send()
+                    .await
+                {
+                    if let Ok(password) = res.text().await {
+                        return Some(password);
                     }
                 }
             }
-        });
 
-        Ok(Self { client, config, tx })
-    }
-
-    pub async fn get_password(&self, addr: &SessionAddr, username: &str) -> Option<String> {
-        // Match the static authentication information first.
-        if let Some(pwd) = self.config.auth.static_credentials.get(username) {
-            return Some(pwd.clone());
+            None
         }
 
-        // Try again to match the static authentication key.
-        if let Some(secret) = &self.config.auth.static_auth_secret {
-            // Because (TURN REST api) this RFC does not mandate the format of the username,
-            // only suggested values. In principle, the RFC also indicates that the
-            // timestamp part of username can be set at will, so the timestamp is not
-            // verified here, and the external web service guarantees its security by
-            // itself.
-            return encode_password(secret, username);
-        }
-
-        // There are no matching static entries, get the password from an external hook
-        // service.
-        if let Some(server) = &self.config.api.hooks {
-            if let Ok(res) = self
-                .client
-                .get(format!(
-                    "{}/password?address={}&interface={}&username={}",
-                    server, addr.address, addr.interface, username
-                ))
-                .send()
-                .await
-            {
-                if let Ok(password) = res.text().await {
-                    return Some(password);
+        // Notifications for all events are all added to the queue, which has the
+        // advantage of not blocking the current call, which is useful for scenarios
+        // requiring high real-time performance.
+        pub fn emit(&self, event: Value) {
+            if self.config.api.hooks.is_some() {
+                if let Err(e) = self.tx.send(event) {
+                    log::error!("failed to send event, err={}", e)
                 }
             }
         }
-
-        None
     }
 
-    // Notifications for all events are all added to the queue, which has the
-    // advantage of not blocking the current call, which is useful for scenarios
-    // requiring high real-time performance.
-    pub fn emit(&self, event: Value) {
-        if self.config.api.hooks.is_some() {
-            if let Err(e) = self.tx.send(event) {
-                log::error!("failed to send event, err={}", e)
-            }
-        }
+    // https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
+    fn encode_password(key: &str, username: &str) -> Option<String> {
+        Some(
+            BASE64_STANDARD.encode(
+                stun::util::hmac_sha1(key.as_bytes(), &[username.as_bytes()])
+                    .ok()?
+                    .into_bytes()
+                    .as_slice(),
+            ),
+        )
     }
 }
 
@@ -293,16 +310,4 @@ fn random_string(len: usize) -> String {
         .take(len)
         .collect::<String>()
         .to_lowercase()
-}
-
-// https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
-fn encode_password(key: &str, username: &str) -> Option<String> {
-    Some(
-        BASE64_STANDARD.encode(
-            stun::util::hmac_sha1(key.as_bytes(), &[username.as_bytes()])
-                .ok()?
-                .into_bytes()
-                .as_slice(),
-        ),
-    )
 }

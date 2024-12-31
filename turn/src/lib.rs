@@ -5,7 +5,7 @@ use self::operations::ServiceContext;
 
 pub use self::{
     operations::{Operationer, ResponseMethod},
-    sessions::{PortAllocatePools, Session, Sessions, SessionAddr},
+    sessions::{PortAllocatePools, Session, SessionAddr, Sessions},
 };
 
 use std::{net::SocketAddr, sync::Arc};

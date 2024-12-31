@@ -1,22 +1,32 @@
 use std::sync::Arc;
 
-use crate::{config::Config, publicly::HooksService, statistics::Statistics};
+use crate::{config::Config, statistics::Statistics};
+
+#[cfg(feature = "hooks")]
+use crate::publicly::hooks::HooksService;
+
+#[cfg(feature = "hooks")]
+use serde_json::json;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use serde_json::json;
 use turn::SessionAddr;
 
 #[derive(Clone)]
 pub struct Observer {
+    #[cfg(feature = "hooks")]
     hooks: Arc<HooksService>,
+    #[cfg(feature = "api")]
     statistics: Statistics,
 }
 
 impl Observer {
+    #[allow(unused_variables)]
     pub async fn new(config: Arc<Config>, statistics: Statistics) -> Result<Self> {
         Ok(Self {
+            #[cfg(feature = "hooks")]
             hooks: Arc::new(HooksService::new(config)?),
+            #[cfg(feature = "api")]
             statistics,
         })
     }
@@ -24,6 +34,7 @@ impl Observer {
 
 #[async_trait]
 impl turn::Observer for Observer {
+    #[cfg(feature = "hooks")]
     async fn get_password(&self, addr: &SessionAddr, name: &str) -> Option<String> {
         let pwd = self.hooks.get_password(addr, name).await;
 
@@ -64,16 +75,23 @@ impl turn::Observer for Observer {
             port
         );
 
-        self.statistics.register(*addr);
-        self.hooks.emit(json!({
-            "kind": "allocated",
-            "session": {
-                "address": addr.address,
-                "interface": addr.interface,
-            },
-            "username": name,
-            "port": port,
-        }));
+        #[cfg(feature = "api")]
+        {
+            self.statistics.register(*addr);
+        }
+
+        #[cfg(feature = "hooks")]
+        {
+            self.hooks.emit(json!({
+                "kind": "allocated",
+                "session": {
+                    "address": addr.address,
+                    "interface": addr.interface,
+                },
+                "username": name,
+                "port": port,
+            }));
+        }
     }
 
     /// channel binding request
@@ -116,15 +134,18 @@ impl turn::Observer for Observer {
             channel
         );
 
-        self.hooks.emit(json!({
-            "kind": "channel_bind",
-            "session": {
-                "address": addr.address,
-                "interface": addr.interface,
-            },
-            "username": name,
-            "channel": channel,
-        }));
+        #[cfg(feature = "hooks")]
+        {
+            self.hooks.emit(json!({
+                "kind": "channel_bind",
+                "session": {
+                    "address": addr.address,
+                    "interface": addr.interface,
+                },
+                "username": name,
+                "channel": channel,
+            }));
+        }
     }
 
     /// create permission request
@@ -175,15 +196,18 @@ impl turn::Observer for Observer {
             ports
         );
 
-        self.hooks.emit(json!({
-            "kind": "create_permission",
-            "session": {
-                "address": addr.address,
-                "interface": addr.interface,
-            },
-            "username": name,
-            "ports": ports,
-        }));
+        #[cfg(feature = "hooks")]
+        {
+            self.hooks.emit(json!({
+                "kind": "create_permission",
+                "session": {
+                    "address": addr.address,
+                    "interface": addr.interface,
+                },
+                "username": name,
+                "ports": ports,
+            }));
+        }
     }
 
     /// refresh request
@@ -236,15 +260,18 @@ impl turn::Observer for Observer {
             lifetime
         );
 
-        self.hooks.emit(json!({
-            "kind": "refresh",
-            "session": {
-                "address": addr.address,
-                "interface": addr.interface,
-            },
-            "username": name,
-            "lifetime": lifetime,
-        }))
+        #[cfg(feature = "hooks")]
+        {
+            self.hooks.emit(json!({
+                "kind": "refresh",
+                "session": {
+                    "address": addr.address,
+                    "interface": addr.interface,
+                },
+                "username": name,
+                "lifetime": lifetime,
+            }));
+        }
     }
 
     /// session closed
@@ -262,14 +289,21 @@ impl turn::Observer for Observer {
             name
         );
 
-        self.statistics.unregister(&addr);
-        self.hooks.emit(json!({
-            "kind": "closed",
-            "session": {
-                "address": addr.address,
-                "interface": addr.interface,
-            },
-            "username": name,
-        }))
+        #[cfg(feature = "api")]
+        {
+            self.statistics.unregister(&addr);
+        }
+
+        #[cfg(feature = "hooks")]
+        {
+            self.hooks.emit(json!({
+                "kind": "closed",
+                "session": {
+                    "address": addr.address,
+                    "interface": addr.interface,
+                },
+                "username": name,
+            }));
+        }
     }
 }
