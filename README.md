@@ -15,7 +15,7 @@
 <br/>
 <br/>
 
-A pure Rust implementation of a forwarding server that takes advantage of the memory and concurrency security provided by Rust, with single-threaded decoding speeds up to 5Gib/s and forwarding latency of less than 35 microseconds. The project is more focused on the core business , do not need to access the complex configuration project , almost out of the box.
+A pure Rust implementation of a forwarding server that takes advantage of the memory and concurrency security provided by Rust, with single-threaded decoding speeds up to 5Gib/s and forwarding latency of less than 35 microseconds（One complete network send/receive between A and B locally takes time）. The project is more focused on the core business , do not need to access the complex configuration project , almost out of the box.
 
 This is a very lightweight implementation, and turn-rs will get your data flowing quickly if you only start the basic functionality, and while it uses pre-allocated memory in many places to cope with bursty performance, it generally performs well (it delivers very high-speed forwarding performance on my Raspberry Pi 4 as well as still performs well in the face of a large number of clients).
 
