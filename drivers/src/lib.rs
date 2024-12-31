@@ -1,4 +1,4 @@
-use std::{fmt::Display, future::Future, net::SocketAddr, sync::Arc};
+use std::{fmt::Display, future::Future, net::SocketAddr, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use axum::{
@@ -9,7 +9,7 @@ use axum::{
     Router,
 };
 
-use reqwest::{Client, Response, StatusCode};
+use reqwest::{Client, ClientBuilder, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 
@@ -126,11 +126,13 @@ pub struct Controller {
 impl Controller {
     /// Create a controller by specifying the listening address of the turn
     /// server api interface, such as `http://localhost:3000`
-    pub fn new(server: &str) -> Self {
-        Self {
-            client: Client::new(),
+    pub fn new(server: &str) -> Result<Self, reqwest::Error> {
+        Ok(Self {
             server: server.to_string(),
-        }
+            client: ClientBuilder::new()
+                .timeout(Duration::from_secs(5))
+                .build()?,
+        })
     }
 
     /// Get the information of the turn server, including version information,
@@ -342,7 +344,10 @@ pub enum Events {
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    Closed { session: SessionAddr, username: String },
+    Closed {
+        session: SessionAddr,
+        username: String,
+    },
 }
 
 /// Abstraction that handles turn server communication with the outside world

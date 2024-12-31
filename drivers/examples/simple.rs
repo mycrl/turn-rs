@@ -55,7 +55,7 @@ struct Cli {
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-    let controller = Controller::new(&cli.server);
+    let controller = Controller::new(&cli.server).unwrap();
     tokio::spawn(start_hooks_server(cli.bind, HooksImpl));
 
     if let Some(info) = controller.get_info().await {
