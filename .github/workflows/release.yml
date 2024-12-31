@@ -8,6 +8,9 @@ jobs:
         runs-on: "${{ matrix.os }}"
         strategy:
             matrix:
+                features:
+                    - all
+                    - basic
                 os:
                     - ubuntu-latest
                     - windows-latest
@@ -50,6 +53,8 @@ jobs:
                       ~/.cargo/git/db/
                       target/
                   key: "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
+
+            # Install dependencies
             - name: Install dependencies (Linux)
               if: runner.os == 'Linux'
               run: |
@@ -58,41 +63,59 @@ jobs:
                   rustup target add ${{ matrix.target }}
                   cargo install cargo-zigbuild
                   sudo snap install zig --classic --beta
+
             - name: Install dependencies (Macos)
               if: runner.os == 'Macos'
               run: |
                   rustup target add ${{ matrix.target }}
                   cargo install cargo-zigbuild
                   brew install zig
-            - name: Build release (Linux & Macos)
-              if: runner.os == 'Macos' || runner.os == 'Linux'
+
+            # Build release
+            - name: Build release (Linux & Macos) - All Features
+              if: (runner.os == 'Macos' || runner.os == 'Linux') && ${{ matrix.features }} == 'all'
+              run: cargo zigbuild --target ${{ matrix.target }} --release --features api,hooks,mimalloc,prometheus
+
+            - name: Build release (Linux & Macos) - Basic
+              if: (runner.os == 'Macos' || runner.os == 'Linux') && ${{ matrix.features }} == 'basic'
               run: cargo zigbuild --target ${{ matrix.target }} --release
-            - name: Build release (Windows)
-              if: runner.os == 'Windows'
-              run: cargo build --release
+
+            - name: Build release (Windows) - All Features
+              if: runner.os == 'Windows' && ${{ matrix.features }} == 'all'
+              run: cargo build --release --features api,hooks,mimalloc,prometheus
+
+            - name: Build release (Windows) - Basic
+              if: runner.os == 'Windows' && ${{ matrix.features }} == 'basic'
+              run: cargo build --release --features api,hooks,mimalloc,prometheus
+
+            # Rename release
             - name: Rename release (Linux & Macos)
               if: runner.os == 'Macos' || runner.os == 'Linux'
               run: |
-                  mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
+                  mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}-${{ matrix.features }}
+
             - name: Rename release (Windows)
               if: runner.os == 'Windows'
               run: |
                   Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}.exe" -ErrorAction SilentlyContinue; 
-                  Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}.exe";
+                  Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}-${{ matrix.features }}.exe";
+
+            # Upload artifact
             - name: Upload artifact (Linux & Macos)
               if: runner.os == 'Macos' || runner.os == 'Linux'
               uses: actions/upload-artifact@v4
               with:
                   name: ${{ matrix.target }}
                   path: |
-                      ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
+                      ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}-${{ matrix.features }}
+
             - name: Upload artifact (Windows)
               if: runner.os == 'Windows'
               uses: actions/upload-artifact@v4
               with:
                   name: ${{ matrix.target }}
                   path: |
-                      ./target/release/turn-server-${{ matrix.target }}.exe
+                      ./target/release/turn-server-${{ matrix.target }}-${{ matrix.features }}.exe
     deploy:
         needs: build
         runs-on: ubuntu-latest
