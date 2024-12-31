@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use base64::{prelude::BASE64_STANDARD, Engine};
+
 use crate::{config::Config, statistics::Statistics};
 
 #[cfg(feature = "hooks")]
@@ -14,6 +16,7 @@ use turn::SessionAddr;
 
 #[derive(Clone)]
 pub struct Observer {
+    config: Arc<Config>,
     #[cfg(feature = "hooks")]
     hooks: Arc<HooksService>,
     #[cfg(feature = "api")]
@@ -25,28 +28,45 @@ impl Observer {
     pub async fn new(config: Arc<Config>, statistics: Statistics) -> Result<Self> {
         Ok(Self {
             #[cfg(feature = "hooks")]
-            hooks: Arc::new(HooksService::new(config)?),
+            hooks: Arc::new(HooksService::new(config.clone())?),
             #[cfg(feature = "api")]
             statistics,
+            config,
         })
     }
 }
 
 #[async_trait]
 impl turn::Observer for Observer {
-    #[cfg(feature = "hooks")]
-    async fn get_password(&self, addr: &SessionAddr, name: &str) -> Option<String> {
-        let pwd = self.hooks.get_password(addr, name).await;
-
+    async fn get_password(&self, addr: &SessionAddr, username: &str) -> Option<String> {
         log::info!(
-            "auth: address={:?}, interface={:?}, username={:?}, password={:?}",
+            "auth: address={:?}, interface={:?}, username={:?}",
             addr.address,
             addr.interface,
-            name,
-            pwd
+            username,
         );
 
-        pwd
+        // Match the static authentication information first.
+        if let Some(pwd) = self.config.auth.static_credentials.get(username) {
+            return Some(pwd.clone());
+        }
+
+        // Try again to match the static authentication key.
+        if let Some(secret) = &self.config.auth.static_auth_secret {
+            // Because (TURN REST api) this RFC does not mandate the format of the username,
+            // only suggested values. In principle, the RFC also indicates that the
+            // timestamp part of username can be set at will, so the timestamp is not
+            // verified here, and the external web service guarantees its security by
+            // itself.
+            return encode_password(secret, username);
+        }
+
+        #[cfg(feature = "hooks")]
+        if let Some(pwd) = self.hooks.get_password(addr, username).await {
+            return Some(pwd);
+        }
+
+        None
     }
 
     /// allocate request
@@ -306,4 +326,16 @@ impl turn::Observer for Observer {
             }));
         }
     }
+}
+
+// https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
+fn encode_password(key: &str, username: &str) -> Option<String> {
+    Some(
+        BASE64_STANDARD.encode(
+            stun::util::hmac_sha1(key.as_bytes(), &[username.as_bytes()])
+                .ok()?
+                .into_bytes()
+                .as_slice(),
+        ),
+    )
 }

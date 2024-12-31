@@ -193,7 +193,6 @@ pub mod hooks {
     use std::{sync::Arc, time::Duration};
 
     use axum::http::{HeaderMap, HeaderValue};
-    use base64::{prelude::BASE64_STANDARD, Engine};
     use reqwest::{Client, ClientBuilder};
     use serde_json::Value;
     use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
@@ -241,24 +240,9 @@ pub mod hooks {
             Ok(Self { client, config, tx })
         }
 
+        // There are no matching static entries, get the password from an external hook
+        // service.
         pub async fn get_password(&self, addr: &SessionAddr, username: &str) -> Option<String> {
-            // Match the static authentication information first.
-            if let Some(pwd) = self.config.auth.static_credentials.get(username) {
-                return Some(pwd.clone());
-            }
-
-            // Try again to match the static authentication key.
-            if let Some(secret) = &self.config.auth.static_auth_secret {
-                // Because (TURN REST api) this RFC does not mandate the format of the username,
-                // only suggested values. In principle, the RFC also indicates that the
-                // timestamp part of username can be set at will, so the timestamp is not
-                // verified here, and the external web service guarantees its security by
-                // itself.
-                return encode_password(secret, username);
-            }
-
-            // There are no matching static entries, get the password from an external hook
-            // service.
             if let Some(server) = &self.config.api.hooks {
                 if let Ok(res) = self
                     .client
@@ -288,18 +272,6 @@ pub mod hooks {
                 }
             }
         }
-    }
-
-    // https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
-    fn encode_password(key: &str, username: &str) -> Option<String> {
-        Some(
-            BASE64_STANDARD.encode(
-                stun::util::hmac_sha1(key.as_bytes(), &[username.as_bytes()])
-                    .ok()?
-                    .into_bytes()
-                    .as_slice(),
-            ),
-        )
     }
 }
 
