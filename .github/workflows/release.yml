@@ -74,7 +74,7 @@ jobs:
             # Build release
             - name: Build release (Linux & Macos) - All Features
               if: (runner.os == 'Macos' || runner.os == 'Linux') && ${{ matrix.features }} == 'all'
-              run: cargo zigbuild --target ${{ matrix.target }} --release --features api,hooks,mimalloc,prometheus
+              run: cargo zigbuild --target ${{ matrix.target }} --release --all-features
 
             - name: Build release (Linux & Macos) - Basic
               if: (runner.os == 'Macos' || runner.os == 'Linux') && ${{ matrix.features }} == 'basic'
@@ -82,11 +82,11 @@ jobs:
 
             - name: Build release (Windows) - All Features
               if: runner.os == 'Windows' && ${{ matrix.features }} == 'all'
-              run: cargo build --release --features api,hooks,mimalloc,prometheus
+              run: cargo build --release --all-features
 
             - name: Build release (Windows) - Basic
               if: runner.os == 'Windows' && ${{ matrix.features }} == 'basic'
-              run: cargo build --release --features api,hooks,mimalloc,prometheus
+              run: cargo build --release
 
             # Rename release
             - name: Rename release (Linux & Macos)
