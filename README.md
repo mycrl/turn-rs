@@ -15,7 +15,11 @@
 <br/>
 <br/>
 
-A pure Rust implementation of a forwarding server that takes advantage of the memory and concurrency security provided by Rust, with single-threaded decoding speeds up to 5Gib/s and forwarding latency of less than 35 microseconds. The project is more focused on the core business , do not need to access the complex configuration project , almost out of the box .
+A pure Rust implementation of a forwarding server that takes advantage of the memory and concurrency security provided by Rust, with single-threaded decoding speeds up to 5Gib/s and forwarding latency of less than 35 microseconds. The project is more focused on the core business , do not need to access the complex configuration project , almost out of the box.
+
+It's a small project, and while it uses pre-allocated memory in many places to cope with bursty performance, it generally performs well (it delivers very high-speed forwarding performance on my Raspberry Pi 4 as well as still performs well in the face of a large number of clients).
+
+If you only need a pure turn server to cope with WebRTC business and require excellent forwarding performance, the current project will satisfy you.
 
 ## Differences with coturn?
 
