@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use base64::{prelude::BASE64_STANDARD, Engine};
+use std::{future::Future, sync::Arc};
 
 use crate::{config::Config, statistics::Statistics};
 
@@ -11,7 +9,7 @@ use crate::publicly::hooks::HooksService;
 use serde_json::json;
 
 use anyhow::Result;
-use async_trait::async_trait;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use turn::SessionAddr;
 
 #[derive(Clone)]
@@ -36,37 +34,40 @@ impl Observer {
     }
 }
 
-#[async_trait]
 impl turn::Observer for Observer {
-    async fn get_password(&self, addr: &SessionAddr, username: &str) -> Option<String> {
-        log::info!(
-            "auth: address={:?}, interface={:?}, username={:?}",
-            addr.address,
-            addr.interface,
-            username,
-        );
+    fn get_password(&self, addr: &SessionAddr, username: &str) -> impl Future<Output = Option<String>> + Send {
+        async move {
+            log::info!(
+                "auth: address={:?}, interface={:?}, username={:?}",
+                addr.address,
+                addr.interface,
+                username,
+            );
 
-        // Match the static authentication information first.
-        if let Some(pwd) = self.config.auth.static_credentials.get(username) {
-            return Some(pwd.clone());
+            // Match the static authentication information first.
+            if let Some(it) = self.config.auth.static_credentials.get(username) {
+                return Some(it.clone());
+            }
+
+            // Try again to match the static authentication key.
+            if let Some(it) = &self.config.auth.static_auth_secret {
+                // Because (TURN REST api) this RFC does not mandate the format of the username,
+                // only suggested values. In principle, the RFC also indicates that the
+                // timestamp part of username can be set at will, so the timestamp is not
+                // verified here, and the external web service guarantees its security by
+                // itself.
+                return encode_password(it, username);
+            }
+
+            #[cfg(feature = "hooks")]
+            {
+                if let Some(it) = self.hooks.get_password(addr, username).await {
+                    return Some(it);
+                }
+            }
+
+            None
         }
-
-        // Try again to match the static authentication key.
-        if let Some(secret) = &self.config.auth.static_auth_secret {
-            // Because (TURN REST api) this RFC does not mandate the format of the username,
-            // only suggested values. In principle, the RFC also indicates that the
-            // timestamp part of username can be set at will, so the timestamp is not
-            // verified here, and the external web service guarantees its security by
-            // itself.
-            return encode_password(secret, username);
-        }
-
-        #[cfg(feature = "hooks")]
-        if let Some(pwd) = self.hooks.get_password(addr, username).await {
-            return Some(pwd);
-        }
-
-        None
     }
 
     /// allocate request
@@ -210,8 +211,9 @@ impl turn::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn create_permission(&self, addr: &SessionAddr, name: &str, ports: &[u16]) {
         log::info!(
-            "create permission: address={:?}, interface={:?}, interface={:?}, username={:?}, ports={:?}",
-            addr.address, addr.interface, addr.interface,
+            "create permission: address={:?}, interface={:?}, username={:?}, ports={:?}",
+            addr.address,
+            addr.interface,
             name,
             ports
         );
@@ -272,9 +274,8 @@ impl turn::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn refresh(&self, addr: &SessionAddr, name: &str, lifetime: u32) {
         log::info!(
-            "refresh: address={:?}, interface={:?}, interface={:?}, username={:?}, lifetime={}",
+            "refresh: address={:?}, interface={:?}, username={:?}, lifetime={}",
             addr.address,
-            addr.interface,
             addr.interface,
             name,
             lifetime
@@ -302,9 +303,8 @@ impl turn::Observer for Observer {
     #[allow(clippy::let_underscore_future)]
     fn closed(&self, addr: &SessionAddr, name: &str) {
         log::info!(
-            "closed: address={:?}, interface={:?}, interface={:?}, username={:?}",
+            "closed: address={:?}, interface={:?}, username={:?}",
             addr.address,
-            addr.interface,
             addr.interface,
             name
         );

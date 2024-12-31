@@ -22,7 +22,7 @@ pub async fn startup(config: Arc<Config>) -> anyhow::Result<()> {
         Observer::new(config.clone(), statistics.clone()).await?,
     );
 
-    server::run(config.clone(), statistics.clone(), &service).await?;
+    server::start(&config, &statistics, &service).await?;
 
     #[cfg(feature = "api")]
     {

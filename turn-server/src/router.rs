@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
 use ahash::AHashMap;
 use parking_lot::RwLock;
@@ -8,9 +8,13 @@ use turn::ResponseMethod;
 type Receiver = UnboundedSender<(Vec<u8>, ResponseMethod, SocketAddr)>;
 
 /// Handles packet forwarding between transport protocols.
-#[derive(Default)]
-pub struct Router {
-    senders: RwLock<AHashMap<SocketAddr, Receiver>>,
+#[derive(Clone)]
+pub struct Router(Arc<RwLock<AHashMap<SocketAddr, Receiver>>>);
+
+impl Default for Router {
+    fn default() -> Self {
+        Self(Arc::new(RwLock::new(AHashMap::with_capacity(1024))))
+    }
 }
 
 impl Router {
@@ -39,12 +43,9 @@ impl Router {
     ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
-    pub fn get_receiver(
-        &self,
-        interface: SocketAddr,
-    ) -> UnboundedReceiver<(Vec<u8>, ResponseMethod, SocketAddr)> {
+    pub fn get_receiver(&self, interface: SocketAddr) -> UnboundedReceiver<(Vec<u8>, ResponseMethod, SocketAddr)> {
         let (sender, receiver) = unbounded_channel();
-        self.senders.write().insert(interface, sender);
+        self.0.write().insert(interface, sender);
         receiver
     }
 
@@ -75,17 +76,11 @@ impl Router {
     ///     assert_eq!(ret.2, addr);
     /// }
     /// ```
-    pub fn send(
-        &self,
-        interface: &SocketAddr,
-        method: ResponseMethod,
-        addr: &SocketAddr,
-        data: &[u8],
-    ) {
+    pub fn send(&self, interface: &SocketAddr, method: ResponseMethod, addr: &SocketAddr, data: &[u8]) {
         let mut is_destroy = false;
 
         {
-            if let Some(sender) = self.senders.read().get(interface) {
+            if let Some(sender) = self.0.read().get(interface) {
                 if sender.send((data.to_vec(), method, *addr)).is_err() {
                     is_destroy = true;
                 }
@@ -123,6 +118,6 @@ impl Router {
     /// }
     /// ```
     pub fn remove(&self, interface: &SocketAddr) {
-        drop(self.senders.write().remove(interface))
+        drop(self.0.write().remove(interface))
     }
 }

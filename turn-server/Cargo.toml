@@ -13,7 +13,6 @@ categories = ["parsing", "network-programming"]
 
 [dependencies]
 ahash = "0.8"
-async-trait = "0.1"
 anyhow = "1.0"
 axum = "0.7"
 base64 = "0.22"

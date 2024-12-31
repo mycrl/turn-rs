@@ -2128,7 +2128,6 @@ name = "turn"
 version = "1.3.0"
 dependencies = [
  "ahash",
- "async-trait",
  "bytes",
  "parking_lot",
  "pollster",
@@ -2156,7 +2155,6 @@ version = "3.2.0"
 dependencies = [
  "ahash",
  "anyhow",
- "async-trait",
  "axum",
  "base64",
  "bytes",

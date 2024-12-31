@@ -8,9 +8,7 @@ pub use self::{
     sessions::{PortAllocatePools, Session, SessionAddr, Sessions},
 };
 
-use std::{net::SocketAddr, sync::Arc};
-
-use async_trait::async_trait;
+use std::{future::Future, net::SocketAddr, sync::Arc};
 
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
@@ -19,10 +17,13 @@ static SOFTWARE: &str = concat!(
 );
 
 #[allow(unused)]
-#[async_trait]
 pub trait Observer: Send + Sync {
-    async fn get_password(&self, addr: &SessionAddr, username: &str) -> Option<String> {
-        None
+    fn get_password(
+        &self,
+        addr: &SessionAddr,
+        username: &str,
+    ) -> impl Future<Output = Option<String>> + Send {
+        async { None }
     }
 
     /// allocate request

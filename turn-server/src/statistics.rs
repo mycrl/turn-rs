@@ -14,9 +14,7 @@ use turn::SessionAddr;
 pub mod prometheus {
     use anyhow::Result;
     use once_cell::sync::Lazy;
-    use prometheus::{
-        register_int_counter, register_int_gauge, Encoder, IntCounter, IntGauge, TextEncoder,
-    };
+    use prometheus::{register_int_counter, register_int_gauge, Encoder, IntCounter, IntGauge, TextEncoder};
 
     use super::{Counts, Number, Stats};
 
@@ -92,10 +90,7 @@ pub mod prometheus {
                 total: Counts::new("total")?,
                 tcp: Counts::new("tcp")?,
                 udp: Counts::new("udp")?,
-                allocated: register_int_gauge!(
-                    "allocated",
-                    "The number of allocated ports, count = 16383"
-                )?,
+                allocated: register_int_gauge!("allocated", "The number of allocated ports, count = 16383")?,
             })
         }
 

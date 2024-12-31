@@ -12,7 +12,9 @@ async fn main() -> anyhow::Result<()> {
     simple_logger::init_with_level(config.log.level.as_level())?;
 
     if config.turn.interfaces.is_empty() {
-        log::warn!("No interfaces are bound, no features are enabled, it's just a program without any functionality :-)");
+        log::warn!(
+            "No interfaces are bound, no features are enabled, it's just a program without any functionality :-)"
+        );
 
         return Ok(());
     }

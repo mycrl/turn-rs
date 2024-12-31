@@ -1,8 +1,15 @@
 use once_cell::sync::Lazy;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
-#[allow(dead_code)]
-static RID: Lazy<String> = Lazy::new(|| random_string(16));
+#[allow(unused)]
+static NONCE: Lazy<String> = Lazy::new(|| {
+    let mut rng = thread_rng();
+    std::iter::repeat(())
+        .map(|_| rng.sample(Alphanumeric) as char)
+        .take(16)
+        .collect::<String>()
+        .to_lowercase()
+});
 
 #[cfg(feature = "api")]
 pub mod api {
@@ -16,13 +23,14 @@ pub mod api {
         routing::{delete, get},
         Json, Router,
     };
+
     use reqwest::StatusCode;
     use serde::Deserialize;
     use serde_json::json;
     use tokio::net::TcpListener;
     use turn::{PortAllocatePools, Service, SessionAddr};
 
-    use super::RID;
+    use super::NONCE;
     use crate::{config::Config, observer::Observer, statistics::Statistics};
 
     struct AppState {
@@ -86,14 +94,8 @@ pub mod api {
             .route(
                 "/session",
                 get(
-                    |Query(query): Query<SessionQueryFilter>,
-                     State(state): State<Arc<AppState>>| async move {
-                        if let Some(session) = state
-                            .service
-                            .get_sessions()
-                            .get_session(&query.into())
-                            .get_ref()
-                        {
+                    |Query(query): Query<SessionQueryFilter>, State(state): State<Arc<AppState>>| async move {
+                        if let Some(session) = state.service.get_sessions().get_session(&query.into()).get_ref() {
                             Json(json!({
                                 "username": session.auth.username,
                                 "password": session.auth.password,
@@ -112,8 +114,7 @@ pub mod api {
             .route(
                 "/session/statistics",
                 get(
-                    |Query(query): Query<SessionQueryFilter>,
-                     State(state): State<Arc<AppState>>| async move {
+                    |Query(query): Query<SessionQueryFilter>, State(state): State<Arc<AppState>>| async move {
                         let addr: SessionAddr = query.into();
                         if let Some(counts) = state.statistics.get(&addr) {
                             Json(json!({
@@ -133,8 +134,7 @@ pub mod api {
             .route(
                 "/session",
                 delete(
-                    |Query(query): Query<SessionQueryFilter>,
-                     State(state): State<Arc<AppState>>| async move {
+                    |Query(query): Query<SessionQueryFilter>, State(state): State<Arc<AppState>>| async move {
                         if state.service.get_sessions().refresh(&query.into(), 0) {
                             StatusCode::OK
                         } else {
@@ -170,11 +170,8 @@ pub mod api {
                 state.clone(),
                 |State(state): State<Arc<AppState>>, mut res: Response| async move {
                     let headers = res.headers_mut();
-                    headers.insert("Nonce", HeaderValue::from_str(&RID).unwrap());
-                    headers.insert(
-                        "Realm",
-                        HeaderValue::from_str(&state.config.turn.realm).unwrap(),
-                    );
+                    headers.insert("Nonce", HeaderValue::from_str(&NONCE).unwrap());
+                    headers.insert("Realm", HeaderValue::from_str(&state.config.turn.realm).unwrap());
 
                     res
                 },
@@ -198,7 +195,7 @@ pub mod hooks {
     use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
     use turn::SessionAddr;
 
-    use super::RID;
+    use super::NONCE;
     use crate::config::Config;
 
     pub struct HooksService {
@@ -211,7 +208,7 @@ pub mod hooks {
         pub fn new(config: Arc<Config>) -> anyhow::Result<Self> {
             let mut headers = HeaderMap::new();
             headers.insert("Realm", HeaderValue::from_str(&config.turn.realm)?);
-            headers.insert("Nonce", HeaderValue::from_str(&RID)?);
+            headers.insert("Nonce", HeaderValue::from_str(&NONCE)?);
 
             let client = Arc::new(
                 ClientBuilder::new()
@@ -273,13 +270,4 @@ pub mod hooks {
             }
         }
     }
-}
-
-fn random_string(len: usize) -> String {
-    let mut rng = thread_rng();
-    std::iter::repeat(())
-        .map(|_| rng.sample(Alphanumeric) as char)
-        .take(len)
-        .collect::<String>()
-        .to_lowercase()
 }
