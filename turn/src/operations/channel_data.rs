@@ -38,7 +38,7 @@ pub fn process<'a, T: Observer>(
     let relay = req
         .service
         .sessions
-        .get_channel_relay_address(&req.socket, req.message.number)?;
+        .get_channel_relay_address(&req.address, req.message.number)?;
 
     Some(Response {
         method: ResponseMethod::ChannelData,

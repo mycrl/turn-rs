@@ -6,7 +6,7 @@ use std::sync::{
 use ahash::AHashMap;
 use parking_lot::RwLock;
 use stun::Transport;
-use turn::Socket;
+use turn::SessionAddr;
 
 /// [issue](https://github.com/mycrl/turn-rs/issues/101)
 ///
@@ -205,7 +205,7 @@ impl<T: Number> Counts<T> {
 
 /// worker cluster statistics
 #[derive(Clone)]
-pub struct Statistics(Arc<RwLock<AHashMap<Socket, Counts<Count>>>>);
+pub struct Statistics(Arc<RwLock<AHashMap<SessionAddr, Counts<Count>>>>);
 
 impl Default for Statistics {
     fn default() -> Self {
@@ -230,12 +230,12 @@ impl Statistics {
     /// let statistics = Statistics::default();
     /// let sender = statistics.get_reporter(Transport::UDP);
     ///
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// sender.send(&socket, &[Stats::ReceivedBytes(100)]);
+    /// sender.send(&addr, &[Stats::ReceivedBytes(100)]);
     /// ```
     pub fn get_reporter(&self, transport: Transport) -> StatisticsReporter {
         StatisticsReporter {
@@ -255,22 +255,22 @@ impl Statistics {
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// statistics.register(socket.clone());
-    /// assert_eq!(statistics.get(&socket).is_some(), true);
+    /// statistics.register(addr.clone());
+    /// assert_eq!(statistics.get(&addr).is_some(), true);
     /// ```
-    pub fn register(&self, socket: Socket) {
+    pub fn register(&self, addr: SessionAddr) {
         #[cfg(feature = "prometheus")]
         {
             self::prometheus::METRICS.allocated.inc();
         }
 
         self.0.write().insert(
-            socket,
+            addr,
             Counts {
                 received_bytes: Count::default(),
                 send_bytes: Count::default(),
@@ -292,24 +292,24 @@ impl Statistics {
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// statistics.register(socket.clone());
-    /// assert_eq!(statistics.get(&socket).is_some(), true);
+    /// statistics.register(addr.clone());
+    /// assert_eq!(statistics.get(&addr).is_some(), true);
     ///
-    /// statistics.unregister(&socket);
-    /// assert_eq!(statistics.get(&socket).is_some(), false);
+    /// statistics.unregister(&addr);
+    /// assert_eq!(statistics.get(&addr).is_some(), false);
     /// ```
-    pub fn unregister(&self, socket: &Socket) {
+    pub fn unregister(&self, addr: &SessionAddr) {
         #[cfg(feature = "prometheus")]
         {
             self::prometheus::METRICS.allocated.dec();
         }
 
-        self.0.write().remove(socket);
+        self.0.write().remove(addr);
     }
 
     /// Obtain a list of statistics from statisticsing
@@ -325,16 +325,16 @@ impl Statistics {
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// statistics.register(socket.clone());
-    /// assert_eq!(statistics.get(&socket).is_some(), true);
+    /// statistics.register(addr.clone());
+    /// assert_eq!(statistics.get(&addr).is_some(), true);
     /// ```
-    pub fn get(&self, socket: &Socket) -> Option<Counts<u64>> {
-        self.0.read().get(socket).map(|counts| Counts {
+    pub fn get(&self, addr: &SessionAddr) -> Option<Counts<u64>> {
+        self.0.read().get(addr).map(|counts| Counts {
             received_bytes: counts.received_bytes.get(),
             received_pkts: counts.received_pkts.get(),
             send_bytes: counts.send_bytes.get(),
@@ -353,12 +353,12 @@ impl Statistics {
 pub struct StatisticsReporter {
     #[allow(unused)]
     transport: Transport,
-    map: Arc<RwLock<AHashMap<Socket, Counts<Count>>>>,
+    map: Arc<RwLock<AHashMap<SessionAddr, Counts<Count>>>>,
 }
 
 impl StatisticsReporter {
     #[allow(unused_variables)]
-    pub fn send(&self, socket: &Socket, reports: &[Stats]) {
+    pub fn send(&self, addr: &SessionAddr, reports: &[Stats]) {
         #[cfg(feature = "prometheus")]
         {
             for report in reports {
@@ -366,7 +366,7 @@ impl StatisticsReporter {
             }
         }
 
-        if let Some(counts) = self.map.read().get(socket) {
+        if let Some(counts) = self.map.read().get(addr) {
             for item in reports {
                 counts.add(item);
             }

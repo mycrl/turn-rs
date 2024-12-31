@@ -98,12 +98,12 @@ pub async fn process<'a, T: Observer>(
     };
 
     let lifetime = req.message.get::<Lifetime>().unwrap_or(600);
-    if !req.service.sessions.refresh(&req.socket, lifetime) {
+    if !req.service.sessions.refresh(&req.address, lifetime) {
         return reject(req, ErrorKind::AllocationMismatch);
     }
 
     req.service
         .observer
-        .refresh(&req.socket, username, lifetime);
+        .refresh(&req.address, username, lifetime);
     resolve(req, lifetime, &digest)
 }

@@ -15,7 +15,7 @@ use tokio::{
     sync::Mutex,
 };
 
-use turn::{Observer, ResponseMethod, Service, Socket};
+use turn::{Observer, ResponseMethod, Service, SessionAddr};
 
 static ZERO_BUF: [u8; 4] = [0u8; 4];
 
@@ -59,7 +59,7 @@ async fn tcp_server<T: Clone + Observer + 'static>(
             );
         }
 
-        let sock_addr = Socket {
+        let session_addr = SessionAddr {
             interface: external,
             address,
         };
@@ -77,7 +77,7 @@ async fn tcp_server<T: Clone + Observer + 'static>(
                     break;
                 } else {
                     reporter_.send(
-                        &sock_addr,
+                        &session_addr,
                         &[Stats::SendBytes(bytes.len() as u32), Stats::SendPkts(1)],
                     );
                 }
@@ -106,7 +106,7 @@ async fn tcp_server<T: Clone + Observer + 'static>(
                 if size == 0 {
                     break;
                 } else {
-                    reporter.send(&sock_addr, &[Stats::ReceivedBytes(size as u32)]);
+                    reporter.send(&session_addr, &[Stats::ReceivedBytes(size as u32)]);
                 }
 
                 // The minimum length of a stun message will not be less
@@ -128,7 +128,7 @@ async fn tcp_server<T: Clone + Observer + 'static>(
                         Ok(s) if s > buf.len() => break,
                         Err(_) => break,
                         Ok(s) => {
-                            reporter.send(&sock_addr, &[Stats::ReceivedPkts(1)]);
+                            reporter.send(&session_addr, &[Stats::ReceivedPkts(1)]);
 
                             s
                         }
@@ -150,13 +150,13 @@ async fn tcp_server<T: Clone + Observer + 'static>(
                                 }
 
                                 reporter.send(
-                                    &sock_addr,
+                                    &session_addr,
                                     &[Stats::SendBytes(res.bytes.len() as u32), Stats::SendPkts(1)],
                                 );
 
                                 if let ResponseMethod::Stun(method) = res.method {
                                     if method.is_error() {
-                                        reporter.send(&sock_addr, &[Stats::ErrorPkts(1)]);
+                                        reporter.send(&session_addr, &[Stats::ErrorPkts(1)]);
                                     }
                                 }
                             }
@@ -170,7 +170,7 @@ async fn tcp_server<T: Clone + Observer + 'static>(
             // When the tcp connection is closed, the procedure to close the session is
             // process directly once, avoiding the connection being disconnected directly
             // without going through the closing process.
-            sessions.refresh(&sock_addr, 0);
+            sessions.refresh(&session_addr, 0);
 
             router.remove(&address);
 
@@ -208,7 +208,7 @@ async fn udp_server<T: Clone + Observer + 'static>(
         let reporter = statistics.get_reporter(Transport::UDP);
         let mut operationer = service.get_operationer(external, external);
 
-        let mut sock_addr = Socket {
+        let mut session_addr = SessionAddr {
             address: external,
             interface: external,
         };
@@ -226,10 +226,10 @@ async fn udp_server<T: Clone + Observer + 'static>(
                     _ => continue,
                 };
 
-                sock_addr.address = addr;
+                session_addr.address = addr;
 
                 reporter.send(
-                    &sock_addr,
+                    &session_addr,
                     &[Stats::ReceivedBytes(size as u32), Stats::ReceivedPkts(1)],
                 );
 
@@ -249,13 +249,13 @@ async fn udp_server<T: Clone + Observer + 'static>(
                             }
 
                             reporter.send(
-                                &sock_addr,
+                                &session_addr,
                                 &[Stats::SendBytes(res.bytes.len() as u32), Stats::SendPkts(1)],
                             );
 
                             if let ResponseMethod::Stun(method) = res.method {
                                 if method.is_error() {
-                                    reporter.send(&sock_addr, &[Stats::ErrorPkts(1)]);
+                                    reporter.send(&session_addr, &[Stats::ErrorPkts(1)]);
                                 }
                             }
                         }
@@ -266,7 +266,7 @@ async fn udp_server<T: Clone + Observer + 'static>(
     }
 
     {
-        let mut sock_addr = Socket {
+        let mut session_addr = SessionAddr {
             address: external,
             interface: external,
         };
@@ -274,7 +274,7 @@ async fn udp_server<T: Clone + Observer + 'static>(
         let reporter = statistics.get_reporter(Transport::UDP);
         let mut receiver = router.get_receiver(external);
         while let Some((bytes, _, addr)) = receiver.recv().await {
-            sock_addr.address = addr;
+            session_addr.address = addr;
 
             if let Err(e) = socket.send_to(&bytes, addr).await {
                 if e.kind() != ConnectionReset {
@@ -282,7 +282,7 @@ async fn udp_server<T: Clone + Observer + 'static>(
                 }
             } else {
                 reporter.send(
-                    &sock_addr,
+                    &session_addr,
                     &[Stats::SendBytes(bytes.len() as u32), Stats::SendPkts(1)],
                 );
             }

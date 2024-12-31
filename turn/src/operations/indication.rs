@@ -59,12 +59,12 @@ pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Op
     let relay = req
         .service
         .sessions
-        .get_relay_address(&req.socket, peer.port())?;
+        .get_relay_address(&req.address, peer.port())?;
 
     let local_port = req
         .service
         .sessions
-        .get_session(&req.socket)
+        .get_session(&req.address)
         .get_ref()?
         .allocate
         .port?;

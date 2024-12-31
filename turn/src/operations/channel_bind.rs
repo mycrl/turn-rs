@@ -108,13 +108,13 @@ pub async fn process<'a, T: Observer>(
     if !req
         .service
         .sessions
-        .bind_channel(&req.socket, &req.service.endpoint, peer.port(), number)
+        .bind_channel(&req.address, &req.service.endpoint, peer.port(), number)
     {
         return reject(req, ErrorKind::Forbidden);
     }
 
     req.service
         .observer
-        .channel_bind(&req.socket, username, number);
+        .channel_bind(&req.address, username, number);
     resolve(req, &digest)
 }
