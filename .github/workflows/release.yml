@@ -73,11 +73,11 @@ jobs:
 
             # Build release
             - name: Build release (Linux & Macos) - All Features
-              if: (runner.os == 'Macos' || runner.os == 'Linux') && ${{ matrix.features }} == 'all'
+              if: (runner.os == 'Macos' || runner.os == 'Linux') && matrix.features == 'all'
               run: cargo zigbuild --target ${{ matrix.target }} --release --all-features
 
             - name: Build release (Linux & Macos) - Basic
-              if: (runner.os == 'Macos' || runner.os == 'Linux') && ${{ matrix.features }} == 'basic'
+              if: (runner.os == 'Macos' || runner.os == 'Linux') && matrix.features == 'basic'
               run: cargo zigbuild --target ${{ matrix.target }} --release
 
             - name: Build release (Windows) - All Features
