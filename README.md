@@ -123,10 +123,17 @@ cargo build --release
 
 After the compilation is complete, you can find the binary file in the `"target/release"` directory.
 
-Prometheus metrics exporter is not enabled by default, use the `prometheus` feature flag if you need to enable it:
+#### Features
+
+-   `hooks` - Enable the HTTP Hooks feature.
+-   `api` - Enable the HTTP REST API server feature.
+-   `mimalloc` - Enable the mimalloc memory allocator.
+-   `prometheus` - Enable prometheus indicator support.
+
+No features are enabled by default and need to be turned on by manual specification.
 
 ```bash
-cargo build --release --features prometheus
+cargo build --release --features api,hooks,mimalloc,prometheus
 ```
 
 ## License

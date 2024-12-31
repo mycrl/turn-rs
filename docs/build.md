@@ -24,3 +24,16 @@ export RUSTFLAGS='-C target-cpu=native'
 ```
 
 After the compilation is complete, you can find the binary file in the `target/release` directory.
+
+### Features
+
+-   `hooks` - Enable the HTTP Hooks feature.
+-   `api` - Enable the HTTP REST API server feature.
+-   `mimalloc` - Enable the mimalloc memory allocator.
+-   `prometheus` - Enable prometheus indicator support.
+
+No features are enabled by default and need to be turned on by manual specification.
+
+```bash
+cargo build --release --features api,hooks,mimalloc
+```
