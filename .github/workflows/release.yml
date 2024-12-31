@@ -8,9 +8,6 @@ jobs:
         runs-on: "${{ matrix.os }}"
         strategy:
             matrix:
-                features:
-                    - all
-                    - basic
                 os:
                     - ubuntu-latest
                     - windows-latest
@@ -72,33 +69,25 @@ jobs:
                   brew install zig
 
             # Build release
-            - name: Build release (Linux & Macos) - All Features
-              if: (runner.os == 'Macos' || runner.os == 'Linux') && '${{ matrix.features }}' == 'all'
+            - name: Build release (Linux & Macos)
+              if: runner.os == 'Macos' || runner.os == 'Linux'
               run: cargo zigbuild --target ${{ matrix.target }} --release --all-features
 
-            - name: Build release (Linux & Macos) - Basic
-              if: (runner.os == 'Macos' || runner.os == 'Linux') && '${{ matrix.features }}' == 'basic'
-              run: cargo zigbuild --target ${{ matrix.target }} --release
-
             - name: Build release (Windows) - All Features
-              if: runner.os == 'Windows' && '${{ matrix.features }}' == 'all'
+              if: runner.os == 'Windows'
               run: cargo build --release --all-features
-
-            - name: Build release (Windows) - Basic
-              if: runner.os == 'Windows' && '${{ matrix.features }}' == 'basic'
-              run: cargo build --release
 
             # Rename release
             - name: Rename release (Linux & Macos)
               if: runner.os == 'Macos' || runner.os == 'Linux'
               run: |
-                  mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}-${{ matrix.features }}
+                  mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
 
             - name: Rename release (Windows)
               if: runner.os == 'Windows'
               run: |
-                  Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}-${{ matrix.features }}.exe" -ErrorAction SilentlyContinue; 
-                  Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}-${{ matrix.features }}.exe";
+                  Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}.exe" -ErrorAction SilentlyContinue; 
+                  Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}.exe";
 
             # Upload artifact
             - name: Upload artifact (Linux & Macos)
@@ -107,7 +96,7 @@ jobs:
               with:
                   name: ${{ matrix.target }}
                   path: |
-                      ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}-${{ matrix.features }}
+                      ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
 
             - name: Upload artifact (Windows)
               if: runner.os == 'Windows'
@@ -115,7 +104,7 @@ jobs:
               with:
                   name: ${{ matrix.target }}
                   path: |
-                      ./target/release/turn-server-${{ matrix.target }}-${{ matrix.features }}.exe
+                      ./target/release/turn-server-${{ matrix.target }}.exe
     deploy:
         needs: build
         runs-on: ubuntu-latest
