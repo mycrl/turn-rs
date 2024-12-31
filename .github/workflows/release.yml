@@ -73,19 +73,19 @@ jobs:
 
             # Build release
             - name: Build release (Linux & Macos) - All Features
-              if: (runner.os == 'Macos' || runner.os == 'Linux') && matrix.features == 'all'
+              if: (runner.os == 'Macos' || runner.os == 'Linux') && '${{ matrix.features }}' == 'all'
               run: cargo zigbuild --target ${{ matrix.target }} --release --all-features
 
             - name: Build release (Linux & Macos) - Basic
-              if: (runner.os == 'Macos' || runner.os == 'Linux') && matrix.features == 'basic'
+              if: (runner.os == 'Macos' || runner.os == 'Linux') && '${{ matrix.features }}' == 'basic'
               run: cargo zigbuild --target ${{ matrix.target }} --release
 
             - name: Build release (Windows) - All Features
-              if: runner.os == 'Windows' && ${{ matrix.features }} == 'all'
+              if: runner.os == 'Windows' && '${{ matrix.features }}' == 'all'
               run: cargo build --release --all-features
 
             - name: Build release (Windows) - Basic
-              if: runner.os == 'Windows' && ${{ matrix.features }} == 'basic'
+              if: runner.os == 'Windows' && '${{ matrix.features }}' == 'basic'
               run: cargo build --release
 
             # Rename release
@@ -97,7 +97,7 @@ jobs:
             - name: Rename release (Windows)
               if: runner.os == 'Windows'
               run: |
-                  Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}.exe" -ErrorAction SilentlyContinue; 
+                  Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}-${{ matrix.features }}.exe" -ErrorAction SilentlyContinue; 
                   Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}-${{ matrix.features }}.exe";
 
             # Upload artifact
