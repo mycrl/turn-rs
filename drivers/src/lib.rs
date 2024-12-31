@@ -21,7 +21,7 @@ pub enum Transport {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Socket {
+pub struct SessionAddr {
     pub address: SocketAddr,
     pub interface: SocketAddr,
 }
@@ -80,7 +80,7 @@ pub struct Statistics {
     pub error_pkts: u64,
 }
 
-impl<'a> Display for Socket {
+impl<'a> Display for SessionAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -149,7 +149,7 @@ impl Controller {
 
     /// Get session information. A session corresponds to each UDP socket. It
     /// should be noted that a user can have multiple sessions at the same time.
-    pub async fn get_session(&self, query: &Socket) -> Option<Message<Session>> {
+    pub async fn get_session(&self, query: &SessionAddr) -> Option<Message<Session>> {
         Message::from_res(
             self.client
                 .get(format!("{}/session?{}", self.server, query))
@@ -163,7 +163,7 @@ impl Controller {
 
     /// Get session statistics, which is mainly the traffic statistics of the
     /// current session
-    pub async fn get_session_statistics(&self, query: &Socket) -> Option<Message<Statistics>> {
+    pub async fn get_session_statistics(&self, query: &SessionAddr) -> Option<Message<Statistics>> {
         Message::from_res(
             self.client
                 .get(format!("{}/session/statistics?{}", self.server, query))
@@ -178,7 +178,7 @@ impl Controller {
     /// Delete the session. Deleting the session will cause the turn server to
     /// delete all routing information of the current session. If there is a
     /// peer, the peer will also be disconnected.
-    pub async fn remove_session(&self, query: &Socket) -> Option<Message<bool>> {
+    pub async fn remove_session(&self, query: &SessionAddr) -> Option<Message<bool>> {
         Message::from_res(
             self.client
                 .delete(format!("{}/session?{}", self.server, query))
@@ -211,7 +211,7 @@ pub enum Events {
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
     Allocated {
-        session: Socket,
+        session: SessionAddr,
         username: String,
         port: u16,
     },
@@ -246,7 +246,7 @@ pub enum Events {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     ChannelBind {
-        session: Socket,
+        session: SessionAddr,
         username: String,
         channel: u16,
     },
@@ -290,7 +290,7 @@ pub enum Events {
     /// Retransmitted CreatePermission requests will simply refresh the
     /// permissions.
     CreatePermission {
-        session: Socket,
+        session: SessionAddr,
         username: String,
         ports: Vec<u16>,
     },
@@ -333,7 +333,7 @@ pub enum Events {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     Refresh {
-        session: Socket,
+        session: SessionAddr,
         username: String,
         lifetime: u32,
     },
@@ -342,7 +342,7 @@ pub enum Events {
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    Closed { session: Socket, username: String },
+    Closed { session: SessionAddr, username: String },
 }
 
 /// Abstraction that handles turn server communication with the outside world
@@ -369,7 +369,7 @@ pub trait Hooks {
     #[allow(unused_variables)]
     async fn auth(
         &self,
-        session: &Socket,
+        session: &SessionAddr,
         username: &str,
         realm: &str,
         nonce: &str,
@@ -404,7 +404,7 @@ where
                  Query(query): Query<GetPasswordQuery>| async move {
                     if let Some((realm, nonce)) = get_realm_and_nonce(&headers) {
                         if let Some(password) =
-                            state.auth(&Socket {
+                            state.auth(&SessionAddr {
                                 address: query.address,
                                 interface: query.interface,
                             }, &query.username, realm, nonce).await

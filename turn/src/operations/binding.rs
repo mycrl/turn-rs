@@ -33,8 +33,8 @@ pub fn process<'a, T: Observer>(req: Requet<'_, 'a, T, MessageReader<'_>>) -> Op
         let mut message =
             MessageWriter::extend(Method::Binding(Kind::Response), &req.message, req.bytes);
 
-        message.append::<XorMappedAddress>(req.socket.address);
-        message.append::<MappedAddress>(req.socket.address);
+        message.append::<XorMappedAddress>(req.address.address);
+        message.append::<MappedAddress>(req.address.address);
         message.append::<ResponseOrigin>(req.service.interface);
         message.append::<Software>(SOFTWARE);
         message.flush(None).ok()?;

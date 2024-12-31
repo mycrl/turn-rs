@@ -116,13 +116,13 @@ pub async fn process<'a, T: Observer>(
     if !req
         .service
         .sessions
-        .create_permission(&req.socket, &req.service.endpoint, &ports)
+        .create_permission(&req.address, &req.service.endpoint, &ports)
     {
         return reject(req, ErrorKind::Forbidden);
     }
 
     req.service
         .observer
-        .create_permission(&req.socket, username, &ports);
+        .create_permission(&req.address, username, &ports);
     resolve(req, &digest)
 }

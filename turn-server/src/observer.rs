@@ -5,7 +5,7 @@ use crate::{config::Config, publicly::HooksService, statistics::Statistics};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::json;
-use turn::Socket;
+use turn::SessionAddr;
 
 #[derive(Clone)]
 pub struct Observer {
@@ -24,13 +24,13 @@ impl Observer {
 
 #[async_trait]
 impl turn::Observer for Observer {
-    async fn get_password(&self, key: &Socket, name: &str) -> Option<String> {
-        let pwd = self.hooks.get_password(key, name).await;
+    async fn get_password(&self, addr: &SessionAddr, name: &str) -> Option<String> {
+        let pwd = self.hooks.get_password(addr, name).await;
 
         log::info!(
             "auth: address={:?}, interface={:?}, username={:?}, password={:?}",
-            key.address,
-            key.interface,
+            addr.address,
+            addr.interface,
             name,
             pwd
         );
@@ -55,21 +55,21 @@ impl turn::Observer for Observer {
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
     #[allow(clippy::let_underscore_future)]
-    fn allocated(&self, key: &Socket, name: &str, port: u16) {
+    fn allocated(&self, addr: &SessionAddr, name: &str, port: u16) {
         log::info!(
             "allocate: address={:?}, interface={:?}, username={:?}, port={}",
-            key.address,
-            key.interface,
+            addr.address,
+            addr.interface,
             name,
             port
         );
 
-        self.statistics.register(*key);
+        self.statistics.register(*addr);
         self.hooks.emit(json!({
             "kind": "allocated",
             "session": {
-                "address": key.address,
-                "interface": key.interface,
+                "address": addr.address,
+                "interface": addr.interface,
             },
             "username": name,
             "port": port,
@@ -107,11 +107,11 @@ impl turn::Observer for Observer {
     /// transaction would initially fail but succeed on a
     /// retransmission.
     #[allow(clippy::let_underscore_future)]
-    fn channel_bind(&self, key: &Socket, name: &str, channel: u16) {
+    fn channel_bind(&self, addr: &SessionAddr, name: &str, channel: u16) {
         log::info!(
             "channel bind: address={:?}, interface={:?}, username={:?}, channel={}",
-            key.address,
-            key.interface,
+            addr.address,
+            addr.interface,
             name,
             channel
         );
@@ -119,8 +119,8 @@ impl turn::Observer for Observer {
         self.hooks.emit(json!({
             "kind": "channel_bind",
             "session": {
-                "address": key.address,
-                "interface": key.interface,
+                "address": addr.address,
+                "interface": addr.interface,
             },
             "username": name,
             "channel": channel,
@@ -167,10 +167,10 @@ impl turn::Observer for Observer {
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
     #[allow(clippy::let_underscore_future)]
-    fn create_permission(&self, key: &Socket, name: &str, ports: &[u16]) {
+    fn create_permission(&self, addr: &SessionAddr, name: &str, ports: &[u16]) {
         log::info!(
             "create permission: address={:?}, interface={:?}, interface={:?}, username={:?}, ports={:?}",
-            key.address, key.interface, key.interface,
+            addr.address, addr.interface, addr.interface,
             name,
             ports
         );
@@ -178,8 +178,8 @@ impl turn::Observer for Observer {
         self.hooks.emit(json!({
             "kind": "create_permission",
             "session": {
-                "address": key.address,
-                "interface": key.interface,
+                "address": addr.address,
+                "interface": addr.interface,
             },
             "username": name,
             "ports": ports,
@@ -226,12 +226,12 @@ impl turn::Observer for Observer {
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
     #[allow(clippy::let_underscore_future)]
-    fn refresh(&self, key: &Socket, name: &str, lifetime: u32) {
+    fn refresh(&self, addr: &SessionAddr, name: &str, lifetime: u32) {
         log::info!(
             "refresh: address={:?}, interface={:?}, interface={:?}, username={:?}, lifetime={}",
-            key.address,
-            key.interface,
-            key.interface,
+            addr.address,
+            addr.interface,
+            addr.interface,
             name,
             lifetime
         );
@@ -239,8 +239,8 @@ impl turn::Observer for Observer {
         self.hooks.emit(json!({
             "kind": "refresh",
             "session": {
-                "address": key.address,
-                "interface": key.interface,
+                "address": addr.address,
+                "interface": addr.interface,
             },
             "username": name,
             "lifetime": lifetime,
@@ -253,21 +253,21 @@ impl turn::Observer for Observer {
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
     #[allow(clippy::let_underscore_future)]
-    fn closed(&self, key: &Socket, name: &str) {
+    fn closed(&self, addr: &SessionAddr, name: &str) {
         log::info!(
             "closed: address={:?}, interface={:?}, interface={:?}, username={:?}",
-            key.address,
-            key.interface,
-            key.interface,
+            addr.address,
+            addr.interface,
+            addr.interface,
             name
         );
 
-        self.statistics.unregister(&key);
+        self.statistics.unregister(&addr);
         self.hooks.emit(json!({
             "kind": "closed",
             "session": {
-                "address": key.address,
-                "interface": key.interface,
+                "address": addr.address,
+                "interface": addr.interface,
             },
             "username": name,
         }))

@@ -7,7 +7,7 @@ pub mod indication;
 pub mod refresh;
 
 use crate::{
-    sessions::{Sessions, Socket},
+    sessions::{Sessions, SessionAddr},
     Observer,
 };
 
@@ -43,7 +43,7 @@ pub struct Requet<'a, 'b, T, M>
 where
     T: Observer + 'static,
 {
-    pub socket: &'a Socket,
+    pub address: &'a SessionAddr,
     pub bytes: &'b mut BytesMut,
     pub service: &'a ServiceContext<T>,
     pub message: &'a M,
@@ -113,7 +113,7 @@ where
         let digest = self
             .service
             .sessions
-            .get_digest(&self.socket, username, self.service.realm.as_str())
+            .get_digest(&self.address, username, self.service.realm.as_str())
             .await?;
 
         // if nonce is not empty, check nonce
@@ -121,7 +121,7 @@ where
             if self
                 .service
                 .sessions
-                .get_nonce(&self.socket)
+                .get_nonce(&self.address)
                 .get_ref()?
                 .0
                 .as_str()
@@ -150,7 +150,7 @@ where
     T: Observer + 'static,
 {
     service: ServiceContext<T>,
-    socket: Socket,
+    address: SessionAddr,
     decoder: Decoder,
     bytes: BytesMut,
 }
@@ -161,7 +161,7 @@ where
 {
     pub(crate) fn new(service: ServiceContext<T>) -> Self {
         Self {
-            socket: Socket {
+            address: SessionAddr {
                 address: "0.0.0.0:0".parse().unwrap(),
                 interface: service.interface,
             },
@@ -287,20 +287,20 @@ where
         bytes: &'b [u8],
         address: SocketAddr,
     ) -> Result<Option<Response<'a>>, StunError> {
-        self.socket.address = address;
+        self.address.address = address;
 
         Ok(match self.decoder.decode(bytes)? {
             Payload::ChannelData(channel) => channel_data::process(bytes, Requet {
                 bytes: &mut self.bytes,
                 service: &self.service,
-                socket: &self.socket,
+                address: &self.address,
                 message: &channel,
             }),
             Payload::Message(message) => {
                 let req = Requet {
                     bytes: &mut self.bytes,
                     service: &self.service,
-                    socket: &self.socket,
+                    address: &self.address,
                     message: &message,
                 };
 

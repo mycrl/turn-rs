@@ -31,7 +31,7 @@ use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedSender},
 };
 
-use turn::{sessions::Socket, PortAllocatePools, Service};
+use turn::{sessions::SessionAddr, PortAllocatePools, Service};
 
 static RID: Lazy<String> = Lazy::new(|| random_string(16));
 
@@ -48,9 +48,9 @@ struct SessionQueryFilter {
     interface: SocketAddr,
 }
 
-impl Into<Socket> for SessionQueryFilter {
-    fn into(self) -> Socket {
-        Socket {
+impl Into<SessionAddr> for SessionQueryFilter {
+    fn into(self) -> SessionAddr {
+        SessionAddr {
             address: self.address,
             interface: self.interface,
         }
@@ -125,8 +125,8 @@ pub async fn start_server(
                 get(
                     |Query(query): Query<SessionQueryFilter>,
                      State(state): State<Arc<AppState>>| async move {
-                        let socket: Socket = query.into();
-                        if let Some(counts) = state.statistics.get(&socket) {
+                        let addr: SessionAddr = query.into();
+                        if let Some(counts) = state.statistics.get(&addr) {
                             Json(json!({
                                 "received_bytes": counts.received_bytes,
                                 "send_bytes": counts.send_bytes,
@@ -237,7 +237,7 @@ impl HooksService {
         Ok(Self { client, config, tx })
     }
 
-    pub async fn get_password(&self, key: &Socket, username: &str) -> Option<String> {
+    pub async fn get_password(&self, addr: &SessionAddr, username: &str) -> Option<String> {
         // Match the static authentication information first.
         if let Some(pwd) = self.config.auth.static_credentials.get(username) {
             return Some(pwd.clone());
@@ -260,7 +260,7 @@ impl HooksService {
                 .client
                 .get(format!(
                     "{}/password?address={}&interface={}&username={}",
-                    server, key.address, key.interface, username
+                    server, addr.address, addr.interface, username
                 ))
                 .send()
                 .await

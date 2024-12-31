@@ -320,7 +320,7 @@ mod tests {
     use async_trait::async_trait;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use tokio::time::sleep;
-    use turn_driver::{start_hooks_server, Controller, Events, Hooks, Socket, Transport};
+    use turn_driver::{start_hooks_server, Controller, Events, Hooks, SessionAddr, Transport};
     use turn_server::config::{Api, Auth};
 
     fn encode_password(username: &str, password: &str) -> Result<String> {
@@ -337,7 +337,7 @@ mod tests {
     impl Hooks for HooksImpl {
         async fn auth(
             &self,
-            _session: &Socket,
+            _addr: &SessionAddr,
             username: &str,
             _realm: &str,
             _nonce: &str,

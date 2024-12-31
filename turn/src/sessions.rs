@@ -50,17 +50,17 @@ pub struct Session {
     pub expires: u64,
 }
 
-/// The identifier of the session or socket.
+/// The identifier of the session or addr.
 ///
 /// Each session needs to be identified by a combination of three pieces of
-/// information: the socket address, and the transport protocol.
+/// information: the addr address, and the transport protocol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Socket {
+pub struct SessionAddr {
     pub address: SocketAddr,
     pub interface: SocketAddr,
 }
 
-/// The socket used to record the current session.
+/// The addr used to record the current session.
 ///
 /// This is used when forwarding data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -98,20 +98,20 @@ impl Timer {
 
 #[derive(Default)]
 pub struct State {
-    sessions: RwLock<Table<Socket, Session>>,
+    sessions: RwLock<Table<SessionAddr, Session>>,
     port_allocate_pool: Mutex<PortAllocatePools>,
     // Records the sessions corresponding to each assigned port, which will be needed when looking
     // up sessions assigned to this port based on the port number.
-    port_mapping_table: RwLock<Table</* port */ u16, Socket>>,
+    port_mapping_table: RwLock<Table</* port */ u16, SessionAddr>>,
     // Records the nonce value for each network connection, which is independent of the session
     // because it can exist before it is authenticated.
-    address_nonce_tanle: RwLock<Table<Socket, (String, /* expires */ u64)>>,
+    address_nonce_tanle: RwLock<Table<SessionAddr, (String, /* expires */ u64)>>,
     // Stores the address to which the session should be forwarded when it sends indication to a
     // port. This is written when permissions are created to allow a certain address to be
     // forwarded to the current session.
-    port_relay_table: RwLock<Table<Socket, HashMap</* port */ u16, Endpoint>>>,
+    port_relay_table: RwLock<Table<SessionAddr, HashMap</* port */ u16, Endpoint>>>,
     // Indicates to which session the data sent by a session to a channel should be forwarded.
-    channel_relay_table: RwLock<Table<Socket, HashMap</* channel */ u16, Endpoint>>>,
+    channel_relay_table: RwLock<Table<SessionAddr, HashMap</* channel */ u16, Endpoint>>>,
 }
 
 pub struct Sessions<T> {
@@ -158,7 +158,7 @@ impl<T: Observer + 'static> Sessions<T> {
                 }
 
                 // Because nonce does not follow session creation, nonce is created for each
-                // socket, so nonce deletion is handled independently.
+                // addr, so nonce deletion is handled independently.
                 {
                     this.state
                         .address_nonce_tanle
@@ -181,14 +181,14 @@ impl<T: Observer + 'static> Sessions<T> {
         this
     }
 
-    fn remove_session(&self, sockets: &[Socket]) {
+    fn remove_session(&self, addrs: &[SessionAddr]) {
         let mut sessions = self.state.sessions.write();
         let mut port_allocate_pool = self.state.port_allocate_pool.lock();
         let mut port_mapping_table = self.state.port_mapping_table.write();
         let mut port_relay_table = self.state.port_relay_table.write();
         let mut channel_relay_table = self.state.channel_relay_table.write();
 
-        sockets.iter().for_each(|k| {
+        addrs.iter().for_each(|k| {
             port_relay_table.remove(k);
             channel_relay_table.remove(k);
 
@@ -206,15 +206,15 @@ impl<T: Observer + 'static> Sessions<T> {
         });
     }
 
-    fn remove_nonce(&self, sockets: &[Socket]) {
+    fn remove_nonce(&self, addrs: &[SessionAddr]) {
         let mut address_nonce_tanle = self.state.address_nonce_tanle.write();
 
-        sockets.iter().for_each(|k| {
+        addrs.iter().for_each(|k| {
             address_nonce_tanle.remove(k);
         });
     }
 
-    /// Get session for socket.
+    /// Get session for addr.
     ///
     /// # Test
     ///
@@ -229,7 +229,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         socket: &Socket,
+    ///         addr: &SessionAddr,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -240,7 +240,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -252,11 +252,11 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// assert!(sessions.get_session(&socket).get_ref().is_none());
+    /// assert!(sessions.get_session(&addr).get_ref().is_none());
     ///
-    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&addr, "test", "test"));
     ///
-    /// let lock = sessions.get_session(&socket);
+    /// let lock = sessions.get_session(&addr);
     /// let session = lock.get_ref().unwrap();
     /// assert_eq!(session.auth.username, "test");
     /// assert_eq!(session.auth.password, "test");
@@ -265,15 +265,15 @@ impl<T: Observer + 'static> Sessions<T> {
     /// ```
     pub fn get_session<'a, 'b>(
         &'a self,
-        key: &'b Socket,
-    ) -> ReadLock<'b, 'a, Socket, Table<Socket, Session>> {
+        key: &'b SessionAddr,
+    ) -> ReadLock<'b, 'a, SessionAddr, Table<SessionAddr, Session>> {
         ReadLock {
             lock: self.state.sessions.read(),
             key,
         }
     }
 
-    /// Get nonce for socket.
+    /// Get nonce for addr.
     ///
     /// # Test
     ///
@@ -287,25 +287,25 @@ impl<T: Observer + 'static> Sessions<T> {
     /// #[async_trait]
     /// impl Observer for ObserverTest {}
     ///
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// let a = sessions.get_nonce(&socket).get_ref().unwrap().clone();
+    /// let a = sessions.get_nonce(&addr).get_ref().unwrap().clone();
     /// assert!(a.0.len() == 16);
     /// assert!(a.1 == 600 || a.1 == 601 || a.1 == 602);
     ///
-    /// let b = sessions.get_nonce(&socket).get_ref().unwrap().clone();
+    /// let b = sessions.get_nonce(&addr).get_ref().unwrap().clone();
     /// assert_eq!(a.0, b.0);
     /// assert!(b.1 == 600 || b.1 == 601 || b.1 == 602);
     /// ```
     pub fn get_nonce<'a, 'b>(
         &'a self,
-        key: &'b Socket,
-    ) -> ReadLock<'b, 'a, Socket, Table<Socket, (String, u64)>> {
+        key: &'b SessionAddr,
+    ) -> ReadLock<'b, 'a, SessionAddr, Table<SessionAddr, (String, u64)>> {
         // If no nonce is created, create a new one.
         {
             if !self.state.address_nonce_tanle.read().contains_key(key) {
@@ -334,7 +334,7 @@ impl<T: Observer + 'static> Sessions<T> {
         }
     }
 
-    /// Get digest for socket.
+    /// Get digest for addr.
     ///
     /// # Test
     ///
@@ -349,7 +349,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         socket: &Socket,
+    ///         addr: &SessionAddr,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -360,7 +360,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -373,42 +373,42 @@ impl<T: Observer + 'static> Sessions<T> {
     /// let sessions = Sessions::new(ObserverTest);
     ///
     /// assert_eq!(
-    ///     pollster::block_on(sessions.get_digest(&socket, "test1", "test")),
+    ///     pollster::block_on(sessions.get_digest(&addr, "test1", "test")),
     ///     None
     /// );
     ///
     /// assert_eq!(
-    ///     pollster::block_on(sessions.get_digest(&socket, "test", "test")),
+    ///     pollster::block_on(sessions.get_digest(&addr, "test", "test")),
     ///     Some(digest)
     /// );
     ///
     /// assert_eq!(
-    ///     pollster::block_on(sessions.get_digest(&socket, "test", "test")),
+    ///     pollster::block_on(sessions.get_digest(&addr, "test", "test")),
     ///     Some(digest)
     /// );
     /// ```
     pub async fn get_digest(
         &self,
-        socket: &Socket,
+        addr: &SessionAddr,
         username: &str,
         realm: &str,
     ) -> Option<[u8; 16]> {
         // Already authenticated, get the cached digest directly.
         {
-            if let Some(it) = self.state.sessions.read().get(socket) {
+            if let Some(it) = self.state.sessions.read().get(addr) {
                 return Some(it.auth.digest);
             }
         }
 
         // Get the current user's password from an external observer and create a
         // digest.
-        let password = self.observer.get_password(socket, username).await?;
+        let password = self.observer.get_password(addr, username).await?;
         let digest = long_term_credential_digest(&username, &password, realm);
 
         // Record a new session.
         {
             self.state.sessions.write().insert(
-                *socket,
+                *addr,
                 Session {
                     permissions: Vec::with_capacity(10),
                     expires: self.timer.get() + 600,
@@ -447,7 +447,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         socket: &Socket,
+    ///         addr: &SessionAddr,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -458,7 +458,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -470,10 +470,10 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&addr, "test", "test"));
     ///
     /// {
-    ///     let lock = sessions.get_session(&socket);
+    ///     let lock = sessions.get_session(&addr);
     ///     let session = lock.get_ref().unwrap();
     ///     assert_eq!(session.auth.username, "test");
     ///     assert_eq!(session.auth.password, "test");
@@ -481,9 +481,9 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     assert_eq!(session.allocate.channels.len(), 0);
     /// }
     ///
-    /// let port = sessions.allocate(&socket).unwrap();
+    /// let port = sessions.allocate(&addr).unwrap();
     /// {
-    ///     let lock = sessions.get_session(&socket);
+    ///     let lock = sessions.get_session(&addr);
     ///     let session = lock.get_ref().unwrap();
     ///     assert_eq!(session.auth.username, "test");
     ///     assert_eq!(session.auth.password, "test");
@@ -491,11 +491,11 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     assert_eq!(session.allocate.channels.len(), 0);
     /// }
     ///
-    /// assert!(sessions.allocate(&socket).is_none());
+    /// assert!(sessions.allocate(&addr).is_none());
     /// ```
-    pub fn allocate(&self, socket: &Socket) -> Option<u16> {
+    pub fn allocate(&self, addr: &SessionAddr) -> Option<u16> {
         let mut lock = self.state.sessions.write();
-        let session = lock.get_mut(socket)?;
+        let session = lock.get_mut(addr)?;
 
         // If the port has already been allocated, re-allocation is not allowed.
         if session.allocate.port.is_some() {
@@ -508,7 +508,7 @@ impl<T: Observer + 'static> Sessions<T> {
         session.allocate.port = Some(port);
 
         // Write the allocation port binding table.
-        self.state.port_mapping_table.write().insert(port, *socket);
+        self.state.port_mapping_table.write().insert(port, *addr);
         Some(port)
     }
 
@@ -527,7 +527,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         socket: &Socket,
+    ///         addr: &SessionAddr,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -539,12 +539,12 @@ impl<T: Observer + 'static> Sessions<T> {
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let peer_socket = Socket {
+    /// let peer_addr = SessionAddr {
     ///     address: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -556,25 +556,25 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&addr, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_addr, "test", "test"));
     ///
-    /// let port = sessions.allocate(&socket).unwrap();
-    /// let peer_port = sessions.allocate(&peer_socket).unwrap();
+    /// let port = sessions.allocate(&addr).unwrap();
+    /// let peer_port = sessions.allocate(&peer_addr).unwrap();
     ///
-    /// assert!(!sessions.create_permission(&socket, &endpoint, &[port]));
-    /// assert!(sessions.create_permission(&socket, &endpoint, &[peer_port]));
+    /// assert!(!sessions.create_permission(&addr, &endpoint, &[port]));
+    /// assert!(sessions.create_permission(&addr, &endpoint, &[peer_port]));
     ///
-    /// assert!(!sessions.create_permission(&peer_socket, &endpoint, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_socket, &endpoint, &[port]));
+    /// assert!(!sessions.create_permission(&peer_addr, &endpoint, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_addr, &endpoint, &[port]));
     /// ```
-    pub fn create_permission(&self, socket: &Socket, endpoint: &SocketAddr, ports: &[u16]) -> bool {
+    pub fn create_permission(&self, addr: &SessionAddr, endpoint: &SocketAddr, ports: &[u16]) -> bool {
         let mut sessions = self.state.sessions.write();
         let mut port_relay_table = self.state.port_relay_table.write();
         let port_mapping_table = self.state.port_mapping_table.read();
 
         // Finds information about the current session.
-        let session = if let Some(it) = sessions.get_mut(socket) {
+        let session = if let Some(it) = sessions.get_mut(addr) {
             it
         } else {
             return false;
@@ -610,7 +610,7 @@ impl<T: Observer + 'static> Sessions<T> {
                 .insert(
                     local_port,
                     Endpoint {
-                        address: socket.address,
+                        address: addr.address,
                         endpoint: *endpoint,
                     },
                 );
@@ -639,7 +639,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         socket: &Socket,
+    ///         addr: &SessionAddr,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -651,12 +651,12 @@ impl<T: Observer + 'static> Sessions<T> {
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let peer_socket = Socket {
+    /// let peer_addr = SessionAddr {
     ///     address: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -668,14 +668,14 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&addr, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_addr, "test", "test"));
     ///
-    /// let port = sessions.allocate(&socket).unwrap();
-    /// let peer_port = sessions.allocate(&peer_socket).unwrap();
+    /// let port = sessions.allocate(&addr).unwrap();
+    /// let peer_port = sessions.allocate(&peer_addr).unwrap();
     /// assert_eq!(
     ///     sessions
-    ///         .get_session(&socket)
+    ///         .get_session(&addr)
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
@@ -686,7 +686,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_session(&peer_socket)
+    ///         .get_session(&peer_addr)
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
@@ -695,11 +695,11 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     0
     /// );
     ///
-    /// assert!(sessions.bind_channel(&socket, &endpoint, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_socket, &endpoint, port, 0x4000));
+    /// assert!(sessions.bind_channel(&addr, &endpoint, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_addr, &endpoint, port, 0x4000));
     /// assert_eq!(
     ///     sessions
-    ///         .get_session(&socket)
+    ///         .get_session(&addr)
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
@@ -709,7 +709,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_session(&peer_socket)
+    ///         .get_session(&peer_addr)
     ///         .get_ref()
     ///         .unwrap()
     ///         .allocate
@@ -719,7 +719,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// ```
     pub fn bind_channel(
         &self,
-        socket: &Socket,
+        addr: &SessionAddr,
         endpoint: &SocketAddr,
         port: u16,
         channel: u16,
@@ -734,7 +734,7 @@ impl<T: Observer + 'static> Sessions<T> {
         // Records the channel used for the current session.
         {
             let mut lock = self.state.sessions.write();
-            let session = if let Some(it) = lock.get_mut(socket) {
+            let session = if let Some(it) = lock.get_mut(addr) {
                 it
             } else {
                 return false;
@@ -746,7 +746,7 @@ impl<T: Observer + 'static> Sessions<T> {
         }
 
         // Binding ports also creates permissions.
-        if !self.create_permission(socket, endpoint, &[port]) {
+        if !self.create_permission(addr, endpoint, &[port]) {
             return false;
         }
 
@@ -759,7 +759,7 @@ impl<T: Observer + 'static> Sessions<T> {
             .insert(
                 channel,
                 Endpoint {
-                    address: socket.address,
+                    address: addr.address,
                     endpoint: *endpoint,
                 },
             );
@@ -782,7 +782,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         socket: &Socket,
+    ///         addr: &SessionAddr,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -794,12 +794,12 @@ impl<T: Observer + 'static> Sessions<T> {
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let peer_socket = Socket {
+    /// let peer_addr = SessionAddr {
     ///     address: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -811,17 +811,17 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&addr, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_addr, "test", "test"));
     ///
-    /// let port = sessions.allocate(&socket).unwrap();
-    /// let peer_port = sessions.allocate(&peer_socket).unwrap();
+    /// let port = sessions.allocate(&addr).unwrap();
+    /// let peer_port = sessions.allocate(&peer_addr).unwrap();
     ///
-    /// assert!(sessions.bind_channel(&socket, &endpoint, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_socket, &endpoint, port, 0x4000));
+    /// assert!(sessions.bind_channel(&addr, &endpoint, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_addr, &endpoint, port, 0x4000));
     /// assert_eq!(
     ///     sessions
-    ///         .get_channel_relay_address(&socket, 0x4000)
+    ///         .get_channel_relay_address(&addr, 0x4000)
     ///         .unwrap()
     ///         .endpoint,
     ///     endpoint
@@ -829,17 +829,17 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_channel_relay_address(&peer_socket, 0x4000)
+    ///         .get_channel_relay_address(&peer_addr, 0x4000)
     ///         .unwrap()
     ///         .endpoint,
     ///     endpoint
     /// );
     /// ```
-    pub fn get_channel_relay_address(&self, socket: &Socket, channel: u16) -> Option<Endpoint> {
+    pub fn get_channel_relay_address(&self, addr: &SessionAddr, channel: u16) -> Option<Endpoint> {
         self.state
             .channel_relay_table
             .read()
-            .get(&socket)?
+            .get(&addr)?
             .get(&channel)
             .copied()
     }
@@ -859,7 +859,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         socket: &Socket,
+    ///         addr: &SessionAddr,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -871,12 +871,12 @@ impl<T: Observer + 'static> Sessions<T> {
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let peer_socket = Socket {
+    /// let peer_addr = SessionAddr {
     ///     address: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -888,18 +888,18 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
-    /// pollster::block_on(sessions.get_digest(&peer_socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&addr, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&peer_addr, "test", "test"));
     ///
-    /// let port = sessions.allocate(&socket).unwrap();
-    /// let peer_port = sessions.allocate(&peer_socket).unwrap();
+    /// let port = sessions.allocate(&addr).unwrap();
+    /// let peer_port = sessions.allocate(&peer_addr).unwrap();
     ///
-    /// assert!(sessions.create_permission(&socket, &endpoint, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_socket, &endpoint, &[port]));
+    /// assert!(sessions.create_permission(&addr, &endpoint, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_addr, &endpoint, &[port]));
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_relay_address(&socket, peer_port)
+    ///         .get_relay_address(&addr, peer_port)
     ///         .unwrap()
     ///         .endpoint,
     ///     endpoint
@@ -907,22 +907,22 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_relay_address(&peer_socket, port)
+    ///         .get_relay_address(&peer_addr, port)
     ///         .unwrap()
     ///         .endpoint,
     ///     endpoint
     /// );
     /// ```
-    pub fn get_relay_address(&self, socket: &Socket, port: u16) -> Option<Endpoint> {
+    pub fn get_relay_address(&self, addr: &SessionAddr, port: u16) -> Option<Endpoint> {
         self.state
             .port_relay_table
             .read()
-            .get(&socket)?
+            .get(&addr)?
             .get(&port)
             .copied()
     }
 
-    /// Refresh the session for socket.
+    /// Refresh the session for addr.
     ///
     /// # Test
     ///
@@ -937,7 +937,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
-    ///         socket: &Socket,
+    ///         addr: &SessionAddr,
     ///         username: &str,
     ///     ) -> Option<String> {
     ///         if username == "test" {
@@ -948,7 +948,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     }
     /// }
     ///
-    /// let socket = Socket {
+    /// let addr = SessionAddr {
     ///     address: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -960,33 +960,33 @@ impl<T: Observer + 'static> Sessions<T> {
     ///
     /// let sessions = Sessions::new(ObserverTest);
     ///
-    /// assert!(sessions.get_session(&socket).get_ref().is_none());
+    /// assert!(sessions.get_session(&addr).get_ref().is_none());
     ///
-    /// pollster::block_on(sessions.get_digest(&socket, "test", "test"));
+    /// pollster::block_on(sessions.get_digest(&addr, "test", "test"));
     ///
-    /// let expires = sessions.get_session(&socket).get_ref().unwrap().expires;
+    /// let expires = sessions.get_session(&addr).get_ref().unwrap().expires;
     /// assert!(expires == 600 || expires == 601 || expires == 602);
     ///
-    /// assert!(sessions.refresh(&socket, 0));
+    /// assert!(sessions.refresh(&addr, 0));
     ///
-    /// assert!(sessions.get_session(&socket).get_ref().is_none());
+    /// assert!(sessions.get_session(&addr).get_ref().is_none());
     /// ```
-    pub fn refresh(&self, socket: &Socket, lifetime: u32) -> bool {
+    pub fn refresh(&self, addr: &SessionAddr, lifetime: u32) -> bool {
         if lifetime > 3600 {
             return false;
         }
 
         if lifetime == 0 {
-            self.remove_session(&[*socket]);
-            self.remove_nonce(&[*socket]);
+            self.remove_session(&[*addr]);
+            self.remove_nonce(&[*addr]);
         } else {
-            if let Some(session) = self.state.sessions.write().get_mut(socket) {
+            if let Some(session) = self.state.sessions.write().get_mut(addr) {
                 session.expires = self.timer.get() + lifetime as u64;
             } else {
                 return false;
             }
 
-            if let Some(nonce) = self.state.address_nonce_tanle.write().get_mut(socket) {
+            if let Some(nonce) = self.state.address_nonce_tanle.write().get_mut(addr) {
                 nonce.1 = self.timer.get() + lifetime as u64;
             }
         }

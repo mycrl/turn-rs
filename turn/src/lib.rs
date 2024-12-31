@@ -5,7 +5,7 @@ use self::operations::ServiceContext;
 
 pub use self::{
     operations::{Operationer, ResponseMethod},
-    sessions::{PortAllocatePools, Session, Sessions, Socket},
+    sessions::{PortAllocatePools, Session, Sessions, SessionAddr},
 };
 
 use std::{net::SocketAddr, sync::Arc};
@@ -21,7 +21,7 @@ static SOFTWARE: &str = concat!(
 #[allow(unused)]
 #[async_trait]
 pub trait Observer: Send + Sync {
-    async fn get_password(&self, socket: &Socket, username: &str) -> Option<String> {
+    async fn get_password(&self, addr: &SessionAddr, username: &str) -> Option<String> {
         None
     }
 
@@ -41,7 +41,7 @@ pub trait Observer: Send + Sync {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    fn allocated(&self, socket: &Socket, username: &str, port: u16) {}
+    fn allocated(&self, addr: &SessionAddr, username: &str, port: u16) {}
 
     /// channel binding request
     ///
@@ -73,7 +73,7 @@ pub trait Observer: Send + Sync {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
-    fn channel_bind(&self, socket: &Socket, username: &str, channel: u16) {}
+    fn channel_bind(&self, addr: &SessionAddr, username: &str, channel: u16) {}
 
     /// create permission request
     ///
@@ -114,7 +114,7 @@ pub trait Observer: Send + Sync {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
-    fn create_permission(&self, socket: &Socket, username: &str, ports: &[u16]) {}
+    fn create_permission(&self, addr: &SessionAddr, username: &str, ports: &[u16]) {}
 
     /// refresh request
     ///
@@ -155,14 +155,14 @@ pub trait Observer: Send + Sync {
     /// will cause a 437 (Allocation Mismatch) response if the
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
-    fn refresh(&self, socket: &Socket, username: &str, lifetime: u32) {}
+    fn refresh(&self, addr: &SessionAddr, username: &str, lifetime: u32) {}
 
     /// session closed
     ///
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    fn closed(&self, socket: &Socket, username: &str) {}
+    fn closed(&self, addr: &SessionAddr, username: &str) {}
 }
 
 /// Turn service.
