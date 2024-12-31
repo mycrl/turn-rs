@@ -219,13 +219,11 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use async_trait::async_trait;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
-    /// #[async_trait]
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
@@ -278,13 +276,11 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use async_trait::async_trait;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
-    /// #[async_trait]
     /// impl Observer for ObserverTest {}
     ///
     /// let addr = SessionAddr {
@@ -339,13 +335,11 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use async_trait::async_trait;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
-    /// #[async_trait]
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
@@ -437,13 +431,11 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use async_trait::async_trait;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
-    /// #[async_trait]
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
@@ -517,13 +509,11 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use async_trait::async_trait;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
-    /// #[async_trait]
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
@@ -634,13 +624,11 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use async_trait::async_trait;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
-    /// #[async_trait]
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
@@ -777,13 +765,11 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use async_trait::async_trait;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
-    /// #[async_trait]
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
@@ -854,13 +840,11 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use async_trait::async_trait;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
-    /// #[async_trait]
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,
@@ -932,13 +916,11 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use async_trait::async_trait;
     /// use turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
     ///
-    /// #[async_trait]
     /// impl Observer for ObserverTest {
     ///     async fn get_password(
     ///         &self,

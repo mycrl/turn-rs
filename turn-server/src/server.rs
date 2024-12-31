@@ -160,14 +160,113 @@ mod tcp {
     use super::{Server as ServerExt, ServerStartOptions};
     use crate::statistics::Stats;
 
-    use std::sync::Arc;
+    use std::{
+        ops::{Deref, DerefMut},
+        sync::Arc,
+    };
 
-    use bytes::BytesMut;
     use stun::{Decoder, Transport};
     use tokio::{io::AsyncReadExt, io::AsyncWriteExt, net::TcpListener, sync::Mutex};
     use turn::{Observer, ResponseMethod, SessionAddr};
 
     static ZERO_BYTES: [u8; 8] = [0u8; 8];
+
+    /// An emulated double buffer queue, this is used when reading data over
+    /// TCP.
+    ///
+    /// When reading data over TCP, you need to keep adding to the buffer until
+    /// you find the delimited position. But this double buffer queue solves
+    /// this problem well, in the queue, the separation is treated as the first
+    /// read operation and after the separation the buffer is reversed and
+    /// another free buffer is used for writing the data.
+    ///
+    /// If the current buffer in the separation after the existence of
+    /// unconsumed data, this time the unconsumed data will be copied to another
+    /// free buffer, and fill the length of the free buffer data, this time to
+    /// write data again when you can continue to fill to the end of the
+    /// unconsumed data.
+    ///
+    /// This queue only needs to copy the unconsumed data without duplicating
+    /// the memory allocation, which will reduce a lot of overhead.
+    struct DoubleBufferQueue {
+        buffers: [(Vec<u8>, usize /* len */); 2],
+        index: usize,
+    }
+
+    impl Default for DoubleBufferQueue {
+        #[rustfmt::skip]
+        fn default() -> Self {
+            Self {
+                index: 0,
+                buffers: [
+                    (vec![0u8; 2048], 0), 
+                    (vec![0u8; 2048], 0),
+                ],
+            }
+        }
+    }
+
+    impl Deref for DoubleBufferQueue {
+        type Target = [u8];
+
+        fn deref(&self) -> &Self::Target {
+            &self.buffers[self.index].0[..]
+        }
+    }
+
+    impl DerefMut for DoubleBufferQueue {
+        // Writes need to take into account overwriting written data, so fetching the
+        // writable buffer starts with the internal cursor.
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            let len = self.buffers[self.index].1;
+            &mut self.buffers[self.index].0[len..]
+        }
+    }
+
+    impl DoubleBufferQueue {
+        fn len(&self) -> usize {
+            self.buffers[self.index].1
+        }
+
+        /// The buffer does not automatically advance the cursor as BytesMut
+        /// does, and you need to manually advance the length of the data
+        /// written.
+        fn advance(&mut self, len: usize) {
+            self.buffers[self.index].1 += len;
+        }
+
+        #[rustfmt::skip]
+        fn split(&mut self, len: usize) -> &[u8] {
+            let (ref buffer, size) = self.buffers[self.index];
+
+            // The length of the separation cannot be greater than the length of the data.
+            assert!(len <= size);
+
+            // Length of unconsumed data
+            let diff_size = size - len;
+            {
+                // The current buffer is no longer in use, resetting the content length.
+                self.buffers[self.index].1 = 0;
+
+                // Invert the buffer.
+                self.index = if self.index == 0 { 1 } else { 0 };
+
+                // The length of unconsumed data needs to be updated into the reversed
+                // completion buffer.
+                self.buffers[self.index].1 = diff_size;
+            }
+
+            // Unconsumed data exists and is copied to the free buffer.
+            #[allow(mutable_transmutes)]
+            if len < size {
+                unsafe { 
+                    std::mem::transmute::<&[u8], &mut [u8]>(&self.buffers[self.index].0[..diff_size]) 
+                }.copy_from_slice(&buffer[len..size]);
+            }
+
+            &buffer[..len]
+        }
+    }
 
     /// tcp socket process thread.
     ///
@@ -248,25 +347,26 @@ mod tcp {
 
                     let sessions = service.get_sessions();
                     tokio::spawn(async move {
-                        let mut buf = BytesMut::new();
+                        let mut buffer = DoubleBufferQueue::default();
 
-                        'a: while let Ok(size) = reader.read_buf(&mut buf).await {
+                        'a: while let Ok(size) = reader.read(&mut buffer).await {
                             // When the received message is 0, it means that the socket
                             // has been closed.
                             if size == 0 {
                                 break;
                             } else {
                                 reporter.send(&session_addr, &[Stats::ReceivedBytes(size as u32)]);
+                                buffer.advance(size);
                             }
 
                             // The minimum length of a stun message will not be less
                             // than 4.
-                            if buf.len() < 4 {
+                            if buffer.len() < 4 {
                                 continue;
                             }
 
                             loop {
-                                if buf.len() <= 4 {
+                                if buffer.len() <= 4 {
                                     break;
                                 }
 
@@ -274,18 +374,27 @@ mod tcp {
                                 // received data is less than the message length, jump
                                 // out of the current loop and continue to receive more
                                 // data.
-                                let size = match Decoder::message_size(&buf, true) {
-                                    Ok(s) if s > buf.len() => break,
+                                let size = match Decoder::message_size(&buffer, true) {
                                     Err(_) => break,
                                     Ok(s) => {
+                                        // Limit the maximum length of messages to 2048, this is to prevent buffer
+                                        // overflow attacks.
+                                        if s > 2048 {
+                                            break 'a;
+                                        }
+
+                                        if s > buffer.len() {
+                                            break;
+                                        }
+
                                         reporter.send(&session_addr, &[Stats::ReceivedPkts(1)]);
 
                                         s
                                     }
                                 };
 
-                                let chunk = buf.split_to(size);
-                                if let Ok(ret) = operationer.route(&chunk, address).await {
+                                let chunk = buffer.split(size);
+                                if let Ok(ret) = operationer.route(chunk, address).await {
                                     if let Some(res) = ret {
                                         if let Some(ref inerface) = res.endpoint {
                                             router.send(

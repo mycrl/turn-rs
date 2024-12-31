@@ -5,10 +5,10 @@ use clap::Parser;
 use tabled::{Table, Tabled};
 use turn_driver::{start_hooks_server, Controller, Events, Hooks, SessionAddr, Transport};
 
-struct HooksImpl;
+struct SimperHooks;
 
 #[async_trait]
-impl Hooks for HooksImpl {
+impl Hooks for SimperHooks {
     async fn auth(
         &self,
         addr: &SessionAddr,
@@ -56,7 +56,6 @@ struct Cli {
 async fn main() {
     let cli = Cli::parse();
     let controller = Controller::new(&cli.server).unwrap();
-    tokio::spawn(start_hooks_server(cli.bind, HooksImpl));
 
     if let Some(info) = controller.get_info().await {
         println!("Base info:");
@@ -96,4 +95,6 @@ async fn main() {
         println!("turn server not runing!");
         return;
     }
+
+    start_hooks_server(cli.bind, SimperHooks).await.unwrap();
 }

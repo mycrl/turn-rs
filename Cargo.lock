@@ -2157,7 +2157,6 @@ dependencies = [
  "anyhow",
  "axum",
  "base64",
- "bytes",
  "clap",
  "itertools 0.13.0",
  "log",
