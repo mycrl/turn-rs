@@ -1,327 +1,321 @@
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
-use anyhow::Result;
-use bytes::BytesMut;
-use stun::{
-    attribute::{
-        ChannelNumber, Data, ErrorCode, ErrorKind, Lifetime, MappedAddress, Nonce, Realm,
-        ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress, XorPeerAddress,
-        XorRelayedAddress,
-    },
-    Decoder, Kind, MessageReader, MessageWriter, Method, Payload,
-};
+    use anyhow::Result;
+    use async_trait::async_trait;
+    use base64::{prelude::BASE64_STANDARD, Engine};
+    use bytes::BytesMut;
+    use stun::{
+        attribute::{
+            ChannelNumber, Data, ErrorCode, ErrorKind, Lifetime, MappedAddress, Nonce, Realm,
+            ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress,
+            XorPeerAddress, XorRelayedAddress,
+        },
+        Decoder, Kind, MessageReader, MessageWriter, Method, Payload,
+    };
+    use turn_driver::{
+        start_hooks_server, Controller, Events, Hooks, SessionAddr, Transport as DriverTransport,
+    };
 
-use once_cell::sync::Lazy;
-use rand::seq::SliceRandom;
-use tokio::{
-    net::UdpSocket,
-    time::{sleep, timeout},
-};
+    use once_cell::sync::Lazy;
+    use rand::seq::SliceRandom;
+    use tokio::{
+        net::UdpSocket,
+        time::{sleep, timeout},
+    };
 
-use turn_server::{
-    config::{Api, Auth, Config, Interface, Log, Transport as TurnTransport, Turn},
-    startup,
-};
+    use turn_server::{
+        config::{Api, Auth, Config, Interface, Log, Transport as TurnTransport, Turn},
+        startup,
+    };
 
-static TOKEN: Lazy<[u8; 12]> = Lazy::new(|| {
-    let mut rng = rand::thread_rng();
-    let mut token = [0u8; 12];
-    token.shuffle(&mut rng);
-    token
-});
-
-pub async fn create_turn_server(bind: SocketAddr, auth: Auth, api: Api) -> Result<()> {
-    tokio::spawn(async move {
-        startup(Arc::new(Config {
-            log: Log::default(),
-            turn: Turn {
-                realm: "localhost".to_string(),
-                interfaces: vec![Interface {
-                    transport: TurnTransport::UDP,
-                    external: bind,
-                    bind,
-                }],
-            },
-            auth,
-            api,
-        }))
-        .await
-        .unwrap();
+    static TOKEN: Lazy<[u8; 12]> = Lazy::new(|| {
+        let mut rng = rand::thread_rng();
+        let mut token = [0u8; 12];
+        token.shuffle(&mut rng);
+        token
     });
 
-    sleep(Duration::from_secs(3)).await;
-    Ok(())
-}
+    pub async fn create_turn_server(bind: SocketAddr, auth: Auth, api: Api) -> Result<()> {
+        tokio::spawn(async move {
+            startup(Arc::new(Config {
+                log: Log::default(),
+                turn: Turn {
+                    realm: "localhost".to_string(),
+                    interfaces: vec![Interface {
+                        transport: TurnTransport::UDP,
+                        external: bind,
+                        bind,
+                    }],
+                },
+                auth,
+                api,
+            }))
+            .await
+            .unwrap();
+        });
 
-struct Operationer {
-    decoder: Decoder,
-    socket: UdpSocket,
-    recv_bytes: [u8; 1500],
-    send_bytes: BytesMut,
-}
-
-impl Operationer {
-    async fn new(server: SocketAddr) -> Result<Self> {
-        let socket = UdpSocket::bind("127.0.0.1:0").await?;
-        socket.connect(server).await?;
-
-        Ok(Self {
-            send_bytes: BytesMut::with_capacity(1500),
-            decoder: Decoder::default(),
-            recv_bytes: [0u8; 1500],
-            socket,
-        })
-    }
-
-    fn local_addr(&self) -> Result<SocketAddr> {
-        Ok(self.socket.local_addr()?)
-    }
-
-    fn create_message(&mut self, method: Method) -> MessageWriter {
-        MessageWriter::new(method, &TOKEN, &mut self.send_bytes)
-    }
-
-    async fn send(&self) -> Result<()> {
-        self.socket.send(&self.send_bytes).await?;
+        sleep(Duration::from_secs(3)).await;
         Ok(())
     }
 
-    async fn read_message(&mut self) -> Result<MessageReader> {
-        let size = timeout(
-            Duration::from_secs(5),
-            self.socket.recv(&mut self.recv_bytes),
-        )
-        .await??;
+    struct Operationer {
+        decoder: Decoder,
+        socket: UdpSocket,
+        recv_bytes: [u8; 1500],
+        send_bytes: BytesMut,
+    }
 
-        if let Payload::Message(message) = self.decoder.decode(&self.recv_bytes[..size])? {
-            if message.token != TOKEN.as_slice() {
-                Err(anyhow::anyhow!("Message token does not match"))
+    impl Operationer {
+        async fn new(server: SocketAddr) -> Result<Self> {
+            let socket = UdpSocket::bind("127.0.0.1:0").await?;
+            socket.connect(server).await?;
+
+            Ok(Self {
+                send_bytes: BytesMut::with_capacity(1500),
+                decoder: Decoder::default(),
+                recv_bytes: [0u8; 1500],
+                socket,
+            })
+        }
+
+        fn local_addr(&self) -> Result<SocketAddr> {
+            Ok(self.socket.local_addr()?)
+        }
+
+        fn create_message(&mut self, method: Method) -> MessageWriter {
+            MessageWriter::new(method, &TOKEN, &mut self.send_bytes)
+        }
+
+        async fn send(&self) -> Result<()> {
+            self.socket.send(&self.send_bytes).await?;
+            Ok(())
+        }
+
+        async fn read_message(&mut self) -> Result<MessageReader> {
+            let size = timeout(
+                Duration::from_secs(5),
+                self.socket.recv(&mut self.recv_bytes),
+            )
+            .await??;
+
+            if let Payload::Message(message) = self.decoder.decode(&self.recv_bytes[..size])? {
+                if message.token != TOKEN.as_slice() {
+                    Err(anyhow::anyhow!("Message token does not match"))
+                } else {
+                    Ok(message)
+                }
             } else {
-                Ok(message)
+                Err(anyhow::anyhow!("payload not a message"))
             }
-        } else {
-            Err(anyhow::anyhow!("payload not a message"))
         }
     }
-}
 
-pub struct Credentials {
-    pub username: String,
-    pub password: String,
-}
-
-#[derive(Default)]
-struct State {
-    digest: [u8; 16],
-    nonce: String,
-    realm: String,
-}
-
-pub struct TurnClient {
-    operationer: Operationer,
-    credentials: Credentials,
-    server: SocketAddr,
-    state: State,
-}
-
-impl TurnClient {
-    pub async fn new(server: SocketAddr, credentials: Credentials) -> Result<Self> {
-        Ok(Self {
-            operationer: Operationer::new(server).await?,
-            state: State::default(),
-            credentials,
-            server,
-        })
+    pub struct Credentials {
+        pub username: String,
+        pub password: String,
     }
 
-    pub async fn binding(&mut self) -> Result<()> {
-        {
-            let mut message = self
-                .operationer
-                .create_message(Method::Binding(Kind::Request));
-            message.flush(None)?;
+    #[derive(Default)]
+    struct State {
+        digest: [u8; 16],
+        nonce: String,
+        realm: String,
+    }
 
-            self.operationer.send().await?;
+    pub struct TurnClient {
+        operationer: Operationer,
+        credentials: Credentials,
+        server: SocketAddr,
+        state: State,
+    }
+
+    impl TurnClient {
+        pub async fn new(server: SocketAddr, credentials: Credentials) -> Result<Self> {
+            Ok(Self {
+                operationer: Operationer::new(server).await?,
+                state: State::default(),
+                credentials,
+                server,
+            })
         }
 
-        let local_addr = self.operationer.local_addr()?;
-        let message = self.operationer.read_message().await?;
+        pub async fn binding(&mut self) -> Result<()> {
+            {
+                let mut message = self
+                    .operationer
+                    .create_message(Method::Binding(Kind::Request));
+                message.flush(None)?;
 
-        assert_eq!(message.method, Method::Binding(Kind::Response));
-        assert_eq!(message.get::<XorMappedAddress>(), Some(local_addr));
-        assert_eq!(message.get::<MappedAddress>(), Some(local_addr));
-        assert_eq!(message.get::<ResponseOrigin>(), Some(self.server));
-        Ok(())
-    }
+                self.operationer.send().await?;
+            }
 
-    pub async fn allocate(&mut self) -> Result<u16> {
-        {
+            let local_addr = self.operationer.local_addr()?;
+            let message = self.operationer.read_message().await?;
+
+            assert_eq!(message.method, Method::Binding(Kind::Response));
+            assert_eq!(message.get::<XorMappedAddress>(), Some(local_addr));
+            assert_eq!(message.get::<MappedAddress>(), Some(local_addr));
+            assert_eq!(message.get::<ResponseOrigin>(), Some(self.server));
+            Ok(())
+        }
+
+        pub async fn allocate(&mut self) -> Result<u16> {
+            {
+                {
+                    let mut message = self
+                        .operationer
+                        .create_message(Method::Allocate(Kind::Request));
+                    message.append::<ReqeestedTransport>(Transport::UDP);
+                    message.flush(None)?;
+
+                    self.operationer.send().await?;
+                }
+
+                let message = self.operationer.read_message().await?;
+
+                assert_eq!(message.method, Method::Allocate(Kind::Error));
+                assert_eq!(
+                    message.get::<ErrorCode>().unwrap().code,
+                    ErrorKind::Unauthorized as u16
+                );
+
+                self.state.nonce = message.get::<Nonce>().unwrap().to_string();
+                self.state.realm = message.get::<Realm>().unwrap().to_string();
+                self.state.digest = stun::util::long_term_credential_digest(
+                    &self.credentials.username,
+                    &self.credentials.password,
+                    &self.state.realm,
+                );
+            }
+
             {
                 let mut message = self
                     .operationer
                     .create_message(Method::Allocate(Kind::Request));
                 message.append::<ReqeestedTransport>(Transport::UDP);
-                message.flush(None)?;
+                message.append::<UserName>(&self.credentials.username);
+                message.append::<Realm>(&self.state.realm);
+                message.append::<Nonce>(&self.state.nonce);
+                message.flush(Some(&self.state.digest))?;
+
+                self.operationer.send().await?;
+            }
+
+            let local_addr = self.operationer.local_addr()?;
+            let message = self.operationer.read_message().await?;
+
+            assert_eq!(message.method, Method::Allocate(Kind::Response));
+            message.integrity(&self.state.digest)?;
+
+            let relay = message.get::<XorRelayedAddress>().unwrap();
+
+            assert_eq!(relay.ip(), self.server.ip());
+            assert_eq!(message.get::<XorMappedAddress>(), Some(local_addr));
+            assert_eq!(message.get::<Lifetime>(), Some(600));
+
+            Ok(relay.port())
+        }
+
+        pub async fn create_permission(&mut self, port: u16) -> Result<()> {
+            {
+                let mut peer = self.server.clone();
+                peer.set_port(port);
+
+                let mut message = self
+                    .operationer
+                    .create_message(Method::CreatePermission(Kind::Request));
+                message.append::<XorPeerAddress>(peer);
+                message.append::<UserName>(&self.credentials.username);
+                message.append::<Realm>(&self.state.realm);
+                message.append::<Nonce>(&self.state.nonce);
+                message.flush(Some(&self.state.digest))?;
 
                 self.operationer.send().await?;
             }
 
             let message = self.operationer.read_message().await?;
 
-            assert_eq!(message.method, Method::Allocate(Kind::Error));
-            assert_eq!(
-                message.get::<ErrorCode>().unwrap().code,
-                ErrorKind::Unauthorized as u16
-            );
+            assert_eq!(message.method, Method::CreatePermission(Kind::Response));
+            message.integrity(&self.state.digest)?;
 
-            self.state.nonce = message.get::<Nonce>().unwrap().to_string();
-            self.state.realm = message.get::<Realm>().unwrap().to_string();
-            self.state.digest = stun::util::long_term_credential_digest(
-                &self.credentials.username,
-                &self.credentials.password,
-                &self.state.realm,
-            );
+            Ok(())
         }
 
-        {
-            let mut message = self
-                .operationer
-                .create_message(Method::Allocate(Kind::Request));
-            message.append::<ReqeestedTransport>(Transport::UDP);
-            message.append::<UserName>(&self.credentials.username);
-            message.append::<Realm>(&self.state.realm);
-            message.append::<Nonce>(&self.state.nonce);
-            message.flush(Some(&self.state.digest))?;
+        pub async fn channel_bind(&mut self, port: u16, channel: u16) -> Result<()> {
+            {
+                let mut peer = self.server.clone();
+                peer.set_port(port);
 
-            self.operationer.send().await?;
+                let mut message = self
+                    .operationer
+                    .create_message(Method::ChannelBind(Kind::Request));
+                message.append::<ChannelNumber>(channel);
+                message.append::<XorPeerAddress>(peer);
+                message.append::<UserName>(&self.credentials.username);
+                message.append::<Realm>(&self.state.realm);
+                message.append::<Nonce>(&self.state.nonce);
+                message.flush(Some(&self.state.digest))?;
+
+                self.operationer.send().await?;
+            }
+
+            let message = self.operationer.read_message().await?;
+
+            assert_eq!(message.method, Method::ChannelBind(Kind::Response));
+            message.integrity(&self.state.digest)?;
+
+            Ok(())
         }
 
-        let local_addr = self.operationer.local_addr()?;
-        let message = self.operationer.read_message().await?;
+        pub async fn refresh(&mut self, lifetime: u32) -> Result<()> {
+            {
+                let mut message = self
+                    .operationer
+                    .create_message(Method::Refresh(Kind::Request));
+                message.append::<Lifetime>(lifetime);
+                message.append::<UserName>(&self.credentials.username);
+                message.append::<Realm>(&self.state.realm);
+                message.append::<Nonce>(&self.state.nonce);
+                message.flush(Some(&self.state.digest))?;
 
-        assert_eq!(message.method, Method::Allocate(Kind::Response));
-        message.integrity(&self.state.digest)?;
+                self.operationer.send().await?;
+            }
 
-        let relay = message.get::<XorRelayedAddress>().unwrap();
+            let message = self.operationer.read_message().await?;
 
-        assert_eq!(relay.ip(), self.server.ip());
-        assert_eq!(message.get::<XorMappedAddress>(), Some(local_addr));
-        assert_eq!(message.get::<Lifetime>(), Some(600));
+            assert_eq!(message.method, Method::Refresh(Kind::Response));
+            message.integrity(&self.state.digest)?;
 
-        Ok(relay.port())
-    }
+            assert_eq!(message.get::<Lifetime>(), Some(lifetime));
 
-    pub async fn create_permission(&mut self, port: u16) -> Result<()> {
-        {
+            Ok(())
+        }
+
+        pub async fn send_indication(&mut self, port: u16, data: &[u8]) -> Result<()> {
             let mut peer = self.server.clone();
             peer.set_port(port);
 
-            let mut message = self
-                .operationer
-                .create_message(Method::CreatePermission(Kind::Request));
+            let mut message = self.operationer.create_message(Method::SendIndication);
             message.append::<XorPeerAddress>(peer);
-            message.append::<UserName>(&self.credentials.username);
-            message.append::<Realm>(&self.state.realm);
-            message.append::<Nonce>(&self.state.nonce);
-            message.flush(Some(&self.state.digest))?;
+            message.append::<Data>(data);
+            message.flush(None)?;
 
             self.operationer.send().await?;
+            Ok(())
         }
 
-        let message = self.operationer.read_message().await?;
+        pub async fn recv_indication(&mut self) -> Result<(u16, &[u8])> {
+            let message = self.operationer.read_message().await?;
 
-        assert_eq!(message.method, Method::CreatePermission(Kind::Response));
-        message.integrity(&self.state.digest)?;
+            assert_eq!(message.method, Method::DataIndication);
 
-        Ok(())
-    }
-
-    pub async fn channel_bind(&mut self, port: u16, channel: u16) -> Result<()> {
-        {
-            let mut peer = self.server.clone();
-            peer.set_port(port);
-
-            let mut message = self
-                .operationer
-                .create_message(Method::ChannelBind(Kind::Request));
-            message.append::<ChannelNumber>(channel);
-            message.append::<XorPeerAddress>(peer);
-            message.append::<UserName>(&self.credentials.username);
-            message.append::<Realm>(&self.state.realm);
-            message.append::<Nonce>(&self.state.nonce);
-            message.flush(Some(&self.state.digest))?;
-
-            self.operationer.send().await?;
+            let peer = message.get::<XorPeerAddress>().unwrap();
+            let data = message.get::<Data>().unwrap();
+            Ok((peer.port(), data))
         }
-
-        let message = self.operationer.read_message().await?;
-
-        assert_eq!(message.method, Method::ChannelBind(Kind::Response));
-        message.integrity(&self.state.digest)?;
-
-        Ok(())
     }
-
-    pub async fn refresh(&mut self, lifetime: u32) -> Result<()> {
-        {
-            let mut message = self
-                .operationer
-                .create_message(Method::Refresh(Kind::Request));
-            message.append::<Lifetime>(lifetime);
-            message.append::<UserName>(&self.credentials.username);
-            message.append::<Realm>(&self.state.realm);
-            message.append::<Nonce>(&self.state.nonce);
-            message.flush(Some(&self.state.digest))?;
-
-            self.operationer.send().await?;
-        }
-
-        let message = self.operationer.read_message().await?;
-
-        assert_eq!(message.method, Method::Refresh(Kind::Response));
-        message.integrity(&self.state.digest)?;
-
-        assert_eq!(message.get::<Lifetime>(), Some(lifetime));
-
-        Ok(())
-    }
-
-    pub async fn send_indication(&mut self, port: u16, data: &[u8]) -> Result<()> {
-        let mut peer = self.server.clone();
-        peer.set_port(port);
-
-        let mut message = self.operationer.create_message(Method::SendIndication);
-        message.append::<XorPeerAddress>(peer);
-        message.append::<Data>(data);
-        message.flush(None)?;
-
-        self.operationer.send().await?;
-        Ok(())
-    }
-
-    pub async fn recv_indication(&mut self) -> Result<(u16, &[u8])> {
-        let message = self.operationer.read_message().await?;
-
-        assert_eq!(message.method, Method::DataIndication);
-
-        let peer = message.get::<XorPeerAddress>().unwrap();
-        let data = message.get::<Data>().unwrap();
-        Ok((peer.port(), data))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::{collections::HashMap, sync::Arc, time::Duration};
-
-    use crate::{create_turn_server, Credentials, TurnClient};
-
-    use anyhow::Result;
-    use async_trait::async_trait;
-    use base64::{prelude::BASE64_STANDARD, Engine};
-    use tokio::time::sleep;
-    use turn_driver::{start_hooks_server, Controller, Events, Hooks, SessionAddr, Transport};
-    use turn_server::config::{Api, Auth};
 
     fn encode_password(username: &str, password: &str) -> Result<String> {
         Ok(BASE64_STANDARD.encode(
@@ -435,7 +429,7 @@ mod tests {
 
     #[tokio::test]
     async fn turn_server_testing() -> Result<()> {
-        let controller = Arc::new(Controller::new("http://127.0.0.1:3000"));
+        let controller = Arc::new(Controller::new("http://127.0.0.1:3000")?);
         {
             tokio::spawn(start_hooks_server(
                 "127.0.0.1:8088".parse()?,
@@ -473,7 +467,7 @@ mod tests {
             let interface = info.interfaces.get(0).unwrap();
             assert_eq!(interface.bind, "127.0.0.1:3478".parse()?);
             assert_eq!(interface.external, "127.0.0.1:3478".parse()?);
-            assert_eq!(interface.transport, Transport::UDP);
+            assert_eq!(interface.transport, DriverTransport::UDP);
         }
 
         let mut turn_1 = TurnClient::new(
@@ -580,7 +574,7 @@ mod tests {
             let interface = info.interfaces.get(0).unwrap();
             assert_eq!(interface.bind, "127.0.0.1:3478".parse()?);
             assert_eq!(interface.external, "127.0.0.1:3478".parse()?);
-            assert_eq!(interface.transport, Transport::UDP);
+            assert_eq!(interface.transport, DriverTransport::UDP);
         }
 
         {
