@@ -1,7 +1,7 @@
 FROM clux/muslrust:stable AS builder
 WORKDIR /usr/src/
 COPY . .
-RUN cargo build --release --target x86_64-unknown-linux-musl --features prometheus
+RUN cargo build --release --target x86_64-unknown-linux-musl --features api,hooks,mimalloc,prometheus
     
 FROM debian:buster-slim
 WORKDIR /app
