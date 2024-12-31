@@ -73,7 +73,7 @@ jobs:
               if: runner.os == 'Macos' || runner.os == 'Linux'
               run: cargo zigbuild --target ${{ matrix.target }} --release --all-features
 
-            - name: Build release (Windows) - All Features
+            - name: Build release (Windows)
               if: runner.os == 'Windows'
               run: cargo build --release --all-features
 
