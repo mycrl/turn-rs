@@ -188,25 +188,25 @@ mod tcp {
     ///
     /// This queue only needs to copy the unconsumed data without duplicating
     /// the memory allocation, which will reduce a lot of overhead.
-    struct DoubleBufferQueue {
+    struct ExchangeBuffer {
         buffers: [(Vec<u8>, usize /* len */); 2],
         index: usize,
     }
 
-    impl Default for DoubleBufferQueue {
+    impl Default for ExchangeBuffer {
         #[rustfmt::skip]
         fn default() -> Self {
             Self {
                 index: 0,
                 buffers: [
-                    (vec![0u8; 2048], 0), 
+                    (vec![0u8; 2048], 0),
                     (vec![0u8; 2048], 0),
                 ],
             }
         }
     }
 
-    impl Deref for DoubleBufferQueue {
+    impl Deref for ExchangeBuffer {
         type Target = [u8];
 
         fn deref(&self) -> &Self::Target {
@@ -214,7 +214,7 @@ mod tcp {
         }
     }
 
-    impl DerefMut for DoubleBufferQueue {
+    impl DerefMut for ExchangeBuffer {
         // Writes need to take into account overwriting written data, so fetching the
         // writable buffer starts with the internal cursor.
         fn deref_mut(&mut self) -> &mut Self::Target {
@@ -223,7 +223,7 @@ mod tcp {
         }
     }
 
-    impl DoubleBufferQueue {
+    impl ExchangeBuffer {
         fn len(&self) -> usize {
             self.buffers[self.index].1
         }
@@ -235,15 +235,15 @@ mod tcp {
             self.buffers[self.index].1 += len;
         }
 
-        #[rustfmt::skip]
         fn split(&mut self, len: usize) -> &[u8] {
-            let (ref buffer, size) = self.buffers[self.index];
+            let (ref current_bytes, current_len) = self.buffers[self.index];
 
             // The length of the separation cannot be greater than the length of the data.
-            assert!(len <= size);
+            assert!(len <= current_len);
 
             // Length of unconsumed data
-            let diff_size = size - len;
+            let remaining = current_len - len;
+
             {
                 // The current buffer is no longer in use, resetting the content length.
                 self.buffers[self.index].1 = 0;
@@ -253,18 +253,17 @@ mod tcp {
 
                 // The length of unconsumed data needs to be updated into the reversed
                 // completion buffer.
-                self.buffers[self.index].1 = diff_size;
+                self.buffers[self.index].1 = remaining;
             }
 
             // Unconsumed data exists and is copied to the free buffer.
             #[allow(mutable_transmutes)]
-            if len < size {
-                unsafe { 
-                    std::mem::transmute::<&[u8], &mut [u8]>(&self.buffers[self.index].0[..diff_size]) 
-                }.copy_from_slice(&buffer[len..size]);
+            if remaining > 0 {
+                unsafe { std::mem::transmute::<&[u8], &mut [u8]>(&self.buffers[self.index].0[..remaining]) }
+                    .copy_from_slice(&current_bytes[len..current_len]);
             }
 
-            &buffer[..len]
+            &current_bytes[..len]
         }
     }
 
@@ -347,7 +346,7 @@ mod tcp {
 
                     let sessions = service.get_sessions();
                     tokio::spawn(async move {
-                        let mut buffer = DoubleBufferQueue::default();
+                        let mut buffer = ExchangeBuffer::default();
 
                         'a: while let Ok(size) = reader.read(&mut buffer).await {
                             // When the received message is 0, it means that the socket
