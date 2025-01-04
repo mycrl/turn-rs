@@ -286,6 +286,8 @@ impl Cli {
 }
 
 impl Config {
+    /// Load configure from config file and command line parameters.
+    ///
     /// Load command line parameters, if the configuration file path is
     /// specified, the configuration is read from the configuration file,
     /// otherwise the default configuration is used.
@@ -332,6 +334,27 @@ impl Config {
                     config.turn.interfaces.push(interface);
                 }
             }
+        }
+
+        // Filters out transport protocols that are not enabled.
+        {
+            let mut interfaces = Vec::with_capacity(config.turn.interfaces.len());
+
+            {
+                for it in &config.turn.interfaces {
+                    #[cfg(feature = "udp")]
+                    if it.transport == Transport::UDP {
+                        interfaces.push(it.clone());
+                    }
+
+                    #[cfg(feature = "tcp")]
+                    if it.transport == Transport::TCP {
+                        interfaces.push(it.clone());
+                    }
+                }
+            }
+
+            config.turn.interfaces = interfaces;
         }
 
         Ok(config)
