@@ -65,7 +65,7 @@ Some clients currently use local addresses for the turn server to create binding
 -   Only long-term credential mechanisms are used.
 -   Static authentication lists can be used in configuration files.
 -   Only virtual ports are always allocated and no real system ports are occupied.
--   The transport layer supports tcp and udp protocols, and supports binding multiple network cards or interfaces.
+-   The transport layer supports TCP and UDP protocols, and supports binding multiple network cards or interfaces.
 -   The REST API can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
 
 #### RFC
@@ -129,6 +129,8 @@ After the compilation is complete, you can find the binary file in the `"target/
 
 #### Features
 
+-   `udp` - (enabled by default) Enables UDP transport layer support.
+-   `tcp` - Enables TCP transport layer support.
 -   `hooks` - Enable the HTTP Hooks feature.
 -   `api` - Enable the HTTP REST API server feature.
 -   `mimalloc` - Enable the mimalloc memory allocator.
@@ -137,7 +139,7 @@ After the compilation is complete, you can find the binary file in the `"target/
 No features are enabled by default and need to be turned on by manual specification.
 
 ```bash
-cargo build --release --features api,hooks,mimalloc,prometheus
+cargo build --release --all-features
 ```
 
 ## License
