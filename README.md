@@ -125,8 +125,6 @@ cd turn-rs
 cargo build --release
 ```
 
-After the compilation is complete, you can find the binary file in the `"target/release"` directory.
-
 #### Features
 
 -   `udp` - (enabled by default) Enables UDP transport layer support.
@@ -141,6 +139,8 @@ No features are enabled by default and need to be turned on by manual specificat
 ```bash
 cargo build --release --all-features
 ```
+
+After the compilation is complete, you can find the binary file in the `"target/release"` directory.
 
 ## License
 
