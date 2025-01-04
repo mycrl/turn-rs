@@ -2,7 +2,7 @@
 mod tests {
     use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
-    use anyhow::{Result, ensure};
+    use anyhow::{ensure, Result};
     use async_trait::async_trait;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use bytes::BytesMut;
@@ -11,7 +11,8 @@ mod tests {
             ChannelNumber, Data, ErrorCode, ErrorKind, Lifetime, MappedAddress, Nonce, Realm,
             ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress,
             XorPeerAddress, XorRelayedAddress,
-        }, ChannelData, Decoder, Kind, MessageReader, MessageWriter, Method, Payload
+        },
+        ChannelData, Decoder, Kind, MessageReader, MessageWriter, Method, Payload,
     };
     use turn_driver::{
         start_hooks_server, Controller, Events, Hooks, SessionAddr, Transport as DriverTransport,
@@ -88,10 +89,7 @@ mod tests {
         }
 
         fn create_channel_data(&mut self, number: u16, bytes: &[u8]) {
-            ChannelData {
-                number,
-                bytes
-            }.encode(&mut self.send_bytes);
+            ChannelData { number, bytes }.encode(&mut self.send_bytes);
         }
 
         async fn send(&self) -> Result<()> {
@@ -124,7 +122,9 @@ mod tests {
             )
             .await??;
 
-            if let Payload::ChannelData(channel_data) = self.decoder.decode(&self.recv_bytes[..size])? {
+            if let Payload::ChannelData(channel_data) =
+                self.decoder.decode(&self.recv_bytes[..size])?
+            {
                 Ok(channel_data)
             } else {
                 Err(anyhow::anyhow!("payload not a channel data"))
@@ -159,6 +159,10 @@ mod tests {
                 credentials,
                 server,
             })
+        }
+
+        pub fn local_addr(&self) -> Result<SocketAddr> {
+            Ok(self.operationer.local_addr()?)
         }
 
         pub async fn binding(&mut self) -> Result<()> {
@@ -196,10 +200,7 @@ mod tests {
                 let message = self.operationer.read_message().await?;
 
                 ensure!(message.method == Method::Allocate(Kind::Error));
-                ensure!(
-                    message.get::<ErrorCode>().unwrap().code ==
-                    ErrorKind::Unauthorized as u16
-                );
+                ensure!(message.get::<ErrorCode>().unwrap().code == ErrorKind::Unauthorized as u16);
 
                 self.state.nonce = message.get::<Nonce>().unwrap().to_string();
                 self.state.realm = message.get::<Realm>().unwrap().to_string();
@@ -747,6 +748,38 @@ mod tests {
             turn_2.refresh(0).await?;
             turn_3.refresh(0).await?;
         }
+
+        assert!(controller
+            .get_session(&SessionAddr {
+                address: turn_1.local_addr()?,
+                interface: "127.0.0.1:3478".parse()?,
+            })
+            .await
+            .is_none());
+
+        assert!(controller
+            .get_session(&SessionAddr {
+                address: turn_2.local_addr()?,
+                interface: "127.0.0.1:3478".parse()?,
+            })
+            .await
+            .is_none());
+
+        assert!(controller
+            .get_session(&SessionAddr {
+                address: turn_3.local_addr()?,
+                interface: "127.0.0.1:3478".parse()?,
+            })
+            .await
+            .is_none());
+
+        assert!(controller
+            .get_session(&SessionAddr {
+                address: turn_4.local_addr()?,
+                interface: "127.0.0.1:3478".parse()?,
+            })
+            .await
+            .is_some());
 
         Ok(())
     }
