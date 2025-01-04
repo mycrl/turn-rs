@@ -27,6 +27,8 @@ After the compilation is complete, you can find the binary file in the `target/r
 
 ### Features
 
+-   `udp` - (enabled by default) Enables UDP transport layer support.
+-   `tcp` - Enables TCP transport layer support.
 -   `hooks` - Enable the HTTP Hooks feature.
 -   `api` - Enable the HTTP REST API server feature.
 -   `mimalloc` - Enable the mimalloc memory allocator.
@@ -35,5 +37,5 @@ After the compilation is complete, you can find the binary file in the `target/r
 No features are enabled by default and need to be turned on by manual specification.
 
 ```bash
-cargo build --release --features api,hooks,mimalloc
+cargo build --release --features udp,tcp,api,hooks,mimalloc,prometheus
 ```
