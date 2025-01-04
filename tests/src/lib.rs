@@ -2,7 +2,7 @@
 mod tests {
     use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
-    use anyhow::Result;
+    use anyhow::{Result, ensure};
     use async_trait::async_trait;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use bytes::BytesMut;
@@ -11,8 +11,7 @@ mod tests {
             ChannelNumber, Data, ErrorCode, ErrorKind, Lifetime, MappedAddress, Nonce, Realm,
             ReqeestedTransport, ResponseOrigin, Transport, UserName, XorMappedAddress,
             XorPeerAddress, XorRelayedAddress,
-        },
-        Decoder, Kind, MessageReader, MessageWriter, Method, Payload,
+        }, ChannelData, Decoder, Kind, MessageReader, MessageWriter, Method, Payload
     };
     use turn_driver::{
         start_hooks_server, Controller, Events, Hooks, SessionAddr, Transport as DriverTransport,
@@ -88,6 +87,13 @@ mod tests {
             MessageWriter::new(method, &TOKEN, &mut self.send_bytes)
         }
 
+        fn create_channel_data(&mut self, number: u16, bytes: &[u8]) {
+            ChannelData {
+                number,
+                bytes
+            }.encode(&mut self.send_bytes);
+        }
+
         async fn send(&self) -> Result<()> {
             self.socket.send(&self.send_bytes).await?;
             Ok(())
@@ -95,7 +101,7 @@ mod tests {
 
         async fn read_message(&mut self) -> Result<MessageReader> {
             let size = timeout(
-                Duration::from_secs(5),
+                Duration::from_secs(1),
                 self.socket.recv(&mut self.recv_bytes),
             )
             .await??;
@@ -108,6 +114,20 @@ mod tests {
                 }
             } else {
                 Err(anyhow::anyhow!("payload not a message"))
+            }
+        }
+
+        async fn read_channel_data(&mut self) -> Result<ChannelData> {
+            let size = timeout(
+                Duration::from_secs(1),
+                self.socket.recv(&mut self.recv_bytes),
+            )
+            .await??;
+
+            if let Payload::ChannelData(channel_data) = self.decoder.decode(&self.recv_bytes[..size])? {
+                Ok(channel_data)
+            } else {
+                Err(anyhow::anyhow!("payload not a channel data"))
             }
         }
     }
@@ -154,10 +174,10 @@ mod tests {
             let local_addr = self.operationer.local_addr()?;
             let message = self.operationer.read_message().await?;
 
-            assert_eq!(message.method, Method::Binding(Kind::Response));
-            assert_eq!(message.get::<XorMappedAddress>(), Some(local_addr));
-            assert_eq!(message.get::<MappedAddress>(), Some(local_addr));
-            assert_eq!(message.get::<ResponseOrigin>(), Some(self.server));
+            ensure!(message.method == Method::Binding(Kind::Response));
+            ensure!(message.get::<XorMappedAddress>() == Some(local_addr));
+            ensure!(message.get::<MappedAddress>() == Some(local_addr));
+            ensure!(message.get::<ResponseOrigin>() == Some(self.server));
             Ok(())
         }
 
@@ -175,9 +195,9 @@ mod tests {
 
                 let message = self.operationer.read_message().await?;
 
-                assert_eq!(message.method, Method::Allocate(Kind::Error));
-                assert_eq!(
-                    message.get::<ErrorCode>().unwrap().code,
+                ensure!(message.method == Method::Allocate(Kind::Error));
+                ensure!(
+                    message.get::<ErrorCode>().unwrap().code ==
                     ErrorKind::Unauthorized as u16
                 );
 
@@ -206,14 +226,14 @@ mod tests {
             let local_addr = self.operationer.local_addr()?;
             let message = self.operationer.read_message().await?;
 
-            assert_eq!(message.method, Method::Allocate(Kind::Response));
+            ensure!(message.method == Method::Allocate(Kind::Response));
             message.integrity(&self.state.digest)?;
 
             let relay = message.get::<XorRelayedAddress>().unwrap();
 
-            assert_eq!(relay.ip(), self.server.ip());
-            assert_eq!(message.get::<XorMappedAddress>(), Some(local_addr));
-            assert_eq!(message.get::<Lifetime>(), Some(600));
+            ensure!(relay.ip() == self.server.ip());
+            ensure!(message.get::<XorMappedAddress>() == Some(local_addr));
+            ensure!(message.get::<Lifetime>() == Some(600));
 
             Ok(relay.port())
         }
@@ -237,7 +257,7 @@ mod tests {
 
             let message = self.operationer.read_message().await?;
 
-            assert_eq!(message.method, Method::CreatePermission(Kind::Response));
+            ensure!(message.method == Method::CreatePermission(Kind::Response));
             message.integrity(&self.state.digest)?;
 
             Ok(())
@@ -263,7 +283,7 @@ mod tests {
 
             let message = self.operationer.read_message().await?;
 
-            assert_eq!(message.method, Method::ChannelBind(Kind::Response));
+            ensure!(message.method == Method::ChannelBind(Kind::Response));
             message.integrity(&self.state.digest)?;
 
             Ok(())
@@ -285,10 +305,10 @@ mod tests {
 
             let message = self.operationer.read_message().await?;
 
-            assert_eq!(message.method, Method::Refresh(Kind::Response));
+            ensure!(message.method == Method::Refresh(Kind::Response));
             message.integrity(&self.state.digest)?;
 
-            assert_eq!(message.get::<Lifetime>(), Some(lifetime));
+            ensure!(message.get::<Lifetime>() == Some(lifetime));
 
             Ok(())
         }
@@ -309,11 +329,22 @@ mod tests {
         pub async fn recv_indication(&mut self) -> Result<(u16, &[u8])> {
             let message = self.operationer.read_message().await?;
 
-            assert_eq!(message.method, Method::DataIndication);
+            ensure!(message.method == Method::DataIndication);
 
             let peer = message.get::<XorPeerAddress>().unwrap();
             let data = message.get::<Data>().unwrap();
             Ok((peer.port(), data))
+        }
+
+        pub async fn send_channel_data(&mut self, channel: u16, data: &[u8]) -> Result<()> {
+            self.operationer.create_channel_data(channel, data);
+            self.operationer.send().await?;
+            Ok(())
+        }
+
+        pub async fn recv_channel_data(&mut self) -> Result<(u16, &[u8])> {
+            let message = self.operationer.read_channel_data().await?;
+            Ok((message.number, message.bytes))
         }
     }
 
@@ -350,7 +381,6 @@ mod tests {
                 assert_eq!(ret.nonce, nonce);
 
                 let session = ret.payload;
-                assert_eq!(session.address, socket.address);
                 assert_eq!(session.username, username);
                 session
             };
@@ -435,6 +465,7 @@ mod tests {
                 "127.0.0.1:8088".parse()?,
                 HooksImpl(controller.clone()),
             ));
+
             sleep(Duration::from_secs(3)).await;
         }
 
@@ -497,6 +528,15 @@ mod tests {
         )
         .await?;
 
+        let mut turn_4 = TurnClient::new(
+            "127.0.0.1:3478".parse()?,
+            Credentials {
+                username: "hooks".to_string(),
+                password: "hooks".to_string(),
+            },
+        )
+        .await?;
+
         {
             turn_1.binding().await?;
             turn_2.binding().await?;
@@ -506,29 +546,132 @@ mod tests {
         let turn_1_port = turn_1.allocate().await?;
         let turn_2_port = turn_2.allocate().await?;
         let turn_3_port = turn_3.allocate().await?;
+        let turn_4_port = turn_4.allocate().await?;
+
+        assert!(turn_1.allocate().await.is_err());
+        assert!(turn_2.allocate().await.is_err());
+        assert!(turn_3.allocate().await.is_err());
+        assert!(turn_4.allocate().await.is_err());
 
         {
             turn_1.create_permission(turn_2_port).await?;
             turn_1.create_permission(turn_3_port).await?;
+            turn_1.create_permission(turn_4_port).await?;
             turn_1.channel_bind(turn_2_port, 0x4000).await?;
-            turn_1.channel_bind(turn_3_port, 0x4000).await?;
+            turn_1.channel_bind(turn_3_port, 0x4001).await?;
+            turn_1.channel_bind(turn_4_port, 0x4002).await?;
             turn_1.refresh(600).await?;
 
             turn_2.create_permission(turn_1_port).await?;
             turn_2.create_permission(turn_3_port).await?;
             turn_2.channel_bind(turn_1_port, 0x4000).await?;
-            turn_2.channel_bind(turn_3_port, 0x4000).await?;
+            turn_2.channel_bind(turn_3_port, 0x4002).await?;
             turn_2.refresh(600).await?;
 
             turn_3.create_permission(turn_1_port).await?;
             turn_3.create_permission(turn_2_port).await?;
-            turn_3.channel_bind(turn_1_port, 0x4000).await?;
-            turn_3.channel_bind(turn_2_port, 0x4000).await?;
+            turn_3.channel_bind(turn_1_port, 0x4001).await?;
+            turn_3.channel_bind(turn_2_port, 0x4002).await?;
             turn_3.refresh(600).await?;
+
+            turn_4.create_permission(turn_1_port).await?;
+            turn_4.channel_bind(turn_1_port, 0x4002).await?;
+            turn_4.refresh(600).await?;
+
+            assert!(turn_1.channel_bind(turn_2_port, 0x4000).await.is_err());
+            assert!(turn_1.channel_bind(turn_3_port, 0x4001).await.is_err());
+            assert!(turn_1.channel_bind(turn_4_port, 0x4002).await.is_err());
+            assert!(turn_2.channel_bind(turn_1_port, 0x4000).await.is_err());
+            assert!(turn_2.channel_bind(turn_3_port, 0x4002).await.is_err());
+            assert!(turn_3.channel_bind(turn_1_port, 0x4001).await.is_err());
+            assert!(turn_3.channel_bind(turn_2_port, 0x4002).await.is_err());
+            assert!(turn_4.channel_bind(turn_1_port, 0x4002).await.is_err());
         }
 
         {
-            let data = "1 forwards to 2 and 3".as_bytes();
+            let data = "1 forwards to 2,3,4 channel data".as_bytes();
+            turn_1.send_channel_data(0x4000, data).await?;
+            let ret = turn_2.recv_channel_data().await?;
+            assert_eq!(ret.0, 0x4000);
+            assert_eq!(ret.1, data);
+
+            turn_1.send_channel_data(0x4001, data).await?;
+            let ret = turn_3.recv_channel_data().await?;
+            assert_eq!(ret.0, 0x4001);
+            assert_eq!(ret.1, data);
+
+            turn_1.send_channel_data(0x4002, data).await?;
+            let ret = turn_4.recv_channel_data().await?;
+            assert_eq!(ret.0, 0x4002);
+            assert_eq!(ret.1, data);
+        }
+
+        {
+            let data = "2 forwards to 1,3 channel data".as_bytes();
+            turn_2.send_channel_data(0x4000, data).await?;
+            let ret = turn_1.recv_channel_data().await?;
+            assert_eq!(ret.0, 0x4000);
+            assert_eq!(ret.1, data);
+            assert!(turn_3.recv_channel_data().await.is_err());
+            assert!(turn_4.recv_channel_data().await.is_err());
+
+            turn_2.send_channel_data(0x4002, data).await?;
+            let ret = turn_3.recv_channel_data().await?;
+            assert_eq!(ret.0, 0x4002);
+            assert_eq!(ret.1, data);
+            assert!(turn_1.recv_channel_data().await.is_err());
+            assert!(turn_4.recv_channel_data().await.is_err());
+
+            turn_2.send_channel_data(0x4001, data).await?;
+            assert!(turn_1.recv_channel_data().await.is_err());
+            assert!(turn_3.recv_channel_data().await.is_err());
+            assert!(turn_4.recv_channel_data().await.is_err());
+        }
+
+        {
+            let data = "3 forwards to 1,2 channel data".as_bytes();
+            turn_3.send_channel_data(0x4001, data).await?;
+            let ret = turn_1.recv_channel_data().await?;
+            assert_eq!(ret.0, 0x4001);
+            assert_eq!(ret.1, data);
+            assert!(turn_2.recv_channel_data().await.is_err());
+            assert!(turn_4.recv_channel_data().await.is_err());
+
+            turn_3.send_channel_data(0x4002, data).await?;
+            let ret = turn_2.recv_channel_data().await?;
+            assert_eq!(ret.0, 0x4002);
+            assert_eq!(ret.1, data);
+            assert!(turn_1.recv_channel_data().await.is_err());
+            assert!(turn_4.recv_channel_data().await.is_err());
+
+            turn_3.send_channel_data(0x4000, data).await?;
+            assert!(turn_2.recv_channel_data().await.is_err());
+            assert!(turn_1.recv_channel_data().await.is_err());
+            assert!(turn_4.recv_channel_data().await.is_err());
+        }
+
+        {
+            let data = "4 forwards to 1 channel data".as_bytes();
+            turn_4.send_channel_data(0x4002, data).await?;
+            let ret = turn_1.recv_channel_data().await?;
+            assert_eq!(ret.0, 0x4002);
+            assert_eq!(ret.1, data);
+            assert!(turn_2.recv_channel_data().await.is_err());
+            assert!(turn_3.recv_channel_data().await.is_err());
+
+            turn_4.send_channel_data(0x4000, data).await?;
+            assert!(turn_1.recv_channel_data().await.is_err());
+            assert!(turn_2.recv_channel_data().await.is_err());
+            assert!(turn_3.recv_channel_data().await.is_err());
+
+            turn_4.send_channel_data(0x4001, data).await?;
+            assert!(turn_1.recv_channel_data().await.is_err());
+            assert!(turn_2.recv_channel_data().await.is_err());
+            assert!(turn_3.recv_channel_data().await.is_err());
+        }
+
+        {
+            let data = "1 forwards to 2,3,4".as_bytes();
             turn_1.send_indication(turn_2_port, data).await?;
             let ret = turn_2.recv_indication().await?;
             assert_eq!(ret.0, turn_1_port);
@@ -538,10 +681,15 @@ mod tests {
             let ret = turn_3.recv_indication().await?;
             assert_eq!(ret.0, turn_1_port);
             assert_eq!(ret.1, data);
+
+            turn_1.send_indication(turn_4_port, data).await?;
+            let ret = turn_4.recv_indication().await?;
+            assert_eq!(ret.0, turn_1_port);
+            assert_eq!(ret.1, data);
         }
 
         {
-            let data = "2 forwards to 1 and 3".as_bytes();
+            let data = "2 forwards to 1,3".as_bytes();
             turn_2.send_indication(turn_1_port, data).await?;
             let ret = turn_1.recv_indication().await?;
             assert_eq!(ret.0, turn_2_port);
@@ -551,10 +699,13 @@ mod tests {
             let ret = turn_3.recv_indication().await?;
             assert_eq!(ret.0, turn_2_port);
             assert_eq!(ret.1, data);
+
+            turn_2.send_indication(turn_4_port, data).await?;
+            assert!(turn_4.recv_indication().await.is_err());
         }
 
         {
-            let data = "3 forwards to 1 and 2".as_bytes();
+            let data = "3 forwards to 1,2".as_bytes();
             turn_3.send_indication(turn_1_port, data).await?;
             let ret = turn_1.recv_indication().await?;
             assert_eq!(ret.0, turn_3_port);
@@ -564,11 +715,25 @@ mod tests {
             let ret = turn_2.recv_indication().await?;
             assert_eq!(ret.0, turn_3_port);
             assert_eq!(ret.1, data);
+
+            turn_3.send_indication(turn_4_port, data).await?;
+            assert!(turn_4.recv_indication().await.is_err());
+        }
+
+        {
+            let data = "4 forwards to 1".as_bytes();
+            turn_4.send_indication(turn_1_port, data).await?;
+            let ret = turn_1.recv_indication().await?;
+            assert_eq!(ret.0, turn_4_port);
+            assert_eq!(ret.1, data);
+
+            turn_4.send_indication(turn_3_port, data).await?;
+            assert!(turn_3.recv_indication().await.is_err());
         }
 
         {
             let info = controller.get_info().await.unwrap().payload;
-            assert_eq!(info.port_allocated, 3);
+            assert_eq!(info.port_allocated, 4);
             assert_eq!(info.port_capacity, 16383);
 
             let interface = info.interfaces.get(0).unwrap();

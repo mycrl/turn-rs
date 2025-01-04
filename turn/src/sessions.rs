@@ -735,6 +735,8 @@ impl<T: Observer + 'static> Sessions<T> {
 
             if !session.allocate.channels.contains(&channel) {
                 session.allocate.channels.push(channel);
+            } else {
+                return false;
             }
         }
 
