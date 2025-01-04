@@ -51,8 +51,6 @@ pub struct Info {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Session {
-    /// The IP address and port number currently used by the session
-    pub address: SocketAddr,
     /// Username used in session authentication
     pub username: String,
     /// The password used in session authentication
