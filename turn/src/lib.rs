@@ -188,7 +188,7 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -213,7 +213,7 @@ where
     /// ```
     /// use std::net::SocketAddr;
     /// use stun::attribute::Transport;
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;

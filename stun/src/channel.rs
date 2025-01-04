@@ -51,7 +51,7 @@ impl ChannelData<'_> {
     /// ```
     /// use bytes::{BufMut, BytesMut};
     /// use std::convert::TryFrom;
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
@@ -87,7 +87,7 @@ impl ChannelData<'_> {
     /// ```
     /// use bytes::{BufMut, BytesMut};
     /// use std::convert::TryFrom;
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
@@ -118,7 +118,7 @@ impl<'a> TryFrom<&'a [u8]> for ChannelData<'a> {
     /// ```
     /// use bytes::{BufMut, BytesMut};
     /// use std::convert::TryFrom;
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);

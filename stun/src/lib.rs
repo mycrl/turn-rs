@@ -150,7 +150,7 @@ impl TryFrom<u16> for Method {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// assert_eq!(
     ///     Method::try_from(0x0001).unwrap(),
@@ -244,7 +244,7 @@ impl From<Method> for u16 {
     ///
     /// ```
     /// use std::convert::Into;
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// assert_eq!(0x0001u16, Method::Binding(Kind::Request).into());
     /// assert_eq!(0x0101u16, Method::Binding(Kind::Response).into());
@@ -346,8 +346,8 @@ impl Decoder {
     /// # Test
     ///
     /// ```
-    /// use stun::attribute::*;
-    /// use stun::*;
+    /// use mycrl_stun::attribute::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer = [
     ///     0x00, 0x01, 0x00, 0x4c, 0x21, 0x12, 0xa4, 0x42, 0x71, 0x66, 0x46, 0x31,
@@ -386,8 +386,8 @@ impl Decoder {
     /// # Test
     ///
     /// ```
-    /// use stun::attribute::*;
-    /// use stun::*;
+    /// use mycrl_stun::attribute::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer = [
     ///     0x00, 0x01, 0x00, 0x4c, 0x21, 0x12, 0xa4, 0x42, 0x71, 0x66, 0x46, 0x31,

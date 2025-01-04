@@ -12,9 +12,9 @@ use crate::StunError;
 /// # Test
 ///
 /// ```
-/// assert_eq!(stun::util::pad_size(4), 0);
-/// assert_eq!(stun::util::pad_size(0), 0);
-/// assert_eq!(stun::util::pad_size(5), 3);
+/// assert_eq!(mycrl_stun::util::pad_size(4), 0);
+/// assert_eq!(mycrl_stun::util::pad_size(0), 0);
+/// assert_eq!(mycrl_stun::util::pad_size(5), 3);
 /// ```
 #[inline(always)]
 pub fn pad_size(size: usize) -> usize {
@@ -37,7 +37,7 @@ pub fn pad_size(size: usize) -> usize {
 /// ];
 ///
 /// let key =
-///     stun::util::long_term_credential_digest("panda", "panda", "raspberry");
+///     mycrl_stun::util::long_term_credential_digest("panda", "panda", "raspberry");
 /// assert_eq!(key, buffer);
 /// ```
 pub fn long_term_credential_digest(username: &str, password: &str, realm: &str) -> [u8; 16] {
@@ -71,7 +71,7 @@ pub fn long_term_credential_digest(username: &str, password: &str, realm: &str) 
 ///     0x74, 0xe2, 0x3c, 0x26, 0xc5, 0xb1, 0x03, 0xb2, 0x6d,
 /// ];
 ///
-/// let hmac_output = stun::util::hmac_sha1(&key, &[&buffer])
+/// let hmac_output = mycrl_stun::util::hmac_sha1(&key, &[&buffer])
 ///     .unwrap()
 ///     .into_bytes();
 /// assert_eq!(hmac_output.as_slice(), &sign);
@@ -94,7 +94,7 @@ pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<CtOutput<Hmac<sha1::Sha
 /// # Test
 ///
 /// ```
-/// assert_eq!(stun::util::fingerprint(b"1"), 3498621689);
+/// assert_eq!(mycrl_stun::util::fingerprint(b"1"), 3498621689);
 /// ```
 pub fn fingerprint(bytes: &[u8]) -> u32 {
     Crc::<u32>::new(&CRC_32_ISO_HDLC).checksum(bytes) ^ 0x5354_554e

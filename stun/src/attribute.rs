@@ -125,7 +125,7 @@ impl Addr {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use stun::attribute::*;
+    /// use mycrl_stun::attribute::*;
     ///
     /// let xor_addr_bytes: [u8; 8] =
     ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
@@ -171,7 +171,7 @@ impl Addr {
     /// # Test
     ///
     /// ```
-    /// use stun::attribute::*;
+    /// use mycrl_stun::attribute::*;
     ///
     /// let xor_addr_bytes: [u8; 8] =
     ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
@@ -214,7 +214,7 @@ impl Addr {
 ///
 /// ```
 /// use std::net::IpAddr;
-/// use stun::attribute::*;
+/// use mycrl_stun::attribute::*;
 ///
 /// let bytes: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
 ///
@@ -236,7 +236,7 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, StunError> {
 ///
 /// ```
 /// use std::net::IpAddr;
-/// use stun::attribute::*;
+/// use mycrl_stun::attribute::*;
 ///
 /// let bytes: [u8; 20] = [
 ///     0x00, 0x01, 0xdd, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -261,7 +261,7 @@ pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr, StunError> {
 ///
 /// ```
 /// use std::net::SocketAddr;
-/// use stun::attribute::*;
+/// use mycrl_stun::attribute::*;
 ///
 /// let source: SocketAddr = "192.168.0.107:1".parse().unwrap();
 ///
@@ -288,7 +288,7 @@ pub fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
 ///
 /// ```
 /// use std::net::{IpAddr, Ipv4Addr};
-/// use stun::attribute::*;
+/// use mycrl_stun::attribute::*;
 ///
 /// let source: Ipv4Addr = "192.168.0.107".parse().unwrap();
 ///
@@ -310,7 +310,7 @@ pub fn xor_v4(addr: Ipv4Addr) -> IpAddr {
 ///
 /// ```
 /// use std::net::{IpAddr, Ipv6Addr};
-/// use stun::attribute::*;
+/// use mycrl_stun::attribute::*;
 ///
 /// let source: Ipv6Addr = "::ffff:192.10.47.15".parse().unwrap();
 ///
@@ -917,7 +917,7 @@ impl From<ErrorKind> for Error<'_> {
     /// # Example
     ///
     /// ```no_run
-    /// use stun::attribute::*;
+    /// use mycrl_stun::attribute::*;
     ///
     /// Error::from(ErrorKind::TryAlternate);
     /// ```
@@ -936,7 +936,7 @@ impl Error<'_> {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use stun::attribute::*;
+    /// use mycrl_stun::attribute::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -962,7 +962,7 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use stun::attribute::*;
+    /// use mycrl_stun::attribute::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -994,7 +994,7 @@ impl From<ErrorKind> for &'static str {
     ///
     /// ```
     /// use std::convert::Into;
-    /// use stun::attribute::*;
+    /// use mycrl_stun::attribute::*;
     ///
     /// let err: &'static str = ErrorKind::TryAlternate.into();
     /// assert_eq!(err, "Try Alternate");

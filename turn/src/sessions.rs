@@ -75,7 +75,7 @@ pub struct Endpoint {
 /// and manually.
 ///
 /// ```
-/// use turn::sessions::Timer;
+/// use mycrl_turn::sessions::Timer;
 ///
 /// let timer = Timer::default();
 ///
@@ -219,7 +219,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -276,7 +276,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -335,7 +335,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -431,7 +431,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -509,7 +509,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -624,7 +624,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -767,7 +767,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -842,7 +842,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -918,7 +918,7 @@ impl<T: Observer + 'static> Sessions<T> {
     /// # Test
     ///
     /// ```
-    /// use turn::*;
+    /// use mycrl_turn::*;
     ///
     /// #[derive(Clone)]
     /// struct ObserverTest;
@@ -1092,7 +1092,7 @@ impl PortAllocatePools {
     /// # Test
     ///
     /// ```
-    /// use turn::sessions::*;
+    /// use mycrl_turn::sessions::*;
     ///
     /// assert_eq!(PortAllocatePools::bucket_size(), 256);
     /// ```
@@ -1105,7 +1105,7 @@ impl PortAllocatePools {
     /// # Test
     ///
     /// ```
-    /// use turn::sessions::*;
+    /// use mycrl_turn::sessions::*;
     ///
     /// assert_eq!(PortAllocatePools::bit_len(), 63);
     /// ```
@@ -1118,8 +1118,8 @@ impl PortAllocatePools {
     /// # Test
     ///
     /// ```
-    /// use turn::sessions::Bit;
-    /// use turn::sessions::PortAllocatePools;
+    /// use mycrl_turn::sessions::Bit;
+    /// use mycrl_turn::sessions::PortAllocatePools;
     ///
     /// assert_eq!(PortAllocatePools::capacity(), 65535 - 49152);
     /// ```
@@ -1132,7 +1132,7 @@ impl PortAllocatePools {
     /// # Test
     ///
     /// ```
-    /// use turn::sessions::*;
+    /// use mycrl_turn::sessions::*;
     ///
     /// assert_eq!(PortAllocatePools::port_range(), 49152..65535);
     /// ```
@@ -1143,7 +1143,7 @@ impl PortAllocatePools {
     /// get pools allocated size.
     ///
     /// ```
-    /// use turn::sessions::PortAllocatePools;
+    /// use mycrl_turn::sessions::PortAllocatePools;
     ///
     /// let mut pools = PortAllocatePools::default();
     /// assert_eq!(pools.len(), 0);
@@ -1158,7 +1158,7 @@ impl PortAllocatePools {
     /// get pools allocated size is empty.
     ///
     /// ```
-    /// use turn::sessions::PortAllocatePools;
+    /// use mycrl_turn::sessions::PortAllocatePools;
     ///
     /// let mut pools = PortAllocatePools::default();
     /// assert_eq!(pools.len(), 0);
@@ -1173,7 +1173,7 @@ impl PortAllocatePools {
     /// # Test
     ///
     /// ```
-    /// use turn::sessions::PortAllocatePools;
+    /// use mycrl_turn::sessions::PortAllocatePools;
     ///
     /// let mut pool = PortAllocatePools::default();
     ///
@@ -1244,8 +1244,8 @@ impl PortAllocatePools {
     /// # Test
     ///
     /// ```
-    /// use turn::sessions::Bit;
-    /// use turn::sessions::PortAllocatePools;
+    /// use mycrl_turn::sessions::Bit;
+    /// use mycrl_turn::sessions::PortAllocatePools;
     ///
     /// let mut pool = PortAllocatePools::default();
     ///
@@ -1277,7 +1277,7 @@ impl PortAllocatePools {
     /// # Test
     ///
     /// ```
-    /// use turn::sessions::PortAllocatePools;
+    /// use mycrl_turn::sessions::PortAllocatePools;
     ///
     /// let mut pool = PortAllocatePools::default();
     ///

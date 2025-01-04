@@ -35,7 +35,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -68,8 +68,8 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use stun::attribute::UserName;
-    /// use stun::*;
+    /// use mycrl_stun::attribute::UserName;
+    /// use mycrl_stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -123,7 +123,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -174,7 +174,7 @@ impl<'a, 'b> MessageWriter<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -259,8 +259,8 @@ impl<'a> MessageReader<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use stun::attribute::*;
-    /// use stun::*;
+    /// use mycrl_stun::attribute::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -285,8 +285,8 @@ impl<'a> MessageReader<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use stun::attribute::*;
-    /// use stun::*;
+    /// use mycrl_stun::attribute::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -315,7 +315,7 @@ impl<'a> MessageReader<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x03, 0x00, 0x50, 0x21, 0x12, 0xa4, 0x42, 0x64, 0x4f, 0x5a,
@@ -375,8 +375,8 @@ impl<'a> MessageReader<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use stun::attribute::*;
-    /// use stun::*;
+    /// use mycrl_stun::attribute::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
@@ -482,7 +482,7 @@ impl<'a> MessageReader<'a> {
     /// # Test
     ///
     /// ```
-    /// use stun::*;
+    /// use mycrl_stun::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
