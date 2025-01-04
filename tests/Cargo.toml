@@ -8,8 +8,8 @@ publish = false
 anyhow = "1.0"
 base64 = "0.22.1"
 tokio = { version = "1", features = ["full"] }
-stun = { path = "../stun" }
-turn = { path = "../turn" }
+stun = { path = "../stun", package = "mycrl-stun" }
+turn = { path = "../turn", package = "mycrl-turn" }
 turn-server = { path = "../turn-server", features = ["mimalloc", "hooks", "api", "prometheus"]}
 turn-driver = { path = "../drivers" }
 bytes = "1.4.0"

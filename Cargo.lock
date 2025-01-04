@@ -1087,6 +1087,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "mycrl-stun"
+version = "1.1.0"
+dependencies = [
+ "bytes",
+ "crc",
+ "criterion",
+ "hmac",
+ "md-5",
+ "num_enum",
+ "sha-1",
+ "thiserror 2.0.8",
+]
+
+[[package]]
+name = "mycrl-turn"
+version = "1.3.0"
+dependencies = [
+ "ahash",
+ "bytes",
+ "mycrl-stun",
+ "parking_lot",
+ "pollster",
+ "rand",
+]
+
+[[package]]
 name = "num-conv"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1762,20 +1788,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
-name = "stun"
-version = "1.1.0"
-dependencies = [
- "bytes",
- "crc",
- "criterion",
- "hmac",
- "md-5",
- "num_enum",
- "sha-1",
- "thiserror 2.0.8",
-]
-
-[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1855,11 +1867,11 @@ dependencies = [
  "async-trait",
  "base64",
  "bytes",
+ "mycrl-stun",
+ "mycrl-turn",
  "once_cell",
  "rand",
- "stun",
  "tokio",
- "turn",
  "turn-driver",
  "turn-server",
 ]
@@ -2124,18 +2136,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
-name = "turn"
-version = "1.3.0"
-dependencies = [
- "ahash",
- "bytes",
- "parking_lot",
- "pollster",
- "rand",
- "stun",
-]
-
-[[package]]
 name = "turn-driver"
 version = "0.3.1"
 dependencies = [
@@ -2161,6 +2161,8 @@ dependencies = [
  "itertools 0.13.0",
  "log",
  "mimalloc",
+ "mycrl-stun",
+ "mycrl-turn",
  "num_cpus",
  "once_cell",
  "parking_lot",
@@ -2170,10 +2172,8 @@ dependencies = [
  "serde",
  "serde_json",
  "simple_logger",
- "stun",
  "tokio",
  "toml",
- "turn",
 ]
 
 [[package]]
