@@ -39,6 +39,9 @@ default-features = false
 features = ["json", "rustls-tls", "http2", "gzip"]
 
 [features]
+default = ["udp"]
+udp = []
+tcp = []
 hooks = []
 api = []
 mimalloc = []

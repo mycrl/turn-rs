@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 
 use turn::{Observer, Service};
 
+#[allow(unused)]
 struct ServerStartOptions<T> {
     bind: SocketAddr,
     external: SocketAddr,
@@ -16,12 +17,14 @@ struct ServerStartOptions<T> {
     statistics: Statistics,
 }
 
+#[allow(unused)]
 trait Server {
     async fn start<T>(options: ServerStartOptions<T>) -> Result<(), anyhow::Error>
     where
         T: Clone + Observer + 'static;
 }
 
+#[cfg(feature = "udp")]
 mod udp {
     use super::{Server as ServerExt, ServerStartOptions};
     use crate::statistics::Stats;
@@ -151,11 +154,18 @@ mod udp {
                 log::error!("udp server close: interface={:?}", local_addr);
             });
 
+            log::info!(
+                "turn server listening: bind={}, external={}, transport=UDP",
+                bind,
+                external,
+            );
+
             Ok(())
         }
     }
 }
 
+#[cfg(feature = "tcp")]
 mod tcp {
     use super::{Server as ServerExt, ServerStartOptions};
     use crate::statistics::Stats;
@@ -440,6 +450,12 @@ mod tcp {
                 log::error!("tcp server close: interface={:?}", local_addr);
             });
 
+            log::info!(
+                "turn server listening: bind={}, external={}, transport=TCP",
+                bind,
+                external,
+            );
+
             Ok(())
         }
     }
@@ -453,6 +469,7 @@ pub async fn start<T>(config: &Config, statistics: &Statistics, service: &Servic
 where
     T: Clone + Observer + 'static,
 {
+    #[allow(unused)]
     use crate::config::Transport;
 
     let router = Router::default();
@@ -462,6 +479,7 @@ where
         bind,
     } in config.turn.interfaces.iter().cloned()
     {
+        #[allow(unused)]
         let options = ServerStartOptions {
             statistics: statistics.clone(),
             service: service.clone(),
@@ -471,16 +489,13 @@ where
         };
 
         match transport {
+            #[cfg(feature = "udp")]
             Transport::UDP => udp::Server::start(options).await?,
+            #[cfg(feature = "tcp")]
             Transport::TCP => tcp::Server::start(options).await?,
+            #[allow(unreachable_patterns)]
+            _ => (),
         };
-
-        log::info!(
-            "turn server listening: bind={}, external={}, transport={:?}",
-            bind,
-            external,
-            transport,
-        );
     }
 
     Ok(())
