@@ -1,9 +1,11 @@
 [profile.release]
+debug-assertions = false
 overflow-checks = false
 strip = "debuginfo"
 panic = "abort"
 debug = false
 lto = true
+codegen-units = 1
 
 [workspace]
 resolver = "2"
