@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{ensure, Ok, Result};
+use anyhow::{Ok, Result, ensure};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use bytes::BytesMut;
 use rand::seq::SliceRandom;
