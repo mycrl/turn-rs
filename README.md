@@ -33,7 +33,7 @@ Because turn-rs only focuses on the core business, it removes a lot of features 
 
 ##### "Database storage is not supported"
 
-I don't think turn servers should be concerned about user information, just do their essential work, it's better to leave the hosting and storing of user information to other services, and interacting with databases adds complexity. turn-rs communicates with external services through http hooks, which can be more flexible in deciding how to deal with it based on their own business situation.
+I don't think turn servers should be concerned about user information, just do their essential work, it's better to leave the hosting and storing of user information to other services, and interacting with databases adds complexity.
 
 ##### "No transport layer encryption"
 
