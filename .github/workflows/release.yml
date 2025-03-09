@@ -103,7 +103,9 @@ jobs:
 
             - name: Build release (Windows)
               if: runner.os == 'Windows'
-              run: cargo build --release --all-features
+              run: |
+                  rustup update
+                  cargo build --release --all-features
 
             # Rename release
             - name: Rename release (Linux & Macos)
