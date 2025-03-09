@@ -1,6 +1,6 @@
 [package]
 name = "turn-server"
-version = "3.3.3"
+version = "3.3.4"
 edition = "2021"
 authors = ["mycrl <lepidodendraceae@gmail.com>"]
 description = "A pure rust-implemented turn server."

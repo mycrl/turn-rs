@@ -483,15 +483,15 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     assert_eq!(session.allocate.channels.len(), 0);
     /// }
     ///
-    /// assert!(sessions.allocate(&addr).is_none());
+    /// assert_eq!(sessions.allocate(&addr), Some(port));
     /// ```
     pub fn allocate(&self, addr: &SessionAddr) -> Option<u16> {
         let mut lock = self.state.sessions.write();
         let session = lock.get_mut(addr)?;
 
         // If the port has already been allocated, re-allocation is not allowed.
-        if session.allocate.port.is_some() {
-            return None;
+        if let Some(port) = session.allocate.port {
+            return Some(port);
         }
 
         // Records the port assigned to the current session and resets the alive time.
@@ -735,8 +735,6 @@ impl<T: Observer + 'static> Sessions<T> {
 
             if !session.allocate.channels.contains(&channel) {
                 session.allocate.channels.push(channel);
-            } else {
-                return false;
             }
         }
 
