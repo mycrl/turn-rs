@@ -29,7 +29,7 @@ Session:
 -   `address` - <sup>string</sup> - The IP address and port number currently used by the session
 -   `username` - <sup>string</sup> - Username used in session authentication
 -   `channels` - <sup>uint16[]</sup> - Channel numbers that have been assigned to the session
--   `port?` - <sup>uint16</sup> - Port numbers that have been assigned to the session
+-   `port` - <sup>uint16</sup> - Port numbers that have been assigned to the session
 -   `expires` - <sup>uint32</sup> - The validity period of the current session application, in seconds
 -   `permissions` - <sup>uint16[]</sup> - What ports have forwarding privileges for the session.
 
