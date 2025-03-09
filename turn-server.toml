@@ -53,17 +53,6 @@ external = "127.0.0.1:3478"
 #
 bind = "127.0.0.1:3000"
 
-# hooks url
-#
-# This option is used to specify the http address of the hooks service.
-#
-# Warn: This http server does not contain any means of authentication,
-# and sensitive information and dangerous operations can be obtained
-# through this service, please do not expose it directly to an unsafe
-# environment.
-#
-# hooks = "http://127.0.0.1:8080"
-
 [log]
 # log level
 #
