@@ -61,7 +61,7 @@ where
 {
     /// Check if the ip address belongs to the current turn server.
     #[inline(always)]
-    pub(crate) fn verify_ip(&self, address: &SocketAddr) -> bool {
+    pub fn verify_ip(&self, address: &SocketAddr) -> bool {
         self.service.interfaces.iter().any(|item| item.ip() == address.ip())
     }
 
@@ -111,7 +111,7 @@ where
     /// HMAC.  Such adjustment is necessary when attributes, such as
     /// FINGERPRINT, appear after MESSAGE-INTEGRITY.
     #[inline(always)]
-    pub(crate) fn auth(&self) -> Option<(&str, [u8; 16])> {
+    pub fn auth(&self) -> Option<(&str, [u8; 16])> {
         let username = self.message.get::<UserName>()?;
         let integrity = self
             .service
@@ -153,7 +153,7 @@ impl<T> Operationer<T>
 where
     T: Observer + 'static,
 {
-    pub(crate) fn new(service: ServiceContext<T>) -> Self {
+    pub fn new(service: ServiceContext<T>) -> Self {
         Self {
             address: SessionAddr {
                 address: "0.0.0.0:0".parse().unwrap(),
