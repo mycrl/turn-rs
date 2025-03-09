@@ -56,7 +56,6 @@ Some clients currently use local addresses for the turn server to create binding
     -   [start the server](./docs/start-the-server.md)
     -   [configure](./docs/configure.md)
     -   [api](./docs/rest-api.md)
--   [driver](./drivers) - ([crates.io](https://crates.io/crates/turn-driver)) Integration with turn-rs server is easy with rust.
 
 ## Features
 
