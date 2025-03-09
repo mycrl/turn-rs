@@ -80,6 +80,7 @@ level = "info"
 #
 # static_auth_secret = ""
 
+
 # static user password
 #
 # This option can be used to specify the
@@ -88,6 +89,6 @@ level = "info"
 # The server will try to use static authentication first, and then use
 # external control service authentication.
 #
-# [auth.static_credentials]
+[auth.static_credentials]
 # user1 = "test"
 # user2 = "test"

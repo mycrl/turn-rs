@@ -11,7 +11,7 @@ jobs:
             - name: publish to crates.io
               run: |
                   cargo login ${{ secrets.CRATES_IO_TOKEN }}
-                  cargo publish -p turn-server
+                  cargo publish
     publish-to-github-package:
         needs: publish-to-cratesio
         runs-on: ubuntu-latest
@@ -85,6 +85,7 @@ jobs:
               run: |
                   sudo apt update
                   sudo apt install -y gcc-aarch64-linux-gnu
+                  rustup update
                   rustup target add ${{ matrix.target }}
                   cargo install cargo-zigbuild
                   sudo snap install zig --classic --beta
@@ -92,6 +93,7 @@ jobs:
             - name: Install dependencies (Macos)
               if: runner.os == 'Macos'
               run: |
+                  rustup update
                   rustup target add ${{ matrix.target }}
                   cargo install cargo-zigbuild
                   brew install zig

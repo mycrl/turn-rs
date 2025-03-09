@@ -55,9 +55,7 @@ Some clients currently use local addresses for the turn server to create binding
     -   [build](./docs/build.md)
     -   [start the server](./docs/start-the-server.md)
     -   [configure](./docs/configure.md)
-    -   [rest api](./docs/rest-api.md)
-    -   [http hooks](./docs/http-hooks.md)
--   [driver](./drivers) - ([crates.io](https://crates.io/crates/turn-driver)) Integration with turn-rs server is easy with rust.
+    -   [api](./docs/rest-api.md)
 
 ## Features
 
@@ -66,7 +64,7 @@ Some clients currently use local addresses for the turn server to create binding
 -   Static authentication lists can be used in configuration files.
 -   Only virtual ports are always allocated and no real system ports are occupied.
 -   The transport layer supports TCP and UDP protocols, and supports binding multiple network cards or interfaces.
--   The REST API can be used so that the turn server can proactively notify the external service of events and use external authentication mechanisms, and the external can also proactively control the turn server and manage the session.
+-   The REST API can be used so that the turn server can proactively notify the external service of events, and the external can also proactively control the turn server and manage the session.
 
 #### RFC
 
@@ -129,9 +127,7 @@ cargo build --release
 
 -   `udp` - (enabled by default) Enables UDP transport layer support.
 -   `tcp` - Enables TCP transport layer support.
--   `hooks` - Enable the HTTP Hooks feature.
 -   `api` - Enable the HTTP REST API server feature.
--   `mimalloc` - Enable the mimalloc memory allocator.
 -   `prometheus` - Enable prometheus indicator support.
 
 No features are enabled by default and need to be turned on by manual specification.

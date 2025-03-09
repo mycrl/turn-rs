@@ -45,17 +45,6 @@ external = "127.0.0.1:3478"
 # environment.
 bind = "127.0.0.1:3000"
 
-# hooks url
-#
-# This option is used to specify the http address of the hooks service.
-#
-# Warn: This http server does not contain any means of authentication,
-# and sensitive information and dangerous operations can be obtained
-# through this service, please do not expose it directly to an unsafe
-# environment.
-#
-# hooks = "http://127.0.0.1:8080"
-
 [log]
 # log level
 #
@@ -139,19 +128,6 @@ As for why bind and external are needed, this is because for the stun protocol, 
 -   Default: "127.0.0.1:3000"
 
 Describes the address to which the turn api server is bound.
-
-The turn service provides an external REST API. External parties can control the turn service through HTTP or allow the turn service to perform dynamic authentication and push events to the outside through HTTP.
-
-> Warning: The REST API does not provide any authentication or encryption measures. You need to run the turn service in a trusted network environment or add a proxy to increase authentication and encryption measures.
-
----
-
-### `api.hooks`
-
--   Type: string
--   Default: None
-
-Describes the address of external Web Hooks. The default value is empty. The purpose of Web Hooks is to allow the turn service to push to external services when authentication is required and event updates occur.
 
 The turn service provides an external REST API. External parties can control the turn service through HTTP or allow the turn service to perform dynamic authentication and push events to the outside through HTTP.
 
