@@ -452,7 +452,7 @@ impl<T: Observer + 'static> Sessions<T> {
     ///     assert_eq!(session.allocate.channels.len(), 0);
     /// }
     ///
-    /// assert!(sessions.allocate(&addr).is_none());
+    /// assert_eq!(sessions.allocate(&addr), Some(port));
     /// ```
     pub fn allocate(&self, addr: &SessionAddr) -> Option<u16> {
         let mut lock = self.state.sessions.write();

@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Result, ensure};
+use anyhow::{ensure, Ok, Result};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use bytes::BytesMut;
 use rand::seq::SliceRandom;
@@ -396,10 +396,10 @@ async fn integration_testing() -> Result<()> {
     let turn_3_port = turn_3.allocate().await?;
     let turn_4_port = turn_4.allocate().await?;
 
-    assert!(turn_1.allocate().await.is_err());
-    assert!(turn_2.allocate().await.is_err());
-    assert!(turn_3.allocate().await.is_err());
-    assert!(turn_4.allocate().await.is_err());
+    assert_eq!(turn_1.allocate().await?, turn_1_port);
+    assert_eq!(turn_2.allocate().await?, turn_2_port);
+    assert_eq!(turn_3.allocate().await?, turn_3_port);
+    assert_eq!(turn_4.allocate().await?, turn_4_port);
 
     {
         turn_1.create_permission(turn_2_port).await?;
@@ -426,14 +426,14 @@ async fn integration_testing() -> Result<()> {
         turn_4.channel_bind(turn_1_port, 0x4002).await?;
         turn_4.refresh(600).await?;
 
-        assert!(turn_1.channel_bind(turn_2_port, 0x4000).await.is_err());
-        assert!(turn_1.channel_bind(turn_3_port, 0x4001).await.is_err());
-        assert!(turn_1.channel_bind(turn_4_port, 0x4002).await.is_err());
-        assert!(turn_2.channel_bind(turn_1_port, 0x4000).await.is_err());
-        assert!(turn_2.channel_bind(turn_3_port, 0x4002).await.is_err());
-        assert!(turn_3.channel_bind(turn_1_port, 0x4001).await.is_err());
-        assert!(turn_3.channel_bind(turn_2_port, 0x4002).await.is_err());
-        assert!(turn_4.channel_bind(turn_1_port, 0x4002).await.is_err());
+        assert!(turn_1.channel_bind(turn_2_port, 0x4000).await.is_ok());
+        assert!(turn_1.channel_bind(turn_3_port, 0x4001).await.is_ok());
+        assert!(turn_1.channel_bind(turn_4_port, 0x4002).await.is_ok());
+        assert!(turn_2.channel_bind(turn_1_port, 0x4000).await.is_ok());
+        assert!(turn_2.channel_bind(turn_3_port, 0x4002).await.is_ok());
+        assert!(turn_3.channel_bind(turn_1_port, 0x4001).await.is_ok());
+        assert!(turn_3.channel_bind(turn_2_port, 0x4002).await.is_ok());
+        assert!(turn_4.channel_bind(turn_1_port, 0x4002).await.is_ok());
     }
 
     {
