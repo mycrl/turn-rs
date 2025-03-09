@@ -11,7 +11,7 @@ jobs:
             - name: publish to crates.io
               run: |
                   cargo login ${{ secrets.CRATES_IO_TOKEN }}
-                  cargo publish -p turn-server
+                  cargo publish
     publish-to-github-package:
         needs: publish-to-cratesio
         runs-on: ubuntu-latest
