@@ -55,7 +55,7 @@ Some clients currently use local addresses for the turn server to create binding
     -   [build](./docs/build.md)
     -   [start the server](./docs/start-the-server.md)
     -   [configure](./docs/configure.md)
-    -   [api](./docs/rest-api.md)
+    -   [api](./docs/api.md)
 
 ## Features
 
