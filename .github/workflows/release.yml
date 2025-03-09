@@ -85,6 +85,7 @@ jobs:
               run: |
                   sudo apt update
                   sudo apt install -y gcc-aarch64-linux-gnu
+                  rustup update
                   rustup target add ${{ matrix.target }}
                   cargo install cargo-zigbuild
                   sudo snap install zig --classic --beta
@@ -92,6 +93,7 @@ jobs:
             - name: Install dependencies (Macos)
               if: runner.os == 'Macos'
               run: |
+                  rustup update
                   rustup target add ${{ matrix.target }}
                   cargo install cargo-zigbuild
                   brew install zig
@@ -103,9 +105,7 @@ jobs:
 
             - name: Build release (Windows)
               if: runner.os == 'Windows'
-              run: |
-                  rustup update
-                  cargo build --release --all-features
+              run: cargo build --release --all-features
 
             # Rename release
             - name: Rename release (Linux & Macos)
