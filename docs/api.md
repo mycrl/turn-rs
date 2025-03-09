@@ -1,12 +1,5 @@
 # REST API
 
-#### Global Response Headers
-
--   `realm` - <sup>string</sup> - turn server realm
--   `nonce` - <sup>string</sup> - The runtime id of the turn server
-
-nonce: A new ID is generated each time the server is started. This is a random string. Its main function is to determine whether the turn server has been restarted.
-
 ---
 
 ### GET - `/info` - Info
@@ -35,7 +28,6 @@ Session:
 
 -   `address` - <sup>string</sup> - The IP address and port number currently used by the session
 -   `username` - <sup>string</sup> - Username used in session authentication
--   `password` - <sup>string</sup> - The password used in session authentication
 -   `channels` - <sup>uint16[]</sup> - Channel numbers that have been assigned to the session
 -   `port?` - <sup>uint16</sup> - Port numbers that have been assigned to the session
 -   `expires` - <sup>uint32</sup> - The validity period of the current session application, in seconds
@@ -61,3 +53,43 @@ Get session statistics, which is mainly the traffic statistics of the current se
 ### DELETE - `/session?address=&interface=`
 
 Delete the session. Deleting the session will cause the turn server to delete all routing information of the current session. If there is a peer, the peer will also be disconnected.
+
+---
+
+### GET - `/events` (EventSource)
+
+> This is an sse push event interface through which clients can subscribe to server events.
+
+[Session]:
+
+-   `address` - <sup>string</sup> - The IP address and port number of the UDP or TCP connection used by the client.
+-   `interface` - <sup>string</sup> - The network interface used by the current session.
+
+allocate:
+
+-   `session` - <sup>Session</sup>
+-   `username` - <sup>string</sup> - The username used for the turn session.
+-   `port` - <sup>uint16</sup> - The port to which the request is assigned.
+
+channel binding:
+
+-   `session` - <sup>Session</sup>
+-   `username` - <sup>string</sup> - The username used for the turn session.
+-   `channel` - <sup>uint16</sup> - The channel to which the request is binding.
+
+create permission:
+
+-   `session` - <sup>Session</sup>
+-   `username` - <sup>string</sup> - The username used for the turn session.
+-   `ports` - <sup>uint16[]</sup> - The port number of the other side specified when the privilege was created.
+
+refresh:
+
+-   `session` - <sup>Session</sup>
+-   `username` - <sup>string</sup> - The username used for the turn session.
+-   `lifetime` - <sup>uint32</sup> - Time to expiration in seconds.
+
+closed:
+
+-   `session` - <sup>Session</sup>
+-   `username` - <sup>string</sup> - The username used for the turn session.
