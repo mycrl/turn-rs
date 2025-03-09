@@ -1,11 +1,4 @@
----
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
-assignees: ''
-
----
+> 你可以使用中文报告问题
 
 **Describe the bug**
 A clear and concise description of what the bug is.
