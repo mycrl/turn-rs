@@ -1,3 +1,61 @@
+[package]
+name = "turn-server"
+version = "3.4.0"
+edition = "2024"
+authors = ["mycrl <lepidodendraceae@gmail.com>"]
+description = "A pure rust-implemented turn server."
+readme = "../README.md"
+homepage = "https://github.com/mycrl/turn-rs"
+repository = "https://github.com/mycrl/turn-rs"
+license = "GPL-2.0-or-later"
+keywords = ["stun", "webrtc", "turn", "turn-server"]
+categories = ["parsing", "network-programming"]
+
+[dependencies]
+ahash = "0.8"
+anyhow = "1.0"
+axum = "0.7"
+bytes = "1"
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+log = "0.4"
+mimalloc = { version = "0.1", default-features = false }
+parking_lot = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0"
+simple_logger = "5"
+tokio = { version = "1", features = ["full"] }
+toml = "0.7"
+rand = "0.8"
+itertools = "0.13.0"
+prometheus = "0.13.4"
+num_enum = "0.7"
+md-5 = "0.10"
+hmac = "0.12"
+sha-1 = "0.10"
+crc = "3"
+thiserror = "2.0.4"
+tokio-stream = { version = "0.1", features = ["sync"] }
+
+[dev-dependencies]
+criterion = "0.5"
+anyhow = "1.0"
+base64 = "0.22.1"
+tokio = { version = "1", features = ["full"] }
+bytes = "1.4.0"
+rand = "0.8.5"
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[features]
+default = ["udp"]
+udp = []
+tcp = []
+api = []
+prometheus = ["api"]
+
 [profile.release]
 debug-assertions = false
 overflow-checks = false
@@ -6,13 +64,3 @@ panic = "abort"
 debug = false
 lto = true
 codegen-units = 1
-
-[workspace]
-resolver = "2"
-members = [
-    "tests", 
-    "turn", 
-    "stun",
-    "turn-server", 
-    "drivers", 
-]

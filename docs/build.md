@@ -27,15 +27,13 @@ export RUSTFLAGS='-C target-cpu=native'
 
 -   `udp` - (enabled by default) Enables UDP transport layer support.
 -   `tcp` - Enables TCP transport layer support.
--   `hooks` - Enable the HTTP Hooks feature.
 -   `api` - Enable the HTTP REST API server feature.
--   `mimalloc` - Enable the mimalloc memory allocator.
 -   `prometheus` - Enable prometheus indicator support.
 
 No features are enabled by default and need to be turned on by manual specification.
 
 ```bash
-cargo build --release --features udp,tcp,api,hooks,mimalloc,prometheus
+cargo build --release --features udp,tcp,api,prometheus
 ```
 
 After the compilation is complete, you can find the binary file in the `target/release` directory.
