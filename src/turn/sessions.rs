@@ -994,6 +994,22 @@ pub enum Bit {
 /// While the server IP address, the well-known port, and the client IP
 /// address may be known by an attacker, the ephemeral port of the client
 /// is usually unknown and must be guessed.
+///
+/// # Test
+///
+/// ```
+/// use turn_server::turn::sessions::*;
+/// use std::collections::HashSet;
+/// 
+/// let mut pool = PortAllocatePools::default();
+/// let mut ports = HashSet::with_capacity(PortAllocatePools::capacity());
+/// 
+/// while let Some(port) = pool.alloc(None) {
+///     ports.insert(port);
+/// }
+///
+/// assert_eq!(PortAllocatePools::capacity() + 1, ports.len());
+/// ```
 pub struct PortAllocatePools {
     pub buckets: Vec<u64>,
     allocated: usize,
