@@ -1110,7 +1110,8 @@ impl PortAllocatePools {
     /// ```
     pub fn alloc(&mut self, start_index: Option<usize>) -> Option<u16> {
         let mut index = None;
-        let mut start = start_index.unwrap_or_else(|| thread_rng().gen_range(0..self.peak as u16) as usize);
+        let mut start =
+            start_index.unwrap_or_else(|| thread_rng().gen_range(0..self.peak as u16) as usize);
 
         // When the partition lookup has gone through the entire partition list, the
         // lookup should be stopped, and the location where it should be stopped is
@@ -1121,19 +1122,19 @@ impl PortAllocatePools {
             // Finds the first high position in the partition.
             if let Some(i) = {
                 let bucket = self.buckets[start];
-                let offset = if bucket < u64::MAX {
-                    bucket.leading_ones()
+                if bucket < u64::MAX {
+                    let offset = bucket.leading_ones();
+
+                    // Check to see if the jump is beyond the partition list or the lookup exceeds
+                    // the maximum length of the allocation table.
+                    if start == self.peak && offset > self.bit_len {
+                        None
+                    } else {
+                        Some(offset)
+                    }
                 } else {
-                    return None;
-                };
-
-                // Check to see if the jump is beyond the partition list or the lookup exceeds
-                // the maximum length of the allocation table.
-                if start == self.peak && offset > self.bit_len {
-                    return None;
+                    None
                 }
-
-                Some(offset)
             } {
                 index = Some(i as usize);
                 break;
