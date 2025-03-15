@@ -994,6 +994,22 @@ pub enum Bit {
 /// While the server IP address, the well-known port, and the client IP
 /// address may be known by an attacker, the ephemeral port of the client
 /// is usually unknown and must be guessed.
+///
+/// # Test
+///
+/// ```
+/// use std::collections::HashSet;
+/// use turn_server::turn::sessions::*;
+///
+/// let mut pool = PortAllocatePools::default();
+/// let mut ports = HashSet::with_capacity(PortAllocatePools::capacity());
+///
+/// while let Some(port) = pool.alloc(None) {
+///     ports.insert(port);
+/// }
+///
+/// assert_eq!(PortAllocatePools::capacity() + 1, ports.len());
+/// ```
 pub struct PortAllocatePools {
     pub buckets: Vec<u64>,
     allocated: usize,
@@ -1121,19 +1137,19 @@ impl PortAllocatePools {
             // Finds the first high position in the partition.
             if let Some(i) = {
                 let bucket = self.buckets[start];
-                let offset = if bucket < u64::MAX {
-                    bucket.leading_ones()
+                if bucket < u64::MAX {
+                    let offset = bucket.leading_ones();
+
+                    // Check to see if the jump is beyond the partition list or the lookup exceeds
+                    // the maximum length of the allocation table.
+                    if start == self.peak && offset > self.bit_len {
+                        None
+                    } else {
+                        Some(offset)
+                    }
                 } else {
-                    return None;
-                };
-
-                // Check to see if the jump is beyond the partition list or the lookup exceeds
-                // the maximum length of the allocation table.
-                if start == self.peak && offset > self.bit_len {
-                    return None;
+                    None
                 }
-
-                Some(offset)
             } {
                 index = Some(i as usize);
                 break;

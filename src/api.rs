@@ -94,7 +94,7 @@ pub async fn start_server(
             get(|State(app_state): State<Arc<ApiState>>| async move {
                 let sessions = app_state.service.get_sessions();
                 Json(json!({
-                    "software": concat!(env!("CARGO_PKG_NAME"), ":", env!("CARGO_PKG_VERSION")),
+                    "software": crate::SOFTWARE,
                     "uptime": app_state.uptime.elapsed().as_secs(),
                     "interfaces": app_state.config.turn.interfaces,
                     "port_capacity": PortAllocatePools::capacity(),

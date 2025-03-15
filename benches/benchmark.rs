@@ -1,45 +1,203 @@
+use std::{net::SocketAddr, sync::LazyLock};
+
+use bytes::BytesMut;
 use criterion::*;
-use turn_server::stun::Decoder;
+use rand::seq::SliceRandom;
+use turn_server::{
+    stun::{
+        ChannelData, Decoder, MessageEncoder, Transport,
+        attribute::{ChannelNumber, Nonce, Realm, ReqeestedTransport, UserName, XorPeerAddress},
+        method::{ALLOCATE_REQUEST, BINDING_REQUEST, CHANNEL_BIND_REQUEST, CREATE_PERMISSION_REQUEST},
+    },
+    turn::{Observer, Service, SessionAddr},
+};
 
-const CHANNEL_BIND: [u8; 108] = [
-    0x00, 0x09, 0x00, 0x58, 0x21, 0x12, 0xa4, 0x42, 0x35, 0x6a, 0x52, 0x42, 0x33, 0x4c, 0x65, 0x68, 0x2b, 0x7a, 0x75,
-    0x52, 0x00, 0x0c, 0x00, 0x04, 0x40, 0x00, 0x00, 0x00, 0x00, 0x12, 0x00, 0x08, 0x00, 0x01, 0xe1, 0x10, 0x5e, 0x12,
-    0xa4, 0x43, 0x00, 0x06, 0x00, 0x03, 0x64, 0x65, 0x76, 0x00, 0x00, 0x14, 0x00, 0x09, 0x6c, 0x6f, 0x63, 0x61, 0x6c,
-    0x68, 0x6f, 0x73, 0x74, 0x00, 0x00, 0x00, 0x00, 0x15, 0x00, 0x10, 0x6c, 0x37, 0x7a, 0x38, 0x33, 0x6b, 0x6c, 0x36,
-    0x61, 0x35, 0x63, 0x73, 0x77, 0x74, 0x74, 0x34, 0x00, 0x08, 0x00, 0x14, 0xbd, 0xb8, 0xee, 0x7d, 0xc8, 0x9f, 0x85,
-    0x1b, 0x5f, 0x18, 0x9a, 0x7b, 0x84, 0x3a, 0xfd, 0x88, 0xde, 0x03, 0xc0, 0x34,
-];
+#[derive(Clone)]
+struct SimpleObserver;
 
-const BINDING: [u8; 96] = [
-    0x00, 0x01, 0x00, 0x4c, 0x21, 0x12, 0xa4, 0x42, 0x71, 0x66, 0x46, 0x31, 0x2b, 0x59, 0x79, 0x65, 0x56, 0x69, 0x32,
-    0x72, 0x00, 0x06, 0x00, 0x09, 0x55, 0x43, 0x74, 0x39, 0x3a, 0x56, 0x2f, 0x2b, 0x2f, 0x00, 0x00, 0x00, 0xc0, 0x57,
-    0x00, 0x04, 0x00, 0x00, 0x03, 0xe7, 0x80, 0x29, 0x00, 0x08, 0x22, 0x49, 0xda, 0x28, 0x2c, 0x6f, 0x2e, 0xdb, 0x00,
-    0x24, 0x00, 0x04, 0x6e, 0x00, 0x28, 0xff, 0x00, 0x08, 0x00, 0x14, 0x19, 0x58, 0xda, 0x38, 0xed, 0x1e, 0xdd, 0xc8,
-    0x6b, 0x8e, 0x22, 0x63, 0x3a, 0x22, 0x63, 0x97, 0xcf, 0xf5, 0xde, 0x82, 0x80, 0x28, 0x00, 0x04, 0x56, 0xf7, 0xa3,
-    0xed,
-];
+impl Observer for SimpleObserver {
+    fn get_password(&self, _: &str) -> Option<String> {
+        Some("test".to_string())
+    }
+}
+
+static TOKEN: LazyLock<[u8; 12]> = LazyLock::new(|| {
+    let mut rng = rand::thread_rng();
+    let mut token = [0u8; 12];
+    token.shuffle(&mut rng);
+    token
+});
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut stun_decoder = c.benchmark_group("stun_decoder");
-    let mut codec = Decoder::default();
+    let a_session_addr = SessionAddr {
+        address: "127.0.0.1:1000".parse().unwrap(),
+        interface: "127.0.0.1:3478".parse().unwrap(),
+    };
 
-    let channel_bind = &CHANNEL_BIND[..];
-    stun_decoder.throughput(Throughput::Bytes(channel_bind.len() as u64));
-    stun_decoder.bench_function("decoder_channel_bind", |b| {
-        b.iter(|| {
-            codec.decode(channel_bind).unwrap();
-        })
-    });
+    let b_session_addr = SessionAddr {
+        address: "127.0.0.1:1001".parse().unwrap(),
+        interface: "127.0.0.1:3478".parse().unwrap(),
+    };
 
-    let binding = &BINDING[..];
-    stun_decoder.throughput(Throughput::Bytes(binding.len() as u64));
-    stun_decoder.bench_function("decoder_binding", |b| {
-        b.iter(|| {
-            codec.decode(binding).unwrap();
-        })
-    });
+    let service = Service::new(
+        "test".to_string(),
+        "test".to_string(),
+        vec![a_session_addr.interface],
+        SimpleObserver,
+    );
 
-    stun_decoder.finish();
+    let sessions = service.get_sessions();
+    let a_nonce = sessions
+        .get_nonce(&a_session_addr)
+        .get_ref()
+        .map(|it| it.0.clone())
+        .unwrap();
+    let a_integrity = sessions.get_integrity(&a_session_addr, "test", "test").unwrap();
+
+    {
+        let _ = sessions.get_integrity(&b_session_addr, "test", "test").unwrap();
+    }
+
+    let a_port = sessions.allocate(&a_session_addr).unwrap();
+    let b_port = sessions.allocate(&b_session_addr).unwrap();
+
+    {
+        sessions.create_permission(&b_session_addr, &b_session_addr.address, &[a_port]);
+        sessions.bind_channel(&b_session_addr, &b_session_addr.address, a_port, 0x4000);
+    }
+
+    let mut a_operationer = service.get_operationer(a_session_addr.address, a_session_addr.interface);
+
+    let bind_request = {
+        let mut bytes = BytesMut::zeroed(1500);
+        MessageEncoder::new(BINDING_REQUEST, &TOKEN, &mut bytes)
+            .flush(None)
+            .unwrap();
+        bytes
+    };
+
+    let allocate_request = {
+        let mut bytes = BytesMut::zeroed(1500);
+        let mut message = MessageEncoder::new(ALLOCATE_REQUEST, &TOKEN, &mut bytes);
+        message.append::<ReqeestedTransport>(Transport::UDP);
+        message.append::<UserName>("test");
+        message.append::<Realm>("test");
+        message.append::<Nonce>(&a_nonce);
+        message.flush(Some(&a_integrity)).unwrap();
+        bytes
+    };
+
+    let create_permission_request = {
+        let mut bytes = BytesMut::zeroed(1500);
+        let mut message = MessageEncoder::new(CREATE_PERMISSION_REQUEST, &TOKEN, &mut bytes);
+        message.append::<XorPeerAddress>(SocketAddr::new("127.0.0.1".parse().unwrap(), b_port));
+        message.append::<UserName>("test");
+        message.append::<Realm>("test");
+        message.append::<Nonce>(&a_nonce);
+        message.flush(Some(&a_integrity)).unwrap();
+        bytes
+    };
+
+    let channel_bind_request = {
+        let mut bytes = BytesMut::zeroed(1500);
+        let mut message = MessageEncoder::new(CHANNEL_BIND_REQUEST, &TOKEN, &mut bytes);
+        message.append::<ChannelNumber>(0x4000);
+        message.append::<XorPeerAddress>(SocketAddr::new("127.0.0.1".parse().unwrap(), b_port));
+        message.append::<UserName>("test");
+        message.append::<Realm>("test");
+        message.append::<Nonce>(&a_nonce);
+        message.flush(Some(&a_integrity)).unwrap();
+        bytes
+    };
+
+    let channel_data = {
+        let mut bytes = BytesMut::zeroed(1500);
+        ChannelData {
+            number: 0x4000,
+            bytes: TOKEN.as_slice(),
+        }
+        .encode(&mut bytes);
+        bytes
+    };
+
+    {
+        let mut stun = c.benchmark_group("stun");
+        let mut codec = Decoder::default();
+
+        stun.throughput(Throughput::Elements(1));
+
+        stun.bench_function("decode_binding_request", |b| {
+            b.iter(|| {
+                codec.decode(&bind_request).unwrap();
+            })
+        });
+
+        stun.bench_function("decode_allocate_request", |b| {
+            b.iter(|| {
+                codec.decode(&allocate_request).unwrap();
+            })
+        });
+
+        stun.bench_function("decode_create_permission_request", |b| {
+            b.iter(|| {
+                codec.decode(&create_permission_request).unwrap();
+            })
+        });
+
+        stun.bench_function("decode_channel_bind_request", |b| {
+            b.iter(|| {
+                codec.decode(&channel_bind_request).unwrap();
+            })
+        });
+
+        stun.bench_function("decode_channel_data", |b| {
+            b.iter(|| {
+                codec.decode(&channel_data).unwrap();
+            })
+        });
+
+        stun.finish();
+    }
+
+    {
+        let mut turn = c.benchmark_group("turn");
+
+        turn.throughput(Throughput::Elements(1));
+
+        turn.bench_function("bind_request", |b| {
+            b.iter(|| {
+                a_operationer.route(&bind_request, a_session_addr.address).unwrap();
+            })
+        });
+
+        turn.bench_function("allocate_request", |b| {
+            b.iter(|| {
+                a_operationer.route(&allocate_request, a_session_addr.address).unwrap();
+            })
+        });
+
+        turn.bench_function("create_permission_request", |b| {
+            b.iter(|| {
+                a_operationer
+                    .route(&create_permission_request, a_session_addr.address)
+                    .unwrap();
+            })
+        });
+
+        turn.bench_function("channel_bind_request", |b| {
+            b.iter(|| {
+                a_operationer
+                    .route(&channel_bind_request, a_session_addr.address)
+                    .unwrap();
+            })
+        });
+
+        turn.bench_function("channel_data", |b| {
+            b.iter(|| {
+                a_operationer.route(&channel_data, a_session_addr.address).unwrap();
+            })
+        });
+    }
 }
 
 criterion_group!(benches, criterion_benchmark);

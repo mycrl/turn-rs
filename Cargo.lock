@@ -1515,7 +1515,7 @@ dependencies = [
 
 [[package]]
 name = "turn-server"
-version = "3.4.0-beta.2"
+version = "3.4.0"
 dependencies = [
  "ahash",
  "anyhow",
