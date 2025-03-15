@@ -998,12 +998,12 @@ pub enum Bit {
 /// # Test
 ///
 /// ```
-/// use turn_server::turn::sessions::*;
 /// use std::collections::HashSet;
-/// 
+/// use turn_server::turn::sessions::*;
+///
 /// let mut pool = PortAllocatePools::default();
 /// let mut ports = HashSet::with_capacity(PortAllocatePools::capacity());
-/// 
+///
 /// while let Some(port) = pool.alloc(None) {
 ///     ports.insert(port);
 /// }
@@ -1126,8 +1126,7 @@ impl PortAllocatePools {
     /// ```
     pub fn alloc(&mut self, start_index: Option<usize>) -> Option<u16> {
         let mut index = None;
-        let mut start =
-            start_index.unwrap_or_else(|| thread_rng().gen_range(0..self.peak as u16) as usize);
+        let mut start = start_index.unwrap_or_else(|| thread_rng().gen_range(0..self.peak as u16) as usize);
 
         // When the partition lookup has gone through the entire partition list, the
         // lookup should be stopped, and the location where it should be stopped is
