@@ -4,9 +4,6 @@
 </div>
 <br/>
 <div align="center">
-  <strong>TURN Server implemented by ❤️ Rust</strong>
-</div>
-<div align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/tests.yml?branch=main&style=flat-square"/>
   <img src="https://img.shields.io/crates/v/turn-server?style=flat-square"/>
   <img src="https://img.shields.io/docsrs/turn-server?style=flat-square"/>
@@ -14,8 +11,11 @@
   <img src="https://img.shields.io/github/issues/mycrl/turn-rs?style=flat-square"/>
   <img src="https://img.shields.io/github/stars/mycrl/turn-rs?style=flat-square"/>
 </div>
-<br/>
-<br/>
+<div align="center">
+  <strong>TURN Server implemented by ❤️ Rust</strong>
+</div>
+
+---
 
 A pure Rust implementation of a forwarding server that utilizes the memory and concurrency security provided by Rust to handle 40 million channel data forwarding messages and 600,000 allocation requests per second in a single thread, The forwarding latency is less than 35 microseconds (one full local network send/receive delay between A and B). The project is more focused on the core business and does not require access to complex configuration projects, almost out-of-the-box.
 
