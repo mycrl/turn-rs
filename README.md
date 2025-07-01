@@ -7,10 +7,12 @@
   <strong>TURN Server implemented by ❤️ Rust</strong>
 </div>
 <div align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/tests.yml?branch=main"/>
-  <img src="https://img.shields.io/github/license/mycrl/turn-rs"/>
-  <img src="https://img.shields.io/github/issues/mycrl/turn-rs"/>
-  <img src="https://img.shields.io/github/stars/mycrl/turn-rs"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/tests.yml?branch=main&style=flat-square"/>
+  <img src="https://img.shields.io/crates/v/turn-server?style=flat-square"/>
+  <img src="https://img.shields.io/docsrs/turn-server?style=flat-square"/>
+  <img src="https://img.shields.io/github/license/mycrl/turn-rs?style=flat-square"/>
+  <img src="https://img.shields.io/github/issues/mycrl/turn-rs?style=flat-square"/>
+  <img src="https://img.shields.io/github/stars/mycrl/turn-rs?style=flat-square"/>
 </div>
 <br/>
 <br/>
