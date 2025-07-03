@@ -55,30 +55,39 @@ pub use self::{
     message::*,
 };
 
-use std::ops::Range;
+use std::{array::TryFromSliceError, ops::Range, str::Utf8Error};
 
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum StunError {
-    #[error("InvalidInput")]
     InvalidInput,
-    #[error("SummaryFailed")]
     SummaryFailed,
-    #[error("NotFoundIntegrity")]
     NotFoundIntegrity,
-    #[error("IntegrityFailed")]
     IntegrityFailed,
-    #[error("NotFoundCookie")]
     NotFoundCookie,
-    #[error("UnknownStunMethod")]
     UnknownStunMethod,
-    #[error("FatalError")]
     FatalError,
-    #[error("Utf8Error: {0}")]
-    Utf8Error(#[from] std::str::Utf8Error),
-    #[error("TryFromSliceError: {0}")]
-    TryFromSliceError(#[from] std::array::TryFromSliceError),
+    Utf8Error(Utf8Error),
+    TryFromSliceError(TryFromSliceError),
+}
+
+impl std::error::Error for StunError {}
+
+impl std::fmt::Display for StunError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<Utf8Error> for StunError {
+    fn from(value: Utf8Error) -> Self {
+        Self::Utf8Error(value)
+    }
+}
+
+impl From<TryFromSliceError> for StunError {
+    fn from(value: TryFromSliceError) -> Self {
+        Self::TryFromSliceError(value)
+    }
 }
 
 #[rustfmt::skip]

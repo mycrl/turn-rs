@@ -12,10 +12,6 @@ use std::{net::SocketAddr, sync::Arc};
 
 #[allow(unused)]
 pub trait Observer: Send + Sync {
-    fn get_password(&self, username: &str) -> Option<String> {
-        None
-    }
-
     /// allocate request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)

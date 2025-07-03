@@ -11,6 +11,7 @@ use crate::{stun::Transport, turn::SessionAddr};
 /// [issue](https://github.com/mycrl/turn-rs/issues/101)
 ///
 /// Integrated Prometheus Metrics Exporter
+#[cfg(feature = "prometheus")]
 pub mod prometheus {
     use std::sync::LazyLock;
 

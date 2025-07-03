@@ -14,7 +14,7 @@ categories = ["parsing", "network-programming"]
 [dependencies]
 ahash = "0.8"
 anyhow = "1.0"
-axum = "0.7"
+axum = "0.8"
 bytes = "1"
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
@@ -26,30 +26,30 @@ serde_json = "1.0"
 simple_logger = "5"
 tokio = { version = "1", features = ["full"] }
 toml = "0.7"
-rand = "0.8"
-itertools = "0.13.0"
-prometheus = "0.13.4"
+rand = "0.9"
+itertools = "0.14.0"
+prometheus = "0.14.0"
 num_enum = "0.7"
 md-5 = "0.10"
 hmac = "0.12"
 sha-1 = "0.10"
-crc = "3"
-thiserror = "2.0.4"
+crc = "3.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
 
 [dev-dependencies]
 criterion = "0.5"
 anyhow = "1.0"
-base64 = "0.22.1"
+base64 = "0.22"
 tokio = { version = "1", features = ["full"] }
-bytes = "1.4.0"
-rand = "0.8.5"
+bytes = "1"
+rand = "0.9"
 
 [[bench]]
 name = "benchmark"
 harness = false
 
 [features]
+all = ["udp", "tcp", "prometheus"]
 default = ["udp"]
 udp = []
 tcp = []

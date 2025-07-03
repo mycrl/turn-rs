@@ -27,33 +27,33 @@ impl Observer {
 }
 
 impl crate::turn::Observer for Observer {
-    fn get_password(&self, username: &str) -> Option<String> {
-        // Match the static authentication information first.
-        if let Some(it) = self.config.auth.static_credentials.get(username) {
-            return Some(it.clone());
-        }
+    // fn get_password(&self, username: &str) -> Option<String> {
+    //     // Match the static authentication information first.
+    //     if let Some(it) = self.config.auth.static_credentials.get(username) {
+    //         return Some(it.clone());
+    //     }
 
-        // Try again to match the static authentication key.
-        if let Some(it) = &self.config.auth.static_auth_secret {
-            // Because (TURN REST api) this RFC does not mandate the format of the username,
-            // only suggested values. In principle, the RFC also indicates that the
-            // timestamp part of username can be set at will, so the timestamp is not
-            // verified here, and the external web service guarantees its security by
-            // itself.
-            //
-            // https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
-            return Some(
-                BASE64_STANDARD.encode(
-                    crate::stun::util::hmac_sha1(it.as_bytes(), &[username.as_bytes()])
-                        .ok()?
-                        .into_bytes()
-                        .as_slice(),
-                ),
-            );
-        }
+    //     // Try again to match the static authentication key.
+    //     if let Some(it) = &self.config.auth.static_auth_secret {
+    //         // Because (TURN REST api) this RFC does not mandate the format of the username,
+    //         // only suggested values. In principle, the RFC also indicates that the
+    //         // timestamp part of username can be set at will, so the timestamp is not
+    //         // verified here, and the external web service guarantees its security by
+    //         // itself.
+    //         //
+    //         // https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
+    //         return Some(
+    //             BASE64_STANDARD.encode(
+    //                 crate::stun::util::hmac_sha1(it.as_bytes(), &[username.as_bytes()])
+    //                     .ok()?
+    //                     .into_bytes()
+    //                     .as_slice(),
+    //             ),
+    //         );
+    //     }
 
-        None
-    }
+    //     None
+    // }
 
     /// allocate request
     ///

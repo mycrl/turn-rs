@@ -33,7 +33,7 @@ use turn_server::{
 };
 
 static TOKEN: LazyLock<[u8; 12]> = LazyLock::new(|| {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut token = [0u8; 12];
     token.shuffle(&mut rng);
     token
