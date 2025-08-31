@@ -5,8 +5,7 @@ use std::sync::Arc;
 
 use turn_server::config::Config;
 
-#[tokio::main(flavor = "multi_thread")]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     let config = Arc::new(Config::load()?);
     simple_logger::init_with_level(config.log.level.as_level())?;
 
@@ -18,5 +17,9 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    turn_server::startup(config).await
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(config.runtime.max_threads)
+        .enable_all()
+        .build()?
+        .block_on(turn_server::startup(config))
 }
