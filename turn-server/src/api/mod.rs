@@ -1,11 +1,13 @@
 pub mod events;
 
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Instant};
 
+use ahash::{HashMap, HashMapExt};
 use axum::{
     Json, Router,
     extract::{Query, State},
-    http::StatusCode,
+    http::{HeaderName, HeaderValue, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Sse, sse::KeepAlive},
     routing::{delete, get},
 };
@@ -29,6 +31,7 @@ struct ApiState {
     service: Service<Observer>,
     statistics: Statistics,
     uptime: Instant,
+    response_headers: HashMap<HeaderName, HeaderValue>,
 }
 
 #[derive(Deserialize)]
@@ -61,6 +64,15 @@ pub async fn start_server(
     statistics: Statistics,
 ) -> anyhow::Result<()> {
     let state = Arc::new(ApiState {
+        response_headers: {
+            let mut headers = HashMap::with_capacity(config.api.headers.len());
+
+            for (k, v) in config.api.headers.iter() {
+                headers.insert(HeaderName::from_str(k)?, HeaderValue::from_str(v)?);
+            }
+
+            headers
+        },
         config: config.clone(),
         uptime: Instant::now(),
         statistics,
@@ -72,13 +84,12 @@ pub async fn start_server(
         .route(
             "/info",
             get(|State(app_state): State<Arc<ApiState>>| async move {
-                let session_manager = app_state.service.get_session_manager_ref();
                 Json(json!({
                     "software": crate::SOFTWARE,
                     "uptime": app_state.uptime.elapsed().as_secs(),
                     "interfaces": app_state.config.turn.interfaces,
                     "port_capacity": PortAllocator::capacity(),
-                    "port_allocated": session_manager.allocated(),
+                    "port_allocated": app_state.service.get_session_manager_ref().allocated(),
                 }))
             }),
         )
@@ -106,6 +117,7 @@ pub async fn start_server(
             get(
                 |Query(query): Query<QueryParams>, State(state): State<Arc<ApiState>>| async move {
                     let id: Identifier = query.into();
+
                     if let Some(counts) = state.statistics.get(&id) {
                         Json(json!({
                             "received_bytes": counts.received_bytes,
@@ -136,7 +148,16 @@ pub async fn start_server(
         .route(
             "/events",
             get(|| async move { Sse::new(events::get_event_stream()).keep_alive(KeepAlive::default()) }),
-        );
+        )
+        .layer(middleware::from_fn_with_state(state.clone(), async |State(state): State<Arc<ApiState>>, request: _, next: Next| {
+            let mut response = next.run(request).await;
+
+            for (k, v) in state.response_headers.iter() {
+                response.headers_mut().insert(k,v.clone());
+            }
+
+            response
+        }));
 
     #[cfg(feature = "prometheus")]
     {
@@ -170,6 +191,8 @@ pub async fn start_server(
         )
         .serve(app.with_state(state).into_make_service())
         .await?;
+
+        log::info!("api server listening={:?}", config.api.listen);
 
         return Ok(());
     }
