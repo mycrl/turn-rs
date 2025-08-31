@@ -19,6 +19,9 @@ use service::{
 
 use tokio::net::TcpListener;
 
+#[cfg(feature = "ssl")]
+use axum_server::tls_openssl::OpenSSLConfig;
+
 use crate::{config::Config, observer::Observer, statistics::Statistics};
 
 struct ApiState {
@@ -156,10 +159,28 @@ pub async fn start_server(
         );
     }
 
-    let listener = TcpListener::bind(config.api.listen).await?;
+    #[cfg(feature = "ssl")]
+    if let Some(ssl) = &config.api.ssl {
+        axum_server::bind_openssl(
+            config.api.listen,
+            OpenSSLConfig::from_pem_chain_file(
+                ssl.certificate_chain.clone(),
+                ssl.private_key.clone(),
+            )?,
+        )
+        .serve(app.with_state(state).into_make_service())
+        .await?;
 
-    log::info!("api server listening={:?}", config.api.listen);
+        return Ok(());
+    }
 
-    axum::serve(listener, app.with_state(state)).await?;
+    {
+        let listener = TcpListener::bind(config.api.listen).await?;
+
+        log::info!("api server listening={:?}", config.api.listen);
+
+        axum::serve(listener, app.with_state(state)).await?;
+    }
+
     Ok(())
 }
