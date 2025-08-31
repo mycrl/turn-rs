@@ -1,0 +1,833 @@
+use super::{
+    Service, ServiceHandler,
+    session::{Identifier, Session, SessionManager},
+};
+
+use std::{net::SocketAddr, sync::Arc};
+
+use bytes::BytesMut;
+use codec::{
+    DecodeResult, Decoder,
+    channel_data::ChannelData,
+    message::{
+        Message, MessageEncoder,
+        attributes::{
+            ChannelNumber, Data, Error, ErrorCode, ErrorKind, Lifetime, MappedAddress, Nonce,
+            Realm, ReqeestedTransport, ResponseOrigin, Software, UserName, XorMappedAddress,
+            XorPeerAddress, XorRelayedAddress,
+        },
+        methods::{
+            ALLOCATE_REQUEST, ALLOCATE_RESPONSE, BINDING_REQUEST, BINDING_RESPONSE,
+            CHANNEL_BIND_REQUEST, CHANNEL_BIND_RESPONSE, CREATE_PERMISSION_REQUEST,
+            CREATE_PERMISSION_RESPONSE, DATA_INDICATION, Method as StunMethod, REFRESH_REQUEST,
+            REFRESH_RESPONSE, SEND_INDICATION,
+        },
+    },
+};
+
+struct State<T>
+where
+    T: ServiceHandler,
+{
+    pub realm: String,
+    pub software: String,
+    pub manager: Arc<SessionManager<T>>,
+    pub endpoint: SocketAddr,
+    pub interface: SocketAddr,
+    pub interfaces: Arc<Vec<SocketAddr>>,
+    pub handler: T,
+}
+
+struct Inbound<'a, 'b, T, M>
+where
+    T: ServiceHandler + 'static,
+{
+    pub id: &'a Identifier,
+    pub bytes: &'b mut BytesMut,
+    pub state: &'a State<T>,
+    pub payload: &'a M,
+}
+
+impl<'a, 'b, T> Inbound<'a, 'b, T, Message<'a>>
+where
+    T: ServiceHandler + 'static,
+{
+    /// Check if the ip address belongs to the current turn server.
+    #[inline(always)]
+    pub fn verify_ip(&self, address: &SocketAddr) -> bool {
+        self.state
+            .interfaces
+            .iter()
+            .any(|item| item.ip() == address.ip())
+    }
+
+    /// The key for the HMAC depends on whether long-term or short-term
+    /// credentials are in use.  For long-term credentials, the key is 16
+    /// bytes:
+    ///
+    /// key = MD5(username ":" realm ":" SASLprep(password))
+    ///
+    /// That is, the 16-byte key is formed by taking the MD5 hash of the
+    /// result of concatenating the following five fields: (1) the username,
+    /// with any quotes and trailing nulls removed, as taken from the
+    /// USERNAME attribute (in which case SASLprep has already been applied);
+    /// (2) a single colon; (3) the realm, with any quotes and trailing nulls
+    /// removed; (4) a single colon; and (5) the password, with any trailing
+    /// nulls removed and after processing using SASLprep.  For example, if
+    /// the username was 'user', the realm was 'realm', and the password was
+    /// 'pass', then the 16-byte HMAC key would be the result of performing
+    /// an MD5 hash on the string 'user:realm:pass', the resulting hash being
+    /// 0x8493fbc53ba582fb4c044c456bdc40eb.
+    ///
+    /// For short-term credentials:
+    ///
+    /// key = SASLprep(password)
+    ///
+    /// where MD5 is defined in RFC 1321 [RFC1321] and SASLprep() is defined
+    /// in RFC 4013 [RFC4013].
+    ///
+    /// The structure of the key when used with long-term credentials
+    /// facilitates deployment in systems that also utilize SIP.  Typically,
+    /// SIP systems utilizing SIP's digest authentication mechanism do not
+    /// actually store the password in the database.  Rather, they store a
+    /// value called H(A1), which is equal to the key defined above.
+    ///
+    /// Based on the rules above, the hash used to construct MESSAGE-
+    /// INTEGRITY includes the length field from the STUN message header.
+    /// Prior to performing the hash, the MESSAGE-INTEGRITY attribute MUST be
+    /// inserted into the message (with dummy content).  The length MUST then
+    /// be set to point to the length of the message up to, and including,
+    /// the MESSAGE-INTEGRITY attribute itself, but excluding any attributes
+    /// after it.  Once the computation is performed, the value of the
+    /// MESSAGE-INTEGRITY attribute can be filled in, and the value of the
+    /// length in the STUN header can be set to its correct value -- the
+    /// length of the entire message.  Similarly, when validating the
+    /// MESSAGE-INTEGRITY, the length field should be adjusted to point to
+    /// the end of the MESSAGE-INTEGRITY attribute prior to calculating the
+    /// HMAC.  Such adjustment is necessary when attributes, such as
+    /// FINGERPRINT, appear after MESSAGE-INTEGRITY.
+    #[inline(always)]
+    pub fn credentials(&self) -> Option<(&str, [u8; 16])> {
+        let username = self.payload.get::<UserName>()?;
+        let message_integrity = self
+            .state
+            .manager
+            .get_message_integrity(&self.id, username)?;
+
+        self.payload.integrity(&message_integrity).ok()?;
+        Some((username, message_integrity))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct OutboundTarget {
+    pub endpoint: Option<SocketAddr>,
+    pub relay: Option<SocketAddr>,
+}
+
+#[derive(Debug)]
+pub enum Outbound<'a> {
+    Message {
+        method: StunMethod,
+        bytes: &'a [u8],
+        target: OutboundTarget,
+    },
+    ChannelData {
+        bytes: &'a [u8],
+        target: OutboundTarget,
+    },
+}
+
+#[derive(Debug)]
+pub enum ForwardResult<'a> {
+    Exceptional(codec::Error),
+    Outbound(Outbound<'a>),
+    None,
+}
+
+pub struct PacketForwarder<T>
+where
+    T: ServiceHandler + 'static,
+{
+    id: Identifier,
+    state: State<T>,
+    decoder: Decoder,
+    bytes: BytesMut,
+}
+
+impl<T> PacketForwarder<T>
+where
+    T: ServiceHandler + Clone + 'static,
+{
+    pub fn new(service: &Service<T>, endpoint: SocketAddr, interface: SocketAddr) -> Self {
+        Self {
+            bytes: BytesMut::with_capacity(4096),
+            decoder: Decoder::default(),
+            id: Identifier {
+                source: "0.0.0.0:0".parse().unwrap(),
+                interface,
+            },
+            state: State {
+                interfaces: service.interfaces.clone(),
+                software: service.software.clone(),
+                handler: service.handler.clone(),
+                manager: service.manager.clone(),
+                realm: service.realm.clone(),
+                interface,
+                endpoint,
+            },
+        }
+    }
+
+    /// process udp data
+    ///
+    /// receive STUN encoded Bytes,
+    /// and return any Bytes that can be responded to and the target address.
+    /// Note: unknown message is not process.
+    ///
+    /// In a typical configuration, a TURN client is connected to a private
+    /// network [RFC1918] and, through one or more NATs, to the public
+    /// Internet.  On the public Internet is a TURN server.  Elsewhere in the
+    /// Internet are one or more peers with which the TURN client wishes to
+    /// communicate.  These peers may or may not be behind one or more NATs.
+    /// The client uses the server as a relay to send packets to these peers
+    /// and to receive packets from these peers.
+    ///
+    /// ```text
+    ///                                     Peer A
+    ///                                     Server-Reflexive    +---------+
+    ///                                    Transport Address   |         |
+    ///                                      192.0.2.150:32102   |         |
+    ///                                        |              /|         |
+    ///                       TURN              |            / ^|  Peer A |
+    ///    Client's           Server            |           /  ||         |
+    ///    Host Transport     Transport         |         //   ||         |
+    ///    Address            Address           |       //     |+---------+
+    /// 198.51.100.2:49721  192.0.2.15:3478     |+-+  //     Peer A
+    ///            |            |               ||N| /       Host Transport
+    ///            |   +-+      |               ||A|/        Address
+    ///            |   | |      |               v|T|     203.0.113.2:49582
+    ///            |   | |      |               /+-+
+    /// +---------+|   | |      |+---------+   /              +---------+
+    /// |         ||   |N|      ||         | //               |         |
+    /// | TURN    |v   | |      v| TURN    |/                 |         |
+    /// | Client  |----|A|-------| Server  |------------------|  Peer B |
+    /// |         |    | |^      |         |^                ^|         |
+    /// |         |    |T||      |         ||                ||         |
+    /// +---------+    | ||      +---------+|                |+---------+
+    ///                | ||                 |                |
+    ///                | ||                 |                |
+    ///                +-+|                 |                |
+    ///                   |                 |                |
+    ///                   |                 |                |
+    ///          Client's                   |             Peer B
+    ///          Server-Reflexive     Relayed             Transport
+    ///          Transport Address    Transport Address   Address
+    ///          192.0.2.1:7000       192.0.2.15:50000    192.0.2.210:49191
+    ///
+    ///                                Figure 1
+    /// ```
+    ///
+    /// Figure 1 shows a typical deployment.  In this figure, the TURN client
+    /// and the TURN server are separated by a NAT, with the client on the
+    /// private side and the server on the public side of the NAT.  This NAT
+    /// is assumed to be a "bad" NAT; for example, it might have a mapping
+    /// property of "address-and-port-dependent mapping" (see [RFC4787]).
+    ///
+    /// The client talks to the server from a (IP address, port) combination
+    /// called the client's "host transport address".  (The combination of an
+    /// IP address and port is called a "transport address".)
+    ///
+    /// The client sends TURN messages from its host transport address to a
+    /// transport address on the TURN server that is known as the "TURN
+    /// server transport address".  The client learns the TURN server
+    /// transport address through some unspecified means (e.g.,
+    /// configuration), and this address is typically used by many clients
+    /// simultaneously.
+    ///
+    /// Since the client is behind a NAT, the server sees packets from the
+    /// client as coming from a transport address on the NAT itself.  This
+    /// address is known as the client's "server-reflexive transport
+    /// address"; packets sent by the server to the client's server-reflexive
+    /// transport address will be forwarded by the NAT to the client's host
+    /// transport address.
+    ///
+    /// The client uses TURN commands to create and manipulate an ALLOCATION
+    /// on the server.  An allocation is a data structure on the server.
+    /// This data structure contains, amongst other things, the relayed
+    /// transport address for the allocation.  The relayed transport address
+    /// is the transport address on the server that peers can use to have the
+    /// server relay data to the client.  An allocation is uniquely
+    /// identified by its relayed transport address.
+    ///
+    /// Once an allocation is created, the client can send application data
+    /// to the server along with an indication of to which peer the data is
+    /// to be sent, and the server will relay this data to the intended peer.
+    /// The client sends the application data to the server inside a TURN
+    /// message; at the server, the data is extracted from the TURN message
+    /// and sent to the peer in a UDP datagram.  In the reverse direction, a
+    /// peer can send application data in a UDP datagram to the relayed
+    /// transport address for the allocation; the server will then
+    /// encapsulate this data inside a TURN message and send it to the client
+    /// along with an indication of which peer sent the data.  Since the TURN
+    /// message always contains an indication of which peer the client is
+    /// communicating with, the client can use a single allocation to
+    /// communicate with multiple peers.
+    ///
+    /// When the peer is behind a NAT, the client must identify the peer
+    /// using its server-reflexive transport address rather than its host
+    /// transport address.  For example, to send application data to Peer A
+    /// in the example above, the client must specify 192.0.2.150:32102 (Peer
+    /// A's server-reflexive transport address) rather than 203.0.113.2:49582
+    /// (Peer A's host transport address).
+    ///
+    /// Each allocation on the server belongs to a single client and has
+    /// either one or two relayed transport addresses that are used only by
+    /// that allocation.  Thus, when a packet arrives at a relayed transport
+    /// address on the server, the server knows for which client the data is
+    /// intended.
+    ///
+    /// The client may have multiple allocations on a server at the same
+    /// time.
+    // #[rustfmt::skip]
+    pub fn forward<'a, 'b: 'a>(
+        &'b mut self,
+        bytes: &'b [u8],
+        address: SocketAddr,
+    ) -> ForwardResult<'a> {
+        {
+            self.id.source = address;
+        }
+
+        (match self.decoder.decode(bytes) {
+            Ok(DecodeResult::ChannelData(channel)) => channel_data_route(
+                bytes,
+                Inbound {
+                    id: &self.id,
+                    state: &self.state,
+                    bytes: &mut self.bytes,
+                    payload: &channel,
+                },
+            ),
+            Ok(DecodeResult::Message(message)) => {
+                let req = Inbound {
+                    id: &self.id,
+                    state: &self.state,
+                    bytes: &mut self.bytes,
+                    payload: &message,
+                };
+
+                match req.payload.method() {
+                    BINDING_REQUEST => Binding::route(req),
+                    ALLOCATE_REQUEST => Allocate::route(req),
+                    CREATE_PERMISSION_REQUEST => CreatePermission::route(req),
+                    CHANNEL_BIND_REQUEST => ChannelBind::route(req),
+                    REFRESH_REQUEST => Refresh::route(req),
+                    SEND_INDICATION => Indication::route(req),
+                    _ => None,
+                }
+            }
+            Err(e) => {
+                return ForwardResult::Exceptional(e);
+            }
+        })
+        .map(ForwardResult::Outbound)
+        .unwrap_or(ForwardResult::None)
+    }
+}
+
+trait Route {
+    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+    where
+        T: ServiceHandler;
+
+    #[rustfmt::skip]
+    fn reject<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>, error: ErrorKind) -> Option<Outbound<'a>>
+    where
+        T: ServiceHandler,
+    {
+        let method = req.payload.method().error()?;
+
+        {
+            let mut message = MessageEncoder::extend(method, req.payload, req.bytes);
+            message.append::<ErrorCode>(Error::from(error));
+            message.append::<Nonce>(req.state.manager.get_session(&req.id).get_ref()?.nonce());
+            message.append::<Realm>(&req.state.realm);
+            message.flush(None).ok()?;
+        }
+
+        Some(Outbound::Message {
+            target: OutboundTarget::default(),
+            bytes: req.bytes,
+            method,
+        })
+    }
+}
+
+/// [rfc8489](https://tools.ietf.org/html/rfc8489)
+///
+/// In the Binding request/response transaction, a Binding request is
+/// sent from a STUN client to a STUN server.  When the Binding request
+/// arrives at the STUN server, it may have passed through one or more
+/// NATs between the STUN client and the STUN server (in Figure 1, there
+/// are two such NATs).  As the Binding request message passes through a
+/// NAT, the NAT will modify the source transport address (that is, the
+/// source IP address and the source port) of the packet.  As a result,
+/// the source transport address of the request received by the server
+/// will be the public IP address and port created by the NAT closest to
+/// the server.  This is called a "reflexive transport address".  The
+/// STUN server copies that source transport address into an XOR-MAPPED-
+/// ADDRESS attribute in the STUN Binding response and sends the Binding
+/// response back to the STUN client.  As this packet passes back through
+/// a NAT, the NAT will modify the destination transport address in the
+/// IP header, but the transport address in the XOR-MAPPED-ADDRESS
+/// attribute within the body of the STUN response will remain untouched.
+/// In this way, the client can learn its reflexive transport address
+/// allocated by the outermost NAT with respect to the STUN server.
+struct Binding;
+
+impl Route for Binding {
+    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+    where
+        T: ServiceHandler,
+    {
+        {
+            let mut message = MessageEncoder::extend(BINDING_RESPONSE, &req.payload, req.bytes);
+            message.append::<XorMappedAddress>(req.id.source);
+            message.append::<MappedAddress>(req.id.source);
+            message.append::<ResponseOrigin>(req.state.interface);
+            message.append::<Software>(&req.state.software);
+            message.flush(None).ok()?;
+        }
+
+        Some(Outbound::Message {
+            target: OutboundTarget::default(),
+            method: BINDING_RESPONSE,
+            bytes: req.bytes,
+        })
+    }
+}
+
+/// [rfc8489](https://tools.ietf.org/html/rfc8489)
+///
+/// In all cases, the server SHOULD only allocate ports from the range
+/// 49152 - 65535 (the Dynamic and/or Private Port range [PORT-NUMBERS]),
+/// unless the TURN server application knows, through some means not
+/// specified here, that other applications running on the same host as
+/// the TURN server application will not be impacted by allocating ports
+/// outside this range.  This condition can often be satisfied by running
+/// the TURN server application on a dedicated machine and/or by
+/// arranging that any other applications on the machine allocate ports
+/// before the TURN server application starts.  In any case, the TURN
+/// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
+/// Known Port range) to discourage clients from using TURN to run
+/// standard contexts.
+struct Allocate;
+
+impl Route for Allocate {
+    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+    where
+        T: ServiceHandler,
+    {
+        if req.payload.get::<ReqeestedTransport>().is_none() {
+            return Self::reject(req, ErrorKind::ServerError);
+        }
+
+        let Some((username, integrity)) = req.credentials() else {
+            return Self::reject(req, ErrorKind::Unauthorized);
+        };
+
+        let Some(port) = req.state.manager.allocate(req.id) else {
+            return Self::reject(req, ErrorKind::AllocationQuotaReached);
+        };
+
+        req.state.handler.on_allocated(&req.id, username, port);
+
+        {
+            let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.bytes);
+            message.append::<XorRelayedAddress>(SocketAddr::new(req.state.interface.ip(), port));
+            message.append::<XorMappedAddress>(req.id.source);
+            message.append::<Lifetime>(600);
+            message.append::<Software>(&req.state.software);
+            message.flush(Some(&integrity)).ok()?;
+        }
+
+        Some(Outbound::Message {
+            target: OutboundTarget::default(),
+            method: ALLOCATE_RESPONSE,
+            bytes: req.bytes,
+        })
+    }
+}
+
+/// The server MAY impose restrictions on the IP address and port values
+/// allowed in the XOR-PEER-ADDRESS attribute; if a value is not allowed,
+/// the server rejects the request with a 403 (Forbidden) error.
+///
+/// If the request is valid, but the server is unable to fulfill the
+/// request due to some capacity limit or similar, the server replies
+/// with a 508 (Insufficient Capacity) error.
+///
+/// Otherwise, the server replies with a ChannelBind success response.
+/// There are no required attributes in a successful ChannelBind
+/// response.
+///
+/// If the server can satisfy the request, then the server creates or
+/// refreshes the channel binding using the channel number in the
+/// CHANNEL-NUMBER attribute and the transport address in the XOR-PEER-
+/// ADDRESS attribute.  The server also installs or refreshes a
+/// permission for the IP address in the XOR-PEER-ADDRESS attribute as
+/// described in Section 9.
+///
+/// NOTE: A server need not do anything special to implement
+/// idempotency of ChannelBind requests over UDP using the
+/// "stateless stack approach".  Retransmitted ChannelBind requests
+/// will simply refresh the channel binding and the corresponding
+/// permission.  Furthermore, the client must wait 5 minutes before
+/// binding a previously bound channel number or peer address to a
+/// different channel, eliminating the possibility that the
+/// transaction would initially fail but succeed on a
+/// retransmission.
+struct ChannelBind;
+
+impl Route for ChannelBind {
+    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+    where
+        T: ServiceHandler,
+    {
+        let Some(peer) = req.payload.get::<XorPeerAddress>() else {
+            return Self::reject(req, ErrorKind::BadRequest);
+        };
+
+        if !req.verify_ip(&peer) {
+            return Self::reject(req, ErrorKind::PeerAddressFamilyMismatch);
+        }
+
+        let Some(number) = req.payload.get::<ChannelNumber>() else {
+            return Self::reject(req, ErrorKind::BadRequest);
+        };
+
+        if !(0x4000..=0x7FFF).contains(&number) {
+            return Self::reject(req, ErrorKind::BadRequest);
+        }
+
+        let Some((username, integrity)) = req.credentials() else {
+            return Self::reject(req, ErrorKind::Unauthorized);
+        };
+
+        if !req
+            .state
+            .manager
+            .bind_channel(&req.id, &req.state.endpoint, peer.port(), number)
+        {
+            return Self::reject(req, ErrorKind::Forbidden);
+        }
+
+        req.state.handler.on_channel_bind(&req.id, username, number);
+
+        {
+            MessageEncoder::extend(CHANNEL_BIND_RESPONSE, req.payload, req.bytes)
+                .flush(Some(&integrity))
+                .ok()?;
+        }
+
+        Some(Outbound::Message {
+            target: OutboundTarget::default(),
+            method: CHANNEL_BIND_RESPONSE,
+            bytes: req.bytes,
+        })
+    }
+}
+
+/// [rfc8489](https://tools.ietf.org/html/rfc8489)
+///
+/// When the server receives the CreatePermission request, it processes
+/// as per [Section 5](https://tools.ietf.org/html/rfc8656#section-5)
+/// plus the specific rules mentioned here.
+///
+/// The message is checked for validity.  The CreatePermission request
+/// MUST contain at least one XOR-PEER-ADDRESS attribute and MAY contain
+/// multiple such attributes.  If no such attribute exists, or if any of
+/// these attributes are invalid, then a 400 (Bad Request) error is
+/// returned.  If the request is valid, but the server is unable to
+/// satisfy the request due to some capacity limit or similar, then a 508
+/// (Insufficient Capacity) error is returned.
+///
+/// If an XOR-PEER-ADDRESS attribute contains an address of an address
+/// family that is not the same as that of a relayed transport address
+/// for the allocation, the server MUST generate an error response with
+/// the 443 (Peer Address Family Mismatch) response code.
+///
+/// The server MAY impose restrictions on the IP address allowed in the
+/// XOR-PEER-ADDRESS attribute; if a value is not allowed, the server
+/// rejects the request with a 403 (Forbidden) error.
+///
+/// If the message is valid and the server is capable of carrying out the
+/// request, then the server installs or refreshes a permission for the
+/// IP address contained in each XOR-PEER-ADDRESS attribute as described
+/// in [Section 9](https://tools.ietf.org/html/rfc8656#section-9).  
+/// The port portion of each attribute is ignored and may be any arbitrary
+/// value.
+///
+/// The server then responds with a CreatePermission success response.
+/// There are no mandatory attributes in the success response.
+///
+/// NOTE: A server need not do anything special to implement idempotency of
+/// CreatePermission requests over UDP using the "stateless stack approach".
+/// Retransmitted CreatePermission requests will simply refresh the
+/// permissions.
+struct CreatePermission;
+
+impl Route for CreatePermission {
+    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+    where
+        T: ServiceHandler,
+    {
+        let Some((username, integrity)) = req.credentials() else {
+            return Self::reject(req, ErrorKind::Unauthorized);
+        };
+
+        let mut ports = Vec::with_capacity(15);
+        for it in req.payload.get_all::<XorPeerAddress>() {
+            if !req.verify_ip(&it) {
+                return Self::reject(req, ErrorKind::PeerAddressFamilyMismatch);
+            }
+
+            ports.push(it.port());
+        }
+
+        if !req
+            .state
+            .manager
+            .create_permission(&req.id, &req.state.endpoint, &ports)
+        {
+            return Self::reject(req, ErrorKind::Forbidden);
+        }
+
+        req.state
+            .handler
+            .on_create_permission(&req.id, username, &ports);
+
+        {
+            MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.bytes)
+                .flush(Some(&integrity))
+                .ok()?;
+        }
+
+        Some(Outbound::Message {
+            method: CREATE_PERMISSION_RESPONSE,
+            target: OutboundTarget::default(),
+            bytes: req.bytes,
+        })
+    }
+}
+
+/// When the server receives a Send indication, it processes as per
+/// [Section 5](https://tools.ietf.org/html/rfc8656#section-5) plus
+/// the specific rules mentioned here.
+///
+/// The message is first checked for validity.  The Send indication MUST
+/// contain both an XOR-PEER-ADDRESS attribute and a DATA attribute.  If
+/// one of these attributes is missing or invalid, then the message is
+/// discarded.  Note that the DATA attribute is allowed to contain zero
+/// bytes of data.
+///
+/// The Send indication may also contain the DONT-FRAGMENT attribute.  If
+/// the server is unable to set the DF bit on outgoing UDP datagrams when
+/// this attribute is present, then the server acts as if the DONT-
+/// FRAGMENT attribute is an unknown comprehension-required attribute
+/// (and thus the Send indication is discarded).
+///
+/// The server also checks that there is a permission installed for the
+/// IP address contained in the XOR-PEER-ADDRESS attribute.  If no such
+/// permission exists, the message is discarded.  Note that a Send
+/// indication never causes the server to refresh the permission.
+///
+/// The server MAY impose restrictions on the IP address and port values
+/// allowed in the XOR-PEER-ADDRESS attribute; if a value is not allowed,
+/// the server silently discards the Send indication.
+///
+/// If everything is OK, then the server forms a UDP datagram as follows:
+///
+/// * the source transport address is the relayed transport address of the
+///   allocation, where the allocation is determined by the 5-tuple on which the
+///   Send indication arrived;
+///
+/// * the destination transport address is taken from the XOR-PEER-ADDRESS
+///   attribute;
+///
+/// * the data following the UDP header is the contents of the value field of
+///   the DATA attribute.
+///
+/// The handling of the DONT-FRAGMENT attribute (if present), is
+/// described in Sections [14](https://tools.ietf.org/html/rfc8656#section-14)
+/// and [15](https://tools.ietf.org/html/rfc8656#section-15).
+///
+/// The resulting UDP datagram is then sent to the peer.
+struct Indication;
+
+impl Route for Indication {
+    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+    where
+        T: ServiceHandler,
+    {
+        let peer = req.payload.get::<XorPeerAddress>()?;
+        let data = req.payload.get::<Data>()?;
+
+        if let Some(Session::Authenticated { allocate_port, .. }) =
+            req.state.manager.get_session(&req.id).get_ref()
+        {
+            if let Some(local_port) = *allocate_port {
+                let relay = req.state.manager.get_relay_address(&req.id, peer.port())?;
+
+                {
+                    let mut message =
+                        MessageEncoder::extend(DATA_INDICATION, &req.payload, req.bytes);
+                    message.append::<XorPeerAddress>(SocketAddr::new(
+                        req.state.interface.ip(),
+                        local_port,
+                    ));
+                    message.append::<Data>(data);
+                    message.flush(None).ok()?;
+                }
+
+                return Some(Outbound::Message {
+                    method: DATA_INDICATION,
+                    bytes: req.bytes,
+                    target: OutboundTarget {
+                        relay: Some(relay.source),
+                        endpoint: if req.state.endpoint != relay.endpoint {
+                            Some(relay.endpoint)
+                        } else {
+                            None
+                        },
+                    },
+                });
+            }
+        }
+
+        None
+    }
+}
+
+/// If the server receives a Refresh Request with a REQUESTED-ADDRESS-
+/// FAMILY attribute and the attribute value does not match the address
+/// family of the allocation, the server MUST reply with a 443 (Peer
+/// Address Family Mismatch) Refresh error response.
+///
+/// The server computes a value called the "desired lifetime" as follows:
+/// if the request contains a LIFETIME attribute and the attribute value
+/// is zero, then the "desired lifetime" is zero.  Otherwise, if the
+/// request contains a LIFETIME attribute, then the server computes the
+/// minimum of the client's requested lifetime and the server's maximum
+/// allowed lifetime.  If this computed value is greater than the default
+/// lifetime, then the "desired lifetime" is the computed value.
+/// Otherwise, the "desired lifetime" is the default lifetime.
+///
+/// Subsequent processing depends on the "desired lifetime" value:
+///
+/// * If the "desired lifetime" is zero, then the request succeeds and the
+///   allocation is deleted.
+///
+/// * If the "desired lifetime" is non-zero, then the request succeeds and the
+///   allocation's time-to-expiry is set to the "desired lifetime".
+///
+/// If the request succeeds, then the server sends a success response
+/// containing:
+///
+/// * A LIFETIME attribute containing the current value of the time-to-expiry
+///   timer.
+///
+/// NOTE: A server need not do anything special to implement
+/// idempotency of Refresh requests over UDP using the "stateless
+/// stack approach".  Retransmitted Refresh requests with a non-
+/// zero "desired lifetime" will simply refresh the allocation.  A
+/// retransmitted Refresh request with a zero "desired lifetime"
+/// will cause a 437 (Allocation Mismatch) response if the
+/// allocation has already been deleted, but the client will treat
+/// this as equivalent to a success response (see below).
+struct Refresh;
+
+impl Route for Refresh {
+    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+    where
+        T: ServiceHandler,
+    {
+        let Some((username, integrity)) = req.credentials() else {
+            return Self::reject(req, ErrorKind::Unauthorized);
+        };
+
+        let lifetime = req.payload.get::<Lifetime>().unwrap_or(600);
+        if !req.state.manager.refresh(&req.id, lifetime) {
+            return Self::reject(req, ErrorKind::AllocationMismatch);
+        }
+
+        req.state.handler.on_refresh(&req.id, username, lifetime);
+
+        {
+            let mut message = MessageEncoder::extend(REFRESH_RESPONSE, &req.payload, req.bytes);
+            message.append::<Lifetime>(lifetime);
+            message.flush(Some(&integrity)).ok()?;
+        }
+
+        Some(Outbound::Message {
+            target: OutboundTarget::default(),
+            method: REFRESH_RESPONSE,
+            bytes: req.bytes,
+        })
+    }
+}
+
+/// If the ChannelData message is received on a channel that is not bound
+/// to any peer, then the message is silently discarded.
+///
+/// On the client, it is RECOMMENDED that the client discard the
+/// ChannelData message if the client believes there is no active
+/// permission towards the peer.  On the server, the receipt of a
+/// ChannelData message MUST NOT refresh either the channel binding or
+/// the permission towards the peer.
+///
+/// On the server, if no errors are detected, the server relays the
+/// application data to the peer by forming a UDP datagram as follows:
+///
+/// * the source transport address is the relayed transport address of the
+///   allocation, where the allocation is determined by the 5-tuple on which the
+///   ChannelData message arrived;
+///
+/// * the destination transport address is the transport address to which the
+///   channel is bound;
+///
+/// * the data following the UDP header is the contents of the data field of the
+///   ChannelData message.
+///
+/// The resulting UDP datagram is then sent to the peer.  Note that if
+/// the Length field in the ChannelData message is 0, then there will be
+/// no data in the UDP datagram, but the UDP datagram is still formed and
+/// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
+fn channel_data_route<'a, T>(
+    bytes: &'a [u8],
+    req: Inbound<'_, 'a, T, ChannelData<'_>>,
+) -> Option<Outbound<'a>>
+where
+    T: ServiceHandler,
+{
+    let Some(relay) = req
+        .state
+        .manager
+        .get_channel_relay_address(&req.id, req.payload.number())
+    else {
+        return None;
+    };
+
+    Some(Outbound::ChannelData {
+        bytes,
+        target: OutboundTarget {
+            relay: Some(relay.source),
+            endpoint: if req.state.endpoint != relay.endpoint {
+                Some(relay.endpoint)
+            } else {
+                None
+            },
+        },
+    })
+}

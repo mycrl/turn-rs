@@ -5,11 +5,13 @@ use criterion::*;
 use rand::seq::SliceRandom;
 use turn_server::{
     stun::{
-        ChannelData, Decoder, MessageEncoder, Transport,
-        attribute::{ChannelNumber, Nonce, Realm, ReqeestedTransport, UserName, XorPeerAddress},
+        Decoder,
+        attribute::{ChannelNumber, Nonce, Realm, ReqeestedTransport, Transport, UserName, XorPeerAddress},
+        channel::ChannelData,
+        message::MessageEncoder,
         method::{ALLOCATE_REQUEST, BINDING_REQUEST, CHANNEL_BIND_REQUEST, CREATE_PERMISSION_REQUEST},
     },
-    turn::{Observer, Service, SessionAddr},
+    turn::{Observer, Routes, SessionAddr},
 };
 
 #[derive(Clone)]
@@ -22,7 +24,7 @@ impl Observer for SimpleObserver {
 }
 
 static TOKEN: LazyLock<[u8; 12]> = LazyLock::new(|| {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut token = [0u8; 12];
     token.shuffle(&mut rng);
     token
@@ -39,23 +41,23 @@ fn criterion_benchmark(c: &mut Criterion) {
         interface: "127.0.0.1:3478".parse().unwrap(),
     };
 
-    let service = Service::new(
+    let routes = Routes::new(
         "test".to_string(),
         "test".to_string(),
         vec![a_session_addr.interface],
         SimpleObserver,
     );
 
-    let sessions = service.get_sessions();
+    let sessions = routes.get_sessions();
     let a_nonce = sessions
         .get_nonce(&a_session_addr)
         .get_ref()
         .map(|it| it.0.clone())
         .unwrap();
-    let a_integrity = sessions.get_integrity(&a_session_addr, "test", "test").unwrap();
+    let a_integrity = sessions.get_message_integrity(&a_session_addr, "test", "test").unwrap();
 
     {
-        let _ = sessions.get_integrity(&b_session_addr, "test", "test").unwrap();
+        let _ = sessions.get_message_integrity(&b_session_addr, "test", "test").unwrap();
     }
 
     let a_port = sessions.allocate(&a_session_addr).unwrap();
@@ -66,7 +68,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         sessions.bind_channel(&b_session_addr, &b_session_addr.address, a_port, 0x4000);
     }
 
-    let mut a_operationer = service.get_operationer(a_session_addr.address, a_session_addr.interface);
+    let mut a_router = routes.get_router(a_session_addr.address, a_session_addr.interface);
 
     let bind_request = {
         let mut bytes = BytesMut::zeroed(1500);
@@ -166,19 +168,19 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         turn.bench_function("bind_request", |b| {
             b.iter(|| {
-                a_operationer.route(&bind_request, a_session_addr.address).unwrap();
+                a_router.route(&bind_request, a_session_addr.address).unwrap();
             })
         });
 
         turn.bench_function("allocate_request", |b| {
             b.iter(|| {
-                a_operationer.route(&allocate_request, a_session_addr.address).unwrap();
+                a_router.route(&allocate_request, a_session_addr.address).unwrap();
             })
         });
 
         turn.bench_function("create_permission_request", |b| {
             b.iter(|| {
-                a_operationer
+                a_router
                     .route(&create_permission_request, a_session_addr.address)
                     .unwrap();
             })
@@ -186,15 +188,13 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         turn.bench_function("channel_bind_request", |b| {
             b.iter(|| {
-                a_operationer
-                    .route(&channel_bind_request, a_session_addr.address)
-                    .unwrap();
+                a_router.route(&channel_bind_request, a_session_addr.address).unwrap();
             })
         });
 
         turn.bench_function("channel_data", |b| {
             b.iter(|| {
-                a_operationer.route(&channel_data, a_session_addr.address).unwrap();
+                a_router.route(&channel_data, a_session_addr.address).unwrap();
             })
         });
     }

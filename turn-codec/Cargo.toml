@@ -1,0 +1,12 @@
+[package]
+name = "turn-server-codec"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bytes = "1"
+num_enum = "0.7"
+md-5 = "0.10"
+hmac = "0.12"
+crc32fast = "1.5.0"
+sha-1 = "0.10"

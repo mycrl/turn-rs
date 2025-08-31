@@ -1,0 +1,160 @@
+{
+    "turn": {
+        /**
+         * turn server realm
+         *
+         * specify the domain where the server is located. for a single node,
+         * this configuration is fixed, but each node can be configured as a
+         * different domain. this is a good idea to divide the nodes by namespace.
+         *
+         */
+        "realm": "localhost",
+
+        /**
+         * turn server listen interfaces
+         *
+         *
+         * The address and port to which the UDP Server is bound. Multiple
+         * addresses can be bound at the same time. The binding address supports
+         * ipv4 and ipv6.
+         *
+         */
+        "interfaces": [
+            {
+                "transport": "udp",
+                "listen": "127.0.0.1:3478",
+                /**
+                 * external address
+                 *
+                 *
+                 * specify the node external address and port. for the case of
+                 * exposing the service to the outside, you need to manually
+                 * specify the server external IP address and service listening
+                 * port.
+                 *
+                 */
+                "external": "127.0.0.1:3478"
+                /**
+                 * ssl configuration
+                 *
+                 *
+                 * "ssl": {
+                 *   "private_key": "/etc/turn-rs/tls/private.key",
+                 *   "certificate_chain": "/etc/turn-rs/tls/certificate.crt"
+                 * }
+                 *
+                 */
+            }
+            /**
+             * {
+             *   "transport": "tcp",
+             *   "bind": "127.0.0.1:3478",
+             *   "external": "127.0.0.1:3478"
+             * }
+             *
+             * {
+             *   "transport": "udp",
+             *   "bind": "[::1]:3478",
+             *   "external": "[::1]:3478"
+             * }
+             *
+             * {
+             *   "transport": "tcp",
+             *   "bind": "[::1]:3478",
+             *   "external": "[::1]:3478"
+             * }
+             *
+             */
+        ]
+    },
+
+    "api": {
+        /**
+         * api server listen
+         *
+         *
+         * This option specifies the http server binding address used to control
+         * the turn server.
+         *
+         */
+        "listen": "127.0.0.1:3000"
+        /**
+         * HTTP response headers
+         *
+         * Used to customize, add, or override HTTP response headers for the API
+         * service, such as setting cross-origin (CORS) related parameters.
+         *
+         * "headers": {
+         *     "Key": "turn-server-example",
+         *     "Access-Control-Allow-Origin": "https://example.com",
+         *     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+         *     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+         *     "Access-Control-Allow-Credentials": "true"
+         * }
+         *
+         *
+         * ssl configuration
+         *
+         *
+         * "ssl": {
+         *   "private_key": "/etc/turn-rs/tls/private.key",
+         *   "certificate_chain": "/etc/turn-rs/tls/certificate.crt"
+         * }
+         *
+         */
+    },
+
+    "log": {
+        /**
+         * log level
+         *
+         *
+         * An enum representing the available verbosity levels of the logger.
+         *
+         */
+        "level": "info"
+    },
+
+    "auth": {
+        /**
+         * Static authentication key value (string) that applies only to the TURN
+         * REST API.
+         *
+         * If set, the turn server will not request external services via the HTTP
+         * Hooks API to obtain the key.
+         *
+         * "static_auth_secret": ""
+         *
+         *
+         * static user password
+         *
+         *
+         * This option can be used to specify the static identity authentication
+         * information used by the turn server for verification.
+         *
+         * Note: this is a high-priority authentication method, turn The server
+         * will try to use static authentication first, and then use external
+         * control service authentication.
+         *
+         * "static_credentials": {
+         *   "user1": "test",
+         *   "user2": "test"
+         * }
+         *
+         */
+    },
+
+    "system": {
+        /**
+         * Maximum number of threads the TURN server can use.
+         *
+         * "max_threads": 12,
+         *
+         *
+         * Maximum Transmission Unit (MTU) size for network packets.
+         *
+         * "mtu": 1500
+         *
+         */
+    }
+}
