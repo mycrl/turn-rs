@@ -1,25 +1,34 @@
 use std::{net::SocketAddr, sync::LazyLock};
 
 use bytes::BytesMut;
+use codec::{
+    Decoder,
+    channel_data::ChannelData,
+    long_term_credential_digest,
+    message::{
+        MessageEncoder,
+        attributes::{
+            ChannelNumber, Nonce, Realm, ReqeestedTransport, Transport, UserName, XorPeerAddress,
+        },
+        methods::{
+            ALLOCATE_REQUEST, BINDING_REQUEST, CHANNEL_BIND_REQUEST, CREATE_PERMISSION_REQUEST,
+        },
+    },
+};
+
 use criterion::*;
 use rand::seq::SliceRandom;
-use turn_server::{
-    stun::{
-        Decoder,
-        attribute::{ChannelNumber, Nonce, Realm, ReqeestedTransport, Transport, UserName, XorPeerAddress},
-        channel::ChannelData,
-        message::MessageEncoder,
-        method::{ALLOCATE_REQUEST, BINDING_REQUEST, CHANNEL_BIND_REQUEST, CREATE_PERMISSION_REQUEST},
-    },
-    turn::{Observer, Routes, SessionAddr},
+use service::{
+    Service, ServiceHandler, ServiceOptions,
+    session::{Identifier, ports::DEFAULT_PORT_RANGE},
 };
 
 #[derive(Clone)]
 struct SimpleObserver;
 
-impl Observer for SimpleObserver {
-    fn get_password(&self, _: &str) -> Option<String> {
-        Some("test".to_string())
+impl ServiceHandler for SimpleObserver {
+    fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+        Some(long_term_credential_digest(username, "test", "test"))
     }
 }
 
@@ -31,44 +40,45 @@ static TOKEN: LazyLock<[u8; 12]> = LazyLock::new(|| {
 });
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let a_session_addr = SessionAddr {
-        address: "127.0.0.1:1000".parse().unwrap(),
+    let a_id = Identifier {
+        source: "127.0.0.1:1000".parse().unwrap(),
         interface: "127.0.0.1:3478".parse().unwrap(),
     };
 
-    let b_session_addr = SessionAddr {
-        address: "127.0.0.1:1001".parse().unwrap(),
+    let b_id = Identifier {
+        source: "127.0.0.1:1001".parse().unwrap(),
         interface: "127.0.0.1:3478".parse().unwrap(),
     };
 
-    let routes = Routes::new(
-        "test".to_string(),
-        "test".to_string(),
-        vec![a_session_addr.interface],
-        SimpleObserver,
-    );
+    let service = Service::new(ServiceOptions {
+        realm: "test".to_string(),
+        software: "test".to_string(),
+        interfaces: vec![a_id.interface],
+        handler: SimpleObserver,
+        port_range: DEFAULT_PORT_RANGE,
+    });
 
-    let sessions = routes.get_sessions();
+    let sessions = service.get_session_manager_ref();
     let a_nonce = sessions
-        .get_nonce(&a_session_addr)
+        .get_session(&a_id)
         .get_ref()
-        .map(|it| it.0.clone())
+        .map(|it| it.nonce().clone())
         .unwrap();
-    let a_integrity = sessions.get_message_integrity(&a_session_addr, "test", "test").unwrap();
+    let a_integrity = sessions.get_message_integrity(&a_id, "test").unwrap();
 
     {
-        let _ = sessions.get_message_integrity(&b_session_addr, "test", "test").unwrap();
+        let _ = sessions.get_message_integrity(&b_id, "test").unwrap();
     }
 
-    let a_port = sessions.allocate(&a_session_addr).unwrap();
-    let b_port = sessions.allocate(&b_session_addr).unwrap();
+    let a_port = sessions.allocate(&a_id).unwrap();
+    let b_port = sessions.allocate(&b_id).unwrap();
 
     {
-        sessions.create_permission(&b_session_addr, &b_session_addr.address, &[a_port]);
-        sessions.bind_channel(&b_session_addr, &b_session_addr.address, a_port, 0x4000);
+        sessions.create_permission(&b_id, &b_id.source, &[a_port]);
+        sessions.bind_channel(&b_id, &b_id.source, a_port, 0x4000);
     }
 
-    let mut a_router = routes.get_router(a_session_addr.address, a_session_addr.interface);
+    let mut a_router = service.get_forwarder(a_id.source, a_id.interface);
 
     let bind_request = {
         let mut bytes = BytesMut::zeroed(1500);
@@ -168,33 +178,31 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         turn.bench_function("bind_request", |b| {
             b.iter(|| {
-                a_router.route(&bind_request, a_session_addr.address).unwrap();
+                a_router.forward(&bind_request, a_id.source);
             })
         });
 
         turn.bench_function("allocate_request", |b| {
             b.iter(|| {
-                a_router.route(&allocate_request, a_session_addr.address).unwrap();
+                a_router.forward(&allocate_request, a_id.source);
             })
         });
 
         turn.bench_function("create_permission_request", |b| {
             b.iter(|| {
-                a_router
-                    .route(&create_permission_request, a_session_addr.address)
-                    .unwrap();
+                a_router.forward(&create_permission_request, a_id.source);
             })
         });
 
         turn.bench_function("channel_bind_request", |b| {
             b.iter(|| {
-                a_router.route(&channel_bind_request, a_session_addr.address).unwrap();
+                a_router.forward(&channel_bind_request, a_id.source);
             })
         });
 
         turn.bench_function("channel_data", |b| {
             b.iter(|| {
-                a_router.route(&channel_data, a_session_addr.address).unwrap();
+                a_router.forward(&channel_data, a_id.source);
             })
         });
     }

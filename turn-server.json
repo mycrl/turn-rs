@@ -92,7 +92,9 @@
          *     "Access-Control-Allow-Credentials": "true"
          * }
          *
-         *
+         */
+
+        /**
          * ssl configuration
          *
          *
@@ -125,8 +127,10 @@
          *
          * "static_auth_secret": ""
          *
-         *
-         * static user password
+         */
+
+        /**
+         *static user password
          *
          *
          * This option can be used to specify the static identity authentication
@@ -142,6 +146,11 @@
          * }
          *
          */
+
+        /**
+         * Enable sending authentication requests to an external SDK via the endpoint.
+         */
+        "enable_endpoint_auth": false
     },
 
     "runtime": {

@@ -3,6 +3,7 @@ use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, ops::Range,
 use anyhow::anyhow;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
+use service::session::ports::DEFAULT_PORT_RANGE;
 
 #[repr(C)]
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -237,7 +238,7 @@ pub struct Runtime {
 
 impl Runtime {
     fn port_range() -> Range<u16> {
-        49152..65535
+        DEFAULT_PORT_RANGE
     }
 
     fn max_threads() -> usize {

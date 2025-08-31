@@ -1,3 +1,54 @@
+[package]
+name = "turn-server"
+version = "4.0.0"
+edition = "2024"
+authors = ["mycrl <lepidodendraceae@gmail.com>"]
+description = "A pure rust-implemented turn server."
+readme = "./README.md"
+homepage = "https://github.com/mycrl/turn-rs"
+repository = "https://github.com/mycrl/turn-rs"
+license = "GPL-2.0-or-later"
+keywords = ["stun", "webrtc", "turn", "turn-server"]
+categories = ["parsing", "network-programming"]
+
+[dependencies]
+ahash = "0.8"
+anyhow = "1.0"
+axum = { version = "0.8", optional = true }
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+core_affinity = { version = "0.8.3", optional = true }
+log = "0.4"
+mimalloc = { version = "0.1", default-features = false }
+parking_lot = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1.0", optional = true }
+serde_json5 = "0.2.1"
+simple_logger = "5"
+tokio = { version = "1", features = ["full"] }
+prometheus = { version = "0.14.0", optional = true }
+tokio-openssl = { version = "0.6", optional = true }
+axum-server = { version = "0.7.2", features = ["tls-openssl"], optional = true }
+openssl = { version = "0.10", optional = true }
+tokio-stream = { version = "0.1", features = ["sync"], optional = true }
+num_cpus = "1.17.0"
+codec = { workspace = true }
+service = { workspace = true }
+
+[dev-dependencies]
+criterion = "0.5"
+bytes = "1"
+rand = "0.9"
+
+[features]
+api = ["dep:axum", "dep:serde_json", "dep:tokio-stream"]
+prometheus = ["api", "dep:prometheus"]
+udp = ["dep:core_affinity"]
+tcp = []
+ssl = ["dep:tokio-openssl", "dep:openssl", "dep:axum-server"]
+all = ["udp", "tcp", "ssl", "api", "prometheus"]
+default = ["all"]
+
 [profile.release]
 debug-assertions = false
 overflow-checks = false
@@ -9,8 +60,8 @@ codegen-units = 1
 
 [workspace]
 resolver = "2"
-members = ["turn-server", "turn-codec", "turn-service"]
+members = ["crates/codec", "crates/service", "./"]
 
 [workspace.dependencies]
-codec = { path = "turn-codec", version = "0.1.0", package = "turn-server-codec" }
-service = { path = "turn-service", version = "0.1.0", package = "turn-server-service" }
+codec = { path = "crates/codec", version = "0.1.0", package = "turn-server-codec" }
+service = { path = "crates/service", version = "0.1.0", package = "turn-server-service" }

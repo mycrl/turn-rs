@@ -2,6 +2,8 @@ use std::ops::Range;
 
 use rand::Rng;
 
+pub const DEFAULT_PORT_RANGE: Range<u16> = 49152..65535;
+
 /// Bit Flag
 #[derive(PartialEq, Eq)]
 pub enum Bit {
@@ -62,7 +64,7 @@ pub struct PortAllocator {
 
 impl Default for PortAllocator {
     fn default() -> Self {
-        Self::new(49152..65535)
+        Self::new(DEFAULT_PORT_RANGE)
     }
 }
 
@@ -99,12 +101,12 @@ impl PortAllocator {
     ///
     /// ```
     /// use turn_server_service::session::ports::*;
-    /// 
+    ///
     /// let pool = PortAllocator::default();
     ///
     /// assert_eq!(pool.port_range().start, 49152);
     /// assert_eq!(pool.port_range().end, 65535);
-    /// 
+    ///
     /// let pool = PortAllocator::new(50000..60000);
     ///
     /// assert_eq!(pool.port_range().start, 50000);

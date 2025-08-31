@@ -1,5 +1,7 @@
 pub mod ports;
 
+use crate::session::ports::DEFAULT_PORT_RANGE;
+
 use self::ports::PortAllocator;
 use super::ServiceHandler;
 
@@ -47,7 +49,9 @@ pub struct Table<K, V>(HashMap<K, V>);
 
 impl<K, V> Default for Table<K, V> {
     fn default() -> Self {
-        Self(HashMap::with_capacity(65535 - 49152))
+        Self(HashMap::with_capacity(
+            (DEFAULT_PORT_RANGE.end - DEFAULT_PORT_RANGE.start) as usize,
+        ))
     }
 }
 
