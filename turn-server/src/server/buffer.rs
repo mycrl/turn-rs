@@ -1,5 +1,19 @@
 use std::ops::{Deref, DerefMut};
 
+struct ExchangeBufferItem {
+    buffer: Vec<u8>,
+    len: usize,
+}
+
+impl Default for ExchangeBufferItem {
+    fn default() -> Self {
+        Self {
+            buffer: vec![0u8; 4096],
+            len: 0,
+        }
+    }
+}
+
 /// An emulated double buffer queue, this is used when reading data over
 /// TCP.
 ///
@@ -17,29 +31,17 @@ use std::ops::{Deref, DerefMut};
 ///
 /// This queue only needs to copy the unconsumed data without duplicating
 /// the memory allocation, which will reduce a lot of overhead.
+#[derive(Default)]
 pub struct ExchangeBuffer {
-    buffers: [(Vec<u8>, usize /* len */); 2],
+    items: [ExchangeBufferItem; 2],
     index: usize,
-}
-
-impl Default for ExchangeBuffer {
-    #[rustfmt::skip]
-    fn default() -> Self {
-            Self {
-                index: 0,
-                buffers: [
-                    (vec![0u8; 4096], 0),
-                    (vec![0u8; 4096], 0),
-                ],
-            }
-        }
 }
 
 impl Deref for ExchangeBuffer {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        &self.buffers[self.index].0[..]
+        &self.items[self.index].buffer[..]
     }
 }
 
@@ -47,25 +49,26 @@ impl DerefMut for ExchangeBuffer {
     // Writes need to take into account overwriting written data, so fetching the
     // writable buffer starts with the internal cursor.
     fn deref_mut(&mut self) -> &mut Self::Target {
-        let len = self.buffers[self.index].1;
-        &mut self.buffers[self.index].0[len..]
+        let len = self.items[self.index].len;
+        &mut self.items[self.index].buffer[len..]
     }
 }
 
 impl ExchangeBuffer {
     pub fn len(&self) -> usize {
-        self.buffers[self.index].1
+        self.items[self.index].len
     }
 
     /// The buffer does not automatically advance the cursor as BytesMut
     /// does, and you need to manually advance the length of the data
     /// written.
     pub fn advance(&mut self, len: usize) {
-        self.buffers[self.index].1 += len;
+        self.items[self.index].len += len;
     }
 
     pub fn split(&mut self, len: usize) -> &[u8] {
-        let (ref current_bytes, current_len) = self.buffers[self.index];
+        let current_len = self.items[self.index].len;
+        let current_index = self.index;
 
         // The length of the separation cannot be greater than the length of the data.
         assert!(len <= current_len);
@@ -75,25 +78,24 @@ impl ExchangeBuffer {
 
         {
             // The current buffer is no longer in use, resetting the content length.
-            self.buffers[self.index].1 = 0;
+            self.items[self.index].len = 0;
 
             // Invert the buffer.
             self.index = if self.index == 0 { 1 } else { 0 };
 
             // The length of unconsumed data needs to be updated into the reversed
             // completion buffer.
-            self.buffers[self.index].1 = remaining;
+            self.items[self.index].len = remaining;
         }
 
         // Unconsumed data exists and is copied to the free buffer.
-        #[allow(mutable_transmutes)]
         if remaining > 0 {
-            unsafe {
-                std::mem::transmute::<&[u8], &mut [u8]>(&self.buffers[self.index].0[..remaining])
-            }
-            .copy_from_slice(&current_bytes[len..current_len]);
+            let (left, right) = self.items.split_at_mut(1);
+
+            left[self.index].buffer[..remaining]
+                .copy_from_slice(&right[current_index].buffer[len..current_len]);
         }
 
-        &current_bytes[..len]
+        &self.items[current_index].buffer[..len]
     }
 }
