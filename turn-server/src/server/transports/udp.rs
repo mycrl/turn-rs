@@ -30,7 +30,7 @@ pub async fn listener<T>(
 where
     T: Clone + ServiceHandler + 'static,
 {
-    let runtime = config.runtime;
+    let runtime = config.runtime.clone();
 
     let socket = Arc::new(UdpSocket::bind(listen)?);
     let local_addr = socket.local_addr()?;

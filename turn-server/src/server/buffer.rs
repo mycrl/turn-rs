@@ -92,14 +92,20 @@ impl ExchangeBuffer {
         if remaining > 0 {
             // Use split_at_mut to get mutable references to both buffers
             let (left, right) = self.items.split_at_mut(1);
-            
+
             // Determine which slice contains the source and target buffers
             let (source_slice, target_slice) = if current_index == 0 {
-                (&left[0].buffer[len..current_len], &mut right[0].buffer[..remaining])
+                (
+                    &left[0].buffer[len..current_len],
+                    &mut right[0].buffer[..remaining],
+                )
             } else {
-                (&right[0].buffer[len..current_len], &mut left[0].buffer[..remaining])
+                (
+                    &right[0].buffer[len..current_len],
+                    &mut left[0].buffer[..remaining],
+                )
             };
-            
+
             target_slice.copy_from_slice(source_slice);
         }
 

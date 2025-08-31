@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use self::{config::Config, observer::Observer, statistics::Statistics};
 
-use service::Service;
+use service::{Service, ServiceOptions};
 
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
@@ -23,12 +23,13 @@ static SOFTWARE: &str = concat!(
 /// directly start the server.
 pub async fn startup(config: Arc<Config>) -> anyhow::Result<()> {
     let statistics = Statistics::default();
-    let service = Service::new(
-        SOFTWARE.to_string(),
-        config.turn.realm.clone(),
-        config.turn.get_externals(),
-        Observer::new(config.clone(), statistics.clone()).await?,
-    );
+    let service = Service::new(ServiceOptions {
+        software: SOFTWARE.to_string(),
+        realm: config.turn.realm.clone(),
+        interfaces: config.turn.get_externals(),
+        port_range: config.runtime.port_range.clone(),
+        handler: Observer::new(config.clone(), statistics.clone()).await?,
+    });
 
     server::start(&config, &statistics, &service).await?;
 

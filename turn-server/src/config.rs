@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, str::FromStr};
+use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, ops::Range, str::FromStr};
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -216,8 +216,13 @@ pub struct Auth {
     pub static_auth_secret: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Clone, Copy)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Runtime {
+    ///
+    /// Port range, the maximum range is 65535 - 49152.
+    ///
+    #[serde(default = "Runtime::port_range")]
+    pub port_range: Range<u16>,
     ///
     /// Maximum number of threads the TURN server can use.
     ///
@@ -231,6 +236,10 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    fn port_range() -> Range<u16> {
+        49152..65535
+    }
+
     fn max_threads() -> usize {
         num_cpus::get()
     }
@@ -243,6 +252,7 @@ impl Runtime {
 impl Default for Runtime {
     fn default() -> Self {
         Self {
+            port_range: Self::port_range(),
             max_threads: Self::max_threads(),
             mtu: Self::mtu(),
         }

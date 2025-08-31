@@ -1,12 +1,14 @@
 pub mod forwarding;
 pub mod session;
 
+use crate::session::SessionManagerOptions;
+
 use self::{
     forwarding::PacketForwarder,
     session::{Identifier, SessionManager},
 };
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, ops::Range, sync::Arc};
 
 pub trait ServiceHandler: Send + Sync {
     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]>;
@@ -155,6 +157,14 @@ pub trait ServiceHandler: Send + Sync {
     fn on_destroy(&self, id: &Identifier, username: &str) {}
 }
 
+pub struct ServiceOptions<T> {
+    pub port_range: Range<u16>,
+    pub software: String,
+    pub realm: String,
+    pub interfaces: Vec<SocketAddr>,
+    pub handler: T,
+}
+
 /// Turn service.
 #[derive(Clone)]
 pub struct Service<T> {
@@ -170,13 +180,16 @@ where
     T: ServiceHandler + Clone + 'static,
 {
     /// Create turn service.
-    pub fn new(software: String, realm: String, interfaces: Vec<SocketAddr>, handler: T) -> Self {
+    pub fn new(options: ServiceOptions<T>) -> Self {
         Self {
-            manager: SessionManager::new(handler.clone()),
-            interfaces: Arc::new(interfaces),
-            handler,
-            software,
-            realm,
+            manager: SessionManager::new(SessionManagerOptions {
+                port_range: options.port_range,
+                handler: options.handler.clone(),
+            }),
+            interfaces: Arc::new(options.interfaces),
+            software: options.software,
+            handler: options.handler,
+            realm: options.realm,
         }
     }
 

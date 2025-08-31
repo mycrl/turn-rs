@@ -6,7 +6,7 @@ use super::ServiceHandler;
 use std::{
     hash::Hash,
     net::SocketAddr,
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Range},
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -47,7 +47,7 @@ pub struct Table<K, V>(HashMap<K, V>);
 
 impl<K, V> Default for Table<K, V> {
     fn default() -> Self {
-        Self(HashMap::with_capacity(PortAllocator::capacity()))
+        Self(HashMap::with_capacity(65535 - 49152))
     }
 }
 
@@ -163,6 +163,11 @@ impl Session {
     }
 }
 
+pub struct SessionManagerOptions<T> {
+    pub port_range: Range<u16>,
+    pub handler: T,
+}
+
 pub struct SessionManager<T> {
     sessions: RwLock<Table<Identifier, Session>>,
     port_allocator: Mutex<PortAllocator>,
@@ -183,15 +188,15 @@ impl<T> SessionManager<T>
 where
     T: ServiceHandler + 'static,
 {
-    pub fn new(handler: T) -> Arc<Self> {
+    pub fn new(options: SessionManagerOptions<T>) -> Arc<Self> {
         let this = Arc::new(Self {
-            port_allocator: Mutex::new(PortAllocator::default()),
+            port_allocator: Mutex::new(PortAllocator::new(options.port_range)),
             channel_relay_table: RwLock::new(Table::default()),
             port_mapping_table: RwLock::new(Table::default()),
             port_relay_table: RwLock::new(Table::default()),
             sessions: RwLock::new(Table::default()),
             timer: Timer::default(),
-            handler,
+            handler: options.handler,
         });
 
         // This is a background thread that silently handles expiring sessions and
@@ -294,7 +299,10 @@ where
     ///     239,
     /// ];
     ///
-    /// let sessions = SessionManager::new(ServiceHandlerTest);
+    /// let sessions = SessionManager::new(SessionManagerOptions {
+    ///     port_range: 49152..65535,
+    ///     handler: ServiceHandlerTest,
+    /// });
     ///
     /// // get_session always creates a new session if it doesn't exist
     /// {
@@ -384,7 +392,10 @@ where
     ///     239,
     /// ];
     ///
-    /// let sessions = SessionManager::new(ServiceHandlerTest);
+    /// let sessions = SessionManager::new(SessionManagerOptions {
+    ///     port_range: 49152..65535,
+    ///     handler: ServiceHandlerTest,
+    /// });
     ///
     /// // First call get_session to create a new session
     /// {
@@ -477,7 +488,10 @@ where
     ///     239,
     /// ];
     ///
-    /// let sessions = SessionManager::new(ServiceHandlerTest);
+    /// let sessions = SessionManager::new(SessionManagerOptions {
+    ///     port_range: 49152..65535,
+    ///     handler: ServiceHandlerTest,
+    /// });
     ///
     /// sessions.get_message_integrity(&addr, "test");
     ///
@@ -574,7 +588,10 @@ where
     ///     239,
     /// ];
     ///
-    /// let sessions = SessionManager::new(ServiceHandlerTest);
+    /// let sessions = SessionManager::new(SessionManagerOptions {
+    ///     port_range: 49152..65535,
+    ///     handler: ServiceHandlerTest,
+    /// });
     ///
     /// sessions.get_message_integrity(&addr, "test");
     /// sessions.get_message_integrity(&peer_addr, "test");
@@ -689,7 +706,10 @@ where
     ///     239,
     /// ];
     ///
-    /// let sessions = SessionManager::new(ServiceHandlerTest);
+    /// let sessions = SessionManager::new(SessionManagerOptions {
+    ///     port_range: 49152..65535,
+    ///     handler: ServiceHandlerTest,
+    /// });
     ///
     /// sessions.get_message_integrity(&addr, "test");
     /// sessions.get_message_integrity(&peer_addr, "test");
@@ -826,7 +846,10 @@ where
     ///     239,
     /// ];
     ///
-    /// let sessions = SessionManager::new(ServiceHandlerTest);
+    /// let sessions = SessionManager::new(SessionManagerOptions {
+    ///     port_range: 49152..65535,
+    ///     handler: ServiceHandlerTest,
+    /// });
     ///
     /// sessions.get_message_integrity(&addr, "test");
     /// sessions.get_message_integrity(&peer_addr, "test");
@@ -897,7 +920,10 @@ where
     ///     239,
     /// ];
     ///
-    /// let sessions = SessionManager::new(ServiceHandlerTest);
+    /// let sessions = SessionManager::new(SessionManagerOptions {
+    ///     port_range: 49152..65535,
+    ///     handler: ServiceHandlerTest,
+    /// });
     ///
     /// sessions.get_message_integrity(&addr, "test");
     /// sessions.get_message_integrity(&peer_addr, "test");
@@ -959,7 +985,10 @@ where
     ///     239,
     /// ];
     ///
-    /// let sessions = SessionManager::new(ServiceHandlerTest);
+    /// let sessions = SessionManager::new(SessionManagerOptions {
+    ///     port_range: 49152..65535,
+    ///     handler: ServiceHandlerTest,
+    /// });
     ///
     /// // get_session always creates a new session if it doesn't exist
     /// {

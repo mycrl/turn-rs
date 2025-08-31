@@ -44,57 +44,40 @@ pub enum Bit {
 /// use turn_server_service::session::ports::*;
 ///
 /// let mut pool = PortAllocator::default();
-/// let mut ports = HashSet::with_capacity(PortAllocator::capacity());
+/// let mut ports = HashSet::with_capacity(PortAllocator::default().capacity());
 ///
 /// while let Some(port) = pool.alloc(None) {
 ///     ports.insert(port);
 /// }
 ///
-/// assert_eq!(PortAllocator::capacity() + 1, ports.len());
+/// assert_eq!(PortAllocator::default().capacity() + 1, ports.len());
 /// ```
 pub struct PortAllocator {
-    pub buckets: Vec<u64>,
+    port_range: Range<u16>,
+    buckets: Vec<u64>,
     allocated: usize,
     bit_len: u32,
-    peak: usize,
+    max_offset: usize,
 }
 
 impl Default for PortAllocator {
     fn default() -> Self {
-        Self {
-            buckets: vec![0; Self::bucket_size()],
-            peak: Self::bucket_size() - 1,
-            bit_len: Self::bit_len(),
-            allocated: 0,
-        }
+        Self::new(49152..65535)
     }
 }
 
 impl PortAllocator {
-    /// compute bucket size.
-    ///
-    /// # Test
-    ///
-    /// ```
-    /// use turn_server_service::session::ports::*;
-    ///
-    /// assert_eq!(PortAllocator::bucket_size(), 256);
-    /// ```
-    pub fn bucket_size() -> usize {
-        (Self::capacity() as f32 / 64.0).ceil() as usize
-    }
+    pub fn new(port_range: Range<u16>) -> Self {
+        let capacity = (port_range.end - port_range.start) as usize;
+        let bucket_size = (capacity as f32 / 64.0).ceil() as usize;
 
-    /// compute bucket last bit max offset.
-    ///
-    /// # Test
-    ///
-    /// ```
-    /// use turn_server_service::session::ports::*;
-    ///
-    /// assert_eq!(PortAllocator::bit_len(), 63);
-    /// ```
-    pub fn bit_len() -> u32 {
-        (Self::capacity() as f32 % 64.0).ceil() as u32
+        Self {
+            bit_len: (capacity as f32 % 64.0).ceil() as u32,
+            buckets: vec![0; bucket_size],
+            max_offset: bucket_size - 1,
+            allocated: 0,
+            port_range,
+        }
     }
 
     /// get pools capacity.
@@ -104,10 +87,10 @@ impl PortAllocator {
     /// ```
     /// use turn_server_service::session::ports::*;
     ///
-    /// assert_eq!(PortAllocator::capacity(), 65535 - 49152);
+    /// assert_eq!(PortAllocator::default().capacity(), 65535 - 49152);
     /// ```
-    pub const fn capacity() -> usize {
-        65535 - 49152
+    pub fn capacity(&self) -> usize {
+        (self.port_range.end - self.port_range.start) as usize
     }
 
     /// get port range.
@@ -116,11 +99,19 @@ impl PortAllocator {
     ///
     /// ```
     /// use turn_server_service::session::ports::*;
+    /// 
+    /// let pool = PortAllocator::default();
     ///
-    /// assert_eq!(PortAllocator::port_range(), 49152..65535);
+    /// assert_eq!(pool.port_range().start, 49152);
+    /// assert_eq!(pool.port_range().end, 65535);
+    /// 
+    /// let pool = PortAllocator::new(50000..60000);
+    ///
+    /// assert_eq!(pool.port_range().start, 50000);
+    /// assert_eq!(pool.port_range().end, 60000);
     /// ```
-    pub const fn port_range() -> Range<u16> {
-        49152..65535
+    pub fn port_range(&self) -> &Range<u16> {
+        &self.port_range
     }
 
     /// get pools allocated size.
@@ -165,29 +156,33 @@ impl PortAllocator {
     ///
     /// assert!(pool.alloc(None).is_some());
     /// ```
-    pub fn alloc(&mut self, start_index: Option<usize>) -> Option<u16> {
+    pub fn alloc(&mut self, start: Option<usize>) -> Option<u16> {
         let mut index = None;
-        let mut start =
-            start_index.unwrap_or_else(|| rand::rng().random_range(0..self.peak as u16) as usize);
+        let mut offset =
+            start.unwrap_or_else(|| rand::rng().random_range(0..self.max_offset as u16) as usize);
 
         // When the partition lookup has gone through the entire partition list, the
         // lookup should be stopped, and the location where it should be stopped is
         // recorded here.
-        let previous = if start == 0 { self.peak } else { start - 1 };
+        let previous = if offset == 0 {
+            self.max_offset
+        } else {
+            offset - 1
+        };
 
         loop {
             // Finds the first high position in the partition.
             if let Some(i) = {
-                let bucket = self.buckets[start];
+                let bucket = self.buckets[offset];
                 if bucket < u64::MAX {
-                    let offset = bucket.leading_ones();
+                    let idx = bucket.leading_ones();
 
                     // Check to see if the jump is beyond the partition list or the lookup exceeds
                     // the maximum length of the allocation table.
-                    if start == self.peak && offset > self.bit_len {
+                    if offset == self.max_offset && idx > self.bit_len {
                         None
                     } else {
-                        Some(offset)
+                        Some(idx)
                     }
                 } else {
                     None
@@ -199,26 +194,26 @@ impl PortAllocator {
 
             // As long as it doesn't find it, it continues to re-find it from the next
             // partition.
-            if start == self.peak {
-                start = 0;
+            if offset == self.max_offset {
+                offset = 0;
             } else {
-                start += 1;
+                offset += 1;
             }
 
             // Already gone through all partitions, lookup failed.
-            if start == previous {
+            if offset == previous {
                 break;
             }
         }
 
         // Writes to the partition, marking the current location as already allocated.
         let index = index?;
-        self.set_bit(start, index, Bit::High);
+        self.set_bit(offset, index, Bit::High);
         self.allocated += 1;
 
         // The actual port number is calculated from the partition offset position.
-        let num = (start * 64 + index) as u16;
-        let port = Self::port_range().start + num;
+        let num = (offset * 64 + index) as u16;
+        let port = self.port_range.start + num;
         Some(port)
     }
 
@@ -273,10 +268,10 @@ impl PortAllocator {
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     /// ```
     pub fn restore(&mut self, port: u16) {
-        assert!(Self::port_range().contains(&port));
+        assert!(self.port_range.contains(&port));
 
         // Calculate the location in the partition from the port number.
-        let offset = (port - Self::port_range().start) as usize;
+        let offset = (port - self.port_range.start) as usize;
         let bucket = offset / 64;
         let index = offset - (bucket * 64);
 

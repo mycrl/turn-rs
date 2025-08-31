@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::json;
 use service::{
     Service,
-    session::{Identifier, Session, ports::PortAllocator},
+    session::{Identifier, Session},
 };
 
 use tokio::net::TcpListener;
@@ -88,7 +88,7 @@ pub async fn start_server(
                     "software": crate::SOFTWARE,
                     "uptime": app_state.uptime.elapsed().as_secs(),
                     "interfaces": app_state.config.turn.interfaces,
-                    "port_capacity": PortAllocator::capacity(),
+                    "port_capacity": app_state.config.runtime.port_range.end - app_state.config.runtime.port_range.start,
                     "port_allocated": app_state.service.get_session_manager_ref().allocated(),
                 }))
             }),
