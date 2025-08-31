@@ -217,20 +217,20 @@ pub struct Auth {
 }
 
 #[derive(Deserialize, Debug, Clone, Copy)]
-pub struct System {
+pub struct Runtime {
     ///
     /// Maximum number of threads the TURN server can use.
     ///
-    #[serde(default = "System::max_threads")]
+    #[serde(default = "Runtime::max_threads")]
     pub max_threads: usize,
     ///
     /// Maximum Transmission Unit (MTU) size for network packets.
     ///
-    #[serde(default = "System::mtu")]
+    #[serde(default = "Runtime::mtu")]
     pub mtu: usize,
 }
 
-impl System {
+impl Runtime {
     fn max_threads() -> usize {
         num_cpus::get()
     }
@@ -240,7 +240,7 @@ impl System {
     }
 }
 
-impl Default for System {
+impl Default for Runtime {
     fn default() -> Self {
         Self {
             max_threads: Self::max_threads(),
@@ -260,7 +260,7 @@ pub struct Config {
     #[serde(default)]
     pub auth: Auth,
     #[serde(default)]
-    pub system: System,
+    pub runtime: Runtime,
 }
 
 #[derive(Parser, Debug)]

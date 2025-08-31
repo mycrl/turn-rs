@@ -144,7 +144,7 @@
          */
     },
 
-    "system": {
+    "runtime": {
         /**
          * Maximum number of threads the TURN server can use.
          *

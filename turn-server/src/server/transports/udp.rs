@@ -30,7 +30,7 @@ pub async fn listener<T>(
 where
     T: Clone + ServiceHandler + 'static,
 {
-    let system = config.system;
+    let runtime = config.runtime;
 
     let socket = Arc::new(UdpSocket::bind(listen)?);
     let local_addr = socket.local_addr()?;
@@ -40,11 +40,11 @@ where
         .map(|items| {
             items
                 .into_iter()
-                .take(system.max_threads)
+                .take(runtime.max_threads)
                 .map(Some)
                 .collect::<Vec<_>>()
         })
-        .unwrap_or_else(|| (0..system.max_threads).map(|_| None).collect::<Vec<_>>())
+        .unwrap_or_else(|| (0..runtime.max_threads).map(|_| None).collect::<Vec<_>>())
     {
         let socket = socket.clone();
         let exchanger = exchanger.clone();
@@ -63,8 +63,8 @@ where
             };
 
             let mut buffer = {
-                let mut it = Vec::with_capacity(system.mtu * 2);
-                it.resize(system.mtu * 2, 0u8);
+                let mut it = Vec::with_capacity(runtime.mtu * 2);
+                it.resize(runtime.mtu * 2, 0u8);
 
                 it
             };
