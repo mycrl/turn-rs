@@ -5,6 +5,7 @@ use crate::{
 
 use std::{io::ErrorKind::ConnectionReset, net::UdpSocket, sync::Arc, thread};
 
+use bytes::{Bytes, BytesMut};
 use codec::message::attributes::Transport;
 use service::{
     ServiceHandler,
@@ -62,12 +63,7 @@ where
                 interface: external,
             };
 
-            let mut buffer = {
-                let mut it = Vec::with_capacity(runtime.mtu * 2);
-                it.resize(runtime.mtu * 2, 0u8);
-
-                it
-            };
+            let mut buffer = BytesMut::zeroed(runtime.mtu * 2);
 
             loop {
                 // Note: An error will also be reported when the remote host is
@@ -107,7 +103,7 @@ where
 
                     let to = target.relay.as_ref().unwrap_or(&addr);
                     if let Some(ref endpoint) = target.endpoint {
-                        exchanger.send(endpoint, ty, to, bytes);
+                        exchanger.send(endpoint, ty, to, Bytes::copy_from_slice(bytes));
                     } else {
                         if let Err(e) = socket.send_to(bytes, to) {
                             if e.kind() != ConnectionReset {

@@ -6,6 +6,7 @@ use crate::{
 
 use std::sync::Arc;
 
+use bytes::Bytes;
 use codec::{Decoder, message::attributes::Transport};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use service::{
@@ -170,7 +171,7 @@ where
                                             &endpoint,
                                             ty,
                                             target.relay.as_ref().unwrap_or_else(|| &address),
-                                            bytes,
+                                            Bytes::copy_from_slice(bytes),
                                         );
                                     } else {
                                         if socket.write_all(bytes).await.is_err() {
@@ -193,8 +194,8 @@ where
                                 }
                             }
                         }
-                        Some((bytes, method, _)) = receiver.recv() => {
-                            if socket.write_all(bytes.as_slice()).await.is_err() {
+                        Some((mut bytes, method, _)) = receiver.recv() => {
+                            if socket.write_all_buf(&mut bytes).await.is_err() {
                                 break;
                             } else {
                                 reporter.send(&id, &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)]);

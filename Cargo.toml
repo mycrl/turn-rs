@@ -16,6 +16,7 @@ ahash = "0.8"
 anyhow = "1.0"
 axum = { version = "0.8", optional = true }
 base64 = "0.22"
+bytes = "1"
 clap = { version = "4", features = ["derive"] }
 core_affinity = { version = "0.8.3", optional = true }
 log = "0.4"

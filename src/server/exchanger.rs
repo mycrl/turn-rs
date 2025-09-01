@@ -3,10 +3,11 @@ use super::OutboundType;
 use std::{net::SocketAddr, sync::Arc};
 
 use ahash::AHashMap;
+use bytes::Bytes;
 use parking_lot::RwLock;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 
-type Receiver = UnboundedSender<(Vec<u8>, OutboundType, SocketAddr)>;
+type Receiver = UnboundedSender<(Bytes, OutboundType, SocketAddr)>;
 
 /// Handles packet forwarding between transport protocols.
 #[derive(Clone)]
@@ -26,7 +27,7 @@ impl Exchanger {
     pub fn get_receiver(
         &self,
         interface: SocketAddr,
-    ) -> UnboundedReceiver<(Vec<u8>, OutboundType, SocketAddr)> {
+    ) -> UnboundedReceiver<(Bytes, OutboundType, SocketAddr)> {
         let (sender, receiver) = unbounded_channel();
         self.0.write().insert(interface, sender);
         receiver
@@ -38,12 +39,12 @@ impl Exchanger {
     /// is forwarded to the corresponding socket. However, it should be noted
     /// that calling this function will not notify whether the socket exists.
     /// If it does not exist, the data will be discarded by default.
-    pub fn send(&self, interface: &SocketAddr, ty: OutboundType, addr: &SocketAddr, data: &[u8]) {
+    pub fn send(&self, interface: &SocketAddr, ty: OutboundType, addr: &SocketAddr, data: Bytes) {
         let mut is_destroy = false;
 
         {
             if let Some(sender) = self.0.read().get(interface) {
-                if sender.send((data.to_vec(), ty, *addr)).is_err() {
+                if sender.send((data, ty, *addr)).is_err() {
                     is_destroy = true;
                 }
             }
