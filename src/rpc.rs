@@ -162,6 +162,8 @@ pub async fn start_server(
 ) -> Result<()> {
     let mut builder = Server::builder();
 
+    builder = builder.timeout(Duration::from_secs(5)).accept_http1(false);
+
     #[cfg(feature = "ssl")]
     if let Some(ssl) = &config.rpc.ssl {
         builder = builder.tls_config(ServerTlsConfig::new().identity(Identity::from_pem(
