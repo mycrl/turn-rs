@@ -19,7 +19,7 @@ jobs:
                       ~/.cargo/registry/cache/
                       ~/.cargo/git/db/
                       target/
-                  key: "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
+                  key: "${{ runner.os }}"
             - name: Install dependencies
               run: |
                   sudo apt update
