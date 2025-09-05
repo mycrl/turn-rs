@@ -3,14 +3,6 @@ on:
     push:
         branches:
             - main
-        paths:
-            - drivers/**
-            - tests/**
-            - stun/**
-            - turn/**
-            - turn-server/**
-            - Cargo.toml
-            - Cargo.lock
     pull_request:
         branches:
             - main
@@ -34,6 +26,6 @@ jobs:
                   sudo apt install -y protobuf-compiler
                   cargo install cargo-hack
             - name: Run tests for all features
-              run: cargo test --all-features
-            - name: Run tests all possible feature combinations
-              run: cargo hack test --feature-powerset
+              run: cargo test --workspace
+            - name: Run check all possible feature combinations
+              run: cargo hack check --feature-powerset
