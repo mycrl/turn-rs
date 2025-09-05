@@ -84,7 +84,7 @@ jobs:
               if: runner.os == 'Linux'
               run: |
                   sudo apt update
-                  sudo apt install -y gcc-aarch64-linux-gnu
+                  sudo apt install -y gcc-aarch64-linux-gnu protobuf-compiler
                   rustup update
                   rustup target add ${{ matrix.target }}
                   cargo install cargo-zigbuild
