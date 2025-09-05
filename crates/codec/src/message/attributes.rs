@@ -123,7 +123,7 @@ impl XAddress {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use turn_server_codec::message::attributes::XAddress;
+    /// use turn_codec::message::attributes::XAddress;
     ///
     /// let xor_addr_bytes: [u8; 8] =
     ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
@@ -169,7 +169,7 @@ impl XAddress {
     /// # Test
     ///
     /// ```
-    /// use turn_server_codec::message::attributes::XAddress;
+    /// use turn_codec::message::attributes::XAddress;
     ///
     /// let xor_addr_bytes: [u8; 8] =
     ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
@@ -212,7 +212,7 @@ impl XAddress {
 ///
 /// ```
 /// use std::net::IpAddr;
-/// use turn_server_codec::message::attributes::from_bytes_v4;
+/// use turn_codec::message::attributes::from_bytes_v4;
 ///
 /// let bytes: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
 ///
@@ -234,7 +234,7 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, crate::Error> {
 ///
 /// ```
 /// use std::net::IpAddr;
-/// use turn_server_codec::message::attributes::from_bytes_v6;
+/// use turn_codec::message::attributes::from_bytes_v6;
 ///
 /// let bytes: [u8; 20] = [
 ///     0x00, 0x01, 0xdd, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -259,7 +259,7 @@ pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr, crate::Error> {
 ///
 /// ```
 /// use std::net::SocketAddr;
-/// use turn_server_codec::message::attributes::xor;
+/// use turn_codec::message::attributes::xor;
 ///
 /// let source: SocketAddr = "192.168.0.107:1".parse().unwrap();
 ///
@@ -286,7 +286,7 @@ pub fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
 ///
 /// ```
 /// use std::net::{IpAddr, Ipv4Addr};
-/// use turn_server_codec::message::attributes::xor_v4;
+/// use turn_codec::message::attributes::xor_v4;
 ///
 /// let source: Ipv4Addr = "192.168.0.107".parse().unwrap();
 ///
@@ -308,7 +308,7 @@ pub fn xor_v4(addr: Ipv4Addr) -> IpAddr {
 ///
 /// ```
 /// use std::net::{IpAddr, Ipv6Addr};
-/// use turn_server_codec::message::attributes::xor_v6;
+/// use turn_codec::message::attributes::xor_v6;
 ///
 /// let source: Ipv6Addr = "::ffff:192.10.47.15".parse().unwrap();
 ///
@@ -931,7 +931,7 @@ impl From<ErrorKind> for Error<'_> {
     /// # Example
     ///
     /// ```no_run
-    /// use turn_server_codec::message::attributes::{Error, ErrorKind};
+    /// use turn_codec::message::attributes::{Error, ErrorKind};
     ///
     /// Error::from(ErrorKind::TryAlternate);
     /// ```
@@ -950,7 +950,7 @@ impl Error<'_> {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use turn_server_codec::message::attributes::{Error, ErrorKind};
+    /// use turn_codec::message::attributes::{Error, ErrorKind};
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -976,7 +976,7 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::{Error, ErrorKind};
+    /// use turn_codec::message::attributes::{Error, ErrorKind};
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -1008,7 +1008,7 @@ impl From<ErrorKind> for &'static str {
     ///
     /// ```
     /// use std::convert::Into;
-    /// use turn_server_codec::message::attributes::ErrorKind;
+    /// use turn_codec::message::attributes::ErrorKind;
     ///
     /// let err: &'static str = ErrorKind::TryAlternate.into();
     /// assert_eq!(err, "Try Alternate");

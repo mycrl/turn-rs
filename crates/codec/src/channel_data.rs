@@ -35,7 +35,7 @@ impl<'a> ChannelData<'a> {
     ///
     /// ```
     /// use bytes::{BufMut, BytesMut};
-    /// use turn_server_codec::channel_data::ChannelData;
+    /// use turn_codec::channel_data::ChannelData;
     ///
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
@@ -71,7 +71,7 @@ impl<'a> ChannelData<'a> {
     ///
     /// ```
     /// use bytes::{BufMut, BytesMut};
-    /// use turn_server_codec::channel_data::ChannelData;
+    /// use turn_codec::channel_data::ChannelData;
     ///
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
@@ -98,7 +98,7 @@ impl<'a> ChannelData<'a> {
     ///
     /// ```
     /// use bytes::{BufMut, BytesMut};
-    /// use turn_server_codec::channel_data::ChannelData;
+    /// use turn_codec::channel_data::ChannelData;
     ///
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);

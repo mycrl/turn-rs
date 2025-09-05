@@ -123,8 +123,8 @@ impl Decoder {
     /// # Test
     ///
     /// ```
-    /// use turn_server_codec::message::attributes::UserName;
-    /// use turn_server_codec::{Decoder, DecodeResult};
+    /// use turn_codec::message::attributes::UserName;
+    /// use turn_codec::{Decoder, DecodeResult};
     ///
     /// let buffer = [
     ///     0x00, 0x01, 0x00, 0x4c, 0x21, 0x12, 0xa4, 0x42, 0x71, 0x66, 0x46, 0x31,
@@ -164,7 +164,7 @@ impl Decoder {
     /// # Test
     ///
     /// ```
-    /// use turn_server_codec::Decoder;
+    /// use turn_codec::Decoder;
     ///
     /// let buffer = [
     ///     0x00, 0x01, 0x00, 0x4c, 0x21, 0x12, 0xa4, 0x42, 0x71, 0x66, 0x46, 0x31,
@@ -200,7 +200,7 @@ impl Decoder {
 /// # Test
 ///
 /// ```
-/// use turn_server_codec::hmac_sha1;
+/// use turn_codec::hmac_sha1;
 ///
 /// let buffer = [
 ///     0x00u8, 0x03, 0x00, 0x50, 0x21, 0x12, 0xa4, 0x42, 0x64, 0x4f, 0x5a,
@@ -246,7 +246,7 @@ pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<CtOutput<Hmac<sha1::Sha
 /// # Test
 ///
 /// ```
-/// use turn_server_codec::fingerprint;
+/// use turn_codec::fingerprint;
 ///
 /// assert_eq!(fingerprint(b"1"), 3498621689);
 /// ```
@@ -261,7 +261,7 @@ pub fn fingerprint(bytes: &[u8]) -> u32 {
 /// # Test
 ///
 /// ```
-/// use turn_server_codec::long_term_credential_digest;
+/// use turn_codec::long_term_credential_digest;
 ///
 /// let buffer = [
 ///     0x3eu8, 0x2f, 0x79, 0x1e, 0x1f, 0x14, 0xd1, 0x73, 0xfc, 0x91, 0xff,

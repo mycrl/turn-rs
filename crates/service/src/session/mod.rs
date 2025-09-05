@@ -98,7 +98,7 @@ where
 /// and manually.
 ///
 /// ```
-/// use turn_server_service::session::Timer;
+/// use turn_service::session::Timer;
 ///
 /// let timer = Timer::default();
 ///
@@ -277,8 +277,8 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
+    /// use turn_service::session::*;
+    /// use turn_service::*;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
@@ -370,8 +370,8 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
+    /// use turn_service::session::*;
+    /// use turn_service::*;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
@@ -466,8 +466,8 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
+    /// use turn_service::session::*;
+    /// use turn_service::*;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
@@ -560,8 +560,8 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
+    /// use turn_service::session::*;
+    /// use turn_service::*;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
@@ -678,8 +678,8 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
+    /// use turn_service::session::*;
+    /// use turn_service::*;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
@@ -818,8 +818,8 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
+    /// use turn_service::session::*;
+    /// use turn_service::*;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
@@ -892,8 +892,8 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
+    /// use turn_service::session::*;
+    /// use turn_service::*;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
@@ -963,8 +963,8 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
+    /// use turn_service::session::*;
+    /// use turn_service::*;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;

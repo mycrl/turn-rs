@@ -43,7 +43,7 @@ pub enum Bit {
 ///
 /// ```
 /// use std::collections::HashSet;
-/// use turn_server_service::session::ports::*;
+/// use turn_service::session::ports::*;
 ///
 /// let mut pool = PortAllocator::default();
 /// let mut ports = HashSet::with_capacity(PortAllocator::default().capacity());
@@ -87,7 +87,7 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::ports::*;
+    /// use turn_service::session::ports::*;
     ///
     /// assert_eq!(PortAllocator::default().capacity(), 65535 - 49152);
     /// ```
@@ -100,7 +100,7 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::ports::*;
+    /// use turn_service::session::ports::*;
     ///
     /// let pool = PortAllocator::default();
     ///
@@ -119,7 +119,7 @@ impl PortAllocator {
     /// get pools allocated size.
     ///
     /// ```
-    /// use turn_server_service::session::ports::*;
+    /// use turn_service::session::ports::*;
     ///
     /// let mut pools = PortAllocator::default();
     /// assert_eq!(pools.len(), 0);
@@ -134,7 +134,7 @@ impl PortAllocator {
     /// get pools allocated size is empty.
     ///
     /// ```
-    /// use turn_server_service::session::ports::*;
+    /// use turn_service::session::ports::*;
     ///
     /// let mut pools = PortAllocator::default();
     /// assert_eq!(pools.len(), 0);
@@ -149,7 +149,7 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::ports::*;
+    /// use turn_service::session::ports::*;
     ///
     /// let mut pool = PortAllocator::default();
     ///
@@ -224,7 +224,7 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::ports::*;
+    /// use turn_service::session::ports::*;
     ///
     /// let mut pool = PortAllocator::default();
     ///
@@ -256,7 +256,7 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::ports::*;
+    /// use turn_service::session::ports::*;
     ///
     /// let mut pool = PortAllocator::default();
     ///

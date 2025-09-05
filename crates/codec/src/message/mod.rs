@@ -39,9 +39,9 @@ impl<'a, 'b> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_codec::message::methods::*;
+    /// use turn_codec::message::*;
+    /// use turn_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -75,10 +75,10 @@ impl<'a, 'b> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::*;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_codec::message::attributes::*;
+    /// use turn_codec::message::methods::*;
+    /// use turn_codec::message::*;
+    /// use turn_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -133,9 +133,9 @@ impl<'a, 'b> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_codec::message::methods::*;
+    /// use turn_codec::message::*;
+    /// use turn_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -187,9 +187,9 @@ impl<'a, 'b> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_codec::message::methods::*;
+    /// use turn_codec::message::*;
+    /// use turn_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -284,10 +284,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::*;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_codec::message::attributes::*;
+    /// use turn_codec::message::methods::*;
+    /// use turn_codec::message::*;
+    /// use turn_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -313,10 +313,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::*;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_codec::message::attributes::*;
+    /// use turn_codec::message::methods::*;
+    /// use turn_codec::message::*;
+    /// use turn_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -346,9 +346,9 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_codec::message::methods::*;
+    /// use turn_codec::message::*;
+    /// use turn_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x03, 0x00, 0x50, 0x21, 0x12, 0xa4, 0x42, 0x64, 0x4f, 0x5a,
@@ -409,10 +409,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::*;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_codec::message::attributes::*;
+    /// use turn_codec::message::methods::*;
+    /// use turn_codec::message::*;
+    /// use turn_codec::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
@@ -521,7 +521,7 @@ impl<'a> Message<'a> {
     /// # Test
     ///
     /// ```
-    /// use turn_server_codec::message::*;
+    /// use turn_codec::message::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
@@ -548,7 +548,7 @@ impl<'a> Message<'a> {
 /// # Test
 ///
 /// ```
-/// use turn_server_codec::message::filling_length;
+/// use turn_codec::message::filling_length;
 ///
 /// assert_eq!(filling_length(4), 0);
 /// assert_eq!(filling_length(0), 0);
