@@ -68,9 +68,9 @@
         ]
     },
 
-    "api": {
+    "rpc": {
         /**
-         * api server listen
+         * rpc server listen
          *
          *
          * This option specifies the http server binding address used to control
@@ -78,21 +78,6 @@
          *
          */
         "listen": "127.0.0.1:3000"
-        /**
-         * HTTP response headers
-         *
-         * Used to customize, add, or override HTTP response headers for the API
-         * service, such as setting cross-origin (CORS) related parameters.
-         *
-         * "headers": {
-         *     "Key": "turn-server-example",
-         *     "Access-Control-Allow-Origin": "https://example.com",
-         *     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-         *     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
-         *     "Access-Control-Allow-Credentials": "true"
-         * }
-         *
-         */
 
         /**
          * ssl configuration
@@ -103,6 +88,18 @@
          *   "certificate_chain": "/etc/turn-rs/tls/certificate.crt"
          * }
          *
+         */
+
+        /**
+         *
+         * "hooks": {
+         *   "endpoint": "http://127.0.0.1:3000",
+         *   "max_channel_size": 1024,
+         *   "ssl": {
+         *     "private_key": "/etc/turn-rs/tls/private.key",
+         *     "certificate_chain": "/etc/turn-rs/tls/certificate.crt"
+         *   }
+         * }
          */
     },
 
@@ -150,7 +147,7 @@
         /**
          * Enable sending authentication requests to an external SDK via the endpoint.
          */
-        "enable_endpoint_auth": false
+        "enable_auth_for_hooks": false
     },
 
     "runtime": {

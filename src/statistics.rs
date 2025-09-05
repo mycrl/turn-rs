@@ -1,9 +1,3 @@
-/// [issue](https://github.com/mycrl/turn-rs/issues/101)
-///
-/// Integrated Prometheus Metrics Exporter
-#[cfg(feature = "prometheus")]
-pub mod prometheus;
-
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -93,13 +87,13 @@ impl<T: Number> Counts<T> {
 pub struct Statistics(Arc<RwLock<AHashMap<Identifier, Counts<Count>>>>);
 
 impl Default for Statistics {
-    #[cfg(feature = "api")]
+    #[cfg(feature = "rpc")]
     fn default() -> Self {
         Self(Arc::new(RwLock::new(AHashMap::with_capacity(1024))))
     }
 
     // There's no need to take up so much memory when you don't have stats enabled.
-    #[cfg(not(feature = "api"))]
+    #[cfg(not(feature = "rpc"))]
     fn default() -> Self {
         Self(Default::default())
     }
@@ -156,11 +150,6 @@ impl Statistics {
     /// assert_eq!(statistics.get(&addr).is_some(), true);
     /// ```
     pub fn register(&self, addr: Identifier) {
-        #[cfg(feature = "prometheus")]
-        {
-            self::prometheus::METRICS.allocated.inc();
-        }
-
         self.0.write().insert(
             addr,
             Counts {
@@ -196,11 +185,6 @@ impl Statistics {
     /// assert_eq!(statistics.get(&addr).is_some(), false);
     /// ```
     pub fn unregister(&self, addr: &Identifier) {
-        #[cfg(feature = "prometheus")]
-        {
-            self::prometheus::METRICS.allocated.dec();
-        }
-
         self.0.write().remove(addr);
     }
 
@@ -251,15 +235,8 @@ pub struct StatisticsReporter {
 impl StatisticsReporter {
     #[allow(unused_variables)]
     pub fn send(&self, addr: &Identifier, reports: &[Stats]) {
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
-            #[cfg(feature = "prometheus")]
-            {
-                for report in reports {
-                    self::prometheus::METRICS.add(self.transport, report);
-                }
-            }
-
             if let Some(counts) = self.table.read().get(addr) {
                 for item in reports {
                     counts.add(item);

@@ -2,26 +2,36 @@ use std::sync::Arc;
 
 use crate::{config::Config, statistics::Statistics};
 
+#[cfg(feature = "rpc")]
+use crate::rpc::{
+    HooksEvent, IdString, RpcHooksService,
+    proto::{
+        TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
+        TurnRefreshEvent,
+    },
+};
+
 use anyhow::Result;
 use base64::{Engine, prelude::BASE64_STANDARD};
 use codec::long_term_credential_digest;
 use service::{ServiceHandler, session::Identifier};
 
-#[cfg(feature = "api")]
-use serde_json::json;
-
 #[derive(Clone)]
 pub struct Observer {
     config: Arc<Config>,
-    #[cfg(feature = "api")]
+    #[cfg(feature = "rpc")]
     statistics: Statistics,
+    #[cfg(feature = "rpc")]
+    rpc: Arc<RpcHooksService>,
 }
 
 impl Observer {
     #[allow(unused_variables)]
     pub async fn new(config: Arc<Config>, statistics: Statistics) -> Result<Self> {
         Ok(Self {
-            #[cfg(feature = "api")]
+            #[cfg(feature = "rpc")]
+            rpc: RpcHooksService::new(&config).await?.into(),
+            #[cfg(feature = "rpc")]
             statistics,
             config,
         })
@@ -90,20 +100,16 @@ impl ServiceHandler for Observer {
             port
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
             self.statistics.register(*id);
 
-            crate::api::events::send_with_stream("allocated", || {
-                json!({
-                    "session": {
-                        "address": id.source,
-                        "interface": id.interface,
-                    },
-                    "username": name,
-                    "port": port,
-                })
-            });
+            self.rpc
+                .send_event(HooksEvent::Allocated(TurnAllocatedEvent {
+                    id: id.to_string(),
+                    username: name.to_string(),
+                    port: port as i32,
+                }));
         }
     }
 
@@ -146,18 +152,14 @@ impl ServiceHandler for Observer {
             channel
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
-            crate::api::events::send_with_stream("channel_bind", || {
-                json!({
-                    "session": {
-                        "address": id.source,
-                        "interface": id.interface,
-                    },
-                    "username": name,
-                    "channel": channel,
-                })
-            });
+            self.rpc
+                .send_event(HooksEvent::ChannelBind(TurnChannelBindEvent {
+                    id: id.to_string(),
+                    username: name.to_string(),
+                    channel: channel as i32,
+                }));
         }
     }
 
@@ -209,18 +211,14 @@ impl ServiceHandler for Observer {
             ports
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
-            crate::api::events::send_with_stream("create_permission", || {
-                json!({
-                    "session": {
-                        "address": id.source,
-                        "interface": id.interface,
-                    },
-                    "username": name,
-                    "ports": ports,
-                })
-            });
+            self.rpc
+                .send_event(HooksEvent::CreatePermission(TurnCreatePermissionEvent {
+                    id: id.to_string(),
+                    username: name.to_string(),
+                    ports: ports.iter().map(|p| *p as i32).collect(),
+                }));
         }
     }
 
@@ -272,18 +270,13 @@ impl ServiceHandler for Observer {
             lifetime
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
-            crate::api::events::send_with_stream("refresh", || {
-                json!({
-                    "session": {
-                        "address": id.source,
-                        "interface": id.interface,
-                    },
-                    "username": name,
-                    "lifetime": lifetime,
-                })
-            });
+            self.rpc.send_event(HooksEvent::Refresh(TurnRefreshEvent {
+                id: id.to_string(),
+                username: name.to_string(),
+                lifetime: lifetime as i32,
+            }));
         }
     }
 
@@ -300,19 +293,14 @@ impl ServiceHandler for Observer {
             name
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
             self.statistics.unregister(&id);
 
-            crate::api::events::send_with_stream("closed", || {
-                json!({
-                    "session": {
-                        "address": id.source,
-                        "interface": id.interface,
-                    },
-                    "username": name,
-                })
-            });
+            self.rpc.send_event(HooksEvent::Destroy(TurnDestroyEvent {
+                id: id.to_string(),
+                username: name.to_string(),
+            }));
         }
     }
 }

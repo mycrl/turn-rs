@@ -1,14 +1,7 @@
-use crate::{
-    config::Ssl,
-    server::{MAX_MESSAGE_SIZE, OutboundType, TransportOptions, buffer::ExchangeBuffer},
-    statistics::Stats,
-};
-
 use std::sync::Arc;
 
 use bytes::Bytes;
 use codec::{Decoder, message::attributes::Transport};
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use service::{
     ServiceHandler,
     forwarding::{ForwardResult, Outbound},
@@ -18,10 +11,21 @@ use service::{
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
-    pin,
 };
 
-use tokio_openssl::SslStream;
+use tokio_rustls::{
+    TlsAcceptor,
+    rustls::{
+        ServerConfig,
+        pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
+    },
+};
+
+use crate::{
+    config::Ssl,
+    server::{MAX_MESSAGE_SIZE, OutboundType, TransportOptions, buffer::ExchangeBuffer},
+    statistics::Stats,
+};
 
 /// tls server
 ///
@@ -44,14 +48,15 @@ where
     let listener = TcpListener::bind(listen).await?;
     let local_addr = listener.local_addr()?;
 
-    let acceptor = {
-        let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
-        builder.set_private_key_file(ssl.private_key, SslFiletype::PEM)?;
-        builder.set_certificate_chain_file(ssl.certificate_chain)?;
-        builder.check_private_key()?;
-
-        Arc::new(builder.build())
-    };
+    let acceptor = TlsAcceptor::from(Arc::new(
+        ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(
+                CertificateDer::pem_file_iter(ssl.certificate_chain)?
+                    .collect::<Result<Vec<_>, _>>()?,
+                PrivateKeyDer::from_pem_file(ssl.private_key)?,
+            )?,
+    ));
 
     tokio::spawn(async move {
         // Accept all connections on the current listener, but exit the entire
@@ -70,18 +75,9 @@ where
                     log::error!("tls socket set nodelay failed!: addr={address}, err={e}");
                 }
 
-                let Ok(ssl) = openssl::ssl::Ssl::new(acceptor.context()) else {
+                let Ok(mut socket) = acceptor.accept(socket).await else {
                     return;
                 };
-
-                let Ok(socket) = SslStream::new(ssl, socket) else {
-                    return;
-                };
-
-                pin!(socket);
-                if socket.as_mut().accept().await.is_err() {
-                    return;
-                }
 
                 let reporter = statistics.get_reporter(Transport::TCP);
                 let mut receiver = exchanger.get_receiver(address);

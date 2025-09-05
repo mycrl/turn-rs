@@ -1,5 +1,5 @@
 [package]
-name = "turn-server-codec"
+name = "turn-codec"
 version = "0.1.0"
 edition = "2024"
 

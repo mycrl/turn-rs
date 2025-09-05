@@ -14,7 +14,6 @@ categories = ["parsing", "network-programming"]
 [dependencies]
 ahash = "0.8"
 anyhow = "1.0"
-axum = { version = "0.8", optional = true }
 base64 = "0.22"
 bytes = "1"
 clap = { version = "4", features = ["derive"] }
@@ -23,18 +22,22 @@ log = "0.4"
 mimalloc = { version = "0.1", default-features = false }
 parking_lot = "0.12"
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1.0", optional = true }
 serde_json5 = "0.2.1"
 simple_logger = "5"
 tokio = { version = "1", features = ["full"] }
-prometheus = { version = "0.14.0", optional = true }
-tokio-openssl = { version = "0.6", optional = true }
-axum-server = { version = "0.7.2", features = ["tls-openssl"], optional = true }
-openssl = { version = "0.10", optional = true }
+tokio-rustls = { version = "0.26", features = ["aws-lc-rs"], optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 num_cpus = "1.17.0"
+tonic = { version = "0.14", features = ["deflate"], optional = true }
+prost = { version = "0.14", optional = true }
+tonic-prost = { version = "0.14", optional = true }
+url = { version = "2.5.7", optional = true }
 codec = { workspace = true }
 service = { workspace = true }
+
+[build-dependencies]
+anyhow = "1.0"
+tonic-prost-build = { version = "0.14", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
@@ -42,12 +45,17 @@ bytes = "1"
 rand = "0.9"
 
 [features]
-api = ["dep:axum", "dep:serde_json", "dep:tokio-stream"]
-prometheus = ["api", "dep:prometheus"]
+rpc = [
+    "dep:tonic",
+    "dep:tonic-prost-build",
+    "dep:tonic-prost",
+    "dep:prost",
+    "dep:url",
+]
 udp = ["dep:core_affinity"]
 tcp = []
-ssl = ["dep:tokio-openssl", "dep:openssl", "dep:axum-server"]
-all = ["udp", "tcp", "ssl", "api", "prometheus"]
+ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc"]
+all = ["udp", "tcp", "ssl", "rpc"]
 default = ["all"]
 
 [profile.release]
@@ -61,8 +69,8 @@ codegen-units = 1
 
 [workspace]
 resolver = "2"
-members = ["crates/codec", "crates/service", "./"]
+members = ["./", "crates/codec", "crates/service", "crates/client"]
 
 [workspace.dependencies]
-codec = { path = "crates/codec", version = "0.1.0", package = "turn-server-codec" }
-service = { path = "crates/service", version = "0.1.0", package = "turn-server-service" }
+codec = { path = "crates/codec", version = "0.1.0", package = "turn-codec" }
+service = { path = "crates/service", version = "0.1.0", package = "turn-service" }

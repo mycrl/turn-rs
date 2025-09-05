@@ -103,37 +103,44 @@ impl Default for Turn {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Api {
-    ///
-    /// api server listen
-    ///
-    /// This option specifies the http server binding address used to control
-    /// the turn server.
-    ///
-    #[serde(default = "Api::bind")]
-    pub listen: SocketAddr,
-    ///
-    /// HTTP response headers
-    ///
-    /// Used to customize, add, or override HTTP response headers for the API
-    /// service, such as setting cross-origin (CORS) related parameters.
-    ///
-    #[serde(default)]
-    pub headers: HashMap<String, String>,
+pub struct Hooks {
+    #[serde(default = "Hooks::max_channel_size")]
+    pub max_channel_size: usize,
+    pub endpoint: String,
     pub ssl: Option<Ssl>,
 }
 
-impl Api {
+impl Hooks {
+    fn max_channel_size() -> usize {
+        1024
+    }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Rpc {
+    ///
+    /// rpc server listen
+    ///
+    /// This option specifies the rpc server binding address used to control
+    /// the turn server.
+    ///
+    #[serde(default = "Rpc::bind")]
+    pub listen: SocketAddr,
+    pub hooks: Option<Hooks>,
+    pub ssl: Option<Ssl>,
+}
+
+impl Rpc {
     fn bind() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
     }
 }
 
-impl Default for Api {
+impl Default for Rpc {
     fn default() -> Self {
         Self {
-            headers: Default::default(),
             listen: Self::bind(),
+            hooks: None,
             ssl: None,
         }
     }
@@ -265,7 +272,7 @@ pub struct Config {
     #[serde(default)]
     pub turn: Turn,
     #[serde(default)]
-    pub api: Api,
+    pub rpc: Rpc,
     #[serde(default)]
     pub log: Log,
     #[serde(default)]

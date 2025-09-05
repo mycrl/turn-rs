@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package turn.server;
+
+import "google/protobuf/empty.proto";
+
+message TurnServerInfo {
+    string software = 1;
+    uint64 uptime = 2;
+    repeated string interfaces = 3;
+    uint32 port_capacity = 4;
+    uint32 port_allocated = 5;
+}
+
+message SessionQueryParams {
+    string id = 1;
+}
+
+message TurnSession {
+    string username = 1;
+    repeated int32 permissions = 2;
+    repeated int32 channels = 3;
+    optional int32 port = 4;
+    int64 expires = 6;
+}
+
+message TurnSessionStatistics {
+    uint64 received_bytes = 1;
+    uint64 send_bytes = 2;
+    uint64 received_pkts = 3;
+    uint64 send_pkts = 4;
+    uint64 error_pkts = 5;
+}
+
+service TurnService {
+    rpc GetInfo(google.protobuf.Empty) returns (TurnServerInfo);
+    rpc GetSession(SessionQueryParams) returns (TurnSession);
+    rpc GetSessionStatistics(SessionQueryParams) returns (TurnSessionStatistics);
+    rpc DestroySession(SessionQueryParams) returns (google.protobuf.Empty);
+}
+
+message TurnAllocatedEvent {
+    string id = 1;
+    string username = 2;
+    int32 port = 3;
+}
+
+message TurnChannelBindEvent {
+    string id = 1;
+    string username = 2;
+    int32 channel = 3;
+}
+
+message TurnCreatePermissionEvent {
+    string id = 1;
+    string username = 2;
+    repeated int32 ports = 3;
+}
+
+message TurnRefreshEvent {
+    string id = 1;
+    string username = 2;
+    int32 lifetime = 3;
+}
+
+message TurnDestroyEvent {
+    string id = 1;
+    string username = 2;
+}
+
+message GetTurnMessageIntegrityRequest {
+    string username = 1;
+}
+
+message GetTurnMessageIntegrityResponse {
+    bytes message_integrity = 2;
+}
+
+service TurnHooksService {
+
+    // hooks
+    rpc GetMessageIntegrity(GetTurnMessageIntegrityRequest) returns (GetTurnMessageIntegrityResponse);
+
+    // events
+    rpc OnAllocatedEvent(TurnAllocatedEvent) returns (google.protobuf.Empty);
+    rpc OnChannelBindEvent(TurnChannelBindEvent) returns (google.protobuf.Empty);
+    rpc OnCreatePermissionEvent(TurnCreatePermissionEvent) returns (google.protobuf.Empty);
+    rpc OnRefreshEvent(TurnRefreshEvent) returns (google.protobuf.Empty);
+    rpc OnDestroyEvent(TurnDestroyEvent) returns (google.protobuf.Empty);
+}

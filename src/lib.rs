@@ -1,5 +1,5 @@
-#[cfg(feature = "api")]
-pub mod api;
+#[cfg(feature = "rpc")]
+pub mod rpc;
 
 pub mod config;
 pub mod observer;
@@ -33,14 +33,14 @@ pub async fn startup(config: Arc<Config>) -> anyhow::Result<()> {
 
     server::start(&config, &statistics, &service).await?;
 
-    #[cfg(feature = "api")]
+    #[cfg(feature = "rpc")]
     {
-        api::start_server(config, service, statistics).await?;
+        rpc::start_server(config, service, statistics).await?;
     }
 
     // The turn server is non-blocking after it runs and needs to be kept from
     // exiting immediately if the api server is not enabled.
-    #[cfg(not(feature = "api"))]
+    #[cfg(not(feature = "rpc"))]
     {
         std::future::pending::<()>().await;
     }

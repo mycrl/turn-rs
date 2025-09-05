@@ -25,7 +25,7 @@ use tokio::{
 };
 
 use turn_server::{
-    config::{Api, Auth, Config, Interface, Transport as TurnTransport, Turn},
+    config::{Auth, Config, Interface, Rpc, Transport as TurnTransport, Turn},
     startup,
 };
 
@@ -36,7 +36,7 @@ static TOKEN: LazyLock<[u8; 12]> = LazyLock::new(|| {
     token
 });
 
-pub async fn create_turn_server(listen: SocketAddr, auth: Auth, api: Api) -> Result<()> {
+pub async fn create_turn_server(listen: SocketAddr, auth: Auth, rpc: Rpc) -> Result<()> {
     tokio::spawn(async move {
         startup(Arc::new(Config {
             turn: Turn {
@@ -49,7 +49,7 @@ pub async fn create_turn_server(listen: SocketAddr, auth: Auth, api: Api) -> Res
                 }],
             },
             auth,
-            api,
+            rpc,
             ..Default::default()
         }))
         .await
@@ -356,7 +356,7 @@ async fn integration_testing() -> Result<()> {
                 it
             },
         },
-        Api::default(),
+        Rpc::default(),
     )
     .await?;
 
