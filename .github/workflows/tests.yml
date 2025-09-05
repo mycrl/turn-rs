@@ -32,5 +32,8 @@ jobs:
               run: |
                   sudo apt update
                   sudo apt install -y protobuf-compiler
-            - name: Run tests
-              run: cargo test
+                  cargo install cargo-hack
+            - name: Run tests for all features
+              run: cargo test --all-features
+            - name: Run tests all possible feature combinations
+              run: cargo hack test --feature-powerset
