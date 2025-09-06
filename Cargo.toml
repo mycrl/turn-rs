@@ -45,18 +45,13 @@ bytes = "1"
 rand = "0.9"
 
 [features]
-rpc = [
-    "dep:tonic",
-    "dep:tonic-prost-build",
-    "dep:tonic-prost",
-    "dep:prost",
-    "dep:url",
-]
-udp = ["dep:core_affinity"]
-tcp = []
-ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc"]
-all = ["udp", "tcp", "ssl", "rpc"]
 default = ["all"]
+all = ["udp", "tcp", "ssl", "rpc"]
+tcp = []
+udp = ["dep:core_affinity"]
+rpc-build = ["dep:tonic-prost-build", "dep:tonic-prost", "dep:prost"]
+rpc = ["dep:tonic", "rpc-build", "dep:url"]
+ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc"]
 
 [profile.release]
 debug-assertions = false
@@ -69,7 +64,7 @@ codegen-units = 1
 
 [workspace]
 resolver = "2"
-members = ["./", "crates/codec", "crates/service", "crates/client"]
+members = ["./", "crates/codec", "crates/service", "crates/client", "sdk"]
 
 [workspace.dependencies]
 codec = { path = "crates/codec", version = "0.1.0", package = "turn-codec" }

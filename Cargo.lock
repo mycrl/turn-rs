@@ -2280,6 +2280,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "turn-server-sdk"
+version = "0.1.0"
+dependencies = [
+ "prost",
+ "tonic",
+ "tonic-prost",
+ "tonic-prost-build",
+ "turn-codec",
+]
+
+[[package]]
 name = "turn-service"
 version = "0.1.0"
 dependencies = [
