@@ -2287,6 +2287,7 @@ dependencies = [
  "bytes",
  "parking_lot",
  "rand",
+ "serde",
  "tokio",
  "turn-codec",
 ]

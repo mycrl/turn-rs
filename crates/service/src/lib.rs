@@ -1,14 +1,14 @@
 pub mod forwarding;
 pub mod session;
 
-use crate::session::SessionManagerOptions;
+use crate::session::{SessionManagerOptions, ports::PortRange};
 
 use self::{
     forwarding::PacketForwarder,
     session::{Identifier, SessionManager},
 };
 
-use std::{net::SocketAddr, ops::Range, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 
 pub trait ServiceHandler: Send + Sync {
     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]>;
@@ -158,7 +158,7 @@ pub trait ServiceHandler: Send + Sync {
 }
 
 pub struct ServiceOptions<T> {
-    pub port_range: Range<u16>,
+    pub port_range: PortRange,
     pub software: String,
     pub realm: String,
     pub interfaces: Vec<SocketAddr>,

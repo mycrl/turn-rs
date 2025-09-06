@@ -20,7 +20,7 @@ use criterion::*;
 use rand::seq::SliceRandom;
 use service::{
     Service, ServiceHandler, ServiceOptions,
-    session::{Identifier, ports::DEFAULT_PORT_RANGE},
+    session::{Identifier, ports::PortRange},
 };
 
 #[derive(Clone)]
@@ -55,7 +55,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         software: "test".to_string(),
         interfaces: vec![a_id.interface],
         handler: SimpleObserver,
-        port_range: DEFAULT_PORT_RANGE,
+        port_range: PortRange::default(),
     });
 
     let sessions = service.get_session_manager_ref();

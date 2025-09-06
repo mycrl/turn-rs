@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, ops::Range, str::FromStr};
+use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, str::FromStr};
 
 use anyhow::anyhow;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use service::session::ports::DEFAULT_PORT_RANGE;
+use service::session::ports::PortRange;
 
 #[repr(C)]
 #[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -230,7 +230,7 @@ pub struct Runtime {
     /// Port range, the maximum range is 65535 - 49152.
     ///
     #[serde(default = "Runtime::port_range")]
-    pub port_range: Range<u16>,
+    pub port_range: PortRange,
     ///
     /// Maximum number of threads the TURN server can use.
     ///
@@ -244,8 +244,8 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    fn port_range() -> Range<u16> {
-        DEFAULT_PORT_RANGE
+    fn port_range() -> PortRange {
+        PortRange::default()
     }
 
     fn max_threads() -> usize {

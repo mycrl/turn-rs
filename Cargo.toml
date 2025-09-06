@@ -33,7 +33,7 @@ prost = { version = "0.14", optional = true }
 tonic-prost = { version = "0.14", optional = true }
 url = { version = "2.5.7", optional = true }
 codec = { workspace = true }
-service = { workspace = true }
+service = { workspace = true, features = ["serde"] }
 
 [build-dependencies]
 anyhow = "1.0"

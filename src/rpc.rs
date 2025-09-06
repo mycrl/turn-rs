@@ -17,6 +17,7 @@ use tokio::sync::{
     Mutex,
     mpsc::{Sender, channel},
 };
+
 use tonic::{
     Request, Response, Status,
     transport::{Channel, Server},
@@ -81,8 +82,7 @@ impl TurnService for RpcService {
                 .iter()
                 .map(|addr| addr.to_string())
                 .collect(),
-            port_capacity: (self.config.runtime.port_range.end
-                - self.config.runtime.port_range.start) as u32,
+            port_capacity: self.config.runtime.port_range.size() as u32,
             port_allocated: self.service.get_session_manager_ref().allocated() as u32,
         }))
     }

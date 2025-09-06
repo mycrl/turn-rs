@@ -155,7 +155,7 @@
          * Port range, the maximum range is 49152 - 65535.
          *
          */
-        "port_range": [49152, 65535]
+        "port_range": "49152..65535"
         /**
          * Maximum number of threads the TURN server can use.
          *

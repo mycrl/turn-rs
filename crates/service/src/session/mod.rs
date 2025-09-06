@@ -1,14 +1,12 @@
 pub mod ports;
 
-use crate::session::ports::DEFAULT_PORT_RANGE;
-
-use self::ports::PortAllocator;
+use self::ports::{PortAllocator, PortRange};
 use super::ServiceHandler;
 
 use std::{
     hash::Hash,
     net::SocketAddr,
-    ops::{Deref, DerefMut, Range},
+    ops::{Deref, DerefMut},
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -49,9 +47,7 @@ pub struct Table<K, V>(HashMap<K, V>);
 
 impl<K, V> Default for Table<K, V> {
     fn default() -> Self {
-        Self(HashMap::with_capacity(
-            (DEFAULT_PORT_RANGE.end - DEFAULT_PORT_RANGE.start) as usize,
-        ))
+        Self(HashMap::with_capacity(PortRange::default().size()))
     }
 }
 
@@ -168,7 +164,7 @@ impl Session {
 }
 
 pub struct SessionManagerOptions<T> {
-    pub port_range: Range<u16>,
+    pub port_range: PortRange,
     pub handler: T,
 }
 

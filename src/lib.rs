@@ -26,8 +26,8 @@ pub async fn startup(config: Arc<Config>) -> anyhow::Result<()> {
     let service = Service::new(ServiceOptions {
         software: SOFTWARE.to_string(),
         realm: config.turn.realm.clone(),
+        port_range: config.runtime.port_range,
         interfaces: config.turn.get_externals(),
-        port_range: config.runtime.port_range.clone(),
         handler: Observer::new(config.clone(), statistics.clone()).await?,
     });
 

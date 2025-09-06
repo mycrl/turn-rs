@@ -1,8 +1,104 @@
-use std::ops::Range;
+use std::str::FromStr;
 
 use rand::Rng;
 
-pub const DEFAULT_PORT_RANGE: Range<u16> = 49152..65535;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PortRange {
+    start: u16,
+    end: u16,
+}
+
+impl PortRange {
+    pub fn size(&self) -> usize {
+        (self.end - self.start) as usize
+    }
+
+    pub fn contains(&self, port: u16) -> bool {
+        port >= self.start && port <= self.end
+    }
+}
+
+impl Default for PortRange {
+    fn default() -> Self {
+        Self {
+            start: 49152,
+            end: 65535,
+        }
+    }
+}
+
+impl From<std::ops::Range<u16>> for PortRange {
+    fn from(range: std::ops::Range<u16>) -> Self {
+        assert!(range.start <= range.end);
+
+        Self {
+            start: range.start,
+            end: range.end,
+        }
+    }
+}
+
+impl ToString for PortRange {
+    fn to_string(&self) -> String {
+        format!("{}..{}", self.start, self.end)
+    }
+}
+
+#[derive(Debug)]
+pub struct PortRangeParseError(String);
+
+impl std::error::Error for PortRangeParseError {}
+
+impl std::fmt::Display for PortRangeParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<std::num::ParseIntError> for PortRangeParseError {
+    fn from(error: std::num::ParseIntError) -> Self {
+        PortRangeParseError(error.to_string())
+    }
+}
+
+impl FromStr for PortRange {
+    type Err = PortRangeParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (start, end) = s
+            .split_once("..")
+            .ok_or(PortRangeParseError(s.to_string()))?;
+
+        Ok(Self {
+            start: start.parse()?,
+            end: end.parse()?,
+        })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for PortRange {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for PortRange {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from_str(&s).map_err(|e| serde::de::Error::custom(e.0))?)
+    }
+}
 
 /// Bit Flag
 #[derive(PartialEq, Eq)]
@@ -55,7 +151,7 @@ pub enum Bit {
 /// assert_eq!(PortAllocator::default().capacity() + 1, ports.len());
 /// ```
 pub struct PortAllocator {
-    port_range: Range<u16>,
+    port_range: PortRange,
     buckets: Vec<u64>,
     allocated: usize,
     bit_len: u32,
@@ -64,13 +160,13 @@ pub struct PortAllocator {
 
 impl Default for PortAllocator {
     fn default() -> Self {
-        Self::new(DEFAULT_PORT_RANGE)
+        Self::new(PortRange::default())
     }
 }
 
 impl PortAllocator {
-    pub fn new(port_range: Range<u16>) -> Self {
-        let capacity = (port_range.end - port_range.start) as usize;
+    pub fn new(port_range: PortRange) -> Self {
+        let capacity = port_range.size();
         let bucket_size = (capacity as f32 / 64.0).ceil() as usize;
 
         Self {
@@ -92,7 +188,7 @@ impl PortAllocator {
     /// assert_eq!(PortAllocator::default().capacity(), 65535 - 49152);
     /// ```
     pub fn capacity(&self) -> usize {
-        (self.port_range.end - self.port_range.start) as usize
+        self.port_range.size()
     }
 
     /// get port range.
@@ -112,7 +208,7 @@ impl PortAllocator {
     /// assert_eq!(pool.port_range().start, 50000);
     /// assert_eq!(pool.port_range().end, 60000);
     /// ```
-    pub fn port_range(&self) -> &Range<u16> {
+    pub fn port_range(&self) -> &PortRange {
         &self.port_range
     }
 
@@ -270,7 +366,7 @@ impl PortAllocator {
     /// assert_eq!(pool.alloc(Some(0)), Some(49153));
     /// ```
     pub fn restore(&mut self, port: u16) {
-        assert!(self.port_range.contains(&port));
+        assert!(self.port_range.contains(port));
 
         // Calculate the location in the partition from the port number.
         let offset = (port - self.port_range.start) as usize;
