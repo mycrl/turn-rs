@@ -87,7 +87,7 @@ jobs:
                   sudo apt install -y gcc-aarch64-linux-gnu protobuf-compiler
                   rustup update
                   rustup target add ${{ matrix.target }}
-                  cargo install cargo-zigbuild
+                  cargo install cargo-zigbuild --force
                   sudo snap install zig --classic --beta
 
             - name: Install dependencies (Macos)
@@ -95,7 +95,7 @@ jobs:
               run: |
                   rustup update
                   rustup target add ${{ matrix.target }}
-                  cargo install cargo-zigbuild
+                  cargo install cargo-zigbuild --force
                   brew install zig
 
             # Build release
