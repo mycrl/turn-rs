@@ -256,8 +256,7 @@ impl PortAllocator {
     /// ```
     pub fn alloc(&mut self, start: Option<usize>) -> Option<u16> {
         let mut index = None;
-        let mut offset =
-            start.unwrap_or_else(|| rand::rng().random_range(0..self.max_offset) as usize);
+        let mut offset = start.unwrap_or_else(|| rand::rng().random_range(0..self.max_offset));
 
         // When the partition lookup has gone through the entire partition list, the
         // lookup should be stopped, and the location where it should be stopped is
