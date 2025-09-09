@@ -14,7 +14,7 @@ categories = ["parsing", "network-programming"]
 [dependencies]
 ahash = "0.8"
 anyhow = "1.0"
-axum = "0.7"
+axum = "0.8"
 bytes = "1"
 base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
@@ -25,10 +25,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 simple_logger = "5"
 tokio = { version = "1", features = ["full"] }
-toml = "0.7"
-rand = "0.8"
-itertools = "0.13.0"
-prometheus = "0.13.4"
+toml = "0.9"
+rand = "0.9"
+itertools = "0.14"
+prometheus = "0.14"
 num_enum = "0.7"
 md-5 = "0.10"
 hmac = "0.12"
@@ -38,12 +38,11 @@ thiserror = "2.0.4"
 tokio-stream = { version = "0.1", features = ["sync"] }
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.7"
 anyhow = "1.0"
 base64 = "0.22.1"
 tokio = { version = "1", features = ["full"] }
 bytes = "1.4.0"
-rand = "0.8.5"
 
 [[bench]]
 name = "benchmark"

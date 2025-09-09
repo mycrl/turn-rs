@@ -33,7 +33,7 @@ use turn_server::{
 };
 
 static TOKEN: LazyLock<[u8; 12]> = LazyLock::new(|| {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut token = [0u8; 12];
     token.shuffle(&mut rng);
     token
@@ -86,7 +86,7 @@ impl Operationer {
         Ok(self.socket.local_addr()?)
     }
 
-    fn create_message(&mut self, method: StunMethod) -> MessageEncoder {
+    fn create_message(&mut self, method: StunMethod) -> MessageEncoder<'_> {
         MessageEncoder::new(method, &TOKEN, &mut self.send_bytes)
     }
 
@@ -99,7 +99,7 @@ impl Operationer {
         Ok(())
     }
 
-    async fn read_message(&mut self) -> Result<MessageRef> {
+    async fn read_message(&mut self) -> Result<MessageRef<'_>> {
         let size = timeout(Duration::from_secs(1), self.socket.recv(&mut self.recv_bytes)).await??;
 
         if let Payload::Message(message) = self.decoder.decode(&self.recv_bytes[..size])? {
@@ -113,7 +113,7 @@ impl Operationer {
         }
     }
 
-    async fn read_channel_data(&mut self) -> Result<ChannelData> {
+    async fn read_channel_data(&mut self) -> Result<ChannelData<'_>> {
         let size = timeout(Duration::from_secs(1), self.socket.recv(&mut self.recv_bytes)).await??;
 
         if let Payload::ChannelData(channel_data) = self.decoder.decode(&self.recv_bytes[..size])? {

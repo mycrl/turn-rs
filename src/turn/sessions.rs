@@ -15,7 +15,7 @@ use std::{
 
 use ahash::{HashMap, HashMapExt};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
-use rand::{Rng, distributions::Alphanumeric, thread_rng};
+use rand::{Rng, distr::Alphanumeric};
 
 /// Authentication information for the session.
 ///
@@ -304,7 +304,7 @@ impl<T: Observer + 'static> Sessions<T> {
                     (
                         // A random string of length 16.
                         {
-                            let mut rng = thread_rng();
+                            let mut rng = rand::rng();
                             std::iter::repeat(())
                                 .map(|_| rng.sample(Alphanumeric) as char)
                                 .take(16)
@@ -1126,7 +1126,7 @@ impl PortAllocatePools {
     /// ```
     pub fn alloc(&mut self, start_index: Option<usize>) -> Option<u16> {
         let mut index = None;
-        let mut start = start_index.unwrap_or_else(|| thread_rng().gen_range(0..self.peak as u16) as usize);
+        let mut start = start_index.unwrap_or_else(|| rand::rng().random_range(0..self.peak as u16) as usize);
 
         // When the partition lookup has gone through the entire partition list, the
         // lookup should be stopped, and the location where it should be stopped is
