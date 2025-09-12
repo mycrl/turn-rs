@@ -125,7 +125,6 @@
          * "static_auth_secret": ""
          *
          */
-
         /**
          *static user password
          *
@@ -143,11 +142,6 @@
          * }
          *
          */
-
-        /**
-         * Enable sending authentication requests to an external SDK via the endpoint.
-         */
-        "enable_auth_for_hooks": false
     },
 
     "runtime": {

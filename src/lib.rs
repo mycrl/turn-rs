@@ -2,13 +2,13 @@
 pub mod rpc;
 
 pub mod config;
-pub mod observer;
+pub mod handler;
 pub mod server;
 pub mod statistics;
 
 use std::sync::Arc;
 
-use self::{config::Config, observer::Observer, statistics::Statistics};
+use self::{config::Config, handler::Handler, statistics::Statistics};
 
 use service::{Service, ServiceOptions};
 
@@ -28,7 +28,7 @@ pub async fn startup(config: Arc<Config>) -> anyhow::Result<()> {
         realm: config.turn.realm.clone(),
         port_range: config.runtime.port_range,
         interfaces: config.turn.get_externals(),
-        handler: Observer::new(config.clone(), statistics.clone()).await?,
+        handler: Handler::new(config.clone(), statistics.clone()).await?,
     });
 
     server::start(&config, &statistics, &service).await?;

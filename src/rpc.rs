@@ -13,11 +13,7 @@ use service::{
     session::{Identifier, Session},
 };
 
-use tokio::sync::{
-    Mutex,
-    mpsc::{Sender, channel},
-};
-
+use tokio::sync::mpsc::{Sender, channel};
 use tonic::{
     Request, Response, Status,
     transport::{Channel, Server},
@@ -27,14 +23,14 @@ use tonic::{
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 
 use self::proto::{
-    GetTurnMessageIntegrityRequest, SessionQueryParams, TurnAllocatedEvent, TurnChannelBindEvent,
+    SessionQueryParams, TurnAllocatedEvent, TurnChannelBindEvent,
     TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent, TurnServerInfo, TurnSession,
     TurnSessionStatistics,
     turn_hooks_service_client::TurnHooksServiceClient,
     turn_service_server::{TurnService, TurnServiceServer},
 };
 
-use crate::{config::Config, observer::Observer, statistics::Statistics};
+use crate::{config::Config, handler::Handler, statistics::Statistics};
 
 pub trait IdString {
     type Error;
@@ -64,7 +60,7 @@ impl IdString for Identifier {
 
 struct RpcService {
     config: Arc<Config>,
-    service: Service<Observer>,
+    service: Service<Handler>,
     statistics: Statistics,
     uptime: Instant,
 }
@@ -157,7 +153,7 @@ impl TurnService for RpcService {
 
 pub async fn start_server(
     config: Arc<Config>,
-    service: Service<Observer>,
+    service: Service<Handler>,
     statistics: Statistics,
 ) -> Result<()> {
     let mut builder = Server::builder();
@@ -195,7 +191,6 @@ pub enum HooksEvent {
 
 struct RpcHooksServiceInner {
     event_channel: Sender<HooksEvent>,
-    client: Mutex<TurnHooksServiceClient<Channel>>,
 }
 
 pub struct RpcHooksService(Option<RpcHooksServiceInner>);
@@ -204,7 +199,7 @@ impl RpcHooksService {
     pub async fn new(config: &Config) -> Result<Self> {
         if let Some(hooks) = &config.rpc.hooks {
             let (event_channel, mut rx) = channel(hooks.max_channel_size);
-            let client = {
+            let mut client = {
                 let mut builder = Channel::builder(hooks.endpoint.as_str().try_into()?);
 
                 #[cfg(feature = "ssl")]
@@ -230,8 +225,6 @@ impl RpcHooksService {
             };
 
             {
-                let mut client = client.clone();
-
                 tokio::spawn(async move {
                     while let Some(event) = rx.recv().await {
                         if match event {
@@ -260,7 +253,6 @@ impl RpcHooksService {
             }
 
             Ok(Self(Some(RpcHooksServiceInner {
-                client: Mutex::new(client),
                 event_channel,
             })))
         } else {
@@ -276,27 +268,5 @@ impl RpcHooksService {
                 }
             }
         }
-    }
-
-    pub async fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
-        if let Some(inner) = &self.0 {
-            return Some(
-                inner
-                    .client
-                    .lock()
-                    .await
-                    .get_message_integrity(Request::new(GetTurnMessageIntegrityRequest {
-                        username: username.to_string(),
-                    }))
-                    .await
-                    .ok()?
-                    .into_inner()
-                    .message_integrity
-                    .try_into()
-                    .ok()?,
-            );
-        }
-
-        None
     }
 }

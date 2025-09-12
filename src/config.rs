@@ -54,6 +54,7 @@ pub struct Interface {
     ///
     /// SSL configuration
     ///
+    #[serde(default)]
     pub ssl: Option<Ssl>,
 }
 
@@ -107,6 +108,7 @@ pub struct Hooks {
     #[serde(default = "Hooks::max_channel_size")]
     pub max_channel_size: usize,
     pub endpoint: String,
+    #[serde(default)]
     pub ssl: Option<Ssl>,
 }
 
@@ -126,7 +128,9 @@ pub struct Rpc {
     ///
     #[serde(default = "Rpc::bind")]
     pub listen: SocketAddr,
+    #[serde(default)]
     pub hooks: Option<Hooks>,
+    #[serde(default)]
     pub ssl: Option<Ssl>,
 }
 

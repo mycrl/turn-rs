@@ -17,7 +17,7 @@ use codec::long_term_credential_digest;
 use service::{ServiceHandler, session::Identifier};
 
 #[derive(Clone)]
-pub struct Observer {
+pub struct Handler {
     config: Arc<Config>,
     #[cfg(feature = "rpc")]
     statistics: Statistics,
@@ -25,7 +25,7 @@ pub struct Observer {
     rpc: Arc<RpcHooksService>,
 }
 
-impl Observer {
+impl Handler {
     #[allow(unused_variables)]
     pub async fn new(config: Arc<Config>, statistics: Statistics) -> Result<Self> {
         Ok(Self {
@@ -38,7 +38,7 @@ impl Observer {
     }
 }
 
-impl ServiceHandler for Observer {
+impl ServiceHandler for Handler {
     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
         // Match the static authentication information first.
         if let Some(password) = self.config.auth.static_credentials.get(username) {

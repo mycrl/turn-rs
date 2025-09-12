@@ -6,15 +6,13 @@ pub mod proto {
 
 use std::net::SocketAddr;
 
-use codec::long_term_credential_digest;
-
 use tonic::{
     Request, Response, Status,
     transport::{Channel, Server},
 };
 
 use crate::proto::{
-    GetTurnMessageIntegrityRequest, GetTurnMessageIntegrityResponse, SessionQueryParams,
+    SessionQueryParams,
     TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
     TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_server::{TurnHooksService, TurnHooksServiceServer},
@@ -80,26 +78,6 @@ struct TurnHooksServerInner<T>(T);
 
 #[tonic::async_trait]
 impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> {
-    async fn get_message_integrity(
-        &self,
-        request: Request<GetTurnMessageIntegrityRequest>,
-    ) -> Result<Response<GetTurnMessageIntegrityResponse>, Status> {
-        let request = request.into_inner();
-
-        if let Ok(credential) = self.0.get_credential(&request.username).await {
-            Ok(Response::new(GetTurnMessageIntegrityResponse {
-                message_integrity: long_term_credential_digest(
-                    &request.username,
-                    credential.password,
-                    credential.realm,
-                )
-                .to_vec(),
-            }))
-        } else {
-            Err(Status::not_found("Message integrity not found"))
-        }
-    }
-
     async fn on_allocated_event(
         &self,
         request: Request<TurnAllocatedEvent>,

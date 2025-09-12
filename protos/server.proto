@@ -96,23 +96,8 @@ message TurnDestroyEvent {
     string username = 2;
 }
 
-// get turn message integrity request
-message GetTurnMessageIntegrityRequest {
-    string username = 1;
-}
-
-// get turn message integrity response
-message GetTurnMessageIntegrityResponse {
-    bytes message_integrity = 2;
-}
-
 // turn hooks service
 service TurnHooksService {
-
-    // hooks
-    rpc GetMessageIntegrity(GetTurnMessageIntegrityRequest) returns (GetTurnMessageIntegrityResponse);
-
-    // events
     rpc OnAllocatedEvent(TurnAllocatedEvent) returns (google.protobuf.Empty);
     rpc OnChannelBindEvent(TurnChannelBindEvent) returns (google.protobuf.Empty);
     rpc OnCreatePermissionEvent(TurnCreatePermissionEvent) returns (google.protobuf.Empty);
