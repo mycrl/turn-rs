@@ -2288,7 +2288,6 @@ dependencies = [
  "parking_lot",
  "rand",
  "serde",
- "tokio",
  "turn-codec",
 ]
 
