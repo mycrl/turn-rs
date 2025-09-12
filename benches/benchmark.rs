@@ -58,7 +58,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         port_range: PortRange::default(),
     });
 
-    let sessions = service.get_session_manager_ref();
+    let sessions = service.get_session_manager();
     let a_nonce = sessions
         .get_session(&a_id)
         .get_ref()

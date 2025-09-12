@@ -198,11 +198,7 @@ where
         PacketForwarder::new(&self, endpoint, interface)
     }
 
-    pub fn get_session_manager(&self) -> Arc<SessionManager<T>> {
-        self.manager.clone()
-    }
-
-    pub fn get_session_manager_ref(&self) -> &SessionManager<T> {
+    pub fn get_session_manager(&self) -> &SessionManager<T> {
         &self.manager
     }
 }

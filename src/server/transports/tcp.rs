@@ -56,7 +56,7 @@ where
                 source: address,
             };
 
-            let session_manager = service.get_session_manager();
+            let service = service.clone();
             tokio::spawn(async move {
                 let mut buffer = ExchangeBuffer::default();
 
@@ -189,7 +189,7 @@ where
                 // process directly once, avoiding the connection being disconnected
                 // directly without going through the closing
                 // process.
-                session_manager.refresh(&id, 0);
+                service.get_session_manager().refresh(&id, 0);
 
                 exchanger.remove(&address);
 

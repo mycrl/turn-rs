@@ -78,7 +78,7 @@ impl TurnService for RpcService {
                 .map(|addr| addr.to_string())
                 .collect(),
             port_capacity: self.config.runtime.port_range.size() as u32,
-            port_allocated: self.service.get_session_manager_ref().allocated() as u32,
+            port_allocated: self.service.get_session_manager().allocated() as u32,
         }))
     }
 
@@ -95,7 +95,7 @@ impl TurnService for RpcService {
             ..
         }) = self
             .service
-            .get_session_manager_ref()
+            .get_session_manager()
             .get_session(
                 &Identifier::from_string(request.into_inner().id)
                     .map_err(|_| Status::invalid_argument("Invalid identifier"))?,
@@ -138,7 +138,7 @@ impl TurnService for RpcService {
         &self,
         request: Request<SessionQueryParams>,
     ) -> Result<Response<()>, Status> {
-        if self.service.get_session_manager_ref().refresh(
+        if self.service.get_session_manager().refresh(
             &Identifier::from_string(request.into_inner().id)
                 .map_err(|_| Status::invalid_argument("Invalid identifier"))?,
             0,
