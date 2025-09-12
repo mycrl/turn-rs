@@ -67,5 +67,6 @@ resolver = "2"
 members = ["./", "crates/codec", "crates/service", "sdk"]
 
 [workspace.dependencies]
-codec = { path = "crates/codec", version = "0.1.0", package = "turn-codec" }
-service = { path = "crates/service", version = "0.1.0", package = "turn-service" }
+codec = { path = "crates/codec", version = "0.1.0", package = "turn-server-codec" }
+service = { path = "crates/service", version = "0.1.0", package = "turn-server-service" }
+utils = { path = "crates/utils", version = "0.1.0", package = "turn-server-utils" }

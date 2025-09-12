@@ -2226,18 +2226,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
-name = "turn-codec"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "crc32fast",
- "hmac",
- "md-5",
- "num_enum",
- "sha-1",
-]
-
-[[package]]
 name = "turn-server"
 version = "4.0.0"
 dependencies = [
@@ -2263,9 +2251,21 @@ dependencies = [
  "tonic",
  "tonic-prost",
  "tonic-prost-build",
- "turn-codec",
- "turn-service",
+ "turn-server-codec",
+ "turn-server-service",
  "url",
+]
+
+[[package]]
+name = "turn-server-codec"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "crc32fast",
+ "hmac",
+ "md-5",
+ "num_enum",
+ "sha-1",
 ]
 
 [[package]]
@@ -2279,7 +2279,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "turn-service"
+name = "turn-server-service"
 version = "0.1.0"
 dependencies = [
  "ahash",
@@ -2287,7 +2287,7 @@ dependencies = [
  "parking_lot",
  "rand",
  "serde",
- "turn-codec",
+ "turn-server-codec",
 ]
 
 [[package]]
