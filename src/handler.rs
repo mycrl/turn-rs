@@ -13,7 +13,6 @@ use crate::rpc::{
 
 use anyhow::Result;
 use base64::{Engine, prelude::BASE64_STANDARD};
-use codec::long_term_credential_digest;
 use service::{ServiceHandler, session::Identifier};
 
 #[derive(Clone)]
@@ -42,7 +41,7 @@ impl ServiceHandler for Handler {
     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
         // Match the static authentication information first.
         if let Some(password) = self.config.auth.static_credentials.get(username) {
-            return Some(long_term_credential_digest(
+            return Some(codec::long_term_credential_digest(
                 username,
                 password,
                 &self.config.turn.realm,
@@ -65,7 +64,7 @@ impl ServiceHandler for Handler {
                     .as_slice(),
             );
 
-            return Some(long_term_credential_digest(
+            return Some(codec::long_term_credential_digest(
                 username,
                 &password,
                 &self.config.turn.realm,
