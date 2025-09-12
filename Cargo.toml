@@ -64,7 +64,7 @@ codegen-units = 1
 
 [workspace]
 resolver = "2"
-members = ["./", "crates/codec", "crates/service", "crates/client", "sdk"]
+members = ["./", "crates/codec", "crates/service", "sdk"]
 
 [workspace.dependencies]
 codec = { path = "crates/codec", version = "0.1.0", package = "turn-codec" }
