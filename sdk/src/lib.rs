@@ -12,9 +12,8 @@ use tonic::{
 };
 
 use crate::proto::{
-    SessionQueryParams,
-    TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
-    TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
+    SessionQueryParams, TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent,
+    TurnDestroyEvent, TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_server::{TurnHooksService, TurnHooksServiceServer},
     turn_service_client::TurnServiceClient,
 };

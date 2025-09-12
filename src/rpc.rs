@@ -23,9 +23,8 @@ use tonic::{
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 
 use self::proto::{
-    SessionQueryParams, TurnAllocatedEvent, TurnChannelBindEvent,
-    TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent, TurnServerInfo, TurnSession,
-    TurnSessionStatistics,
+    SessionQueryParams, TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent,
+    TurnDestroyEvent, TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_client::TurnHooksServiceClient,
     turn_service_server::{TurnService, TurnServiceServer},
 };
@@ -252,9 +251,7 @@ impl RpcHooksService {
                 });
             }
 
-            Ok(Self(Some(RpcHooksServiceInner {
-                event_channel,
-            })))
+            Ok(Self(Some(RpcHooksServiceInner { event_channel })))
         } else {
             Ok(Self(None))
         }
