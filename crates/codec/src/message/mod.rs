@@ -2,7 +2,8 @@ pub mod attributes;
 pub mod methods;
 
 use crate::{
-    Attributes, Error, fingerprint, hmac_sha1,
+    Attributes, Error,
+    crypto::{fingerprint, hmac_sha1},
     message::{
         attributes::{Attribute, AttributeType, MessageIntegrity},
         methods::Method,

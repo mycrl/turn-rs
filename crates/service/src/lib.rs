@@ -11,7 +11,7 @@ use self::{
 use std::{net::SocketAddr, sync::Arc};
 
 pub trait ServiceHandler: Send + Sync {
-    fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]>;
+    fn get_password(&self, username: &str) -> Option<[u8; 16]>;
     /// allocate request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)

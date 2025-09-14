@@ -38,10 +38,10 @@ impl Handler {
 }
 
 impl ServiceHandler for Handler {
-    fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+    fn get_password(&self, username: &str) -> Option<[u8; 16]> {
         // Match the static authentication information first.
         if let Some(password) = self.config.auth.static_credentials.get(username) {
-            return Some(codec::long_term_credential_digest(
+            return Some(codec::crypto::password_md5(
                 username,
                 password,
                 &self.config.turn.realm,
@@ -58,13 +58,13 @@ impl ServiceHandler for Handler {
             //
             // https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
             let password = BASE64_STANDARD.encode(
-                codec::hmac_sha1(password.as_bytes(), &[username.as_bytes()])
+                codec::crypto::hmac_sha1(password.as_bytes(), &[username.as_bytes()])
                     .ok()?
                     .into_bytes()
                     .as_slice(),
             );
 
-            return Some(codec::long_term_credential_digest(
+            return Some(codec::crypto::password_md5(
                 username,
                 &password,
                 &self.config.turn.realm,

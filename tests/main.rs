@@ -11,7 +11,7 @@ use bytes::BytesMut;
 use codec::{
     DecodeResult, Decoder,
     channel_data::ChannelData,
-    hmac_sha1, long_term_credential_digest,
+    crypto,
     message::{
         Message, MessageEncoder,
         attributes::*,
@@ -196,7 +196,7 @@ impl TurnClient {
 
             self.state.nonce = message.get::<Nonce>().unwrap().to_vec();
             self.state.realm = message.get::<Realm>().unwrap().to_string();
-            self.state.digest = long_term_credential_digest(
+            self.state.digest = crypto::password_md5(
                 &self.credentials.username,
                 &self.credentials.password,
                 &self.state.realm,
@@ -335,7 +335,7 @@ impl TurnClient {
 
 fn encode_password(username: &str, password: &str) -> Result<String> {
     Ok(BASE64_STANDARD.encode(
-        hmac_sha1(password.as_bytes(), &[username.as_bytes()])?
+        crypto::hmac_sha1(password.as_bytes(), &[username.as_bytes()])?
             .into_bytes()
             .as_slice(),
     ))

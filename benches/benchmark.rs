@@ -4,7 +4,7 @@ use bytes::BytesMut;
 use codec::{
     Decoder,
     channel_data::ChannelData,
-    long_term_credential_digest,
+    crypto::password_md5,
     message::{
         MessageEncoder,
         attributes::{
@@ -27,8 +27,8 @@ use service::{
 struct SimpleObserver;
 
 impl ServiceHandler for SimpleObserver {
-    fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
-        Some(long_term_credential_digest(username, "test", "test"))
+    fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+        Some(password_md5(username, "test", "test"))
     }
 }
 
@@ -64,10 +64,10 @@ fn criterion_benchmark(c: &mut Criterion) {
         .get_ref()
         .map(|it| it.nonce().clone())
         .unwrap();
-    let a_integrity = sessions.get_message_integrity(&a_id, "test").unwrap();
+    let a_integrity = sessions.get_password(&a_id, "test").unwrap();
 
     {
-        let _ = sessions.get_message_integrity(&b_id, "test").unwrap();
+        let _ = sessions.get_password(&b_id, "test").unwrap();
     }
 
     let a_port = sessions.allocate(&a_id).unwrap();

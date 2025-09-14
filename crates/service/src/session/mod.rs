@@ -133,7 +133,7 @@ pub enum Session {
         /// Digest data is data that summarises usernames and passwords by means of
         /// long-term authentication.
         username: String,
-        message_integrity: [u8; 16],
+        password: [u8; 16],
         /// Assignment information for the session.
         ///
         /// SessionManager are all bound to only one port and one channel.
@@ -280,7 +280,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
     ///         if username == "test" {
     ///             Some(codec::long_term_credential_digest(username, "test", "test"))
     ///         } else {
@@ -314,7 +314,7 @@ where
     ///     }
     /// }
     ///
-    /// sessions.get_message_integrity(&addr, "test");
+    /// sessions.get_password(&addr, "test");
     ///
     /// {
     ///     let lock = sessions.get_session(&addr);
@@ -373,7 +373,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
     ///         if username == "test" {
     ///             Some(codec::long_term_credential_digest(username, "test", "test"))
     ///         } else {
@@ -401,31 +401,28 @@ where
     /// {
     ///     sessions.get_session(&addr);
     /// }
-    /// assert_eq!(sessions.get_message_integrity(&addr, "test1"), None);
+    /// assert_eq!(sessions.get_password(&addr, "test1"), None);
     ///
     /// // Create a new session for the next test
     /// {
     ///     sessions.get_session(&addr);
     /// }
-    /// assert_eq!(sessions.get_message_integrity(&addr, "test"), Some(digest));
+    /// assert_eq!(sessions.get_password(&addr, "test"), Some(digest));
     ///
     /// // The third call should return cached digest
-    /// assert_eq!(sessions.get_message_integrity(&addr, "test"), Some(digest));
+    /// assert_eq!(sessions.get_password(&addr, "test"), Some(digest));
     /// ```
-    pub fn get_message_integrity(&self, addr: &Identifier, username: &str) -> Option<[u8; 16]> {
+    pub fn get_password(&self, addr: &Identifier, username: &str) -> Option<[u8; 16]> {
         // Already authenticated, get the cached digest directly.
         {
-            if let Some(Session::Authenticated {
-                message_integrity, ..
-            }) = self.sessions.read().get(addr)
-            {
-                return Some(*message_integrity);
+            if let Some(Session::Authenticated { password, .. }) = self.sessions.read().get(addr) {
+                return Some(*password);
             }
         }
 
         // Get the current user's password from an external handler and create a
         // digest.
-        let message_integrity = self.handler.get_message_integrity(username)?;
+        let password = self.handler.get_password(username)?;
 
         // Record a new session.
         {
@@ -444,13 +441,13 @@ where
                     expires: self.timer.get() + 600,
                     username: username.to_string(),
                     allocate_port: None,
-                    message_integrity,
+                    password,
                     nonce,
                 },
             );
         }
 
-        Some(message_integrity)
+        Some(password)
     }
 
     pub fn allocated(&self) -> usize {
@@ -469,7 +466,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
     ///         if username == "test" {
     ///             Some(codec::long_term_credential_digest(username, "test", "test"))
     ///         } else {
@@ -493,7 +490,7 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_message_integrity(&addr, "test");
+    /// sessions.get_password(&addr, "test");
     ///
     /// {
     ///     let lock = sessions.get_session(&addr);
@@ -563,7 +560,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
     ///         if username == "test" {
     ///             Some(codec::long_term_credential_digest(username, "test", "test"))
     ///         } else {
@@ -593,8 +590,8 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_message_integrity(&addr, "test");
-    /// sessions.get_message_integrity(&peer_addr, "test");
+    /// sessions.get_password(&addr, "test");
+    /// sessions.get_password(&peer_addr, "test");
     ///
     /// let port = sessions.allocate(&addr).unwrap();
     /// let peer_port = sessions.allocate(&peer_addr).unwrap();
@@ -681,7 +678,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
     ///         if username == "test" {
     ///             Some(codec::long_term_credential_digest(username, "test", "test"))
     ///         } else {
@@ -711,8 +708,8 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_message_integrity(&addr, "test");
-    /// sessions.get_message_integrity(&peer_addr, "test");
+    /// sessions.get_password(&addr, "test");
+    /// sessions.get_password(&peer_addr, "test");
     ///
     /// let port = sessions.allocate(&addr).unwrap();
     /// let peer_port = sessions.allocate(&peer_addr).unwrap();
@@ -821,7 +818,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
     ///         if username == "test" {
     ///             Some(codec::long_term_credential_digest(username, "test", "test"))
     ///         } else {
@@ -851,8 +848,8 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_message_integrity(&addr, "test");
-    /// sessions.get_message_integrity(&peer_addr, "test");
+    /// sessions.get_password(&addr, "test");
+    /// sessions.get_password(&peer_addr, "test");
     ///
     /// let port = sessions.allocate(&addr).unwrap();
     /// let peer_port = sessions.allocate(&peer_addr).unwrap();
@@ -895,7 +892,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
     ///         if username == "test" {
     ///             Some(codec::long_term_credential_digest(username, "test", "test"))
     ///         } else {
@@ -925,8 +922,8 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_message_integrity(&addr, "test");
-    /// sessions.get_message_integrity(&peer_addr, "test");
+    /// sessions.get_password(&addr, "test");
+    /// sessions.get_password(&peer_addr, "test");
     ///
     /// let port = sessions.allocate(&addr).unwrap();
     /// let peer_port = sessions.allocate(&peer_addr).unwrap();
@@ -966,7 +963,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_message_integrity(&self, username: &str) -> Option<[u8; 16]> {
+    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
     ///         if username == "test" {
     ///             Some(codec::long_term_credential_digest(username, "test", "test"))
     ///         } else {
@@ -1000,7 +997,7 @@ where
     ///     }
     /// }
     ///
-    /// sessions.get_message_integrity(&addr, "test");
+    /// sessions.get_password(&addr, "test");
     ///
     /// {
     ///     let lock = sessions.get_session(&addr);
