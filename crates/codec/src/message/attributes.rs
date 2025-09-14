@@ -789,7 +789,7 @@ impl<'a> Attribute<'a> for PasswordAlgorithm {
     type Error = crate::Error;
     type Item = Self;
 
-    const TYPE: AttributeType = AttributeType::MessageIntegritySha256;
+    const TYPE: AttributeType = AttributeType::PasswordAlgorithm;
 
     fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u16(value as u16);
