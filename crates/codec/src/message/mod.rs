@@ -110,7 +110,7 @@ impl<'a, 'b> MessageEncoder<'a> {
         // here is to reserve the position.
         let os = self.bytes.len();
         unsafe { self.bytes.advance_mut(2) }
-        T::encode(value, self.bytes, self.token);
+        T::serialize(value, self.bytes, self.token);
 
         // compute write index,
         // back to source index write size.
@@ -121,7 +121,7 @@ impl<'a, 'b> MessageEncoder<'a> {
 
         // if you need to padding,
         // padding in the zero bytes.
-        let psize = filling_length(size);
+        let psize = alignment_32(size);
         if psize > 0 {
             self.bytes.put(&[0u8; 10][0..psize]);
         }
@@ -302,7 +302,7 @@ impl<'a> Message<'a> {
     /// ```
     pub fn get<T: Attribute<'a>>(&self) -> Option<T::Item> {
         let range = self.attributes.get(&T::TYPE)?;
-        T::decode(&self.bytes[range], self.token()).ok()
+        T::deserialize(&self.bytes[range], self.token()).ok()
     }
 
     /// Gets all the values of an attribute from a list.
@@ -332,7 +332,7 @@ impl<'a> Message<'a> {
     pub fn get_all<T: Attribute<'a>>(&self) -> impl Iterator<Item = T::Item> {
         self.attributes
             .get_all(&T::TYPE)
-            .map(|it| T::decode(&self.bytes[it.clone()], self.token()))
+            .map(|it| T::deserialize(&self.bytes[it.clone()], self.token()))
             .filter(|it| it.is_ok())
             .map(|it| it.unwrap())
     }
@@ -490,7 +490,7 @@ impl<'a> Message<'a> {
             // if there are padding bytes,
             // skip padding size.
             if size > 0 {
-                offset += size + filling_length(size);
+                offset += size + alignment_32(size);
             }
 
             // skip the attributes that are not supported.
@@ -556,7 +556,7 @@ impl<'a> Message<'a> {
 /// assert_eq!(filling_length(5), 3);
 /// ```
 #[inline(always)]
-pub fn filling_length(size: usize) -> usize {
+pub fn alignment_32(size: usize) -> usize {
     let range = size % 4;
     if size == 0 || range == 0 {
         return 0;

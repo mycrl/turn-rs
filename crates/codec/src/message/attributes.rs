@@ -114,6 +114,7 @@ impl TryFrom<u8> for IpFamily {
 /// misguided attempt to provide a generic Application Layer Gateway
 /// (ALG) function.  Such behavior interferes with the operation of STUN
 /// and also causes failure of STUN's message-integrity checking.
+#[derive(Debug, Clone, Copy)]
 pub struct XAddress;
 
 impl XAddress {
@@ -144,7 +145,7 @@ impl XAddress {
     /// XAddress::encode(&source, &token, &mut buffer, false);
     /// assert_eq!(&addr_bytes, &buffer[..]);
     /// ```
-    pub fn encode(addr: &SocketAddr, token: &[u8], bytes: &mut BytesMut, is_xor: bool) {
+    pub fn serialize(addr: &SocketAddr, token: &[u8], bytes: &mut BytesMut, is_xor: bool) {
         bytes.put_u8(0);
         let xor_addr = if is_xor { xor(addr, token) } else { *addr };
 
@@ -188,7 +189,11 @@ impl XAddress {
     /// let addr = XAddress::decode(&addr_bytes, &token, false).unwrap();
     /// assert_eq!(addr, source);
     /// ```
-    pub fn decode(packet: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr, crate::Error> {
+    pub fn deserialize(
+        packet: &[u8],
+        token: &[u8],
+        is_xor: bool,
+    ) -> Result<SocketAddr, crate::Error> {
         if packet.len() < 4 {
             return Err(crate::Error::InvalidInput);
         }
@@ -465,10 +470,10 @@ pub trait Attribute<'a> {
 
     /// write the current attribute to the bytesfer.
     #[allow(unused_variables)]
-    fn encode(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {}
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {}
 
     /// convert bytesfer to current attribute.
-    fn decode(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error>;
+    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error>;
 }
 
 /// [RFC8265]: https://datatracker.ietf.org/doc/html/rfc8265
@@ -485,6 +490,7 @@ pub trait Attribute<'a> {
 /// the OpaqueString profile [RFC8265].  A compliant implementation MUST
 /// be able to parse a UTF-8-encoded sequence of 763 or fewer octets to
 /// be compatible with [RFC5389].
+#[derive(Debug, Clone, Copy)]
 pub struct UserName;
 
 impl<'a> Attribute<'a> for UserName {
@@ -493,12 +499,40 @@ impl<'a> Attribute<'a> for UserName {
 
     const TYPE: AttributeType = AttributeType::UserName;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put(value.as_bytes());
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(std::str::from_utf8(bytes)?)
+    }
+}
+
+/// The USERHASH attribute is used as a replacement for the USERNAME attribute
+/// when username anonymity is supported.
+///
+/// The value of USERHASH has a fixed length of 32 bytes.  The username MUST have
+/// been processed using the OpaqueString profile [RFC8265], and the realm MUST
+/// have been processed using the OpaqueString profile [RFC8265] before hashing.
+///
+/// The following is the operation that the client will perform to hash the username:
+///
+/// userhash = SHA-256(OpaqueString(username) ":" OpaqueString(realm))
+#[derive(Debug, Clone, Copy)]
+pub struct UserHash;
+
+impl<'a> Attribute<'a> for UserHash {
+    type Error = crate::Error;
+    type Item = &'a [u8];
+
+    const TYPE: AttributeType = AttributeType::UserHash;
+
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+        bytes.put(value);
+    }
+
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        Ok(bytes)
     }
 }
 
@@ -508,6 +542,7 @@ impl<'a> Attribute<'a> for UserName {
 /// the UDP header if the data was been sent directly between the client
 /// and the peer).  If the length of this attribute is not a multiple of
 /// 4, then padding must be added after this attribute.
+#[derive(Debug, Clone, Copy)]
 pub struct Data;
 
 impl<'a> Attribute<'a> for Data {
@@ -516,11 +551,11 @@ impl<'a> Attribute<'a> for Data {
 
     const TYPE: AttributeType = AttributeType::Data;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put(value);
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(bytes)
     }
 }
@@ -543,6 +578,7 @@ impl<'a> Attribute<'a> for Data {
 /// credentials are being used for authentication.  Presence in certain
 /// error responses indicates that the server wishes the client to use a
 /// long-term credential in that realm for authentication.
+#[derive(Debug, Clone, Copy)]
 pub struct Realm;
 
 impl<'a> Attribute<'a> for Realm {
@@ -551,11 +587,11 @@ impl<'a> Attribute<'a> for Realm {
 
     const TYPE: AttributeType = AttributeType::Realm;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put(value.as_bytes());
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(std::str::from_utf8(bytes)?)
     }
 }
@@ -571,6 +607,7 @@ impl<'a> Attribute<'a> for Realm {
 /// when encoding them and a long as 763 bytes when decoding them).  See
 /// Section 5.4 of [RFC7616] for guidance on selection of nonce values in
 /// a server.
+#[derive(Debug, Clone, Copy)]
 pub struct Nonce;
 
 impl<'a> Attribute<'a> for Nonce {
@@ -579,11 +616,11 @@ impl<'a> Attribute<'a> for Nonce {
 
     const TYPE: AttributeType = AttributeType::Nonce;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put(value);
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(bytes)
     }
 }
@@ -599,6 +636,7 @@ impl<'a> Attribute<'a> for Nonce {
 /// [RFC3629] sequence of fewer than 128 characters (which can be as long
 /// as 509 when encoding them and as long as 763 bytes when decoding
 /// them).
+#[derive(Debug, Clone, Copy)]
 pub struct Software;
 
 impl<'a> Attribute<'a> for Software {
@@ -607,11 +645,11 @@ impl<'a> Attribute<'a> for Software {
 
     const TYPE: AttributeType = AttributeType::Software;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put(value.as_bytes());
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(std::str::from_utf8(bytes)?)
     }
 }
@@ -647,6 +685,7 @@ impl<'a> Attribute<'a> for Software {
 /// attributes, such as FINGERPRINT and MESSAGE-INTEGRITY-SHA256, appear
 /// after MESSAGE-INTEGRITY.  See also [RFC5769] for examples of such
 /// calculations.
+#[derive(Debug, Clone, Copy)]
 pub struct MessageIntegrity;
 
 impl<'a> Attribute<'a> for MessageIntegrity {
@@ -655,12 +694,120 @@ impl<'a> Attribute<'a> for MessageIntegrity {
 
     const TYPE: AttributeType = AttributeType::MessageIntegrity;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put(value);
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(bytes)
+    }
+}
+
+/// The MESSAGE-INTEGRITY-SHA256 attribute contains an HMAC-SHA256
+/// [RFC2104] of the STUN message.  The MESSAGE-INTEGRITY-SHA256
+/// attribute can be present in any STUN message type.  The MESSAGE-
+/// INTEGRITY-SHA256 attribute contains an initial portion of the HMAC-
+/// SHA-256 [RFC2104] of the STUN message.  The value will be at most 32
+/// bytes, but it MUST be at least 16 bytes and MUST be a multiple of 4
+/// bytes.  The value must be the full 32 bytes unless the STUN Usage
+/// explicitly specifies that truncation is allowed.  STUN Usages may
+/// specify a minimum length longer than 16 bytes.
+///
+/// The key for the HMAC depends on which credential mechanism is in use.
+/// Section 9.1.1 defines the key for the short-term credential
+/// mechanism, and Section 9.2.2 defines the key for the long-term
+/// credential mechanism.  Other credential mechanism MUST define the key
+/// that is used for the HMAC.
+///
+/// The text used as input to HMAC is the STUN message, up to and
+/// including the attribute preceding the MESSAGE-INTEGRITY-SHA256
+/// attribute.  The Length field of the STUN message header is adjusted
+/// to point to the end of the MESSAGE-INTEGRITY-SHA256 attribute.  The
+/// value of the MESSAGE-INTEGRITY-SHA256 attribute is set to a dummy
+/// value.
+///
+/// Once the computation is performed, the value of the MESSAGE-
+/// INTEGRITY-SHA256 attribute is filled in, and the value of the length
+/// in the STUN header is set to its correct value -- the length of the
+/// entire message.  Similarly, when validating the MESSAGE-INTEGRITY-
+/// SHA256, the Length field in the STUN header must be adjusted to point
+/// to the end of the MESSAGE-INTEGRITY-SHA256 attribute prior to
+/// calculating the HMAC over the STUN message, up to and including the
+/// attribute preceding the MESSAGE-INTEGRITY-SHA256 attribute.  Such
+/// adjustment is necessary when attributes, such as FINGERPRINT, appear
+/// after MESSAGE-INTEGRITY-SHA256.  See also Appendix B.1 for examples
+/// of such calculations.
+#[derive(Debug, Clone, Copy)]
+pub struct MessageIntegritySha256;
+
+impl<'a> Attribute<'a> for MessageIntegritySha256 {
+    type Error = crate::Error;
+    type Item = &'a [u8];
+
+    const TYPE: AttributeType = AttributeType::MessageIntegritySha256;
+
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+        bytes.put(value);
+    }
+
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        Ok(bytes)
+    }
+}
+
+/// The PASSWORD-ALGORITHM attribute is present only in requests.  It
+/// contains the algorithm that the server must use to derive a key from
+/// the long-term password.
+///
+/// The set of known algorithms is maintained by IANA.  The initial set
+/// defined by this specification is found in Section 18.5.
+///
+/// The attribute contains an algorithm number and variable length
+/// parameters.  The algorithm number is a 16-bit value as defined in
+/// Section 18.5.  The parameters starts with the length (prior to
+/// padding) of the parameters as a 16-bit value, followed by the
+/// parameters that are specific to the algorithm.  The parameters are
+/// padded to a 32-bit boundary, in the same manner as an attribute.
+/// Similarly, the padding bits MUST be set to zero on sending and MUST
+/// be ignored by the receiver.
+///
+/// 0                   1                   2                   3
+/// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |          Algorithm           |  Algorithm Parameters Length   |
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// |                    Algorithm Parameters (variable)
+/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#[repr(u16)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum PasswordAlgorithm {
+    Md5 = 0x0001,
+    Sha256 = 0x0002,
+}
+
+impl<'a> Attribute<'a> for PasswordAlgorithm {
+    type Error = crate::Error;
+    type Item = Self;
+
+    const TYPE: AttributeType = AttributeType::MessageIntegritySha256;
+
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+        bytes.put_u16(value as u16);
+        bytes.put_u16(0);
+    }
+
+    fn deserialize(mut bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        let ty = match bytes.get_u16() {
+            0x0001 => Self::Md5,
+            0x0002 => Self::Sha256,
+            _ => return Err(crate::Error::InvalidInput),
+        };
+
+        // Ignore attribute value, as it does not exist currently
+        let size = bytes.get_u16();
+        bytes.advance(super::alignment_32(size as usize));
+
+        Ok(ty)
     }
 }
 
@@ -670,6 +817,7 @@ impl<'a> Attribute<'a> for MessageIntegrity {
 /// seen from the TURN server.  (For example, the peer's server-reflexive
 /// transport address if the peer is behind a NAT.)  It is encoded in the
 /// same way as XOR-MAPPED-ADDRESS [RFC5389].
+#[derive(Debug, Clone, Copy)]
 pub struct XorPeerAddress;
 
 impl<'a> Attribute<'a> for XorPeerAddress {
@@ -678,12 +826,12 @@ impl<'a> Attribute<'a> for XorPeerAddress {
 
     const TYPE: AttributeType = AttributeType::XorPeerAddress;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
-        XAddress::encode(&value, token, bytes, true)
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+        XAddress::serialize(&value, token, bytes, true)
     }
 
-    fn decode(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::decode(bytes, token, true)
+    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, token, true)
     }
 }
 
@@ -693,6 +841,7 @@ impl<'a> Attribute<'a> for XorPeerAddress {
 /// specifies the address and port that the server allocated to the
 /// client.  It is encoded in the same way as XOR-MAPPED-ADDRESS
 /// [RFC5389].
+#[derive(Debug, Clone, Copy)]
 pub struct XorRelayedAddress;
 
 impl<'a> Attribute<'a> for XorRelayedAddress {
@@ -701,12 +850,12 @@ impl<'a> Attribute<'a> for XorRelayedAddress {
 
     const TYPE: AttributeType = AttributeType::XorRelayedAddress;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
-        XAddress::encode(&value, token, bytes, true)
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+        XAddress::serialize(&value, token, bytes, true)
     }
 
-    fn decode(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::decode(bytes, token, true)
+    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, token, true)
     }
 }
 
@@ -743,6 +892,7 @@ impl<'a> Attribute<'a> for XorRelayedAddress {
 /// misguided attempt to provide a generic Application Layer Gateway
 /// (ALG) function.  Such behavior interferes with the operation of STUN
 /// and also causes failure of STUN's message-integrity checking.
+#[derive(Debug, Clone, Copy)]
 pub struct XorMappedAddress;
 
 impl<'a> Attribute<'a> for XorMappedAddress {
@@ -751,12 +901,12 @@ impl<'a> Attribute<'a> for XorMappedAddress {
 
     const TYPE: AttributeType = AttributeType::XorMappedAddress;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
-        XAddress::encode(&value, token, bytes, true)
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+        XAddress::serialize(&value, token, bytes, true)
     }
 
-    fn decode(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::decode(bytes, token, true)
+    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, token, true)
     }
 }
 
@@ -780,6 +930,7 @@ impl<'a> Attribute<'a> for XorMappedAddress {
 ///
 /// This attribute is used only by servers for achieving backwards
 /// compatibility with [RFC3489] clients.
+#[derive(Debug, Clone, Copy)]
 pub struct MappedAddress;
 
 impl<'a> Attribute<'a> for MappedAddress {
@@ -788,12 +939,12 @@ impl<'a> Attribute<'a> for MappedAddress {
 
     const TYPE: AttributeType = AttributeType::MappedAddress;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
-        XAddress::encode(&value, token, bytes, false)
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+        XAddress::serialize(&value, token, bytes, false)
     }
 
-    fn decode(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::decode(bytes, token, false)
+    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, token, false)
     }
 }
 
@@ -801,6 +952,7 @@ impl<'a> Attribute<'a> for MappedAddress {
 /// the source IP address and port the response was sent from.  It is
 /// useful for detecting double NAT configurations.  It is only present
 /// in Binding Responses.
+#[derive(Debug, Clone, Copy)]
 pub struct ResponseOrigin;
 
 impl<'a> Attribute<'a> for ResponseOrigin {
@@ -809,12 +961,12 @@ impl<'a> Attribute<'a> for ResponseOrigin {
 
     const TYPE: AttributeType = AttributeType::ResponseOrigin;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
-        XAddress::encode(&value, token, bytes, false)
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+        XAddress::serialize(&value, token, bytes, false)
     }
 
-    fn decode(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::decode(bytes, token, false)
+    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, token, false)
     }
 }
 
@@ -919,7 +1071,7 @@ pub enum ErrorKind {
 /// the hundreds digit of the error code.  The value MUST be between 3
 /// and 6.  The Number represents the binary encoding of the error code
 /// modulo 100, and its value MUST be between 0 and 99.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Error<'a> {
     pub code: u16,
     pub message: &'a str,
@@ -962,7 +1114,7 @@ impl Error<'_> {
     /// error.encode(&mut buf);
     /// assert_eq!(&buf[..], &buffer);
     /// ```
-    pub fn encode(self, bytes: &mut BytesMut) {
+    pub fn serialize(self, bytes: &mut BytesMut) {
         bytes.put_u16(0x0000);
         bytes.put_u16(self.code);
         bytes.put(self.message.as_bytes());
@@ -1056,6 +1208,7 @@ impl PartialEq for Error<'_> {
 /// UTF-8-encoded [RFC3629] sequence of fewer than 128 characters (which
 /// can be as long as 509 bytes when encoding them or 763 bytes when
 /// decoding them).
+#[derive(Debug, Clone, Copy)]
 pub struct ErrorCode;
 
 impl<'a> Attribute<'a> for ErrorCode {
@@ -1064,11 +1217,11 @@ impl<'a> Attribute<'a> for ErrorCode {
 
     const TYPE: AttributeType = AttributeType::ErrorCode;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
-        value.encode(bytes)
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+        value.serialize(bytes)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Error::try_from(bytes)
     }
 }
@@ -1078,6 +1231,7 @@ impl<'a> Attribute<'a> for ErrorCode {
 /// portion of this attribute is 4-bytes long and consists of a 32-bit
 /// unsigned integral value representing the number of seconds remaining
 /// until expiration.
+#[derive(Debug, Clone, Copy)]
 pub struct Lifetime;
 
 impl<'a> Attribute<'a> for Lifetime {
@@ -1086,11 +1240,11 @@ impl<'a> Attribute<'a> for Lifetime {
 
     const TYPE: AttributeType = AttributeType::Lifetime;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u32(value)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(u32::from_be_bytes(bytes.try_into()?))
     }
 }
@@ -1106,6 +1260,7 @@ impl<'a> Attribute<'a> for Lifetime {
 ///
 /// The RFFU field MUST be set to zero on transmission and MUST be
 /// ignored on reception.  It is reserved for future uses.
+#[derive(Debug, Clone, Copy)]
 pub struct ReqeestedTransport;
 
 impl<'a> Attribute<'a> for ReqeestedTransport {
@@ -1114,11 +1269,11 @@ impl<'a> Attribute<'a> for ReqeestedTransport {
 
     const TYPE: AttributeType = AttributeType::ReqeestedTransport;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u32(value as u32)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         let value = u32::from_be_bytes(bytes.try_into()?);
         Transport::try_from(value).map_err(|_| crate::Error::InvalidInput)
     }
@@ -1158,6 +1313,7 @@ impl<'a> Attribute<'a> for ReqeestedTransport {
 /// integrity value before the CRC is computed, since the CRC is done
 /// over the value of the MESSAGE-INTEGRITY and MESSAGE-INTEGRITY-SHA256
 /// attributes as well.
+#[derive(Debug, Clone, Copy)]
 pub struct Fingerprint;
 
 impl<'a> Attribute<'a> for Fingerprint {
@@ -1166,11 +1322,11 @@ impl<'a> Attribute<'a> for Fingerprint {
 
     const TYPE: AttributeType = AttributeType::Fingerprint;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u32(value)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(u32::from_be_bytes(bytes.try_into()?))
     }
 }
@@ -1180,6 +1336,7 @@ impl<'a> Attribute<'a> for Fingerprint {
 /// 16-bit unsigned integer followed by a two-octet RFFU (Reserved For
 /// Future Use) field, which MUST be set to 0 on transmission and MUST be
 /// ignored on reception.
+#[derive(Debug, Clone, Copy)]
 pub struct ChannelNumber;
 
 impl<'a> Attribute<'a> for ChannelNumber {
@@ -1188,11 +1345,11 @@ impl<'a> Attribute<'a> for ChannelNumber {
 
     const TYPE: AttributeType = AttributeType::ChannelNumber;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u16(value)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(u16::from_be_bytes(bytes[..2].try_into()?))
     }
 }
@@ -1206,6 +1363,7 @@ impl<'a> Attribute<'a> for ChannelNumber {
 /// requests, for all streams, within an ICE session, unless it has
 /// received a 487 response, in which case it MUST change the number.  
 /// The agent MAY change the number when an ICE restart occurs.
+#[derive(Debug, Clone, Copy)]
 pub struct IceControlling;
 
 impl<'a> Attribute<'a> for IceControlling {
@@ -1214,11 +1372,11 @@ impl<'a> Attribute<'a> for IceControlling {
 
     const TYPE: AttributeType = AttributeType::IceControlling;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u64(value)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(u64::from_be_bytes(bytes.try_into()?))
     }
 }
@@ -1226,7 +1384,8 @@ impl<'a> Attribute<'a> for IceControlling {
 /// The USE-CANDIDATE attribute indicates that the candidate pair
 /// resulting from this check will be used for transmission of data.  The
 /// attribute has no content (the Length field of the attribute is zero);
-/// it serves as a flag.  It has an attribute value of 0x0025..
+/// it serves as a flag.  It has an attribute value of 0x0025.
+#[derive(Debug, Clone, Copy)]
 pub struct UseCandidate;
 
 impl<'a> Attribute<'a> for UseCandidate {
@@ -1235,9 +1394,9 @@ impl<'a> Attribute<'a> for UseCandidate {
 
     const TYPE: AttributeType = AttributeType::UseCandidate;
 
-    fn encode(_: Self::Item, _: &mut BytesMut, _: &'a [u8]) {}
+    fn serialize(_: Self::Item, _: &mut BytesMut, _: &'a [u8]) {}
 
-    fn decode(_: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(_: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(())
     }
 }
@@ -1251,6 +1410,7 @@ impl<'a> Attribute<'a> for UseCandidate {
 /// all Binding requests, for all streams, within an ICE session, unless
 /// it has received a 487 response, in which case it MUST change the
 /// number. The agent MAY change the number when an ICE restart occurs.
+#[derive(Debug, Clone, Copy)]
 pub struct IceControlled;
 
 impl<'a> Attribute<'a> for IceControlled {
@@ -1259,11 +1419,11 @@ impl<'a> Attribute<'a> for IceControlled {
 
     const TYPE: AttributeType = AttributeType::IceControlled;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u64(value)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(u64::from_be_bytes(bytes.try_into()?))
     }
 }
@@ -1272,6 +1432,7 @@ impl<'a> Attribute<'a> for IceControlled {
 /// associated with a peer-reflexive candidate, if one will be discovered
 /// by this check.  It is a 32-bit unsigned integer and has an attribute
 /// value of 0x0024.
+#[derive(Debug, Clone, Copy)]
 pub struct Priority;
 
 impl<'a> Attribute<'a> for Priority {
@@ -1280,11 +1441,11 @@ impl<'a> Attribute<'a> for Priority {
 
     const TYPE: AttributeType = AttributeType::Priority;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u32(value)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(u32::from_be_bytes(bytes.try_into()?))
     }
 }
@@ -1297,6 +1458,7 @@ impl<'a> Attribute<'a> for Priority {
 /// allocation.
 ///
 /// The attribute value is 8 bytes and contains the token value.
+#[derive(Debug, Clone, Copy)]
 pub struct ReservationToken;
 
 impl<'a> Attribute<'a> for ReservationToken {
@@ -1305,11 +1467,11 @@ impl<'a> Attribute<'a> for ReservationToken {
 
     const TYPE: AttributeType = AttributeType::ReservationToken;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u64(value)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(u64::from_be_bytes(bytes.try_into()?))
     }
 }
@@ -1318,6 +1480,7 @@ impl<'a> Attribute<'a> for ReservationToken {
 /// transport address be even, and (optionally) that the server reserve the
 /// next-higher port number.  The value portion of this attribute is 1 byte
 /// long.
+#[derive(Debug, Clone, Copy)]
 pub struct EvenPort;
 
 impl<'a> Attribute<'a> for EvenPort {
@@ -1326,11 +1489,11 @@ impl<'a> Attribute<'a> for EvenPort {
 
     const TYPE: AttributeType = AttributeType::EvenPort;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u8(if value { 0b10000000 } else { 0b00000000 })
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(bytes[0] == 0b10000000)
     }
 }
@@ -1340,6 +1503,7 @@ impl<'a> Attribute<'a> for EvenPort {
 /// format of the REQUESTED-ADDRESS-FAMILY attribute. Note that TURN attributes
 /// are TLV (Type-Length-Value) encoded, with a 16-bit type, a 16-bit length,
 /// and a variable-length value.
+#[derive(Debug, Clone, Copy)]
 pub struct RequestedAddressFamily;
 
 impl<'a> Attribute<'a> for RequestedAddressFamily {
@@ -1348,11 +1512,11 @@ impl<'a> Attribute<'a> for RequestedAddressFamily {
 
     const TYPE: AttributeType = AttributeType::RequestedAddressFamily;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u8(value as u8)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         IpFamily::try_from(bytes[0])
     }
 }
@@ -1362,6 +1526,7 @@ impl<'a> Attribute<'a> for RequestedAddressFamily {
 /// REQUESTED-ADDRESS-FAMILY attribute; The ADDITIONAL-ADDRESS-FAMILY attribute
 /// MAY be present in the Allocate request. The attribute value of 0x02 (IPv6
 /// address) is the only valid value in Allocate request.
+#[derive(Debug, Clone, Copy)]
 pub struct AdditionalAddressFamily;
 
 impl<'a> Attribute<'a> for AdditionalAddressFamily {
@@ -1370,11 +1535,11 @@ impl<'a> Attribute<'a> for AdditionalAddressFamily {
 
     const TYPE: AttributeType = AttributeType::AdditionalAddressFamily;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u8(value as u8)
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         IpFamily::try_from(bytes[0])
     }
 }
@@ -1384,6 +1549,7 @@ impl<'a> Attribute<'a> for AdditionalAddressFamily {
 /// onward to the peer and for determining the server capability in Allocate
 /// requests. This attribute has no value part, and thus, the attribute length
 /// field is 0.
+#[derive(Debug, Clone, Copy)]
 pub struct DontFragment;
 
 impl<'a> Attribute<'a> for DontFragment {
@@ -1392,7 +1558,7 @@ impl<'a> Attribute<'a> for DontFragment {
 
     const TYPE: AttributeType = AttributeType::DontFragment;
 
-    fn decode(_: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(_: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(())
     }
 }
@@ -1405,6 +1571,7 @@ impl<'a> Attribute<'a> for DontFragment {
 /// token is opaque to the client, and the client MUST NOT examine the token.
 /// The ACCESS-TOKEN attribute is a comprehension-required attribute (see
 /// Section 15 from [RFC5389]).
+#[derive(Debug, Clone, Copy)]
 pub struct AccessToken<'a> {
     pub nonce: &'a str,
     pub mac_key: &'a str,
@@ -1418,7 +1585,7 @@ impl<'a> Attribute<'a> for AccessToken<'a> {
 
     const TYPE: AttributeType = AttributeType::AccessToken;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put_u16(value.nonce.len() as u16);
         bytes.extend_from_slice(value.nonce.as_bytes());
         bytes.put_u16(value.mac_key.len() as u16);
@@ -1427,7 +1594,7 @@ impl<'a> Attribute<'a> for AccessToken<'a> {
         bytes.put_u32(value.lifetime);
     }
 
-    fn decode(mut bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(mut bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         // nonce_length:  Length of the nonce field.  The length of nonce for AEAD
         // algorithms is explained in [RFC5116].
         let nonce_length = bytes.get_u16() as usize;
@@ -1485,6 +1652,7 @@ impl<'a> Attribute<'a> for AccessToken<'a> {
 /// comprehend THIRD-PARTY-AUTHORIZATION, it MUST ensure that third-party
 /// authorization takes precedence over first-party authentication (as
 /// explained in Section 10 of [RFC5389]).
+#[derive(Debug, Clone, Copy)]
 pub struct ThirdPartyAuathorization;
 
 impl<'a> Attribute<'a> for ThirdPartyAuathorization {
@@ -1493,11 +1661,11 @@ impl<'a> Attribute<'a> for ThirdPartyAuathorization {
 
     const TYPE: AttributeType = AttributeType::ThirdPartyAuathorization;
 
-    fn encode(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
         bytes.put(value.as_bytes());
     }
 
-    fn decode(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(std::str::from_utf8(bytes)?)
     }
 }
