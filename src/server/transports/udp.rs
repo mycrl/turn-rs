@@ -1,4 +1,5 @@
 use crate::{
+    config::Transport,
     server::{OutboundType, TransportOptions},
     statistics::Stats,
 };
@@ -6,7 +7,6 @@ use crate::{
 use std::{io::ErrorKind::ConnectionReset, net::UdpSocket, sync::Arc, thread};
 
 use bytes::{Bytes, BytesMut};
-use codec::message::attributes::Transport;
 use service::{
     ServiceHandler,
     forwarding::{ForwardResult, Outbound},
@@ -49,7 +49,7 @@ where
     {
         let socket = socket.clone();
         let exchanger = exchanger.clone();
-        let reporter = statistics.get_reporter(Transport::UDP);
+        let reporter = statistics.get_reporter(Transport::Udp);
         let mut forwarder = service.get_forwarder(external, external);
 
         thread::spawn(move || {
@@ -130,7 +130,7 @@ where
             interface: external,
         };
 
-        let reporter = statistics.get_reporter(Transport::UDP);
+        let reporter = statistics.get_reporter(Transport::Udp);
         let mut receiver = exchanger.get_receiver(external);
         while let Some((bytes, _, addr)) = receiver.recv().await {
             id.source = addr;

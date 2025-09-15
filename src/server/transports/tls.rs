@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use codec::{Decoder, message::attributes::Transport};
+use codec::Decoder;
 use service::{
     ServiceHandler,
     forwarding::{ForwardResult, Outbound},
@@ -22,7 +22,7 @@ use tokio_rustls::{
 };
 
 use crate::{
-    config::Ssl,
+    config::{Ssl, Transport},
     server::{MAX_MESSAGE_SIZE, OutboundType, TransportOptions, buffer::ExchangeBuffer},
     statistics::Stats,
 };
@@ -79,7 +79,7 @@ where
                     return;
                 };
 
-                let reporter = statistics.get_reporter(Transport::TCP);
+                let reporter = statistics.get_reporter(Transport::Tcp);
                 let mut receiver = exchanger.get_receiver(address);
                 let mut forwarder = service.get_forwarder(address, external);
 

@@ -12,8 +12,8 @@ use codec::{
     message::{
         Message, MessageEncoder,
         attributes::{
-            ChannelNumber, Data, Error, ErrorCode, ErrorKind, Lifetime, MappedAddress, Nonce,
-            Realm, ReqeestedTransport, ResponseOrigin, Software, UserName, XorMappedAddress,
+            ChannelNumber, Data, ErrorCode, ErrorType, Lifetime, MappedAddress, Nonce, Realm,
+            ReqeestedTransport, ResponseOrigin, Software, UserName, XorMappedAddress,
             XorPeerAddress, XorRelayedAddress,
         },
         methods::{
@@ -182,7 +182,7 @@ trait Route {
         T: ServiceHandler;
 
     #[rustfmt::skip]
-    fn reject<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>, error: ErrorKind) -> Option<Outbound<'a>>
+    fn reject<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>, error: ErrorType) -> Option<Outbound<'a>>
     where
         T: ServiceHandler,
     {
@@ -190,7 +190,7 @@ trait Route {
 
         {
             let mut message = MessageEncoder::extend(method, req.payload, req.bytes);
-            message.append::<ErrorCode>(Error::from(error));
+            message.append::<ErrorCode>(ErrorCode::from(error));
             message.append::<Nonce>(req.state.manager.get_session(&req.id).get_ref()?.nonce());
             message.append::<Realm>(&req.state.realm);
             message.flush(None).ok()?;
@@ -270,15 +270,15 @@ impl Route for Allocate {
         T: ServiceHandler,
     {
         if req.payload.get::<ReqeestedTransport>().is_none() {
-            return Self::reject(req, ErrorKind::ServerError);
+            return Self::reject(req, ErrorType::ServerError);
         }
 
         let Some((username, password)) = req.credentials() else {
-            return Self::reject(req, ErrorKind::Unauthorized);
+            return Self::reject(req, ErrorType::Unauthorized);
         };
 
         let Some(port) = req.state.manager.allocate(req.id) else {
-            return Self::reject(req, ErrorKind::AllocationQuotaReached);
+            return Self::reject(req, ErrorType::AllocationQuotaReached);
         };
 
         req.state.handler.on_allocated(&req.id, username, port);
@@ -336,23 +336,23 @@ impl Route for ChannelBind {
         T: ServiceHandler,
     {
         let Some(peer) = req.payload.get::<XorPeerAddress>() else {
-            return Self::reject(req, ErrorKind::BadRequest);
+            return Self::reject(req, ErrorType::BadRequest);
         };
 
         if !req.verify_ip(&peer) {
-            return Self::reject(req, ErrorKind::PeerAddressFamilyMismatch);
+            return Self::reject(req, ErrorType::PeerAddressFamilyMismatch);
         }
 
         let Some(number) = req.payload.get::<ChannelNumber>() else {
-            return Self::reject(req, ErrorKind::BadRequest);
+            return Self::reject(req, ErrorType::BadRequest);
         };
 
         if !(0x4000..=0x7FFF).contains(&number) {
-            return Self::reject(req, ErrorKind::BadRequest);
+            return Self::reject(req, ErrorType::BadRequest);
         }
 
         let Some((username, password)) = req.credentials() else {
-            return Self::reject(req, ErrorKind::Unauthorized);
+            return Self::reject(req, ErrorType::Unauthorized);
         };
 
         if !req
@@ -360,7 +360,7 @@ impl Route for ChannelBind {
             .manager
             .bind_channel(&req.id, &req.state.endpoint, peer.port(), number)
         {
-            return Self::reject(req, ErrorKind::Forbidden);
+            return Self::reject(req, ErrorType::Forbidden);
         }
 
         req.state.handler.on_channel_bind(&req.id, username, number);
@@ -424,13 +424,13 @@ impl Route for CreatePermission {
         T: ServiceHandler,
     {
         let Some((username, password)) = req.credentials() else {
-            return Self::reject(req, ErrorKind::Unauthorized);
+            return Self::reject(req, ErrorType::Unauthorized);
         };
 
         let mut ports = Vec::with_capacity(15);
         for it in req.payload.get_all::<XorPeerAddress>() {
             if !req.verify_ip(&it) {
-                return Self::reject(req, ErrorKind::PeerAddressFamilyMismatch);
+                return Self::reject(req, ErrorType::PeerAddressFamilyMismatch);
             }
 
             ports.push(it.port());
@@ -441,7 +441,7 @@ impl Route for CreatePermission {
             .manager
             .create_permission(&req.id, &req.state.endpoint, &ports)
         {
-            return Self::reject(req, ErrorKind::Forbidden);
+            return Self::reject(req, ErrorType::Forbidden);
         }
 
         req.state
@@ -594,12 +594,12 @@ impl Route for Refresh {
         T: ServiceHandler,
     {
         let Some((username, password)) = req.credentials() else {
-            return Self::reject(req, ErrorKind::Unauthorized);
+            return Self::reject(req, ErrorType::Unauthorized);
         };
 
         let lifetime = req.payload.get::<Lifetime>().unwrap_or(600);
         if !req.state.manager.refresh(&req.id, lifetime) {
-            return Self::reject(req, ErrorKind::AllocationMismatch);
+            return Self::reject(req, ErrorType::AllocationMismatch);
         }
 
         req.state.handler.on_refresh(&req.id, username, lifetime);

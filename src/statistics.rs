@@ -4,9 +4,10 @@ use std::sync::{
 };
 
 use ahash::AHashMap;
-use codec::message::attributes::Transport;
 use parking_lot::RwLock;
 use service::session::Identifier;
+
+use crate::config::Transport;
 
 /// The type of information passed in the statisticsing channel
 #[derive(Debug, Clone, Copy)]

@@ -1,10 +1,11 @@
 use crate::{
+    config::Transport,
     server::{MAX_MESSAGE_SIZE, OutboundType, TransportOptions, buffer::ExchangeBuffer},
     statistics::Stats,
 };
 
 use bytes::Bytes;
-use codec::{Decoder, message::attributes::Transport};
+use codec::Decoder;
 use service::{
     ServiceHandler,
     forwarding::{ForwardResult, Outbound},
@@ -38,7 +39,7 @@ where
         // process when an error occurs.
         while let Ok((mut socket, address)) = listener.accept().await {
             let exchanger = exchanger.clone();
-            let reporter = statistics.get_reporter(Transport::TCP);
+            let reporter = statistics.get_reporter(Transport::Tcp);
             let mut receiver = exchanger.get_receiver(address);
             let mut forwarder = service.get_forwarder(address, external);
 

@@ -183,7 +183,7 @@ impl TurnClient {
         {
             {
                 let mut message = self.operationer.create_message(ALLOCATE_REQUEST);
-                message.append::<ReqeestedTransport>(Transport::UDP);
+                message.append::<ReqeestedTransport>(ReqeestedTransport::Udp);
                 message.flush(None)?;
 
                 self.operationer.send().await?;
@@ -192,7 +192,7 @@ impl TurnClient {
             let message = self.operationer.read_message().await?;
 
             ensure!(message.method() == ALLOCATE_ERROR);
-            ensure!(message.get::<ErrorCode>().unwrap().code == ErrorKind::Unauthorized as u16);
+            ensure!(message.get::<ErrorCode>().unwrap().code == ErrorType::Unauthorized as u16);
 
             self.state.nonce = message.get::<Nonce>().unwrap().to_vec();
             self.state.realm = message.get::<Realm>().unwrap().to_string();
@@ -205,7 +205,7 @@ impl TurnClient {
 
         {
             let mut message = self.operationer.create_message(ALLOCATE_REQUEST);
-            message.append::<ReqeestedTransport>(Transport::UDP);
+            message.append::<ReqeestedTransport>(ReqeestedTransport::Udp);
             message.append::<UserName>(&self.credentials.username);
             message.append::<Realm>(&self.state.realm);
             message.append::<Nonce>(&self.state.nonce);

@@ -6,30 +6,13 @@ use std::{
 use bytes::{Buf, BufMut, BytesMut};
 use num_enum::TryFromPrimitive;
 
-#[repr(u32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
-pub enum Transport {
-    TCP = 0x06000000,
-    UDP = 0x11000000,
-}
+use crate::Error;
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
 pub enum IpFamily {
     V4 = 0x01,
     V6 = 0x02,
-}
-
-impl TryFrom<u8> for IpFamily {
-    type Error = crate::Error;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        Ok(match value {
-            0x01 => Self::V4,
-            0x02 => Self::V6,
-            _ => return Err(crate::Error::InvalidInput),
-        })
-    }
 }
 
 /// [RFC3489]: https://datatracker.ietf.org/doc/html/rfc3489
@@ -189,17 +172,13 @@ impl XAddress {
     /// let addr = XAddress::decode(&addr_bytes, &token, false).unwrap();
     /// assert_eq!(addr, source);
     /// ```
-    pub fn deserialize(
-        packet: &[u8],
-        token: &[u8],
-        is_xor: bool,
-    ) -> Result<SocketAddr, crate::Error> {
+    pub fn deserialize(packet: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr, Error> {
         if packet.len() < 4 {
-            return Err(crate::Error::InvalidInput);
+            return Err(Error::InvalidInput);
         }
 
         let port = u16::from_be_bytes([packet[2], packet[3]]);
-        let ip_addr = match IpFamily::try_from(packet[1])? {
+        let ip_addr = match IpFamily::try_from(packet[1]).map_err(|_| Error::InvalidInput)? {
             IpFamily::V4 => from_bytes_v4(packet)?,
             IpFamily::V6 => from_bytes_v6(packet)?,
         };
@@ -226,9 +205,9 @@ impl XAddress {
 /// let addr = from_bytes_v4(&bytes).unwrap();
 /// assert_eq!(addr, source);
 /// ```
-pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, crate::Error> {
+pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, Error> {
     if packet.len() != 8 {
-        return Err(crate::Error::InvalidInput);
+        return Err(Error::InvalidInput);
     }
 
     let bytes: [u8; 4] = packet[4..8].try_into()?;
@@ -251,9 +230,9 @@ pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, crate::Error> {
 /// let addr = from_bytes_v6(&bytes).unwrap();
 /// assert_eq!(addr, source);
 /// ```
-pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr, crate::Error> {
+pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr, Error> {
     if packet.len() != 20 {
-        return Err(crate::Error::InvalidInput);
+        return Err(Error::InvalidInput);
     }
 
     let bytes: [u8; 16] = packet[4..20].try_into()?;
@@ -494,7 +473,7 @@ pub trait Attribute<'a> {
 pub struct UserName;
 
 impl<'a> Attribute<'a> for UserName {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = &'a str;
 
     const TYPE: AttributeType = AttributeType::UserName;
@@ -522,7 +501,7 @@ impl<'a> Attribute<'a> for UserName {
 pub struct UserHash;
 
 impl<'a> Attribute<'a> for UserHash {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = &'a [u8];
 
     const TYPE: AttributeType = AttributeType::UserHash;
@@ -546,7 +525,7 @@ impl<'a> Attribute<'a> for UserHash {
 pub struct Data;
 
 impl<'a> Attribute<'a> for Data {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = &'a [u8];
 
     const TYPE: AttributeType = AttributeType::Data;
@@ -582,7 +561,7 @@ impl<'a> Attribute<'a> for Data {
 pub struct Realm;
 
 impl<'a> Attribute<'a> for Realm {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = &'a str;
 
     const TYPE: AttributeType = AttributeType::Realm;
@@ -611,7 +590,7 @@ impl<'a> Attribute<'a> for Realm {
 pub struct Nonce;
 
 impl<'a> Attribute<'a> for Nonce {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = &'a [u8];
 
     const TYPE: AttributeType = AttributeType::Nonce;
@@ -640,7 +619,7 @@ impl<'a> Attribute<'a> for Nonce {
 pub struct Software;
 
 impl<'a> Attribute<'a> for Software {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = &'a str;
 
     const TYPE: AttributeType = AttributeType::Software;
@@ -689,7 +668,7 @@ impl<'a> Attribute<'a> for Software {
 pub struct MessageIntegrity;
 
 impl<'a> Attribute<'a> for MessageIntegrity {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = &'a [u8];
 
     const TYPE: AttributeType = AttributeType::MessageIntegrity;
@@ -741,7 +720,7 @@ impl<'a> Attribute<'a> for MessageIntegrity {
 pub struct MessageIntegritySha256;
 
 impl<'a> Attribute<'a> for MessageIntegritySha256 {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = &'a [u8];
 
     const TYPE: AttributeType = AttributeType::MessageIntegritySha256;
@@ -786,7 +765,7 @@ pub enum PasswordAlgorithm {
 }
 
 impl<'a> Attribute<'a> for PasswordAlgorithm {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = Self;
 
     const TYPE: AttributeType = AttributeType::PasswordAlgorithm;
@@ -800,7 +779,7 @@ impl<'a> Attribute<'a> for PasswordAlgorithm {
         let ty = match bytes.get_u16() {
             0x0001 => Self::Md5,
             0x0002 => Self::Sha256,
-            _ => return Err(crate::Error::InvalidInput),
+            _ => return Err(Error::InvalidInput),
         };
 
         // Ignore attribute value, as it does not exist currently
@@ -821,7 +800,7 @@ impl<'a> Attribute<'a> for PasswordAlgorithm {
 pub struct XorPeerAddress;
 
 impl<'a> Attribute<'a> for XorPeerAddress {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = SocketAddr;
 
     const TYPE: AttributeType = AttributeType::XorPeerAddress;
@@ -845,7 +824,7 @@ impl<'a> Attribute<'a> for XorPeerAddress {
 pub struct XorRelayedAddress;
 
 impl<'a> Attribute<'a> for XorRelayedAddress {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = SocketAddr;
 
     const TYPE: AttributeType = AttributeType::XorRelayedAddress;
@@ -896,7 +875,7 @@ impl<'a> Attribute<'a> for XorRelayedAddress {
 pub struct XorMappedAddress;
 
 impl<'a> Attribute<'a> for XorMappedAddress {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = SocketAddr;
 
     const TYPE: AttributeType = AttributeType::XorMappedAddress;
@@ -934,7 +913,7 @@ impl<'a> Attribute<'a> for XorMappedAddress {
 pub struct MappedAddress;
 
 impl<'a> Attribute<'a> for MappedAddress {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = SocketAddr;
 
     const TYPE: AttributeType = AttributeType::MappedAddress;
@@ -956,7 +935,7 @@ impl<'a> Attribute<'a> for MappedAddress {
 pub struct ResponseOrigin;
 
 impl<'a> Attribute<'a> for ResponseOrigin {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = SocketAddr;
 
     const TYPE: AttributeType = AttributeType::ResponseOrigin;
@@ -1016,7 +995,7 @@ const fn errno(code: u16) -> u16 {
 
 #[repr(u16)]
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash, TryFromPrimitive)]
-pub enum ErrorKind {
+pub enum ErrorType {
     TryAlternate = errno(300),
     BadRequest = errno(400),
     Unauthorized = errno(401),
@@ -1031,6 +1010,37 @@ pub enum ErrorKind {
     AllocationQuotaReached = errno(486),
     ServerError = errno(500),
     InsufficientCapacity = errno(508),
+}
+
+impl From<ErrorType> for &'static str {
+    /// # Test
+    ///
+    /// ```
+    /// use std::convert::Into;
+    /// use turn_codec::message::attributes::ErrorType;
+    ///
+    /// let err: &'static str = ErrorType::TryAlternate.into();
+    /// assert_eq!(err, "Try Alternate");
+    /// ```
+    #[rustfmt::skip]
+    fn from(val: ErrorType) -> Self {
+        match val {
+            ErrorType::TryAlternate => "Try Alternate",
+            ErrorType::BadRequest => "Bad Request",
+            ErrorType::Unauthorized => "Unauthorized",
+            ErrorType::Forbidden => "Forbidden",
+            ErrorType::UnknownAttribute => "Unknown Attribute",
+            ErrorType::AllocationMismatch => "Allocation Mismatch",
+            ErrorType::StaleNonce => "Stale Nonce",
+            ErrorType::AddressFamilyNotSupported => "Address Family not Supported",
+            ErrorType::WrongCredentials => "Wrong Credentials",
+            ErrorType::UnsupportedTransportAddress => "Unsupported Transport Address",
+            ErrorType::AllocationQuotaReached => "Allocation Quota Reached",
+            ErrorType::ServerError => "Server Error",
+            ErrorType::InsufficientCapacity => "Insufficient Capacity",
+            ErrorType::PeerAddressFamilyMismatch => "Peer Address Family Mismatch",
+        }
+    }
 }
 
 /// [RFC3629]: https://datatracker.ietf.org/doc/html/rfc3629
@@ -1071,23 +1081,38 @@ pub enum ErrorKind {
 /// the hundreds digit of the error code.  The value MUST be between 3
 /// and 6.  The Number represents the binary encoding of the error code
 /// modulo 100, and its value MUST be between 0 and 99.
-#[derive(Debug)]
-pub struct Error<'a> {
+#[derive(Debug, Clone, Copy)]
+pub struct ErrorCode<'a> {
     pub code: u16,
     pub message: &'a str,
 }
 
-impl From<ErrorKind> for Error<'_> {
+impl<'a> Attribute<'a> for ErrorCode<'a> {
+    type Error = Error;
+    type Item = Self;
+
+    const TYPE: AttributeType = AttributeType::ErrorCode;
+
+    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+        value.serialize(bytes);
+    }
+
+    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        Self::try_from(bytes)
+    }
+}
+
+impl From<ErrorType> for ErrorCode<'_> {
     /// create error from error type.
     ///
     /// # Example
     ///
     /// ```no_run
-    /// use turn_codec::message::attributes::{Error, ErrorKind};
+    /// use turn_codec::message::attributes::{Error, ErrorType};
     ///
-    /// Error::from(ErrorKind::TryAlternate);
+    /// Error::from(ErrorType::TryAlternate);
     /// ```
-    fn from(value: ErrorKind) -> Self {
+    fn from(value: ErrorType) -> Self {
         Self {
             code: value as u16,
             message: value.into(),
@@ -1095,14 +1120,14 @@ impl From<ErrorKind> for Error<'_> {
     }
 }
 
-impl Error<'_> {
+impl ErrorCode<'_> {
     /// encode the error type as bytes.
     ///
     /// # Test
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use turn_codec::message::attributes::{Error, ErrorKind};
+    /// use turn_codec::message::attributes::{Error, ErrorType};
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -1110,7 +1135,7 @@ impl Error<'_> {
     /// ];
     ///
     /// let mut buf = BytesMut::with_capacity(1280);
-    /// let error = Error::from(ErrorKind::TryAlternate);
+    /// let error = Error::from(ErrorType::TryAlternate);
     /// error.encode(&mut buf);
     /// assert_eq!(&buf[..], &buffer);
     /// ```
@@ -1121,14 +1146,14 @@ impl Error<'_> {
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for Error<'a> {
-    type Error = crate::Error;
+impl<'a> TryFrom<&'a [u8]> for ErrorCode<'a> {
+    type Error = Error;
 
     /// # Test
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::attributes::{Error, ErrorKind};
+    /// use turn_codec::message::attributes::{Error, ErrorType};
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -1136,16 +1161,16 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     /// ];
     ///
     /// let error = Error::try_from(&buffer[..]).unwrap();
-    /// assert_eq!(error.code, ErrorKind::TryAlternate as u16);
+    /// assert_eq!(error.code, ErrorType::TryAlternate as u16);
     /// assert_eq!(error.message, "Try Alternate");
     /// ```
     fn try_from(packet: &'a [u8]) -> Result<Self, Self::Error> {
         if packet.len() < 4 {
-            return Err(crate::Error::InvalidInput);
+            return Err(Error::InvalidInput);
         }
 
         if u16::from_be_bytes(packet[..2].try_into()?) != 0x0000 {
-            return Err(crate::Error::InvalidInput);
+            return Err(Error::InvalidInput);
         }
 
         Ok(Self {
@@ -1155,74 +1180,10 @@ impl<'a> TryFrom<&'a [u8]> for Error<'a> {
     }
 }
 
-impl From<ErrorKind> for &'static str {
-    /// # Test
-    ///
-    /// ```
-    /// use std::convert::Into;
-    /// use turn_codec::message::attributes::ErrorKind;
-    ///
-    /// let err: &'static str = ErrorKind::TryAlternate.into();
-    /// assert_eq!(err, "Try Alternate");
-    /// ```
-    #[rustfmt::skip]
-    fn from(val: ErrorKind) -> Self {
-        match val {
-            ErrorKind::TryAlternate => "Try Alternate",
-            ErrorKind::BadRequest => "Bad Request",
-            ErrorKind::Unauthorized => "Unauthorized",
-            ErrorKind::Forbidden => "Forbidden",
-            ErrorKind::UnknownAttribute => "Unknown Attribute",
-            ErrorKind::AllocationMismatch => "Allocation Mismatch",
-            ErrorKind::StaleNonce => "Stale Nonce",
-            ErrorKind::AddressFamilyNotSupported => "Address Family not Supported",
-            ErrorKind::WrongCredentials => "Wrong Credentials",
-            ErrorKind::UnsupportedTransportAddress => "Unsupported Transport Address",
-            ErrorKind::AllocationQuotaReached => "Allocation Quota Reached",
-            ErrorKind::ServerError => "Server Error",
-            ErrorKind::InsufficientCapacity => "Insufficient Capacity",
-            ErrorKind::PeerAddressFamilyMismatch => "Peer Address Family Mismatch",
-        }
-    }
-}
-
-impl Eq for Error<'_> {}
-impl PartialEq for Error<'_> {
+impl Eq for ErrorCode<'_> {}
+impl PartialEq for ErrorCode<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.code == other.code
-    }
-}
-
-/// [RFC7231]: https://datatracker.ietf.org/doc/html/rfc7231
-/// [RFC3261]: https://datatracker.ietf.org/doc/html/rfc3261
-/// [RFC3629]: https://datatracker.ietf.org/doc/html/rfc3629
-///
-/// The ERROR-CODE attribute is used in error response messages.  It
-/// contains a numeric error code value in the range of 300 to 699 plus a
-/// textual reason phrase encoded in UTF-8 [RFC3629]; it is also
-/// consistent in its code assignments and semantics with SIP [RFC3261]
-/// and HTTP [RFC7231].  The reason phrase is meant for diagnostic
-/// purposes and can be anything appropriate for the error code.
-/// Recommended reason phrases for the defined error codes are included
-/// in the IANA registry for error codes.  The reason phrase MUST be a
-/// UTF-8-encoded [RFC3629] sequence of fewer than 128 characters (which
-/// can be as long as 509 bytes when encoding them or 763 bytes when
-/// decoding them).
-#[derive(Debug, Clone, Copy)]
-pub struct ErrorCode;
-
-impl<'a> Attribute<'a> for ErrorCode {
-    type Error = crate::Error;
-    type Item = Error<'a>;
-
-    const TYPE: AttributeType = AttributeType::ErrorCode;
-
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
-        value.serialize(bytes)
-    }
-
-    fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        Error::try_from(bytes)
     }
 }
 
@@ -1235,7 +1196,7 @@ impl<'a> Attribute<'a> for ErrorCode {
 pub struct Lifetime;
 
 impl<'a> Attribute<'a> for Lifetime {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = u32;
 
     const TYPE: AttributeType = AttributeType::Lifetime;
@@ -1260,12 +1221,16 @@ impl<'a> Attribute<'a> for Lifetime {
 ///
 /// The RFFU field MUST be set to zero on transmission and MUST be
 /// ignored on reception.  It is reserved for future uses.
-#[derive(Debug, Clone, Copy)]
-pub struct ReqeestedTransport;
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
+pub enum ReqeestedTransport {
+    Tcp = 0x06000000,
+    Udp = 0x11000000,
+}
 
 impl<'a> Attribute<'a> for ReqeestedTransport {
-    type Error = crate::Error;
-    type Item = Transport;
+    type Error = Error;
+    type Item = Self;
 
     const TYPE: AttributeType = AttributeType::ReqeestedTransport;
 
@@ -1274,8 +1239,7 @@ impl<'a> Attribute<'a> for ReqeestedTransport {
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        let value = u32::from_be_bytes(bytes.try_into()?);
-        Transport::try_from(value).map_err(|_| crate::Error::InvalidInput)
+        Self::try_from(u32::from_be_bytes(bytes.try_into()?)).map_err(|_| Error::InvalidInput)
     }
 }
 
@@ -1317,7 +1281,7 @@ impl<'a> Attribute<'a> for ReqeestedTransport {
 pub struct Fingerprint;
 
 impl<'a> Attribute<'a> for Fingerprint {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = u32;
 
     const TYPE: AttributeType = AttributeType::Fingerprint;
@@ -1340,7 +1304,7 @@ impl<'a> Attribute<'a> for Fingerprint {
 pub struct ChannelNumber;
 
 impl<'a> Attribute<'a> for ChannelNumber {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = u16;
 
     const TYPE: AttributeType = AttributeType::ChannelNumber;
@@ -1367,7 +1331,7 @@ impl<'a> Attribute<'a> for ChannelNumber {
 pub struct IceControlling;
 
 impl<'a> Attribute<'a> for IceControlling {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = u64;
 
     const TYPE: AttributeType = AttributeType::IceControlling;
@@ -1389,7 +1353,7 @@ impl<'a> Attribute<'a> for IceControlling {
 pub struct UseCandidate;
 
 impl<'a> Attribute<'a> for UseCandidate {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = ();
 
     const TYPE: AttributeType = AttributeType::UseCandidate;
@@ -1414,7 +1378,7 @@ impl<'a> Attribute<'a> for UseCandidate {
 pub struct IceControlled;
 
 impl<'a> Attribute<'a> for IceControlled {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = u64;
 
     const TYPE: AttributeType = AttributeType::IceControlled;
@@ -1436,7 +1400,7 @@ impl<'a> Attribute<'a> for IceControlled {
 pub struct Priority;
 
 impl<'a> Attribute<'a> for Priority {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = u32;
 
     const TYPE: AttributeType = AttributeType::Priority;
@@ -1462,7 +1426,7 @@ impl<'a> Attribute<'a> for Priority {
 pub struct ReservationToken;
 
 impl<'a> Attribute<'a> for ReservationToken {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = u64;
 
     const TYPE: AttributeType = AttributeType::ReservationToken;
@@ -1484,7 +1448,7 @@ impl<'a> Attribute<'a> for ReservationToken {
 pub struct EvenPort;
 
 impl<'a> Attribute<'a> for EvenPort {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = bool;
 
     const TYPE: AttributeType = AttributeType::EvenPort;
@@ -1507,7 +1471,7 @@ impl<'a> Attribute<'a> for EvenPort {
 pub struct RequestedAddressFamily;
 
 impl<'a> Attribute<'a> for RequestedAddressFamily {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = IpFamily;
 
     const TYPE: AttributeType = AttributeType::RequestedAddressFamily;
@@ -1517,7 +1481,7 @@ impl<'a> Attribute<'a> for RequestedAddressFamily {
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        IpFamily::try_from(bytes[0])
+        IpFamily::try_from(bytes[0]).map_err(|_| Error::InvalidInput)
     }
 }
 
@@ -1530,7 +1494,7 @@ impl<'a> Attribute<'a> for RequestedAddressFamily {
 pub struct AdditionalAddressFamily;
 
 impl<'a> Attribute<'a> for AdditionalAddressFamily {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = IpFamily;
 
     const TYPE: AttributeType = AttributeType::AdditionalAddressFamily;
@@ -1540,7 +1504,7 @@ impl<'a> Attribute<'a> for AdditionalAddressFamily {
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        IpFamily::try_from(bytes[0])
+        IpFamily::try_from(bytes[0]).map_err(|_| Error::InvalidInput)
     }
 }
 
@@ -1553,7 +1517,7 @@ impl<'a> Attribute<'a> for AdditionalAddressFamily {
 pub struct DontFragment;
 
 impl<'a> Attribute<'a> for DontFragment {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = ();
 
     const TYPE: AttributeType = AttributeType::DontFragment;
@@ -1580,8 +1544,8 @@ pub struct AccessToken<'a> {
 }
 
 impl<'a> Attribute<'a> for AccessToken<'a> {
-    type Error = crate::Error;
-    type Item = AccessToken<'a>;
+    type Error = Error;
+    type Item = Self;
 
     const TYPE: AttributeType = AttributeType::AccessToken;
 
@@ -1599,7 +1563,7 @@ impl<'a> Attribute<'a> for AccessToken<'a> {
         // algorithms is explained in [RFC5116].
         let nonce_length = bytes.get_u16() as usize;
         if nonce_length >= bytes.len() {
-            return Err(crate::Error::InvalidInput);
+            return Err(Error::InvalidInput);
         }
 
         // Nonce: Nonce (N) formation is explained in Section 3.2 of [RFC5116].
@@ -1611,13 +1575,13 @@ impl<'a> Attribute<'a> for AccessToken<'a> {
         // agility plan discussed in Section 16.3 of [RFC5389].
         let key_length = bytes.get_u16() as usize;
         if key_length >= bytes.len() {
-            return Err(crate::Error::InvalidInput);
+            return Err(Error::InvalidInput);
         }
 
         // mac_key:  The session key generated by the authorization server.
         let mac_key = std::str::from_utf8(&bytes[..key_length])?;
         if bytes.len() < 12 {
-            return Err(crate::Error::InvalidInput);
+            return Err(Error::InvalidInput);
         }
 
         Ok(Self {
@@ -1656,7 +1620,7 @@ impl<'a> Attribute<'a> for AccessToken<'a> {
 pub struct ThirdPartyAuathorization;
 
 impl<'a> Attribute<'a> for ThirdPartyAuathorization {
-    type Error = crate::Error;
+    type Error = Error;
     type Item = &'a str;
 
     const TYPE: AttributeType = AttributeType::ThirdPartyAuathorization;

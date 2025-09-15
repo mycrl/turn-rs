@@ -7,9 +7,7 @@ use codec::{
     crypto::password_md5,
     message::{
         MessageEncoder,
-        attributes::{
-            ChannelNumber, Nonce, Realm, ReqeestedTransport, Transport, UserName, XorPeerAddress,
-        },
+        attributes::{ChannelNumber, Nonce, Realm, ReqeestedTransport, UserName, XorPeerAddress},
         methods::{
             ALLOCATE_REQUEST, BINDING_REQUEST, CHANNEL_BIND_REQUEST, CREATE_PERMISSION_REQUEST,
         },
@@ -91,7 +89,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let allocate_request = {
         let mut bytes = BytesMut::zeroed(1500);
         let mut message = MessageEncoder::new(ALLOCATE_REQUEST, &TOKEN, &mut bytes);
-        message.append::<ReqeestedTransport>(Transport::UDP);
+        message.append::<ReqeestedTransport>(ReqeestedTransport::Udp);
         message.append::<UserName>("test");
         message.append::<Realm>("test");
         message.append::<Nonce>(&a_nonce);
