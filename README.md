@@ -14,6 +14,16 @@
 <div align="center">
   <strong>TURN Server implemented by ❤️ Rust</strong>
 </div>
+<div align="center">
+  <a href="https://zdoc.app/de/mycrl/turn-rs">Deutsch</a> | 
+  <a href="https://zdoc.app/es/mycrl/turn-rs">Español</a> | 
+  <a href="https://zdoc.app/fr/mycrl/turn-rs">français</a> | 
+  <a href="https://zdoc.app/ja/mycrl/turn-rs">日本語</a> | 
+  <a href="https://zdoc.app/ko/mycrl/turn-rs">한국어</a> | 
+  <a href="https://zdoc.app/pt/mycrl/turn-rs">Português</a> | 
+  <a href="https://zdoc.app/ru/mycrl/turn-rs">Русский</a> | 
+  <a href="https://zdoc.app/zh/mycrl/turn-rs">中文</a>
+</div>
 
 ---
 
