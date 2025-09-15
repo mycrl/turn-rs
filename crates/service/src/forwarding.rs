@@ -191,7 +191,7 @@ trait Route {
         {
             let mut message = MessageEncoder::extend(method, req.payload, req.bytes);
             message.append::<ErrorCode>(ErrorCode::from(error));
-            message.append::<Nonce>(req.state.manager.get_session(&req.id).get_ref()?.nonce());
+            message.append::<Nonce>(req.state.manager.get_session_or_default(&req.id).get_ref()?.nonce());
             message.append::<Realm>(&req.state.realm);
             message.flush(None).ok()?;
         }

@@ -329,7 +329,7 @@ where
     ///     }
     /// }
     /// ```
-    pub fn get_session<'a, 'b>(
+    pub fn get_session_or_default<'a, 'b>(
         &'a self,
         key: &'b Identifier,
     ) -> ReadLock<'b, 'a, Identifier, Table<Identifier, Session>> {
@@ -355,6 +355,16 @@ where
             );
         }
 
+        ReadLock {
+            lock: self.sessions.read(),
+            key,
+        }
+    }
+
+    pub fn get_session<'a, 'b>(
+        &'a self,
+        key: &'b Identifier,
+    ) -> ReadLock<'b, 'a, Identifier, Table<Identifier, Session>> {
         ReadLock {
             lock: self.sessions.read(),
             key,
