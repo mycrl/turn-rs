@@ -158,12 +158,12 @@ where
                 };
 
                 match req.payload.method() {
-                    BINDING_REQUEST => Binding::route(req),
-                    ALLOCATE_REQUEST => Allocate::route(req),
-                    CREATE_PERMISSION_REQUEST => CreatePermission::route(req),
-                    CHANNEL_BIND_REQUEST => ChannelBind::route(req),
-                    REFRESH_REQUEST => Refresh::route(req),
-                    SEND_INDICATION => Indication::route(req),
+                    BINDING_REQUEST => binding(req),
+                    ALLOCATE_REQUEST => allocate(req),
+                    CREATE_PERMISSION_REQUEST => create_permission(req),
+                    CHANNEL_BIND_REQUEST => channel_bind(req),
+                    REFRESH_REQUEST => refresh(req),
+                    SEND_INDICATION => indication(req),
                     _ => None,
                 }
             }
@@ -176,32 +176,26 @@ where
     }
 }
 
-trait Route {
-    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
-    where
-        T: ServiceHandler;
+#[rustfmt::skip]
+fn reject<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>, error: ErrorType) -> Option<Outbound<'a>>
+where
+    T: ServiceHandler,
+{
+    let method = req.payload.method().error()?;
 
-    #[rustfmt::skip]
-    fn reject<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>, error: ErrorType) -> Option<Outbound<'a>>
-    where
-        T: ServiceHandler,
     {
-        let method = req.payload.method().error()?;
-
-        {
-            let mut message = MessageEncoder::extend(method, req.payload, req.bytes);
-            message.append::<ErrorCode>(ErrorCode::from(error));
-            message.append::<Nonce>(req.state.manager.get_session_or_default(&req.id).get_ref()?.nonce());
-            message.append::<Realm>(&req.state.realm);
-            message.flush(None).ok()?;
-        }
-
-        Some(Outbound::Message {
-            target: OutboundTarget::default(),
-            bytes: req.bytes,
-            method,
-        })
+        let mut message = MessageEncoder::extend(method, req.payload, req.bytes);
+        message.append::<ErrorCode>(ErrorCode::from(error));
+        message.append::<Nonce>(req.state.manager.get_session_or_default(&req.id).get_ref()?.nonce());
+        message.append::<Realm>(&req.state.realm);
+        message.flush(None).ok()?;
     }
+
+    Some(Outbound::Message {
+        target: OutboundTarget::default(),
+        bytes: req.bytes,
+        method,
+    })
 }
 
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -224,28 +218,24 @@ trait Route {
 /// attribute within the body of the STUN response will remain untouched.
 /// In this way, the client can learn its reflexive transport address
 /// allocated by the outermost NAT with respect to the STUN server.
-struct Binding;
-
-impl Route for Binding {
-    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
-    where
-        T: ServiceHandler,
+fn binding<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+where
+    T: ServiceHandler,
+{
     {
-        {
-            let mut message = MessageEncoder::extend(BINDING_RESPONSE, &req.payload, req.bytes);
-            message.append::<XorMappedAddress>(req.id.source);
-            message.append::<MappedAddress>(req.id.source);
-            message.append::<ResponseOrigin>(req.state.interface);
-            message.append::<Software>(&req.state.software);
-            message.flush(None).ok()?;
-        }
-
-        Some(Outbound::Message {
-            target: OutboundTarget::default(),
-            method: BINDING_RESPONSE,
-            bytes: req.bytes,
-        })
+        let mut message = MessageEncoder::extend(BINDING_RESPONSE, &req.payload, req.bytes);
+        message.append::<XorMappedAddress>(req.id.source);
+        message.append::<MappedAddress>(req.id.source);
+        message.append::<ResponseOrigin>(req.state.interface);
+        message.append::<Software>(&req.state.software);
+        message.flush(None).ok()?;
     }
+
+    Some(Outbound::Message {
+        target: OutboundTarget::default(),
+        method: BINDING_RESPONSE,
+        bytes: req.bytes,
+    })
 }
 
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -262,42 +252,38 @@ impl Route for Binding {
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard contexts.
-struct Allocate;
-
-impl Route for Allocate {
-    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
-    where
-        T: ServiceHandler,
-    {
-        if req.payload.get::<ReqeestedTransport>().is_none() {
-            return Self::reject(req, ErrorType::ServerError);
-        }
-
-        let Some((username, password)) = req.credentials() else {
-            return Self::reject(req, ErrorType::Unauthorized);
-        };
-
-        let Some(port) = req.state.manager.allocate(req.id) else {
-            return Self::reject(req, ErrorType::AllocationQuotaReached);
-        };
-
-        req.state.handler.on_allocated(&req.id, username, port);
-
-        {
-            let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.bytes);
-            message.append::<XorRelayedAddress>(SocketAddr::new(req.state.interface.ip(), port));
-            message.append::<XorMappedAddress>(req.id.source);
-            message.append::<Lifetime>(600);
-            message.append::<Software>(&req.state.software);
-            message.flush(Some(&password)).ok()?;
-        }
-
-        Some(Outbound::Message {
-            target: OutboundTarget::default(),
-            method: ALLOCATE_RESPONSE,
-            bytes: req.bytes,
-        })
+fn allocate<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+where
+    T: ServiceHandler,
+{
+    if req.payload.get::<ReqeestedTransport>().is_none() {
+        return reject(req, ErrorType::ServerError);
     }
+
+    let Some((username, password)) = req.credentials() else {
+        return reject(req, ErrorType::Unauthorized);
+    };
+
+    let Some(port) = req.state.manager.allocate(req.id) else {
+        return reject(req, ErrorType::AllocationQuotaReached);
+    };
+
+    req.state.handler.on_allocated(&req.id, username, port);
+
+    {
+        let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.bytes);
+        message.append::<XorRelayedAddress>(SocketAddr::new(req.state.interface.ip(), port));
+        message.append::<XorMappedAddress>(req.id.source);
+        message.append::<Lifetime>(600);
+        message.append::<Software>(&req.state.software);
+        message.flush(Some(&password)).ok()?;
+    }
+
+    Some(Outbound::Message {
+        target: OutboundTarget::default(),
+        method: ALLOCATE_RESPONSE,
+        bytes: req.bytes,
+    })
 }
 
 /// The server MAY impose restrictions on the IP address and port values
@@ -328,55 +314,51 @@ impl Route for Allocate {
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-struct ChannelBind;
+fn channel_bind<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+where
+    T: ServiceHandler,
+{
+    let Some(peer) = req.payload.get::<XorPeerAddress>() else {
+        return reject(req, ErrorType::BadRequest);
+    };
 
-impl Route for ChannelBind {
-    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
-    where
-        T: ServiceHandler,
-    {
-        let Some(peer) = req.payload.get::<XorPeerAddress>() else {
-            return Self::reject(req, ErrorType::BadRequest);
-        };
-
-        if !req.verify_ip(&peer) {
-            return Self::reject(req, ErrorType::PeerAddressFamilyMismatch);
-        }
-
-        let Some(number) = req.payload.get::<ChannelNumber>() else {
-            return Self::reject(req, ErrorType::BadRequest);
-        };
-
-        if !(0x4000..=0x7FFF).contains(&number) {
-            return Self::reject(req, ErrorType::BadRequest);
-        }
-
-        let Some((username, password)) = req.credentials() else {
-            return Self::reject(req, ErrorType::Unauthorized);
-        };
-
-        if !req
-            .state
-            .manager
-            .bind_channel(&req.id, &req.state.endpoint, peer.port(), number)
-        {
-            return Self::reject(req, ErrorType::Forbidden);
-        }
-
-        req.state.handler.on_channel_bind(&req.id, username, number);
-
-        {
-            MessageEncoder::extend(CHANNEL_BIND_RESPONSE, req.payload, req.bytes)
-                .flush(Some(&password))
-                .ok()?;
-        }
-
-        Some(Outbound::Message {
-            target: OutboundTarget::default(),
-            method: CHANNEL_BIND_RESPONSE,
-            bytes: req.bytes,
-        })
+    if !req.verify_ip(&peer) {
+        return reject(req, ErrorType::PeerAddressFamilyMismatch);
     }
+
+    let Some(number) = req.payload.get::<ChannelNumber>() else {
+        return reject(req, ErrorType::BadRequest);
+    };
+
+    if !(0x4000..=0x7FFF).contains(&number) {
+        return reject(req, ErrorType::BadRequest);
+    }
+
+    let Some((username, password)) = req.credentials() else {
+        return reject(req, ErrorType::Unauthorized);
+    };
+
+    if !req
+        .state
+        .manager
+        .bind_channel(&req.id, &req.state.endpoint, peer.port(), number)
+    {
+        return reject(req, ErrorType::Forbidden);
+    }
+
+    req.state.handler.on_channel_bind(&req.id, username, number);
+
+    {
+        MessageEncoder::extend(CHANNEL_BIND_RESPONSE, req.payload, req.bytes)
+            .flush(Some(&password))
+            .ok()?;
+    }
+
+    Some(Outbound::Message {
+        target: OutboundTarget::default(),
+        method: CHANNEL_BIND_RESPONSE,
+        bytes: req.bytes,
+    })
 }
 
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -416,50 +398,46 @@ impl Route for ChannelBind {
 /// CreatePermission requests over UDP using the "stateless stack approach".
 /// Retransmitted CreatePermission requests will simply refresh the
 /// permissions.
-struct CreatePermission;
+fn create_permission<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+where
+    T: ServiceHandler,
+{
+    let Some((username, password)) = req.credentials() else {
+        return reject(req, ErrorType::Unauthorized);
+    };
 
-impl Route for CreatePermission {
-    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
-    where
-        T: ServiceHandler,
-    {
-        let Some((username, password)) = req.credentials() else {
-            return Self::reject(req, ErrorType::Unauthorized);
-        };
-
-        let mut ports = Vec::with_capacity(15);
-        for it in req.payload.get_all::<XorPeerAddress>() {
-            if !req.verify_ip(&it) {
-                return Self::reject(req, ErrorType::PeerAddressFamilyMismatch);
-            }
-
-            ports.push(it.port());
+    let mut ports = Vec::with_capacity(15);
+    for it in req.payload.get_all::<XorPeerAddress>() {
+        if !req.verify_ip(&it) {
+            return reject(req, ErrorType::PeerAddressFamilyMismatch);
         }
 
-        if !req
-            .state
-            .manager
-            .create_permission(&req.id, &req.state.endpoint, &ports)
-        {
-            return Self::reject(req, ErrorType::Forbidden);
-        }
-
-        req.state
-            .handler
-            .on_create_permission(&req.id, username, &ports);
-
-        {
-            MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.bytes)
-                .flush(Some(&password))
-                .ok()?;
-        }
-
-        Some(Outbound::Message {
-            method: CREATE_PERMISSION_RESPONSE,
-            target: OutboundTarget::default(),
-            bytes: req.bytes,
-        })
+        ports.push(it.port());
     }
+
+    if !req
+        .state
+        .manager
+        .create_permission(&req.id, &req.state.endpoint, &ports)
+    {
+        return reject(req, ErrorType::Forbidden);
+    }
+
+    req.state
+        .handler
+        .on_create_permission(&req.id, username, &ports);
+
+    {
+        MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.bytes)
+            .flush(Some(&password))
+            .ok()?;
+    }
+
+    Some(Outbound::Message {
+        method: CREATE_PERMISSION_RESPONSE,
+        target: OutboundTarget::default(),
+        bytes: req.bytes,
+    })
 }
 
 /// When the server receives a Send indication, it processes as per
@@ -504,50 +482,43 @@ impl Route for CreatePermission {
 /// and [15](https://tools.ietf.org/html/rfc8656#section-15).
 ///
 /// The resulting UDP datagram is then sent to the peer.
-struct Indication;
+#[rustfmt::skip]
+fn indication<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+where
+    T: ServiceHandler,
+{
+    let peer = req.payload.get::<XorPeerAddress>()?;
+    let data = req.payload.get::<Data>()?;
 
-impl Route for Indication {
-    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
-    where
-        T: ServiceHandler,
+    if let Some(Session::Authenticated { allocate_port, .. }) =
+        req.state.manager.get_session(&req.id).get_ref()
     {
-        let peer = req.payload.get::<XorPeerAddress>()?;
-        let data = req.payload.get::<Data>()?;
+        if let Some(local_port) = *allocate_port {
+            let relay = req.state.manager.get_relay_address(&req.id, peer.port())?;
 
-        if let Some(Session::Authenticated { allocate_port, .. }) =
-            req.state.manager.get_session(&req.id).get_ref()
-        {
-            if let Some(local_port) = *allocate_port {
-                let relay = req.state.manager.get_relay_address(&req.id, peer.port())?;
-
-                {
-                    let mut message =
-                        MessageEncoder::extend(DATA_INDICATION, &req.payload, req.bytes);
-                    message.append::<XorPeerAddress>(SocketAddr::new(
-                        req.state.interface.ip(),
-                        local_port,
-                    ));
-                    message.append::<Data>(data);
-                    message.flush(None).ok()?;
-                }
-
-                return Some(Outbound::Message {
-                    method: DATA_INDICATION,
-                    bytes: req.bytes,
-                    target: OutboundTarget {
-                        relay: Some(relay.source),
-                        endpoint: if req.state.endpoint != relay.endpoint {
-                            Some(relay.endpoint)
-                        } else {
-                            None
-                        },
-                    },
-                });
+            {
+                let mut message = MessageEncoder::extend(DATA_INDICATION, &req.payload, req.bytes);
+                message.append::<XorPeerAddress>(SocketAddr::new(req.state.interface.ip(), local_port));
+                message.append::<Data>(data);
+                message.flush(None).ok()?;
             }
-        }
 
-        None
+            return Some(Outbound::Message {
+                method: DATA_INDICATION,
+                bytes: req.bytes,
+                target: OutboundTarget {
+                    relay: Some(relay.source),
+                    endpoint: if req.state.endpoint != relay.endpoint {
+                        Some(relay.endpoint)
+                    } else {
+                        None
+                    },
+                },
+            });
+        }
     }
+
+    None
 }
 
 /// If the server receives a Refresh Request with a REQUESTED-ADDRESS-
@@ -586,36 +557,32 @@ impl Route for Indication {
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-struct Refresh;
+fn refresh<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+where
+    T: ServiceHandler,
+{
+    let Some((username, password)) = req.credentials() else {
+        return reject(req, ErrorType::Unauthorized);
+    };
 
-impl Route for Refresh {
-    fn route<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
-    where
-        T: ServiceHandler,
-    {
-        let Some((username, password)) = req.credentials() else {
-            return Self::reject(req, ErrorType::Unauthorized);
-        };
-
-        let lifetime = req.payload.get::<Lifetime>().unwrap_or(600);
-        if !req.state.manager.refresh(&req.id, lifetime) {
-            return Self::reject(req, ErrorType::AllocationMismatch);
-        }
-
-        req.state.handler.on_refresh(&req.id, username, lifetime);
-
-        {
-            let mut message = MessageEncoder::extend(REFRESH_RESPONSE, &req.payload, req.bytes);
-            message.append::<Lifetime>(lifetime);
-            message.flush(Some(&password)).ok()?;
-        }
-
-        Some(Outbound::Message {
-            target: OutboundTarget::default(),
-            method: REFRESH_RESPONSE,
-            bytes: req.bytes,
-        })
+    let lifetime = req.payload.get::<Lifetime>().unwrap_or(600);
+    if !req.state.manager.refresh(&req.id, lifetime) {
+        return reject(req, ErrorType::AllocationMismatch);
     }
+
+    req.state.handler.on_refresh(&req.id, username, lifetime);
+
+    {
+        let mut message = MessageEncoder::extend(REFRESH_RESPONSE, &req.payload, req.bytes);
+        message.append::<Lifetime>(lifetime);
+        message.flush(Some(&password)).ok()?;
+    }
+
+    Some(Outbound::Message {
+        target: OutboundTarget::default(),
+        method: REFRESH_RESPONSE,
+        bytes: req.bytes,
+    })
 }
 
 /// If the ChannelData message is received on a channel that is not bound
