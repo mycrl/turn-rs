@@ -19,7 +19,7 @@ jobs:
                       ~/.cargo/registry/cache/
                       ~/.cargo/git/db/
                       target/
-                  key: "${{ runner.os }}"
+                  key: "test-ubuntu-latest"
             - name: Install dependencies
               run: |
                   sudo apt update

@@ -77,7 +77,7 @@ jobs:
                       ~/.cargo/registry/cache/
                       ~/.cargo/git/db/
                       target/
-                  key: "${{ runner.os }}"
+                  key: "${{ matrix.os }}-${{ matrix.target }}"
 
             # Install dependencies
             - name: Install dependencies (Linux)
