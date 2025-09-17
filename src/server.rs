@@ -1,4 +1,4 @@
-use std::{io::Error, net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 
 use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
@@ -9,7 +9,11 @@ use service::{
     forwarding::{ForwardResult, Outbound},
     session::Identifier,
 };
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
+
+use tokio::{
+    sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
+    task::JoinSet,
+};
 
 use crate::{
     Service,
@@ -23,27 +27,35 @@ pub const MAX_MESSAGE_SIZE: usize = 4096;
 pub async fn start_server(config: Config, service: Service, statistics: Statistics) -> Result<()> {
     let exchanger = Exchanger::default();
 
-    for interface in &config.turn.interfaces {
+    let mut servers = JoinSet::new();
+
+    for interface in config.turn.interfaces {
         match interface.transport {
             Transport::Udp => {
-                UdpServer::start(
+                servers.spawn(UdpServer::start(
                     interface,
                     service.clone(),
                     statistics.clone(),
                     exchanger.clone(),
-                )
-                .await?;
+                ));
             }
             Transport::Tcp => {
-                TcpServer::start(
+                servers.spawn(TcpServer::start(
                     interface,
                     service.clone(),
                     statistics.clone(),
                     exchanger.clone(),
-                )
-                .await?;
+                ));
             }
         };
+    }
+
+    // As soon as one server exits, all servers will be exited to ensure the
+    // availability of all servers.
+    if let Some(res) = servers.join_next().await {
+        servers.abort_all();
+
+        return Ok(res??);
     }
 
     Ok(())
@@ -106,18 +118,18 @@ impl Exchanger {
 
 trait Socket: Send + 'static {
     fn read(&mut self) -> impl Future<Output = Option<Bytes>> + Send;
-    fn write(&mut self, buffer: &[u8]) -> impl Future<Output = Result<(), Error>> + Send;
+    fn write(&mut self, buffer: &[u8]) -> impl Future<Output = Result<()>> + Send;
 }
 
 trait Listener: Sized + Send {
     type Socket: Socket;
 
-    fn bind(interface: &Interface) -> impl Future<Output = Result<Self, Error>> + Send;
+    fn bind(interface: &Interface) -> impl Future<Output = Result<Self>> + Send;
     fn accept(&mut self) -> impl Future<Output = Option<(Self::Socket, SocketAddr)>> + Send;
-    fn local_addr(&self) -> Result<SocketAddr, Error>;
+    fn local_addr(&self) -> Result<SocketAddr>;
 
     fn start(
-        interface: &Interface,
+        interface: Interface,
         service: Service,
         statistics: Statistics,
         exchanger: Exchanger,
@@ -125,7 +137,7 @@ trait Listener: Sized + Send {
         let transport = interface.transport;
 
         async move {
-            let mut listener = Self::bind(interface).await?;
+            let mut listener = Self::bind(&interface).await?;
             let local_addr = listener.local_addr()?;
 
             log::info!(
@@ -233,13 +245,10 @@ trait Listener: Sized + Send {
 }
 
 mod udp {
-    use std::{
-        io::{Error, ErrorKind},
-        net::SocketAddr,
-        sync::Arc,
-    };
+    use std::{io::ErrorKind, net::SocketAddr, sync::Arc};
 
     use ahash::{HashMap, HashMapExt};
+    use anyhow::Result;
     use bytes::{Bytes, BytesMut};
     use tokio::{
         net::UdpSocket as TokioUdpSocket,
@@ -262,13 +271,13 @@ mod udp {
             self.bytes_receiver.recv().await
         }
 
-        async fn write(&mut self, buffer: &[u8]) -> Result<(), Error> {
+        async fn write(&mut self, buffer: &[u8]) -> Result<()> {
             if let Err(e) = self.socket.send_to(buffer, self.addr).await {
                 // Note: An error will also be reported when the remote host is
                 // shut down, which is not processed yet, but a
                 // warning will be issued.
                 if e.kind() != ErrorKind::ConnectionReset {
-                    return Err(e);
+                    return Err(e.into());
                 }
             }
 
@@ -284,7 +293,7 @@ mod udp {
     impl Listener for UdpServer {
         type Socket = UdpSocket;
 
-        async fn bind(interface: &Interface) -> Result<Self, Error> {
+        async fn bind(interface: &Interface) -> Result<Self> {
             let socket = Arc::new(TokioUdpSocket::bind(interface.listen).await?);
             let (socket_sender, socket_receiver) = unbounded_channel::<(UdpSocket, SocketAddr)>();
 
@@ -354,8 +363,8 @@ mod udp {
             self.receiver.recv().await
         }
 
-        fn local_addr(&self) -> Result<SocketAddr, Error> {
-            self.socket.local_addr()
+        fn local_addr(&self) -> Result<SocketAddr> {
+            Ok(self.socket.local_addr()?)
         }
     }
 }
@@ -363,12 +372,26 @@ mod udp {
 mod tcp {
     use std::{io::Error, net::SocketAddr};
 
+    #[cfg(feature = "ssl")]
+    use std::sync::Arc;
+
+    use anyhow::Result;
     use bytes::{Bytes, BytesMut};
     use codec::Decoder;
     use tokio::{
-        io::{AsyncReadExt, AsyncWriteExt},
-        net::{TcpListener as TokioTcpListener, TcpStream, tcp::OwnedWriteHalf},
+        io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
+        net::{TcpListener as TokioTcpListener, TcpStream},
         sync::mpsc::{UnboundedReceiver, unbounded_channel},
+    };
+
+    #[cfg(feature = "ssl")]
+    use tokio_rustls::{
+        TlsAcceptor,
+        rustls::{
+            ServerConfig,
+            pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
+        },
+        server::TlsStream,
     };
 
     use crate::{
@@ -376,20 +399,73 @@ mod tcp {
         server::{Listener, MAX_MESSAGE_SIZE, Socket},
     };
 
+    enum MaybeSslStream {
+        #[cfg(feature = "ssl")]
+        Ssl(TlsStream<TcpStream>),
+        Base(TcpStream),
+    }
+
+    impl MaybeSslStream {
+        fn split(self) -> (Reader, Writer) {
+            use tokio::io::split;
+
+            match self {
+                Self::Base(it) => {
+                    let (rx, tx) = split(it);
+
+                    (Reader::Base(rx), Writer::Base(tx))
+                }
+                #[cfg(feature = "ssl")]
+                Self::Ssl(it) => {
+                    let (rx, tx) = split(it);
+
+                    (Reader::Ssl(rx), Writer::Ssl(tx))
+                }
+            }
+        }
+    }
+
+    enum Reader {
+        #[cfg(feature = "ssl")]
+        Ssl(ReadHalf<TlsStream<TcpStream>>),
+        Base(ReadHalf<TcpStream>),
+    }
+
+    impl Reader {
+        async fn read_buf(&mut self, buffer: &mut BytesMut) -> Result<usize, Error> {
+            match self {
+                Self::Base(it) => it.read_buf(buffer).await,
+                #[cfg(feature = "ssl")]
+                Self::Ssl(it) => it.read_buf(buffer).await,
+            }
+        }
+    }
+
+    enum Writer {
+        #[cfg(feature = "ssl")]
+        Ssl(WriteHalf<TlsStream<TcpStream>>),
+        Base(WriteHalf<TcpStream>),
+    }
+
+    impl Writer {
+        async fn write_all(&mut self, buffer: &[u8]) -> Result<(), Error> {
+            match self {
+                Self::Base(it) => it.write_all(buffer).await,
+                #[cfg(feature = "ssl")]
+                Self::Ssl(it) => it.write_all(buffer).await,
+            }
+        }
+    }
+
     pub struct TcpSocket {
-        writer: OwnedWriteHalf,
+        writer: Writer,
         receiver: UnboundedReceiver<Bytes>,
     }
 
     impl TcpSocket {
-        fn new(stream: TcpStream, addr: SocketAddr) -> Self {
-            // Disable the Nagle algorithm.
-            // because to maintain real-time, any received data should be processed
-            // as soon as possible.
-            let _ = stream.set_nodelay(true);
-
+        fn new(stream: MaybeSslStream, addr: SocketAddr) -> Self {
             let (tx, receiver) = unbounded_channel::<Bytes>();
-            let (mut reader, writer) = stream.into_split();
+            let (mut reader, writer) = stream.split();
 
             tokio::spawn(async move {
                 let mut buffer = BytesMut::new();
@@ -443,7 +519,7 @@ mod tcp {
                         };
 
                         if tx.send(buffer.split_to(size).freeze()).is_err() {
-                            break;
+                            break 'a;
                         }
                     }
                 }
@@ -458,30 +534,85 @@ mod tcp {
             self.receiver.recv().await
         }
 
-        async fn write(&mut self, buffer: &[u8]) -> Result<(), Error> {
-            self.writer.write_all(buffer).await
+        async fn write(&mut self, buffer: &[u8]) -> Result<()> {
+            Ok(self.writer.write_all(buffer).await?)
         }
     }
 
-    pub struct TcpServer(TokioTcpListener);
+    pub struct TcpServer {
+        socket_receiver: UnboundedReceiver<(TcpSocket, SocketAddr)>,
+        local_addr: SocketAddr,
+    }
 
     impl Listener for TcpServer {
         type Socket = TcpSocket;
 
-        async fn bind(interface: &Interface) -> Result<Self, Error> {
-            Ok(Self(TokioTcpListener::bind(interface.listen).await?))
+        async fn bind(interface: &Interface) -> Result<Self> {
+            #[cfg(feature = "ssl")]
+            let acceptor = if let Some(ssl) = &interface.ssl {
+                Some(TlsAcceptor::from(Arc::new(
+                    ServerConfig::builder()
+                        .with_no_client_auth()
+                        .with_single_cert(
+                            CertificateDer::pem_file_iter(ssl.certificate_chain.clone())?
+                                .collect::<Result<Vec<_>, _>>()?,
+                            PrivateKeyDer::from_pem_file(ssl.private_key.clone())?,
+                        )?,
+                )))
+            } else {
+                None
+            };
+
+            let listener = TokioTcpListener::bind(interface.listen).await?;
+            let local_addr = listener.local_addr()?;
+
+            let (tx, socket_receiver) = unbounded_channel::<(TcpSocket, SocketAddr)>();
+            tokio::spawn(async move {
+                while let Ok((socket, addr)) = listener.accept().await {
+                    // Disable the Nagle algorithm.
+                    // because to maintain real-time, any received data should be processed
+                    // as soon as possible.
+                    if let Err(e) = socket.set_nodelay(true) {
+                        log::warn!("tls socket set nodelay failed!: addr={addr}, err={e}");
+                    }
+
+                    #[cfg(feature = "ssl")]
+                    if let Some(acceptor) = acceptor.clone() {
+                        let tx = tx.clone();
+
+                        tokio::spawn(async move {
+                            if let Ok(socket) = acceptor.accept(socket).await {
+                                let _ = tx.send((
+                                    TcpSocket::new(MaybeSslStream::Ssl(socket), addr),
+                                    addr,
+                                ));
+                            };
+                        });
+
+                        continue;
+                    }
+
+                    if tx
+                        .send((TcpSocket::new(MaybeSslStream::Base(socket), addr), addr))
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            });
+
+            Ok(Self {
+                socket_receiver,
+                local_addr,
+            })
         }
 
         async fn accept(&mut self) -> Option<(Self::Socket, SocketAddr)> {
-            self.0
-                .accept()
-                .await
-                .ok()
-                .map(|(socket, addr)| (TcpSocket::new(socket, addr), addr))
+            self.socket_receiver.recv().await
         }
 
-        fn local_addr(&self) -> Result<SocketAddr, Error> {
-            self.0.local_addr()
+        fn local_addr(&self) -> Result<SocketAddr> {
+            Ok(self.local_addr)
         }
     }
 }
