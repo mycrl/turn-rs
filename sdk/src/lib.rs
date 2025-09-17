@@ -12,8 +12,9 @@ use tonic::{
 };
 
 use crate::proto::{
-    SessionQueryParams, TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent,
-    TurnDestroyEvent, TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
+    GetTurnPasswordRequest, GetTurnPasswordResponse, SessionQueryParams, TurnAllocatedEvent,
+    TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent,
+    TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_server::{TurnHooksService, TurnHooksServiceServer},
     turn_service_client::TurnServiceClient,
 };
@@ -77,6 +78,26 @@ struct TurnHooksServerInner<T>(T);
 
 #[tonic::async_trait]
 impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> {
+    async fn get_password(
+        &self,
+        request: Request<GetTurnPasswordRequest>,
+    ) -> Result<Response<GetTurnPasswordResponse>, Status> {
+        let request = request.into_inner();
+
+        if let Ok(credential) = self.0.get_password(&request.username).await {
+            Ok(Response::new(GetTurnPasswordResponse {
+                password: codec::crypto::password_md5(
+                    &request.username,
+                    credential.password,
+                    credential.realm,
+                )
+                .to_vec(),
+            }))
+        } else {
+            Err(Status::not_found("Message integrity not found"))
+        }
+    }
+
     async fn on_allocated_event(
         &self,
         request: Request<TurnAllocatedEvent>,
@@ -142,7 +163,7 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
 
 #[tonic::async_trait]
 pub trait TurnHooksServer: Send + Sync {
-    async fn get_credential(&self, username: &str) -> Result<Credential, Status>;
+    async fn get_password(&self, username: &str) -> Result<Credential, Status>;
 
     /// allocate request
     ///

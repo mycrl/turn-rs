@@ -2032,6 +2032,7 @@ dependencies = [
  "tonic",
  "tonic-prost",
  "tonic-prost-build",
+ "turn-server-codec",
 ]
 
 [[package]]

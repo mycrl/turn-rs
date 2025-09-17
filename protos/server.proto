@@ -96,8 +96,23 @@ message TurnDestroyEvent {
     string username = 2;
 }
 
+// get turn message integrity request
+message GetTurnPasswordRequest {
+    string username = 1;
+}
+
+// get turn message integrity response
+message GetTurnPasswordResponse {
+    bytes password = 2;
+}
+
 // turn hooks service
 service TurnHooksService {
+
+    // hooks
+    rpc GetPassword(GetTurnPasswordRequest) returns (GetTurnPasswordResponse);
+
+    // events
     rpc OnAllocatedEvent(TurnAllocatedEvent) returns (google.protobuf.Empty);
     rpc OnChannelBindEvent(TurnChannelBindEvent) returns (google.protobuf.Empty);
     rpc OnCreatePermissionEvent(TurnCreatePermissionEvent) returns (google.protobuf.Empty);

@@ -7,6 +7,7 @@ edition = "2024"
 tonic = { version = "0.14", features = ["deflate"] }
 prost = "0.14"
 tonic-prost = "0.14"
+codec = { workspace = true }
 
 [build-dependencies]
 tonic-prost-build = "0.14"
