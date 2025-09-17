@@ -9,20 +9,7 @@ use bytes::BytesMut;
 use codec::{
     DecodeResult, Decoder,
     channel_data::ChannelData,
-    message::{
-        Message, MessageEncoder,
-        attributes::{
-            ChannelNumber, Data, ErrorCode, ErrorType, Lifetime, MappedAddress, Nonce, Realm,
-            ReqeestedTransport, ResponseOrigin, Software, UserName, XorMappedAddress,
-            XorPeerAddress, XorRelayedAddress,
-        },
-        methods::{
-            ALLOCATE_REQUEST, ALLOCATE_RESPONSE, BINDING_REQUEST, BINDING_RESPONSE,
-            CHANNEL_BIND_REQUEST, CHANNEL_BIND_RESPONSE, CREATE_PERMISSION_REQUEST,
-            CREATE_PERMISSION_RESPONSE, DATA_INDICATION, Method as StunMethod, REFRESH_REQUEST,
-            REFRESH_RESPONSE, SEND_INDICATION,
-        },
-    },
+    message::{Message, MessageEncoder, attributes::*, methods::*},
 };
 
 struct State<T>
@@ -79,7 +66,7 @@ pub struct OutboundTarget {
 #[derive(Debug)]
 pub enum Outbound<'a> {
     Message {
-        method: StunMethod,
+        method: Method,
         bytes: &'a [u8],
         target: OutboundTarget,
     },
