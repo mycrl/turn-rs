@@ -40,8 +40,6 @@ anyhow = "1.0"
 tonic-prost-build = { version = "0.14", optional = true }
 
 [dev-dependencies]
-criterion = "0.5"
-bytes = "1"
 rand = "0.9"
 
 [features]
