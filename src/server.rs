@@ -6,6 +6,54 @@ use crate::{
 };
 
 use std::net::SocketAddr;
+use tokio::sync::broadcast;
+use tokio::task::JoinHandle;
+
+/// Handle for managing server lifecycle - shutdown and status monitoring
+pub struct ServerHandle {
+    /// Handles for all spawned server tasks
+    handles: Vec<JoinHandle<()>>,
+    /// Sender for broadcasting shutdown signal
+    shutdown_tx: broadcast::Sender<()>,
+}
+
+impl ServerHandle {
+    /// Create a new ServerHandle
+    fn new() -> (Self, broadcast::Sender<()>) {
+        let (shutdown_tx, _) = broadcast::channel(1);
+        
+        (
+            Self {
+                handles: Vec::new(),
+                shutdown_tx: shutdown_tx.clone(),
+            },
+            shutdown_tx,
+        )
+    }
+    
+    /// Add a task handle to be managed
+    fn add_handle(&mut self, handle: JoinHandle<()>) {
+        self.handles.push(handle);
+    }
+    
+    /// Signal all server tasks to shutdown gracefully
+    pub fn shutdown(&self) -> Result<(), broadcast::error::SendError<()>> {
+        self.shutdown_tx.send(()).map(|_| ())
+    }
+    
+    /// Check if the server is still running (any task still active)
+    pub fn is_running(&self) -> bool {
+        !self.handles.iter().all(|h| h.is_finished())
+    }
+    
+    /// Wait for all server tasks to complete
+    pub async fn wait_for_shutdown(self) -> Result<(), tokio::task::JoinError> {
+        for handle in self.handles {
+            handle.await?;
+        }
+        Ok(())
+    }
+}
 
 #[allow(unused)]
 struct ServerStartOptions<T> {
@@ -14,11 +62,12 @@ struct ServerStartOptions<T> {
     service: Service<T>,
     router: Router,
     statistics: Statistics,
+    shutdown_rx: broadcast::Receiver<()>,
 }
 
 #[allow(unused)]
 trait Server {
-    async fn start<T>(options: ServerStartOptions<T>) -> Result<(), anyhow::Error>
+    async fn start<T>(options: ServerStartOptions<T>) -> Result<JoinHandle<()>, anyhow::Error>
     where
         T: Clone + Observer + 'static;
 }
@@ -33,7 +82,7 @@ mod udp {
     };
 
     use std::{io::ErrorKind::ConnectionReset, sync::Arc};
-
+    use tokio::task::JoinHandle;
     use tokio::net::UdpSocket;
 
     /// udp socket process thread.
@@ -51,96 +100,14 @@ mod udp {
                 service,
                 router,
                 statistics,
+                mut shutdown_rx,
             }: ServerStartOptions<T>,
-        ) -> Result<(), anyhow::Error>
+        ) -> Result<JoinHandle<()>, anyhow::Error>
         where
             T: Clone + Observer + 'static,
         {
             let socket = Arc::new(UdpSocket::bind(bind).await?);
             let local_addr = socket.local_addr()?;
-
-            {
-                let socket = socket.clone();
-                let router = router.clone();
-                let reporter = statistics.get_reporter(Transport::UDP);
-                let mut operationer = service.get_operationer(external, external);
-
-                let mut session_addr = SessionAddr {
-                    address: external,
-                    interface: external,
-                };
-
-                tokio::spawn(async move {
-                    let mut buf = vec![0u8; 2048];
-
-                    loop {
-                        // Note: An error will also be reported when the remote host is
-                        // shut down, which is not processed yet, but a
-                        // warning will be issued.
-                        let (size, addr) = match socket.recv_from(&mut buf).await {
-                            Err(e) if e.kind() != ConnectionReset => break,
-                            Ok(s) => s,
-                            _ => continue,
-                        };
-
-                        session_addr.address = addr;
-
-                        reporter.send(&session_addr, &[Stats::ReceivedBytes(size), Stats::ReceivedPkts(1)]);
-
-                        // The stun message requires at least 4 bytes. (currently the
-                        // smallest stun message is channel data,
-                        // excluding content)
-                        if size >= 4 {
-                            if let Ok(Some(res)) = operationer.route(&buf[..size], addr) {
-                                let target = res.relay.as_ref().unwrap_or(&addr);
-                                if let Some(ref endpoint) = res.endpoint {
-                                    router.send(endpoint, res.method, target, res.bytes);
-                                } else {
-                                    if let Err(e) = socket.send_to(res.bytes, target).await {
-                                        if e.kind() != ConnectionReset {
-                                            break;
-                                        }
-                                    }
-
-                                    reporter
-                                        .send(&session_addr, &[Stats::SendBytes(res.bytes.len()), Stats::SendPkts(1)]);
-
-                                    if let ResponseMethod::Stun(method) = res.method {
-                                        if method.is_error() {
-                                            reporter.send(&session_addr, &[Stats::ErrorPkts(1)]);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            tokio::spawn(async move {
-                let mut session_addr = SessionAddr {
-                    address: external,
-                    interface: external,
-                };
-
-                let reporter = statistics.get_reporter(Transport::UDP);
-                let mut receiver = router.get_receiver(external);
-                while let Some((bytes, _, addr)) = receiver.recv().await {
-                    session_addr.address = addr;
-
-                    if let Err(e) = socket.send_to(&bytes, addr).await {
-                        if e.kind() != ConnectionReset {
-                            break;
-                        }
-                    } else {
-                        reporter.send(&session_addr, &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)]);
-                    }
-                }
-
-                router.remove(&external);
-
-                log::error!("udp server close: interface={:?}", local_addr);
-            });
 
             log::info!(
                 "turn server listening: bind={}, external={}, transport=UDP",
@@ -148,7 +115,110 @@ mod udp {
                 external,
             );
 
-            Ok(())
+            let handle = tokio::spawn(async move {
+                let socket_clone = socket.clone();
+                let router_clone = router.clone();
+                let statistics_clone = statistics.clone();
+                let service_clone = service.clone();
+                let mut shutdown_rx_clone = shutdown_rx.resubscribe();
+
+                // Spawn the UDP receive loop
+                let receive_handle = tokio::spawn(async move {
+                    let mut buf = vec![0u8; 2048];
+                    let reporter = statistics_clone.get_reporter(Transport::UDP);
+                    let mut operationer = service_clone.get_operationer(external, external);
+                    let mut session_addr = SessionAddr {
+                        address: external,
+                        interface: external,
+                    };
+
+                    loop {
+                        tokio::select! {
+                            _ = shutdown_rx_clone.recv() => {
+                                log::info!("UDP receive loop shutting down: interface={:?}", local_addr);
+                                break;
+                            }
+                            result = socket_clone.recv_from(&mut buf) => {
+                                let (size, addr) = match result {
+                                    Err(e) if e.kind() != ConnectionReset => break,
+                                    Ok(s) => s,
+                                    _ => continue,
+                                };
+
+                                session_addr.address = addr;
+                                reporter.send(&session_addr, &[Stats::ReceivedBytes(size), Stats::ReceivedPkts(1)]);
+
+                                if size >= 4 {
+                                    if let Ok(Some(res)) = operationer.route(&buf[..size], addr) {
+                                        let target = res.relay.as_ref().unwrap_or(&addr);
+                                        if let Some(ref endpoint) = res.endpoint {
+                                            router_clone.send(endpoint, res.method, target, res.bytes);
+                                        } else {
+                                            if let Err(e) = socket_clone.send_to(res.bytes, target).await {
+                                                if e.kind() != ConnectionReset {
+                                                    break;
+                                                }
+                                            }
+
+                                            reporter.send(&session_addr, &[Stats::SendBytes(res.bytes.len()), Stats::SendPkts(1)]);
+
+                                            if let ResponseMethod::Stun(method) = res.method {
+                                                if method.is_error() {
+                                                    reporter.send(&session_addr, &[Stats::ErrorPkts(1)]);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Spawn the UDP send loop
+                let send_handle = tokio::spawn(async move {
+                    let mut session_addr = SessionAddr {
+                        address: external,
+                        interface: external,
+                    };
+
+                    let reporter = statistics.get_reporter(Transport::UDP);
+                    let mut receiver = router.get_receiver(external);
+                    
+                    loop {
+                        tokio::select! {
+                            _ = shutdown_rx.recv() => {
+                                log::info!("UDP send loop shutting down: interface={:?}", local_addr);
+                                break;
+                            }
+                            msg = receiver.recv() => {
+                                match msg {
+                                    Some((bytes, _, addr)) => {
+                                        session_addr.address = addr;
+
+                                        if let Err(e) = socket.send_to(&bytes, addr).await {
+                                            if e.kind() != ConnectionReset {
+                                                break;
+                                            }
+                                        } else {
+                                            reporter.send(&session_addr, &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)]);
+                                        }
+                                    }
+                                    None => break,
+                                }
+                            }
+                        }
+                    }
+
+                    router.remove(&external);
+                });
+
+                // Wait for both tasks to complete
+                let _ = tokio::join!(receive_handle, send_handle);
+                log::error!("udp server close: interface={:?}", local_addr);
+            });
+
+            Ok(handle)
         }
     }
 }
@@ -167,7 +237,7 @@ mod tcp {
         sync::Arc,
     };
 
-    use tokio::{io::AsyncReadExt, io::AsyncWriteExt, net::TcpListener, sync::Mutex};
+    use tokio::{io::AsyncReadExt, io::AsyncWriteExt, net::TcpListener, sync::Mutex, task::JoinHandle};
 
     static ZERO_BYTES: [u8; 8] = [0u8; 8];
 
@@ -281,24 +351,37 @@ mod tcp {
                 service,
                 router,
                 statistics,
+                mut shutdown_rx,
             }: ServerStartOptions<T>,
-        ) -> Result<(), anyhow::Error>
+        ) -> Result<JoinHandle<()>, anyhow::Error>
         where
             T: Clone + Observer + 'static,
         {
             let listener = TcpListener::bind(bind).await?;
             let local_addr = listener.local_addr()?;
 
-            tokio::spawn(async move {
-                // Accept all connections on the current listener, but exit the entire
-                // process when an error occurs.
-                while let Ok((socket, address)) = listener.accept().await {
-                    let router = router.clone();
-                    let reporter = statistics.get_reporter(Transport::TCP);
-                    let mut receiver = router.get_receiver(address);
-                    let mut operationer = service.get_operationer(address, external);
+            log::info!(
+                "turn server listening: bind={}, external={}, transport=TCP",
+                bind,
+                external,
+            );
 
-                    log::info!("tcp socket accept: addr={:?}, interface={:?}", address, local_addr,);
+            let handle = tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        _ = shutdown_rx.recv() => {
+                            log::info!("TCP server shutting down: interface={:?}", local_addr);
+                            break;
+                        }
+                        result = listener.accept() => {
+                            match result {
+                                Ok((socket, address)) => {
+                                    let router = router.clone();
+                                    let reporter = statistics.get_reporter(Transport::TCP);
+                                    let mut receiver = router.get_receiver(address);
+                                    let mut operationer = service.get_operationer(address, external);
+
+                                    log::info!("tcp socket accept: addr={:?}, interface={:?}", address, local_addr,);
 
                     // Disable the Nagle algorithm.
                     // because to maintain real-time, any received data should be processed
@@ -431,19 +514,21 @@ mod tcp {
                         router.remove(&address);
 
                         log::info!("tcp socket disconnect: addr={:?}, interface={:?}", address, local_addr);
-                    });
+                                    });
+                                }
+                                Err(e) => {
+                                    log::error!("Failed to accept TCP connection: {}", e);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 log::error!("tcp server close: interface={:?}", local_addr);
             });
 
-            log::info!(
-                "turn server listening: bind={}, external={}, transport=TCP",
-                bind,
-                external,
-            );
-
-            Ok(())
+            Ok(handle)
         }
     }
 }
@@ -452,14 +537,16 @@ mod tcp {
 ///
 /// create a specified number of threads,
 /// each thread processes udp data separately.
-pub async fn start<T>(config: &Config, statistics: &Statistics, service: &Service<T>) -> anyhow::Result<()>
+pub async fn start<T>(config: &Config, statistics: &Statistics, service: &Service<T>) -> anyhow::Result<ServerHandle>
 where
     T: Clone + Observer + 'static,
 {
     #[allow(unused)]
     use crate::config::Transport;
 
+    let (mut handle, shutdown_tx) = ServerHandle::new();
     let router = Router::default();
+    
     for Interface {
         transport,
         external,
@@ -473,17 +560,22 @@ where
             router: router.clone(),
             external,
             bind,
+            shutdown_rx: shutdown_tx.subscribe(),
         };
 
-        match transport {
+        let task_handle = match transport {
             #[cfg(feature = "udp")]
             Transport::UDP => udp::Server::start(options).await?,
             #[cfg(feature = "tcp")]
             Transport::TCP => tcp::Server::start(options).await?,
             #[allow(unreachable_patterns)]
-            _ => (),
+            _ => continue,
         };
+        
+        handle.add_handle(task_handle);
     }
 
-    Ok(())
+    // We'll let individual tasks handle status updates since JoinHandle doesn't implement Clone
+
+    Ok(handle)
 }
