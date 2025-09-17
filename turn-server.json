@@ -1,5 +1,16 @@
 {
-    "turn": {
+    "server": {
+        /**
+         * Port range, the maximum range is 49152 - 65535.
+         *
+         */
+        "port_range": "49152..65535",
+        /**
+         * Maximum number of threads the TURN server can use.
+         *
+         * "max_threads": 12,
+         *
+         */
         /**
          * turn server realm
          *
@@ -47,7 +58,7 @@
                 /*
                  * Maximum Transmission Unit (MTU) size for network packets.
                  *
-                 * "mtu": 1500
+                 * "mtu": 1500,
                  *
                  */
             }
@@ -56,25 +67,25 @@
              *   "transport": "tcp",
              *   "bind": "127.0.0.1:3478",
              *   "external": "127.0.0.1:3478"
-             * }
+             * },
              *
              * {
              *   "transport": "udp",
              *   "bind": "[::1]:3478",
              *   "external": "[::1]:3478"
-             * }
+             * },
              *
              * {
              *   "transport": "tcp",
              *   "bind": "[::1]:3478",
              *   "external": "[::1]:3478"
-             * }
+             * },
              *
              */
         ]
     },
 
-    "rpc": {
+    "api": {
         /**
          * rpc server listen
          *
@@ -92,20 +103,37 @@
          * "ssl": {
          *   "private_key": "/etc/turn-rs/tls/private.key",
          *   "certificate_chain": "/etc/turn-rs/tls/certificate.crt"
-         * }
+         * },
          *
          */
+    },
 
+    "hooks": {
         /**
+         * hooks server endpoint
          *
-         * "hooks": {
-         *   "endpoint": "http://127.0.0.1:3000",
-         *   "max_channel_size": 1024,
-         *   "ssl": {
-         *     "private_key": "/etc/turn-rs/tls/private.key",
-         *     "certificate_chain": "/etc/turn-rs/tls/certificate.crt"
-         *   }
+         *
+         * The endpoint of the hooks server.
+         *
+         * "endpoint": "http://127.0.0.1:3000"
+         *
+         */
+        /**
+         * Maximum number of channels for the hooks server.
+         *
+         *
+         * "max_channel_size": 1024,
+         *
+         */
+        /**
+         * ssl configuration
+         *
+         *
+         * "ssl": {
+         *   "private_key": "/etc/turn-rs/tls/private.key",
+         *   "certificate_chain": "/etc/turn-rs/tls/certificate.crt"
          * }
+         *
          */
     },
 
@@ -132,8 +160,7 @@
          *
          */
         /**
-         *static user password
-         *
+         * static user password
          *
          * This option can be used to specify the static identity authentication
          * information used by the turn server for verification.
@@ -146,20 +173,6 @@
          *   "user1": "test",
          *   "user2": "test"
          * }
-         *
-         */
-    },
-
-    "runtime": {
-        /**
-         * Port range, the maximum range is 49152 - 65535.
-         *
-         */
-        "port_range": "49152..65535"
-        /**
-         * Maximum number of threads the TURN server can use.
-         *
-         * "max_threads": 12,
          *
          */
     }

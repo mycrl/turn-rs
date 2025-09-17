@@ -17,7 +17,7 @@ use tokio::{
 
 use crate::{
     Service,
-    config::{Config, Interface, Transport},
+    config::{Config, Interface, Ssl},
     server::{tcp::TcpServer, udp::UdpServer},
     statistics::{Statistics, Stats},
 };
@@ -29,19 +29,39 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
 
     let mut servers = JoinSet::new();
 
-    for interface in config.turn.interfaces {
-        match interface.transport {
-            Transport::Udp => {
+    for interface in config.server.interfaces {
+        match interface {
+            Interface::Udp {
+                listen,
+                external,
+                mtu,
+            } => {
                 servers.spawn(UdpServer::start(
-                    interface,
+                    ListenOptions {
+                        transport: Transport::Udp,
+                        listen,
+                        external,
+                        mtu,
+                        ssl: None,
+                    },
                     service.clone(),
                     statistics.clone(),
                     exchanger.clone(),
                 ));
             }
-            Transport::Tcp => {
+            Interface::Tcp {
+                listen,
+                external,
+                ssl,
+            } => {
                 servers.spawn(TcpServer::start(
-                    interface,
+                    ListenOptions {
+                        transport: Transport::Tcp,
+                        listen,
+                        external,
+                        mtu: 0,
+                        ssl,
+                    },
                     service.clone(),
                     statistics.clone(),
                     exchanger.clone(),
@@ -59,6 +79,12 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Transport {
+    Udp,
+    Tcp,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,40 +147,48 @@ trait Socket: Send + 'static {
     fn write(&mut self, buffer: &[u8]) -> impl Future<Output = Result<()>> + Send;
 }
 
+struct ListenOptions {
+    transport: Transport,
+    listen: SocketAddr,
+    external: SocketAddr,
+    ssl: Option<Ssl>,
+    mtu: usize,
+}
+
 trait Listener: Sized + Send {
     type Socket: Socket;
 
-    fn bind(interface: &Interface) -> impl Future<Output = Result<Self>> + Send;
+    fn bind(options: &ListenOptions) -> impl Future<Output = Result<Self>> + Send;
     fn accept(&mut self) -> impl Future<Output = Option<(Self::Socket, SocketAddr)>> + Send;
     fn local_addr(&self) -> Result<SocketAddr>;
 
     fn start(
-        interface: Interface,
+        options: ListenOptions,
         service: Service,
         statistics: Statistics,
         exchanger: Exchanger,
     ) -> impl Future<Output = Result<()>> + Send {
-        let transport = interface.transport;
+        let transport = options.transport;
 
         async move {
-            let mut listener = Self::bind(&interface).await?;
+            let mut listener = Self::bind(&options).await?;
             let local_addr = listener.local_addr()?;
 
             log::info!(
                 "server listening: listen={}, external={}, local addr={local_addr}, transport={transport:?}",
-                interface.listen,
-                interface.external,
+                options.listen,
+                options.external,
             );
 
             while let Some((mut socket, address)) = listener.accept().await {
                 let id = Identifier {
-                    interface: interface.external,
+                    interface: options.external,
                     source: address,
                 };
 
                 let mut receiver = exchanger.get_receiver(address);
-                let mut forwarder = service.get_forwarder(address, interface.external);
-                let reporter = statistics.get_reporter(transport);
+                let mut forwarder = service.get_forwarder(address, options.external);
+                let reporter = statistics.get_reporter();
 
                 let service = service.clone();
                 let exchanger = exchanger.clone();
@@ -255,10 +289,7 @@ mod udp {
         sync::mpsc::{Receiver, Sender, UnboundedReceiver, channel, unbounded_channel},
     };
 
-    use crate::{
-        config::Interface,
-        server::{Listener, Socket},
-    };
+    use crate::server::{ListenOptions, Listener, Socket};
 
     pub struct UdpSocket {
         bytes_receiver: Receiver<Bytes>,
@@ -293,14 +324,14 @@ mod udp {
     impl Listener for UdpServer {
         type Socket = UdpSocket;
 
-        async fn bind(interface: &Interface) -> Result<Self> {
-            let socket = Arc::new(TokioUdpSocket::bind(interface.listen).await?);
+        async fn bind(options: &ListenOptions) -> Result<Self> {
+            let socket = Arc::new(TokioUdpSocket::bind(options.listen).await?);
             let (socket_sender, socket_receiver) = unbounded_channel::<(UdpSocket, SocketAddr)>();
 
             {
                 let socket = socket.clone();
 
-                let mut buffer = BytesMut::zeroed(interface.mtu);
+                let mut buffer = BytesMut::zeroed(options.mtu);
 
                 tokio::spawn(async move {
                     let mut sockets = HashMap::<SocketAddr, Sender<Bytes>>::with_capacity(1024);
@@ -394,10 +425,7 @@ mod tcp {
         server::TlsStream,
     };
 
-    use crate::{
-        config::Interface,
-        server::{Listener, MAX_MESSAGE_SIZE, Socket},
-    };
+    use crate::server::{ListenOptions, Listener, MAX_MESSAGE_SIZE, Socket};
 
     enum MaybeSslStream {
         #[cfg(feature = "ssl")]
@@ -547,9 +575,9 @@ mod tcp {
     impl Listener for TcpServer {
         type Socket = TcpSocket;
 
-        async fn bind(interface: &Interface) -> Result<Self> {
+        async fn bind(options: &ListenOptions) -> Result<Self> {
             #[cfg(feature = "ssl")]
-            let acceptor = if let Some(ssl) = &interface.ssl {
+            let acceptor = if let Some(ssl) = &options.ssl {
                 Some(TlsAcceptor::from(Arc::new(
                     ServerConfig::builder()
                         .with_no_client_auth()
@@ -563,7 +591,7 @@ mod tcp {
                 None
             };
 
-            let listener = TokioTcpListener::bind(interface.listen).await?;
+            let listener = TokioTcpListener::bind(options.listen).await?;
             let local_addr = listener.local_addr()?;
 
             let (tx, socket_receiver) = unbounded_channel::<(TcpSocket, SocketAddr)>();

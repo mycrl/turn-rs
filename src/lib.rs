@@ -25,9 +25,9 @@ pub async fn start_server(config: Config) -> anyhow::Result<()> {
     let statistics = Statistics::default();
     let service = service::Service::new(ServiceOptions {
         software: SOFTWARE.to_string(),
-        realm: config.turn.realm.clone(),
-        port_range: config.runtime.port_range,
-        interfaces: config.turn.get_externals(),
+        realm: config.server.realm.clone(),
+        port_range: config.server.port_range,
+        interfaces: config.server.get_externals(),
         handler: Handler::new(config.clone(), statistics.clone()).await?,
     });
 

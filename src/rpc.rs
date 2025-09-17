@@ -68,12 +68,12 @@ impl TurnService for RpcService {
             uptime: self.uptime.elapsed().as_secs(),
             interfaces: self
                 .config
-                .turn
+                .server
                 .get_externals()
                 .iter()
                 .map(|addr| addr.to_string())
                 .collect(),
-            port_capacity: self.config.runtime.port_range.size() as u32,
+            port_capacity: self.config.server.port_range.size() as u32,
             port_allocated: self.service.get_session_manager().allocated() as u32,
         }))
     }
@@ -147,29 +147,33 @@ impl TurnService for RpcService {
 }
 
 pub async fn start_server(config: Config, service: Service, statistics: Statistics) -> Result<()> {
-    let mut builder = Server::builder();
+    if let Some(api) = &config.api {
+        let mut builder = Server::builder();
 
-    builder = builder
-        .timeout(Duration::from_secs(config.rpc.timeout as u64))
-        .accept_http1(false);
+        builder = builder
+            .timeout(Duration::from_secs(api.timeout as u64))
+            .accept_http1(false);
 
-    #[cfg(feature = "ssl")]
-    if let Some(ssl) = &config.rpc.ssl {
-        builder = builder.tls_config(ServerTlsConfig::new().identity(Identity::from_pem(
-            ssl.certificate_chain.clone(),
-            ssl.private_key.clone(),
-        )))?;
+        #[cfg(feature = "ssl")]
+        if let Some(ssl) = &api.ssl {
+            builder = builder.tls_config(ServerTlsConfig::new().identity(Identity::from_pem(
+                ssl.certificate_chain.clone(),
+                ssl.private_key.clone(),
+            )))?;
+        }
+
+        builder
+            .add_service(TurnServiceServer::new(RpcService {
+                config: config.clone(),
+                uptime: Instant::now(),
+                statistics,
+                service,
+            }))
+            .serve(api.listen)
+            .await?;
+    } else {
+        std::future::pending().await
     }
-
-    builder
-        .add_service(TurnServiceServer::new(RpcService {
-            config: config.clone(),
-            uptime: Instant::now(),
-            statistics,
-            service,
-        }))
-        .serve(config.rpc.listen)
-        .await?;
 
     Ok(())
 }
@@ -191,7 +195,7 @@ pub struct RpcHooksService(Option<RpcHooksServiceInner>);
 
 impl RpcHooksService {
     pub async fn new(config: &Config) -> Result<Self> {
-        if let Some(hooks) = &config.rpc.hooks {
+        if let Some(hooks) = &config.hooks {
             let (event_channel, mut rx) = channel(hooks.max_channel_size);
             let client = {
                 let mut builder = Channel::builder(hooks.endpoint.as_str().try_into()?);

@@ -1,32 +1,12 @@
 use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, str::FromStr};
 
-use anyhow::anyhow;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use service::session::ports::PortRange;
 
-#[repr(C)]
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum Transport {
-    Tcp = 0,
-    Udp = 1,
-}
-
-impl FromStr for Transport {
-    type Err = anyhow::Error;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(match value {
-            "udp" => Self::Udp,
-            "tcp" => Self::Tcp,
-            _ => return Err(anyhow!("unknown transport: {value}")),
-        })
-    }
-}
-
 /// SSL configuration
 #[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Ssl {
     ///
     /// SSL private key file
@@ -39,28 +19,42 @@ pub struct Ssl {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Interface {
-    pub transport: Transport,
-    pub listen: SocketAddr,
-    ///
-    /// external address
-    ///
-    /// specify the node external address and port.
-    /// for the case of exposing the service to the outside,
-    /// you need to manually specify the server external IP
-    /// address and service listening port.
-    ///
-    pub external: SocketAddr,
-    ///
-    /// Maximum Transmission Unit (MTU) size for network packets.
-    ///
-    #[serde(default = "Interface::mtu")]
-    pub mtu: usize,
-    ///
-    /// SSL configuration
-    ///
-    #[serde(default)]
-    pub ssl: Option<Ssl>,
+#[serde(tag = "transport", rename_all = "camelCase")]
+pub enum Interface {
+    Tcp {
+        listen: SocketAddr,
+        ///
+        /// external address
+        ///
+        /// specify the node external address and port.
+        /// for the case of exposing the service to the outside,
+        /// you need to manually specify the server external IP
+        /// address and service listening port.
+        ///
+        external: SocketAddr,
+        ///
+        /// SSL configuration
+        ///
+        #[serde(default)]
+        ssl: Option<Ssl>,
+    },
+    Udp {
+        listen: SocketAddr,
+        ///
+        /// external address
+        ///
+        /// specify the node external address and port.
+        /// for the case of exposing the service to the outside,
+        /// you need to manually specify the server external IP
+        /// address and service listening port.
+        ///
+        external: SocketAddr,
+        ///
+        /// Maximum Transmission Unit (MTU) size for network packets.
+        ///
+        #[serde(default = "Interface::mtu")]
+        mtu: usize,
+    },
 }
 
 impl Interface {
@@ -70,7 +64,18 @@ impl Interface {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Turn {
+#[serde(rename_all = "camelCase")]
+pub struct Server {
+    ///
+    /// Port range, the maximum range is 65535 - 49152.
+    ///
+    #[serde(default = "Server::port_range")]
+    pub port_range: PortRange,
+    ///
+    /// Maximum number of threads the TURN server can use.
+    ///
+    #[serde(default = "Server::max_threads")]
+    pub max_threads: usize,
     ///
     /// turn server realm
     ///
@@ -79,7 +84,7 @@ pub struct Turn {
     /// but each node can be configured as a different domain.
     /// this is a good idea to divide the nodes by namespace.
     ///
-    #[serde(default = "Turn::realm")]
+    #[serde(default = "Server::realm")]
     pub realm: String,
 
     ///
@@ -93,28 +98,45 @@ pub struct Turn {
     pub interfaces: Vec<Interface>,
 }
 
-impl Turn {
+impl Server {
     pub fn get_externals(&self) -> Vec<SocketAddr> {
-        self.interfaces.iter().map(|item| item.external).collect()
+        self.interfaces
+            .iter()
+            .map(|item| match item {
+                Interface::Tcp { external, .. } => *external,
+                Interface::Udp { external, .. } => *external,
+            })
+            .collect()
     }
 }
 
-impl Turn {
+impl Server {
     fn realm() -> String {
         "localhost".to_string()
     }
+
+    fn port_range() -> PortRange {
+        PortRange::default()
+    }
+
+    fn max_threads() -> usize {
+        num_cpus::get()
+    }
 }
 
-impl Default for Turn {
+impl Default for Server {
     fn default() -> Self {
         Self {
             realm: Self::realm(),
             interfaces: Default::default(),
+            port_range: Self::port_range(),
+            max_threads: Self::max_threads(),
         }
     }
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Hooks {
     #[serde(default = "Hooks::max_channel_size")]
     pub max_channel_size: usize,
@@ -136,24 +158,23 @@ impl Hooks {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Rpc {
+#[serde(rename_all = "camelCase")]
+pub struct Api {
     ///
     /// rpc server listen
     ///
     /// This option specifies the rpc server binding address used to control
     /// the turn server.
     ///
-    #[serde(default = "Rpc::bind")]
+    #[serde(default = "Api::bind")]
     pub listen: SocketAddr,
     #[serde(default)]
-    pub hooks: Option<Hooks>,
-    #[serde(default)]
     pub ssl: Option<Ssl>,
-    #[serde(default = "Rpc::timeout")]
+    #[serde(default = "Api::timeout")]
     pub timeout: u32,
 }
 
-impl Rpc {
+impl Api {
     fn bind() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
     }
@@ -163,12 +184,11 @@ impl Rpc {
     }
 }
 
-impl Default for Rpc {
+impl Default for Api {
     fn default() -> Self {
         Self {
             timeout: Self::timeout(),
             listen: Self::bind(),
-            hooks: None,
             ssl: None,
         }
     }
@@ -218,6 +238,7 @@ impl LogLevel {
 }
 
 #[derive(Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Log {
     ///
     /// log level
@@ -229,6 +250,7 @@ pub struct Log {
 }
 
 #[derive(Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Auth {
     ///
     /// static user password
@@ -254,51 +276,19 @@ pub struct Auth {
     pub enable_hooks_auth: bool,
 }
 
-#[derive(Deserialize, Debug, Clone)]
-pub struct Runtime {
-    ///
-    /// Port range, the maximum range is 65535 - 49152.
-    ///
-    #[serde(default = "Runtime::port_range")]
-    pub port_range: PortRange,
-    ///
-    /// Maximum number of threads the TURN server can use.
-    ///
-    #[serde(default = "Runtime::max_threads")]
-    pub max_threads: usize,
-}
-
-impl Runtime {
-    fn port_range() -> PortRange {
-        PortRange::default()
-    }
-
-    fn max_threads() -> usize {
-        num_cpus::get()
-    }
-}
-
-impl Default for Runtime {
-    fn default() -> Self {
-        Self {
-            port_range: Self::port_range(),
-            max_threads: Self::max_threads(),
-        }
-    }
-}
-
 #[derive(Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Config {
     #[serde(default)]
-    pub turn: Turn,
+    pub server: Server,
     #[serde(default)]
-    pub rpc: Rpc,
+    pub api: Option<Api>,
+    #[serde(default)]
+    pub hooks: Option<Hooks>,
     #[serde(default)]
     pub log: Log,
     #[serde(default)]
     pub auth: Auth,
-    #[serde(default)]
-    pub runtime: Runtime,
 }
 
 #[derive(Parser, Debug)]

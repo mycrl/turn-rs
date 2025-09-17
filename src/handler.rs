@@ -44,7 +44,7 @@ impl ServiceHandler for Handler {
             return Some(codec::crypto::password_md5(
                 username,
                 password,
-                &self.config.turn.realm,
+                &self.config.server.realm,
             ));
         }
 
@@ -67,7 +67,7 @@ impl ServiceHandler for Handler {
             return Some(codec::crypto::password_md5(
                 username,
                 &password,
-                &self.config.turn.realm,
+                &self.config.server.realm,
             ));
         }
 

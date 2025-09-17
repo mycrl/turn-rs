@@ -7,8 +7,6 @@ use ahash::AHashMap;
 use parking_lot::RwLock;
 use service::session::Identifier;
 
-use crate::config::Transport;
-
 /// The type of information passed in the statisticsing channel
 #[derive(Debug, Clone, Copy)]
 pub enum Stats {
@@ -124,10 +122,9 @@ impl Statistics {
     ///
     /// sender.send(&addr, &[Stats::ReceivedBytes(100)]);
     /// ```
-    pub fn get_reporter(&self, transport: Transport) -> StatisticsReporter {
+    pub fn get_reporter(&self) -> StatisticsReporter {
         StatisticsReporter {
             table: self.0.clone(),
-            transport,
         }
     }
 
@@ -230,7 +227,6 @@ impl Statistics {
 #[allow(unused)]
 pub struct StatisticsReporter {
     table: Arc<RwLock<AHashMap<Identifier, Counts<Count>>>>,
-    transport: Transport,
 }
 
 impl StatisticsReporter {
