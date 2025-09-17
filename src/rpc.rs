@@ -192,8 +192,9 @@ impl RpcHooksService {
         if let Some(hooks) = &config.rpc.hooks {
             let (event_channel, mut rx) = channel(hooks.max_channel_size);
             let client = {
-                #[allow(unused_mut)]
                 let mut builder = Channel::builder(hooks.endpoint.as_str().try_into()?);
+
+                builder = builder.timeout(Duration::from_secs(5));
 
                 #[cfg(feature = "ssl")]
                 if let Some(ssl) = &hooks.ssl {
