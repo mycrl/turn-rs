@@ -342,6 +342,7 @@ async fn integration_testing() -> Result<()> {
     create_turn_server(
         "127.0.0.1:3478".parse()?,
         Auth {
+            enable_hooks_auth: false,
             static_auth_secret: Some("static_auth_secret".to_string()),
             static_credentials: {
                 let mut it = HashMap::with_capacity(1);
