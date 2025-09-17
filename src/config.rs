@@ -237,6 +237,8 @@ pub struct Auth {
     /// Hooks API to obtain the key.
     ///
     pub static_auth_secret: Option<String>,
+    #[serde(default)]
+    pub enable_hooks_auth: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]

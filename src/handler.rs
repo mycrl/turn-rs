@@ -71,6 +71,10 @@ impl ServiceHandler for Handler {
             ));
         }
 
+        if self.config.auth.enable_hooks_auth {
+            return self.rpc.get_password(username).await;
+        }
+
         None
     }
 

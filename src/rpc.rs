@@ -6,7 +6,10 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
 use service::session::{Identifier, Session};
-use tokio::sync::mpsc::{Sender, channel};
+use tokio::sync::{
+    Mutex,
+    mpsc::{Sender, channel},
+};
 use tonic::{
     Request, Response, Status,
     transport::{Channel, Server},
@@ -22,7 +25,7 @@ use self::proto::{
     turn_service_server::{TurnService, TurnServiceServer},
 };
 
-use crate::{Service, config::Config, statistics::Statistics};
+use crate::{Service, config::Config, rpc::proto::GetTurnPasswordRequest, statistics::Statistics};
 
 pub trait IdString {
     type Error;
@@ -179,6 +182,7 @@ pub enum HooksEvent {
 
 struct RpcHooksServiceInner {
     event_channel: Sender<HooksEvent>,
+    client: Mutex<TurnHooksServiceClient<Channel>>,
 }
 
 pub struct RpcHooksService(Option<RpcHooksServiceInner>);
@@ -187,7 +191,8 @@ impl RpcHooksService {
     pub async fn new(config: &Config) -> Result<Self> {
         if let Some(hooks) = &config.rpc.hooks {
             let (event_channel, mut rx) = channel(hooks.max_channel_size);
-            let mut client = {
+            let client = {
+                #[allow(unused_mut)]
                 let mut builder = Channel::builder(hooks.endpoint.as_str().try_into()?);
 
                 #[cfg(feature = "ssl")]
@@ -213,6 +218,8 @@ impl RpcHooksService {
             };
 
             {
+                let mut client = client.clone();
+
                 tokio::spawn(async move {
                     while let Some(event) = rx.recv().await {
                         if match event {
@@ -240,7 +247,10 @@ impl RpcHooksService {
                 });
             }
 
-            Ok(Self(Some(RpcHooksServiceInner { event_channel })))
+            Ok(Self(Some(RpcHooksServiceInner {
+                client: Mutex::new(client),
+                event_channel,
+            })))
         } else {
             Ok(Self(None))
         }
@@ -254,5 +264,27 @@ impl RpcHooksService {
                 }
             }
         }
+    }
+
+    pub async fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+        if let Some(inner) = &self.0 {
+            return Some(
+                inner
+                    .client
+                    .lock()
+                    .await
+                    .get_password(Request::new(GetTurnPasswordRequest {
+                        username: username.to_string(),
+                    }))
+                    .await
+                    .ok()?
+                    .into_inner()
+                    .password
+                    .try_into()
+                    .ok()?,
+            );
+        }
+
+        None
     }
 }
