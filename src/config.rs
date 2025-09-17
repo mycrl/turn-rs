@@ -121,11 +121,17 @@ pub struct Hooks {
     pub endpoint: String,
     #[serde(default)]
     pub ssl: Option<Ssl>,
+    #[serde(default = "Hooks::timeout")]
+    pub timeout: u32,
 }
 
 impl Hooks {
     fn max_channel_size() -> usize {
         1024
+    }
+
+    fn timeout() -> u32 {
+        5
     }
 }
 
@@ -143,17 +149,24 @@ pub struct Rpc {
     pub hooks: Option<Hooks>,
     #[serde(default)]
     pub ssl: Option<Ssl>,
+    #[serde(default = "Rpc::timeout")]
+    pub timeout: u32,
 }
 
 impl Rpc {
     fn bind() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
     }
+
+    fn timeout() -> u32 {
+        5
+    }
 }
 
 impl Default for Rpc {
     fn default() -> Self {
         Self {
+            timeout: Self::timeout(),
             listen: Self::bind(),
             hooks: None,
             ssl: None,

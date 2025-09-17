@@ -149,7 +149,9 @@ impl TurnService for RpcService {
 pub async fn start_server(config: Config, service: Service, statistics: Statistics) -> Result<()> {
     let mut builder = Server::builder();
 
-    builder = builder.timeout(Duration::from_secs(5)).accept_http1(false);
+    builder = builder
+        .timeout(Duration::from_secs(config.rpc.timeout as u64))
+        .accept_http1(false);
 
     #[cfg(feature = "ssl")]
     if let Some(ssl) = &config.rpc.ssl {
@@ -194,7 +196,7 @@ impl RpcHooksService {
             let client = {
                 let mut builder = Channel::builder(hooks.endpoint.as_str().try_into()?);
 
-                builder = builder.timeout(Duration::from_secs(5));
+                builder = builder.timeout(Duration::from_secs(hooks.timeout as u64));
 
                 #[cfg(feature = "ssl")]
                 if let Some(ssl) = &hooks.ssl {
