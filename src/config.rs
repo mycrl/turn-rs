@@ -52,13 +52,24 @@ pub struct Interface {
     ///
     pub external: SocketAddr,
     ///
+    /// Maximum Transmission Unit (MTU) size for network packets.
+    ///
+    #[serde(default = "Interface::mtu")]
+    pub mtu: usize,
+    ///
     /// SSL configuration
     ///
     #[serde(default)]
     pub ssl: Option<Ssl>,
 }
 
-#[derive(Deserialize, Debug)]
+impl Interface {
+    fn mtu() -> usize {
+        1500
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct Turn {
     ///
     /// turn server realm
@@ -103,7 +114,7 @@ impl Default for Turn {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Hooks {
     #[serde(default = "Hooks::max_channel_size")]
     pub max_channel_size: usize,
@@ -118,7 +129,7 @@ impl Hooks {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Rpc {
     ///
     /// rpc server listen
@@ -193,7 +204,7 @@ impl LogLevel {
     }
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
 pub struct Log {
     ///
     /// log level
@@ -204,7 +215,7 @@ pub struct Log {
     pub level: LogLevel,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
 pub struct Auth {
     ///
     /// static user password
@@ -240,11 +251,6 @@ pub struct Runtime {
     ///
     #[serde(default = "Runtime::max_threads")]
     pub max_threads: usize,
-    ///
-    /// Maximum Transmission Unit (MTU) size for network packets.
-    ///
-    #[serde(default = "Runtime::mtu")]
-    pub mtu: usize,
 }
 
 impl Runtime {
@@ -255,10 +261,6 @@ impl Runtime {
     fn max_threads() -> usize {
         num_cpus::get()
     }
-
-    fn mtu() -> usize {
-        1500
-    }
 }
 
 impl Default for Runtime {
@@ -266,12 +268,11 @@ impl Default for Runtime {
         Self {
             port_range: Self::port_range(),
             max_threads: Self::max_threads(),
-            mtu: Self::mtu(),
         }
     }
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
 pub struct Config {
     #[serde(default)]
     pub turn: Turn,

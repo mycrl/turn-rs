@@ -17,7 +17,7 @@ use service::{ServiceHandler, session::Identifier};
 
 #[derive(Clone)]
 pub struct Handler {
-    config: Arc<Config>,
+    config: Config,
     #[cfg(feature = "rpc")]
     statistics: Statistics,
     #[cfg(feature = "rpc")]
@@ -26,7 +26,7 @@ pub struct Handler {
 
 impl Handler {
     #[allow(unused_variables)]
-    pub async fn new(config: Arc<Config>, statistics: Statistics) -> Result<Self> {
+    pub async fn new(config: Config, statistics: Statistics) -> Result<Self> {
         Ok(Self {
             #[cfg(feature = "rpc")]
             rpc: RpcHooksService::new(&config).await?.into(),
@@ -38,7 +38,7 @@ impl Handler {
 }
 
 impl ServiceHandler for Handler {
-    fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    async fn get_password(&self, username: &str) -> Option<[u8; 16]> {
         // Match the static authentication information first.
         if let Some(password) = self.config.auth.static_credentials.get(username) {
             return Some(codec::crypto::password_md5(

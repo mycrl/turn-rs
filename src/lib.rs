@@ -6,11 +6,9 @@ pub mod handler;
 pub mod server;
 pub mod statistics;
 
-use std::sync::Arc;
-
 use self::{config::Config, handler::Handler, statistics::Statistics};
 
-use service::{Service, ServiceOptions};
+use service::ServiceOptions;
 
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
@@ -18,12 +16,14 @@ static SOFTWARE: &str = concat!(
     env!("CARGO_PKG_VERSION")
 );
 
+pub(crate) type Service = service::Service<Handler>;
+
 /// In order to let the integration test directly use the turn-server crate and
 /// start the server, a function is opened to replace the main function to
 /// directly start the server.
-pub async fn startup(config: Arc<Config>) -> anyhow::Result<()> {
+pub async fn start_server(config: Config) -> anyhow::Result<()> {
     let statistics = Statistics::default();
-    let service = Service::new(ServiceOptions {
+    let service = service::Service::new(ServiceOptions {
         software: SOFTWARE.to_string(),
         realm: config.turn.realm.clone(),
         port_range: config.runtime.port_range,
@@ -31,19 +31,11 @@ pub async fn startup(config: Arc<Config>) -> anyhow::Result<()> {
         handler: Handler::new(config.clone(), statistics.clone()).await?,
     });
 
-    server::start(&config, &statistics, &service).await?;
-
-    #[cfg(feature = "rpc")]
-    {
-        rpc::start_server(config, service, statistics).await?;
-    }
-
-    // The turn server is non-blocking after it runs and needs to be kept from
-    // exiting immediately if the api server is not enabled.
-    #[cfg(not(feature = "rpc"))]
-    {
-        std::future::pending::<()>().await;
-    }
+    tokio::try_join!(
+        server::start_server(config.clone(), service.clone(), statistics.clone()),
+        #[cfg(feature = "rpc")]
+        rpc::start_server(config, service, statistics),
+    )?;
 
     Ok(())
 }

@@ -186,7 +186,7 @@ pub struct SessionManager<T> {
 
 impl<T> SessionManager<T>
 where
-    T: ServiceHandler + 'static,
+    T: ServiceHandler,
 {
     pub fn new(options: SessionManagerOptions<T>) -> Arc<Self> {
         let this = Arc::new(Self {
@@ -422,7 +422,7 @@ where
     /// // The third call should return cached digest
     /// assert_eq!(sessions.get_password(&addr, "test"), Some(digest));
     /// ```
-    pub fn get_password(&self, addr: &Identifier, username: &str) -> Option<[u8; 16]> {
+    pub async fn get_password(&self, addr: &Identifier, username: &str) -> Option<[u8; 16]> {
         // Already authenticated, get the cached digest directly.
         {
             if let Some(Session::Authenticated { password, .. }) = self.sessions.read().get(addr) {
@@ -432,7 +432,7 @@ where
 
         // Get the current user's password from an external handler and create a
         // digest.
-        let password = self.handler.get_password(username)?;
+        let password = self.handler.get_password(username).await?;
 
         // Record a new session.
         {

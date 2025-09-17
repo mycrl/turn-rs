@@ -2,17 +2,10 @@ pub mod proto {
     tonic::include_proto!("turn.server");
 }
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
-use service::{
-    Service,
-    session::{Identifier, Session},
-};
-
+use service::session::{Identifier, Session};
 use tokio::sync::mpsc::{Sender, channel};
 use tonic::{
     Request, Response, Status,
@@ -29,7 +22,7 @@ use self::proto::{
     turn_service_server::{TurnService, TurnServiceServer},
 };
 
-use crate::{config::Config, handler::Handler, statistics::Statistics};
+use crate::{Service, config::Config, statistics::Statistics};
 
 pub trait IdString {
     type Error;
@@ -58,8 +51,8 @@ impl IdString for Identifier {
 }
 
 struct RpcService {
-    config: Arc<Config>,
-    service: Service<Handler>,
+    config: Config,
+    service: Service,
     statistics: Statistics,
     uptime: Instant,
 }
@@ -150,11 +143,7 @@ impl TurnService for RpcService {
     }
 }
 
-pub async fn start_server(
-    config: Arc<Config>,
-    service: Service<Handler>,
-    statistics: Statistics,
-) -> Result<()> {
+pub async fn start_server(config: Config, service: Service, statistics: Statistics) -> Result<()> {
     let mut builder = Server::builder();
 
     builder = builder.timeout(Duration::from_secs(5)).accept_http1(false);

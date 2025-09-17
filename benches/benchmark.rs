@@ -25,7 +25,7 @@ use service::{
 struct SimpleObserver;
 
 impl ServiceHandler for SimpleObserver {
-    fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    async fn get_password(&self, username: &str) -> Option<[u8; 16]> {
         Some(password_md5(username, "test", "test"))
     }
 }
@@ -62,10 +62,10 @@ fn criterion_benchmark(c: &mut Criterion) {
         .get_ref()
         .map(|it| it.nonce().clone())
         .unwrap();
-    let a_integrity = sessions.get_password(&a_id, "test").unwrap();
+    let a_integrity = sessions.get_password(&a_id, "test").block_on().unwrap();
 
     {
-        let _ = sessions.get_password(&b_id, "test").unwrap();
+        let _ = sessions.get_password(&b_id, "test").block_on().unwrap();
     }
 
     let a_port = sessions.allocate(&a_id).unwrap();

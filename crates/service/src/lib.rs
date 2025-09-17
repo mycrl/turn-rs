@@ -10,8 +10,8 @@ use self::{
 
 use std::{net::SocketAddr, sync::Arc};
 
-pub trait ServiceHandler: Send + Sync {
-    fn get_password(&self, username: &str) -> Option<[u8; 16]>;
+pub trait ServiceHandler: Send + Sync + 'static {
+    fn get_password(&self, username: &str) -> impl Future<Output = Option<[u8; 16]>> + Send;
     /// allocate request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -177,7 +177,7 @@ pub struct Service<T> {
 
 impl<T> Service<T>
 where
-    T: ServiceHandler + Clone + 'static,
+    T: ServiceHandler + Clone,
 {
     /// Create turn service.
     pub fn new(options: ServiceOptions<T>) -> Self {

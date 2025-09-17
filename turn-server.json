@@ -44,6 +44,12 @@
                  * }
                  *
                  */
+                /*
+                 * Maximum Transmission Unit (MTU) size for network packets.
+                 *
+                 * "mtu": 1500
+                 *
+                 */
             }
             /**
              * {
@@ -154,11 +160,6 @@
          * Maximum number of threads the TURN server can use.
          *
          * "max_threads": 12,
-         *
-         *
-         * Maximum Transmission Unit (MTU) size for network packets.
-         *
-         * "mtu": 1500
          *
          */
     }

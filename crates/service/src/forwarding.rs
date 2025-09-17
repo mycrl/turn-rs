@@ -40,7 +40,7 @@ where
 
 struct Inbound<'a, 'b, T, M>
 where
-    T: ServiceHandler + 'static,
+    T: ServiceHandler,
 {
     pub id: &'a Identifier,
     pub bytes: &'b mut BytesMut,
@@ -50,7 +50,7 @@ where
 
 impl<'a, 'b, T> Inbound<'a, 'b, T, Message<'a>>
 where
-    T: ServiceHandler + 'static,
+    T: ServiceHandler,
 {
     #[inline(always)]
     pub fn verify_ip(&self, address: &SocketAddr) -> bool {
@@ -61,9 +61,9 @@ where
     }
 
     #[inline(always)]
-    pub fn credentials(&self) -> Option<(&str, [u8; 16])> {
+    pub async fn credentials(&self) -> Option<(&str, [u8; 16])> {
         let username = self.payload.get::<UserName>()?;
-        let password = self.state.manager.get_password(&self.id, username)?;
+        let password = self.state.manager.get_password(&self.id, username).await?;
 
         self.payload.integrity(&password).ok()?;
         Some((username, password))
@@ -98,7 +98,7 @@ pub enum ForwardResult<'a> {
 
 pub struct PacketForwarder<T>
 where
-    T: ServiceHandler + 'static,
+    T: ServiceHandler,
 {
     id: Identifier,
     state: State<T>,
@@ -108,7 +108,7 @@ where
 
 impl<T> PacketForwarder<T>
 where
-    T: ServiceHandler + Clone + 'static,
+    T: ServiceHandler + Clone,
 {
     pub fn new(service: &Service<T>, endpoint: SocketAddr, interface: SocketAddr) -> Self {
         Self {
@@ -130,7 +130,7 @@ where
         }
     }
 
-    pub fn forward<'a, 'b: 'a>(
+    pub async fn forward<'a, 'b: 'a>(
         &'b mut self,
         bytes: &'b [u8],
         address: SocketAddr,
@@ -159,10 +159,10 @@ where
 
                 match req.payload.method() {
                     BINDING_REQUEST => binding(req),
-                    ALLOCATE_REQUEST => allocate(req),
-                    CREATE_PERMISSION_REQUEST => create_permission(req),
-                    CHANNEL_BIND_REQUEST => channel_bind(req),
-                    REFRESH_REQUEST => refresh(req),
+                    ALLOCATE_REQUEST => allocate(req).await,
+                    CREATE_PERMISSION_REQUEST => create_permission(req).await,
+                    CHANNEL_BIND_REQUEST => channel_bind(req).await,
+                    REFRESH_REQUEST => refresh(req).await,
                     SEND_INDICATION => indication(req),
                     _ => None,
                 }
@@ -252,7 +252,7 @@ where
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard contexts.
-fn allocate<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+async fn allocate<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
 where
     T: ServiceHandler,
 {
@@ -260,7 +260,7 @@ where
         return reject(req, ErrorType::ServerError);
     }
 
-    let Some((username, password)) = req.credentials() else {
+    let Some((username, password)) = req.credentials().await else {
         return reject(req, ErrorType::Unauthorized);
     };
 
@@ -314,7 +314,7 @@ where
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-fn channel_bind<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+async fn channel_bind<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
 where
     T: ServiceHandler,
 {
@@ -334,7 +334,7 @@ where
         return reject(req, ErrorType::BadRequest);
     }
 
-    let Some((username, password)) = req.credentials() else {
+    let Some((username, password)) = req.credentials().await else {
         return reject(req, ErrorType::Unauthorized);
     };
 
@@ -398,11 +398,11 @@ where
 /// CreatePermission requests over UDP using the "stateless stack approach".
 /// Retransmitted CreatePermission requests will simply refresh the
 /// permissions.
-fn create_permission<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+async fn create_permission<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
 where
     T: ServiceHandler,
 {
-    let Some((username, password)) = req.credentials() else {
+    let Some((username, password)) = req.credentials().await else {
         return reject(req, ErrorType::Unauthorized);
     };
 
@@ -557,11 +557,11 @@ where
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-fn refresh<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+async fn refresh<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
 where
     T: ServiceHandler,
 {
-    let Some((username, password)) = req.credentials() else {
+    let Some((username, password)) = req.credentials().await else {
         return reject(req, ErrorType::Unauthorized);
     };
 

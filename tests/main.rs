@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    sync::{Arc, LazyLock},
-    time::Duration,
-};
+use std::{collections::HashMap, net::SocketAddr, sync::LazyLock, time::Duration};
 
 use anyhow::{Result, ensure};
 use base64::{Engine, prelude::BASE64_STANDARD};
@@ -26,7 +21,7 @@ use tokio::{
 
 use turn_server::{
     config::{Auth, Config, Interface, Rpc, Transport as TurnTransport, Turn},
-    startup,
+    start_server,
 };
 
 static TOKEN: LazyLock<[u8; 12]> = LazyLock::new(|| {
@@ -38,20 +33,21 @@ static TOKEN: LazyLock<[u8; 12]> = LazyLock::new(|| {
 
 pub async fn create_turn_server(listen: SocketAddr, auth: Auth, rpc: Rpc) -> Result<()> {
     tokio::spawn(async move {
-        startup(Arc::new(Config {
+        start_server(Config {
             turn: Turn {
                 realm: "localhost".to_string(),
                 interfaces: vec![Interface {
                     transport: TurnTransport::Udp,
                     external: listen,
                     ssl: None,
+                    mtu: 1500,
                     listen,
                 }],
             },
             auth,
             rpc,
             ..Default::default()
-        }))
+        })
         .await
         .unwrap();
     });
