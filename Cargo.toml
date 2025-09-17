@@ -17,7 +17,6 @@ anyhow = "1.0"
 base64 = "0.22"
 bytes = "1"
 clap = { version = "4", features = ["derive"] }
-core_affinity = { version = "0.8.3", optional = true }
 log = "0.4"
 mimalloc = { version = "0.1", default-features = false }
 parking_lot = "0.12"
@@ -43,7 +42,7 @@ tonic-prost-build = { version = "0.14", optional = true }
 default = ["all"]
 all = ["udp", "tcp", "ssl", "rpc"]
 tcp = []
-udp = ["dep:core_affinity"]
+udp = []
 rpc-build = ["dep:tonic-prost-build", "dep:tonic-prost", "dep:prost"]
 rpc = ["dep:tonic", "rpc-build", "dep:url"]
 ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc"]
