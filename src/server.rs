@@ -202,12 +202,16 @@ trait Listener: Sized + Send {
                 let exchanger = exchanger.clone();
 
                 tokio::spawn(async move {
-                    let sleep = sleep(Duration::from_secs(idle_timeout));
+                    let sleep = sleep(Duration::from_secs(1));
                     tokio::pin!(sleep);
+
+                    let mut read_delay = 0;
 
                     loop {
                         tokio::select! {
                             Some(buffer) = socket.read() => {
+                                read_delay = 0;
+
                                 if let ForwardResult::Outbound(outbound) = forwarder.forward(&buffer, address).await
                                 {
                                     let (ty, bytes, target) = match outbound {
@@ -239,8 +243,6 @@ trait Listener: Sized + Send {
                                             }
                                         }
                                     }
-                                } else {
-                                    break;
                                 }
                             }
                             Some((bytes, method)) = receiver.recv() => {
@@ -265,7 +267,11 @@ trait Listener: Sized + Send {
                                 }
                             }
                             _ = &mut sleep => {
-                                break;
+                                read_delay += 1;
+
+                                if read_delay >= idle_timeout {
+                                    break;
+                                }
                             }
                             else => {
                                 break;
@@ -384,11 +390,9 @@ mod udp {
                                 };
 
                                 if let Some(stream) = sockets.get(&addr) {
-                                    if let Err(e) = stream.try_send(Bytes::copy_from_slice(&buffer[..size]))
+                                    if stream.try_send(Bytes::copy_from_slice(&buffer[..size])).is_err()
                                     {
                                         sockets.remove(&addr);
-
-                                        log::warn!("udp stream error={e}: addr={addr}");
                                     }
                                 } else {
                                     let (tx, bytes_receiver) = channel::<Bytes>(100);
