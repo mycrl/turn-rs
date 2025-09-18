@@ -33,6 +33,14 @@ pub enum Interface {
         ///
         external: SocketAddr,
         ///
+        /// Idle timeout
+        ///
+        /// If no packet is received within the specified number of seconds, the
+        /// connection will be closed to prevent resources from being occupied
+        /// for a long time.
+        #[serde(default = "Interface::idle_timeout")]
+        idle_timeout: u32,
+        ///
         /// SSL configuration
         ///
         #[serde(default)]
@@ -50,6 +58,14 @@ pub enum Interface {
         ///
         external: SocketAddr,
         ///
+        /// Idle timeout
+        ///
+        /// If no packet is received within the specified number of seconds, the
+        /// connection will be closed to prevent resources from being occupied
+        /// for a long time.
+        #[serde(default = "Interface::idle_timeout")]
+        idle_timeout: u32,
+        ///
         /// Maximum Transmission Unit (MTU) size for network packets.
         ///
         #[serde(default = "Interface::mtu")]
@@ -60,6 +76,10 @@ pub enum Interface {
 impl Interface {
     fn mtu() -> usize {
         1500
+    }
+
+    fn idle_timeout() -> u32 {
+        20
     }
 }
 

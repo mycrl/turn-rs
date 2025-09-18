@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
@@ -13,6 +13,7 @@ use service::{
 use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
     task::JoinSet,
+    time::sleep,
 };
 
 use crate::{
@@ -34,15 +35,17 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
             Interface::Udp {
                 listen,
                 external,
+                idle_timeout,
                 mtu,
             } => {
                 servers.spawn(UdpServer::start(
                     ListenOptions {
                         transport: Transport::Udp,
-                        listen,
-                        external,
-                        mtu,
+                        idle_timeout,
                         ssl: None,
+                        external,
+                        listen,
+                        mtu,
                     },
                     service.clone(),
                     statistics.clone(),
@@ -52,13 +55,15 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
             Interface::Tcp {
                 listen,
                 external,
+                idle_timeout,
                 ssl,
             } => {
                 servers.spawn(TcpServer::start(
                     ListenOptions {
                         transport: Transport::Tcp,
-                        listen,
+                        idle_timeout,
                         external,
+                        listen,
                         mtu: 0,
                         ssl,
                     },
@@ -145,10 +150,12 @@ impl Exchanger {
 trait Socket: Send + 'static {
     fn read(&mut self) -> impl Future<Output = Option<Bytes>> + Send;
     fn write(&mut self, buffer: &[u8]) -> impl Future<Output = Result<()>> + Send;
+    fn close(&mut self);
 }
 
 struct ListenOptions {
     transport: Transport,
+    idle_timeout: u32,
     listen: SocketAddr,
     external: SocketAddr,
     ssl: Option<Ssl>,
@@ -169,6 +176,7 @@ trait Listener: Sized + Send {
         exchanger: Exchanger,
     ) -> impl Future<Output = Result<()>> + Send {
         let transport = options.transport;
+        let idle_timeout = options.idle_timeout as u64;
 
         async move {
             let mut listener = Self::bind(&options).await?;
@@ -194,6 +202,9 @@ trait Listener: Sized + Send {
                 let exchanger = exchanger.clone();
 
                 tokio::spawn(async move {
+                    let sleep = sleep(Duration::from_secs(idle_timeout));
+                    tokio::pin!(sleep);
+
                     loop {
                         tokio::select! {
                             Some(buffer) = socket.read() => {
@@ -253,11 +264,17 @@ trait Listener: Sized + Send {
                                     }
                                 }
                             }
+                            _ = &mut sleep => {
+                                break;
+                            }
                             else => {
                                 break;
                             }
                         }
                     }
+
+                    // close the socket
+                    socket.close();
 
                     // When the socket connection is closed, the procedure to close the session is
                     // process directly once, avoiding the connection being disconnected
@@ -286,12 +303,15 @@ mod udp {
     use bytes::{Bytes, BytesMut};
     use tokio::{
         net::UdpSocket as TokioUdpSocket,
-        sync::mpsc::{Receiver, Sender, UnboundedReceiver, channel, unbounded_channel},
+        sync::mpsc::{
+            Receiver, Sender, UnboundedReceiver, UnboundedSender, channel, unbounded_channel,
+        },
     };
 
     use crate::server::{ListenOptions, Listener, Socket};
 
     pub struct UdpSocket {
+        close_signal_sender: UnboundedSender<SocketAddr>,
         bytes_receiver: Receiver<Bytes>,
         socket: Arc<TokioUdpSocket>,
         addr: SocketAddr,
@@ -314,6 +334,12 @@ mod udp {
 
             Ok(())
         }
+
+        fn close(&mut self) {
+            self.bytes_receiver.close();
+
+            let _ = self.close_signal_sender.send(self.addr);
+        }
     }
 
     pub struct UdpServer {
@@ -327,6 +353,8 @@ mod udp {
         async fn bind(options: &ListenOptions) -> Result<Self> {
             let socket = Arc::new(TokioUdpSocket::bind(options.listen).await?);
             let (socket_sender, socket_receiver) = unbounded_channel::<(UdpSocket, SocketAddr)>();
+            let (close_signal_sender, mut close_signal_receiver) =
+                unbounded_channel::<SocketAddr>();
 
             {
                 let socket = socket.clone();
@@ -337,48 +365,59 @@ mod udp {
                     let mut sockets = HashMap::<SocketAddr, Sender<Bytes>>::with_capacity(1024);
 
                     loop {
-                        let (size, addr) = match socket.recv_from(&mut buffer).await {
-                            Ok(it) => it,
-                            // Note: An error will also be reported when the remote host is
-                            // shut down, which is not processed yet, but a
-                            // warning will be issued.
-                            Err(e) => {
-                                if e.kind() != ErrorKind::ConnectionReset {
-                                    log::error!("udp server recv_from error={e}");
+                        tokio::select! {
+                            ret = socket.recv_from(&mut buffer) => {
+                                let (size, addr) = match ret {
+                                    Ok(it) => it,
+                                    // Note: An error will also be reported when the remote host is
+                                    // shut down, which is not processed yet, but a
+                                    // warning will be issued.
+                                    Err(e) => {
+                                        if e.kind() != ErrorKind::ConnectionReset {
+                                            log::error!("udp server recv_from error={e}");
 
-                                    break;
+                                            break;
+                                        } else {
+                                            continue;
+                                        }
+                                    }
+                                };
+
+                                if let Some(stream) = sockets.get(&addr) {
+                                    if let Err(e) = stream.try_send(Bytes::copy_from_slice(&buffer[..size]))
+                                    {
+                                        sockets.remove(&addr);
+
+                                        log::info!("udp stream error={e}: addr={addr}");
+                                    }
                                 } else {
-                                    continue;
+                                    let (tx, bytes_receiver) = channel::<Bytes>(100);
+                                    sockets.insert(addr, tx);
+
+                                    if socket_sender
+                                        .send((
+                                            UdpSocket {
+                                                close_signal_sender: close_signal_sender.clone(),
+                                                socket: socket.clone(),
+                                                bytes_receiver,
+                                                addr,
+                                            },
+                                            addr,
+                                        ))
+                                        .is_err()
+                                    {
+                                        break;
+                                    }
+
+                                    log::info!("udp server new connection: addr={addr}");
                                 }
                             }
-                        };
-
-                        if let Some(stream) = sockets.get(&addr) {
-                            if let Err(e) = stream.try_send(Bytes::copy_from_slice(&buffer[..size]))
-                            {
-                                sockets.remove(&addr);
-
-                                log::info!("udp stream error={e}: addr={addr}");
+                            Some(addr) = close_signal_receiver.recv() => {
+                                let _ = sockets.remove(&addr);
                             }
-                        } else {
-                            let (tx, bytes_receiver) = channel::<Bytes>(100);
-                            sockets.insert(addr, tx);
-
-                            if socket_sender
-                                .send((
-                                    UdpSocket {
-                                        socket: socket.clone(),
-                                        bytes_receiver,
-                                        addr,
-                                    },
-                                    addr,
-                                ))
-                                .is_err()
-                            {
+                            else => {
                                 break;
                             }
-
-                            log::info!("udp server new connection: addr={addr}");
                         }
                     }
                 });
@@ -412,7 +451,7 @@ mod tcp {
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
         net::{TcpListener as TokioTcpListener, TcpStream},
-        sync::mpsc::{UnboundedReceiver, unbounded_channel},
+        sync::mpsc::{Sender, UnboundedReceiver, channel, unbounded_channel},
     };
 
     #[cfg(feature = "ssl")]
@@ -488,72 +527,88 @@ mod tcp {
     pub struct TcpSocket {
         writer: Writer,
         receiver: UnboundedReceiver<Bytes>,
+        close_signal_sender: Sender<()>,
     }
 
     impl TcpSocket {
         fn new(stream: MaybeSslStream, addr: SocketAddr) -> Self {
+            let (close_signal_sender, mut close_signal_receiver) = channel::<()>(1);
             let (tx, receiver) = unbounded_channel::<Bytes>();
             let (mut reader, writer) = stream.split();
 
             tokio::spawn(async move {
                 let mut buffer = BytesMut::new();
 
-                'a: while let Ok(size) = reader.read_buf(&mut buffer).await {
-                    if size == 0 {
-                        break;
-                    }
+                'a: loop {
+                    tokio::select! {
+                        Ok(size) = reader.read_buf(&mut buffer) => {
+                            if size == 0 {
+                                break;
+                            }
 
-                    // The minimum length of a stun message will not be less
-                    // than 4.
-                    if buffer.len() < 4 {
-                        continue;
-                    }
+                            // The minimum length of a stun message will not be less
+                            // than 4.
+                            if buffer.len() < 4 {
+                                continue;
+                            }
 
-                    // Limit the maximum length of messages to 2048, this is to prevent buffer
-                    // overflow attacks.
-                    if buffer.len() > MAX_MESSAGE_SIZE * 3 {
-                        break;
-                    }
+                            // Limit the maximum length of messages to 2048, this is to prevent buffer
+                            // overflow attacks.
+                            if buffer.len() > MAX_MESSAGE_SIZE * 3 {
+                                break;
+                            }
 
-                    loop {
-                        if buffer.len() <= 4 {
-                            break;
-                        }
-
-                        // Try to get the message length, if the currently
-                        // received data is less than the message length, jump
-                        // out of the current loop and continue to receive more
-                        // data.
-                        let size = match Decoder::message_size(&buffer, true) {
-                            Err(_) => break,
-                            Ok(size) => {
-                                if size > MAX_MESSAGE_SIZE {
-                                    log::warn!(
-                                        "tcp message size too large: \
-                                            size={size}, \
-                                            max={MAX_MESSAGE_SIZE}, \
-                                            addr={addr:?}"
-                                    );
-
-                                    break 'a;
-                                }
-
-                                if size > buffer.len() {
+                            loop {
+                                if buffer.len() <= 4 {
                                     break;
                                 }
 
-                                size
-                            }
-                        };
+                                // Try to get the message length, if the currently
+                                // received data is less than the message length, jump
+                                // out of the current loop and continue to receive more
+                                // data.
+                                let size = match Decoder::message_size(&buffer, true) {
+                                    Err(_) => break,
+                                    Ok(size) => {
+                                        if size > MAX_MESSAGE_SIZE {
+                                            log::warn!(
+                                                "tcp message size too large: \
+                                                    size={size}, \
+                                                    max={MAX_MESSAGE_SIZE}, \
+                                                    addr={addr:?}"
+                                            );
 
-                        if tx.send(buffer.split_to(size).freeze()).is_err() {
-                            break 'a;
+                                            break 'a;
+                                        }
+
+                                        if size > buffer.len() {
+                                            break;
+                                        }
+
+                                        size
+                                    }
+                                };
+
+                                if tx.send(buffer.split_to(size).freeze()).is_err() {
+                                    break 'a;
+                                }
+                            }
+                        }
+                        _ = close_signal_receiver.recv() => {
+                            break;
+                        }
+                        else => {
+                            break;
                         }
                     }
                 }
             });
 
-            Self { writer, receiver }
+            Self {
+                close_signal_sender,
+                writer,
+                receiver,
+            }
         }
     }
 
@@ -564,6 +619,12 @@ mod tcp {
 
         async fn write(&mut self, buffer: &[u8]) -> Result<()> {
             Ok(self.writer.write_all(buffer).await?)
+        }
+
+        fn close(&mut self) {
+            self.receiver.close();
+
+            let _ = self.close_signal_sender.send(());
         }
     }
 

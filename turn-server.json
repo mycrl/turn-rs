@@ -46,6 +46,15 @@
                  */
                 "external": "127.0.0.1:3478"
                 /**
+                 * Idle timeout
+                 *
+                 * If no packet is received within the specified number of
+                 * seconds, the connection will be closed to prevent resources
+                 * from being occupied for a long time.
+                 *
+                 * "idle_timeout": 20,
+                 */
+                /**
                  * ssl configuration
                  *
                  *
