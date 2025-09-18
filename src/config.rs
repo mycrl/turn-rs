@@ -1,12 +1,13 @@
 use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, str::FromStr};
 
+use anyhow::Result;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use service::session::ports::PortRange;
 
 /// SSL configuration
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub struct Ssl {
     ///
     /// SSL private key file
@@ -19,7 +20,7 @@ pub struct Ssl {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(tag = "transport", rename_all = "camelCase")]
+#[serde(tag = "transport", rename_all = "kebab-case")]
 pub enum Interface {
     Tcp {
         listen: SocketAddr,
@@ -84,7 +85,7 @@ impl Interface {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub struct Server {
     ///
     /// Port range, the maximum range is 65535 - 49152.
@@ -106,7 +107,6 @@ pub struct Server {
     ///
     #[serde(default = "Server::realm")]
     pub realm: String,
-
     ///
     /// turn server listen interfaces
     ///
@@ -156,7 +156,7 @@ impl Default for Server {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub struct Hooks {
     #[serde(default = "Hooks::max_channel_size")]
     pub max_channel_size: usize,
@@ -178,7 +178,7 @@ impl Hooks {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub struct Api {
     ///
     /// rpc server listen
@@ -258,7 +258,7 @@ impl LogLevel {
 }
 
 #[derive(Deserialize, Debug, Default, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub struct Log {
     ///
     /// log level
@@ -270,7 +270,7 @@ pub struct Log {
 }
 
 #[derive(Deserialize, Debug, Default, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub struct Auth {
     ///
     /// static user password
@@ -297,7 +297,7 @@ pub struct Auth {
 }
 
 #[derive(Deserialize, Debug, Default, Clone)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub struct Config {
     #[serde(default)]
     pub server: Server,
@@ -335,8 +335,8 @@ impl Config {
     /// the configuration is read from the configuration file, otherwise the
     /// default configuration is used.
     ///
-    pub fn load() -> anyhow::Result<Self> {
-        Ok(serde_json5::from_str::<Self>(
+    pub fn load() -> Result<Self> {
+        Ok(toml::from_str::<Self>(
             &Cli::parse()
                 .config
                 .and_then(|path| read_to_string(path).ok())

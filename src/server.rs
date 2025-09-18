@@ -284,7 +284,7 @@ trait Listener: Sized + Send {
 
                     exchanger.remove(&address);
 
-                    log::info!("socket disconnect: addr={address:?}, interface={local_addr:?}");
+                    log::info!("socket disconnect: addr={address:?}, interface={local_addr:?}, transport={transport:?}");
                 });
             }
 
@@ -388,7 +388,7 @@ mod udp {
                                     {
                                         sockets.remove(&addr);
 
-                                        log::info!("udp stream error={e}: addr={addr}");
+                                        log::warn!("udp stream error={e}: addr={addr}");
                                     }
                                 } else {
                                     let (tx, bytes_receiver) = channel::<Bytes>(100);
@@ -408,8 +408,6 @@ mod udp {
                                     {
                                         break;
                                     }
-
-                                    log::info!("udp server new connection: addr={addr}");
                                 }
                             }
                             Some(addr) = close_signal_receiver.recv() => {

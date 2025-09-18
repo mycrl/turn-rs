@@ -163,6 +163,8 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
             )))?;
         }
 
+        log::info!("api server listening: listen={}", api.listen);
+
         builder
             .add_service(TurnServiceServer::new(RpcService {
                 config: config.clone(),
@@ -254,6 +256,8 @@ impl RpcHooksService {
                     }
                 });
             }
+
+            log::info!("create hooks client, endpoint={}", hooks.endpoint);
 
             Ok(Self(Some(RpcHooksServiceInner {
                 client: Mutex::new(client),
