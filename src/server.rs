@@ -153,6 +153,7 @@ trait Socket: Send + 'static {
     fn close(&mut self);
 }
 
+#[allow(unused)]
 struct ListenOptions {
     transport: Transport,
     idle_timeout: u32,
