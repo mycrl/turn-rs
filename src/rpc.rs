@@ -5,6 +5,7 @@ pub mod proto {
 use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
+use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 use service::session::{Identifier, Session};
 use tokio::sync::{
     Mutex,
@@ -19,14 +20,24 @@ use tonic::{
 #[cfg(feature = "ssl")]
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 
-use self::proto::{
-    SessionQueryParams, TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent,
-    TurnDestroyEvent, TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
+use proto::{
+    PasswordAlgorithm as ProtoPasswordAlgorithm, SessionQueryParams, TurnAllocatedEvent,
+    TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent,
+    TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_client::TurnHooksServiceClient,
     turn_service_server::{TurnService, TurnServiceServer},
 };
 
 use crate::{Service, config::Config, rpc::proto::GetTurnPasswordRequest, statistics::Statistics};
+
+impl Into<ProtoPasswordAlgorithm> for PasswordAlgorithm {
+    fn into(self) -> ProtoPasswordAlgorithm {
+        match self {
+            PasswordAlgorithm::Md5 => ProtoPasswordAlgorithm::Md5,
+            PasswordAlgorithm::Sha256 => ProtoPasswordAlgorithm::Sha256,
+        }
+    }
+}
 
 pub trait IdString {
     type Error;
@@ -278,23 +289,31 @@ impl RpcHooksService {
         }
     }
 
-    pub async fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    pub async fn get_password(
+        &self,
+        username: &str,
+        algorithm: PasswordAlgorithm,
+    ) -> Option<Password> {
         if let Some(inner) = &self.0 {
-            return Some(
-                inner
-                    .client
-                    .lock()
-                    .await
-                    .get_password(Request::new(GetTurnPasswordRequest {
-                        username: username.to_string(),
-                    }))
-                    .await
-                    .ok()?
-                    .into_inner()
-                    .password
-                    .try_into()
-                    .ok()?,
-            );
+            let algorithm: ProtoPasswordAlgorithm = algorithm.into();
+            let password = inner
+                .client
+                .lock()
+                .await
+                .get_password(Request::new(GetTurnPasswordRequest {
+                    username: username.to_string(),
+                    algorithm: algorithm as i32,
+                }))
+                .await
+                .ok()?
+                .into_inner()
+                .password;
+
+            return Some(match algorithm {
+                ProtoPasswordAlgorithm::Md5 => Password::Md5(password.try_into().ok()?),
+                ProtoPasswordAlgorithm::Sha256 => Password::Sha256(password.try_into().ok()?),
+                ProtoPasswordAlgorithm::Unspecified => unreachable!(),
+            });
         }
 
         None

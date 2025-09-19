@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bytes = "1"
+base64 = "0.22"
 num_enum = "0.7"
 aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"] }
 md-5 = "0.10"

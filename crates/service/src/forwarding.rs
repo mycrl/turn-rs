@@ -9,6 +9,7 @@ use bytes::BytesMut;
 use codec::{
     DecodeResult, Decoder,
     channel_data::ChannelData,
+    crypto::Password,
     message::{
         Message, MessageEncoder,
         attributes::{error::ErrorType, *},
@@ -52,11 +53,23 @@ where
     }
 
     #[inline(always)]
-    pub async fn credentials(&self) -> Option<(&str, [u8; 16])> {
+    pub async fn credentials(&self) -> Option<(&str, Password)> {
         let username = self.payload.get::<UserName>()?;
-        let password = self.state.manager.get_password(&self.id, username).await?;
+        let algorithm = self
+            .payload
+            .get::<PasswordAlgorithm>()
+            .unwrap_or_else(|| PasswordAlgorithm::Md5);
 
-        self.payload.integrity(&password).ok()?;
+        let password = self
+            .state
+            .manager
+            .get_password(&self.id, username, algorithm)
+            .await?;
+
+        if let Err(_) = self.payload.checksum(&password) {
+            return None;
+        }
+
         Some((username, password))
     }
 }
@@ -179,6 +192,14 @@ where
         message.append::<ErrorCode>(ErrorCode::from(error));
         message.append::<Nonce>(req.state.manager.get_session_or_default(&req.id).get_ref()?.nonce());
         message.append::<Realm>(&req.state.realm);
+
+        if error == ErrorType::Unauthorized {
+            message.append::<PasswordAlgorithms>(vec![
+                PasswordAlgorithm::Md5, 
+                PasswordAlgorithm::Sha256
+            ]);
+        }
+
         message.flush(None).ok()?;
     }
 

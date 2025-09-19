@@ -1909,7 +1909,6 @@ version = "4.0.0"
 dependencies = [
  "ahash",
  "anyhow",
- "base64",
  "bytes",
  "clap",
  "dashmap",
@@ -1936,6 +1935,7 @@ name = "turn-server-codec"
 version = "0.1.0"
 dependencies = [
  "aws-lc-rs",
+ "base64",
  "bytes",
  "crc32fast",
  "md-5",

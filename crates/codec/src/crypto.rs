@@ -1,7 +1,27 @@
-use aws_lc_rs::{digest, hmac};
-use md5::{Digest, Md5}; // aws-lc-rs不支持MD5，保留
+use std::ops::Deref;
 
-use crate::Error;
+use aws_lc_rs::{digest, hmac};
+use base64::{Engine, prelude::BASE64_STANDARD};
+use md5::{Digest, Md5};
+
+use crate::message::attributes::PasswordAlgorithm;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Password {
+    Md5([u8; 16]),
+    Sha256([u8; 32]),
+}
+
+impl Deref for Password {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Password::Md5(it) => it,
+            Password::Sha256(it) => it,
+        }
+    }
+}
 
 /// HMAC SHA1 digest.
 ///
@@ -30,12 +50,11 @@ use crate::Error;
 ///     0x74, 0xe2, 0x3c, 0x26, 0xc5, 0xb1, 0x03, 0xb2, 0x6d,
 /// ];
 ///
-/// let hmac_output = hmac_sha1(&key, &[&buffer])
-///     .unwrap();
+/// let hmac_output = hmac_sha1(&key, &[&buffer]);
 ///
 /// assert_eq!(&hmac_output, &sign);
 /// ```
-pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<[u8; 20], Error> {
+pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> [u8; 20] {
     let key = hmac::Key::new(hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY, key);
     let mut ctx = hmac::Context::with_key(&key);
 
@@ -43,10 +62,9 @@ pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<[u8; 20], Error> {
         ctx.update(buf);
     }
 
-    let signature = ctx.sign();
     let mut result = [0u8; 20];
-    result.copy_from_slice(signature.as_ref());
-    Ok(result)
+    result.copy_from_slice(ctx.sign().as_ref());
+    result
 }
 
 /// CRC32 Fingerprint.
@@ -62,7 +80,7 @@ pub fn fingerprint(bytes: &[u8]) -> u32 {
     crc32fast::hash(bytes) ^ 0x5354_554e
 }
 
-/// create long term credential for md5.
+/// generate create long term credential.
 ///
 /// > key = MD5(username ":" OpaqueString(realm) ":" OpaqueString(password))
 ///
@@ -84,36 +102,47 @@ pub fn fingerprint(bytes: &[u8]) -> u32 {
 ///
 /// assert_eq!(key, buffer);
 /// ```
-pub fn password_md5(username: &str, password: &str, realm: &str) -> [u8; 16] {
-    let mut hasher = Md5::new();
-    hasher.update([username, realm, password].join(":"));
-    hasher.finalize().into()
+pub fn generate_password(
+    username: &str,
+    password: &str,
+    realm: &str,
+    algorithm: PasswordAlgorithm,
+) -> Password {
+    match algorithm {
+        PasswordAlgorithm::Md5 => {
+            let mut hasher = Md5::new();
+
+            hasher.update([username, realm, password].join(":"));
+
+            Password::Md5(hasher.finalize().into())
+        }
+        PasswordAlgorithm::Sha256 => {
+            let mut ctx = digest::Context::new(&digest::SHA256);
+
+            ctx.update([username, realm, password].join(":").as_bytes());
+
+            let mut result = [0u8; 32];
+            result.copy_from_slice(ctx.finish().as_ref());
+            Password::Sha256(result)
+        }
+    }
 }
 
-/// create long term credential for sha256.
-///
-/// > key = SHA256(username ":" OpaqueString(realm) ":" OpaqueString(password))
-///
-/// # Test
-///
-/// ```
-/// use turn_server_codec::crypto::password_sha256;
-///
-/// let key = password_sha256(
-///     "panda",
-///     "panda",
-///     "raspberry",
-/// );
-///
-/// // SHA256 produces 32 bytes
-/// assert_eq!(key.len(), 32);
-/// ```
-pub fn password_sha256(username: &str, password: &str, realm: &str) -> [u8; 32] {
-    let mut ctx = digest::Context::new(&digest::SHA256);
-    let input = [username, realm, password].join(":");
-    ctx.update(input.as_bytes());
-    let digest = ctx.finish();
-    let mut result = [0u8; 32];
-    result.copy_from_slice(digest.as_ref());
-    result
+// Because (TURN REST api) this RFC does not mandate the format of the username,
+// only suggested values. In principle, the RFC also indicates that the
+// timestamp part of username can be set at will, so the timestamp is not
+// verified here, and the external web service guarantees its security by
+// itself.
+//
+// https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
+pub fn static_auth_secret(
+    username: &str,
+    secret: &str,
+    realm: &str,
+    algorithm: PasswordAlgorithm,
+) -> Password {
+    let password =
+        BASE64_STANDARD.encode(hmac_sha1(secret.as_bytes(), &[username.as_bytes()]).as_slice());
+
+    generate_password(username, &password, realm, algorithm)
 }

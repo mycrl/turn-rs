@@ -471,6 +471,10 @@ impl<'a> Attribute<'a> for PasswordAlgorithm {
     }
 
     fn deserialize(mut bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        if bytes.len() < 4 {
+            return Err(Error::InvalidInput);
+        }
+
         let ty = match bytes.get_u16() {
             0x0001 => Self::Md5,
             0x0002 => Self::Sha256,
@@ -482,6 +486,48 @@ impl<'a> Attribute<'a> for PasswordAlgorithm {
         bytes.advance(super::alignment_32(size as usize));
 
         Ok(ty)
+    }
+}
+
+/// The PASSWORD-ALGORITHMS attribute may be present in requests and
+/// responses.  It contains the list of algorithms that the server can
+/// use to derive the long-term password.
+///
+/// The set of known algorithms is maintained by IANA.  The initial set
+/// defined by this specification is found in Section 18.5.
+///
+/// The attribute contains a list of algorithm numbers and variable
+/// length parameters.  The algorithm number is a 16-bit value as defined
+/// in Section 18.5.  The parameters start with the length (prior to
+/// padding) of the parameters as a 16-bit value, followed by the
+/// parameters that are specific to each algorithm.  The parameters are
+/// padded to a 32-bit boundary, in the same manner as an attribute.
+pub struct PasswordAlgorithms;
+
+impl<'a> Attribute<'a> for PasswordAlgorithms {
+    type Error = Error;
+    type Item = Vec<PasswordAlgorithm>;
+
+    const TYPE: AttributeType = AttributeType::PasswordAlgorithms;
+
+    fn serialize<B: BufMut>(algorithms: Self::Item, bytes: &mut B, token: &'a [u8]) {
+        for algorithm in algorithms {
+            PasswordAlgorithm::serialize(algorithm, bytes, token);
+        }
+    }
+
+    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        let mut algorithms = Vec::new();
+
+        loop {
+            if let Ok(algorithm) = PasswordAlgorithm::deserialize(bytes, token) {
+                algorithms.push(algorithm);
+            } else {
+                break;
+            }
+        }
+
+        Ok(algorithms)
     }
 }
 
@@ -1062,6 +1108,10 @@ impl<'a> Attribute<'a> for EvenPort {
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        if bytes.len() < 1 {
+            return Err(Error::InvalidInput);
+        }
+
         Ok(bytes[0] == 0b10000000)
     }
 }
@@ -1085,6 +1135,10 @@ impl<'a> Attribute<'a> for RequestedAddressFamily {
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        if bytes.len() < 1 {
+            return Err(Error::InvalidInput);
+        }
+
         IpFamily::try_from(bytes[0]).map_err(|_| Error::InvalidInput)
     }
 }
@@ -1108,6 +1162,10 @@ impl<'a> Attribute<'a> for AdditionalAddressFamily {
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        if bytes.len() < 1 {
+            return Err(Error::InvalidInput);
+        }
+
         IpFamily::try_from(bytes[0]).map_err(|_| Error::InvalidInput)
     }
 }
@@ -1128,80 +1186,6 @@ impl<'a> Attribute<'a> for DontFragment {
 
     fn deserialize(_: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(())
-    }
-}
-
-/// The access token is issued by the authorization server.  OAuth 2.0 does not
-/// impose any limitation on the length of the access token but if path MTU is
-/// unknown, then STUN messages over IPv4 would need to be less than 548 bytes
-/// (Section 7.1 of [RFC5389]).  The access token length needs to be restricted
-/// to fit within the maximum STUN message size.  Note that the self-contained
-/// token is opaque to the client, and the client MUST NOT examine the token.
-/// The ACCESS-TOKEN attribute is a comprehension-required attribute (see
-/// Section 15 from [RFC5389]).
-#[derive(Debug, Clone, Copy)]
-pub struct AccessToken<'a> {
-    pub nonce: &'a str,
-    pub mac_key: &'a str,
-    pub timestamp: u64,
-    pub lifetime: u32,
-}
-
-impl<'a> Attribute<'a> for AccessToken<'a> {
-    type Error = Error;
-    type Item = Self;
-
-    const TYPE: AttributeType = AttributeType::AccessToken;
-
-    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
-        bytes.put_u16(value.nonce.len() as u16);
-        bytes.put(value.nonce.as_bytes());
-        bytes.put_u16(value.mac_key.len() as u16);
-        bytes.put(value.mac_key.as_bytes());
-        bytes.put_u64(value.timestamp);
-        bytes.put_u32(value.lifetime);
-    }
-
-    fn deserialize(mut bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        // nonce_length:  Length of the nonce field.  The length of nonce for AEAD
-        // algorithms is explained in [RFC5116].
-        let nonce_length = bytes.get_u16() as usize;
-        if nonce_length >= bytes.len() {
-            return Err(Error::InvalidInput);
-        }
-
-        // Nonce: Nonce (N) formation is explained in Section 3.2 of [RFC5116].
-        let nonce = std::str::from_utf8(&bytes[..nonce_length])?;
-
-        // key_length:  Length of the session key in octets.  The key length of 160 bits
-        // MUST be supported (i.e., only the 160-bit key is used by HMAC-SHA-1 for
-        // message integrity of STUN messages).  The key length facilitates the hash
-        // agility plan discussed in Section 16.3 of [RFC5389].
-        let key_length = bytes.get_u16() as usize;
-        if key_length >= bytes.len() {
-            return Err(Error::InvalidInput);
-        }
-
-        // mac_key:  The session key generated by the authorization server.
-        let mac_key = std::str::from_utf8(&bytes[..key_length])?;
-        if bytes.len() < 12 {
-            return Err(Error::InvalidInput);
-        }
-
-        Ok(Self {
-            // timestamp:  64-bit unsigned integer field containing a timestamp. The value indicates the time since
-            // January 1, 1970, 00:00 UTC, by using a fixed-point format.  In this format, the integer number of seconds
-            // is contained in the first 48 bits of the field, and the remaining 16 bits indicate the number of 1/64000
-            // fractions of a second (Native format - Unix).
-            timestamp: bytes.get_u64(),
-            // lifetime:  The lifetime of the access token, in seconds.  For example, the value 3600 indicates one hour.
-            // The lifetime value MUST be greater than or equal to the 'expires_in' parameter defined in Section 4.2.2
-            // of [RFC6749], otherwise the resource server could revoke the token, but the client would assume that the
-            // token has not expired and would not refresh the token.
-            lifetime: bytes.get_u32(),
-            mac_key,
-            nonce,
-        })
     }
 }
 

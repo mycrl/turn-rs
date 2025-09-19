@@ -6,6 +6,8 @@ pub mod proto {
 
 use std::net::SocketAddr;
 
+pub use codec::message::attributes::PasswordAlgorithm;
+
 use tonic::{
     Request, Response, Status,
     transport::{Channel, Server},
@@ -18,6 +20,20 @@ use crate::proto::{
     turn_hooks_service_server::{TurnHooksService, TurnHooksServiceServer},
     turn_service_client::TurnServiceClient,
 };
+
+impl TryInto<PasswordAlgorithm> for proto::PasswordAlgorithm {
+    type Error = Status;
+
+    fn try_into(self) -> Result<PasswordAlgorithm, Self::Error> {
+        Ok(match self {
+            proto::PasswordAlgorithm::Md5 => PasswordAlgorithm::Md5,
+            proto::PasswordAlgorithm::Sha256 => PasswordAlgorithm::Sha256,
+            proto::PasswordAlgorithm::Unspecified => {
+                return Err(Status::invalid_argument("Invalid password algorithm"));
+            }
+        })
+    }
+}
 
 /// turn service client
 ///
@@ -83,13 +99,15 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
         request: Request<GetTurnPasswordRequest>,
     ) -> Result<Response<GetTurnPasswordResponse>, Status> {
         let request = request.into_inner();
+        let algorithm = request.algorithm().try_into()?;
 
-        if let Ok(credential) = self.0.get_password(&request.username).await {
+        if let Ok(credential) = self.0.get_password(&request.username, algorithm).await {
             Ok(Response::new(GetTurnPasswordResponse {
-                password: codec::crypto::password_md5(
+                password: codec::crypto::generate_password(
                     &request.username,
                     credential.password,
                     credential.realm,
+                    algorithm,
                 )
                 .to_vec(),
             }))
@@ -163,7 +181,11 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
 
 #[tonic::async_trait]
 pub trait TurnHooksServer: Send + Sync {
-    async fn get_password(&self, username: &str) -> Result<Credential, Status>;
+    async fn get_password(
+        &self,
+        username: &str,
+        algorithm: PasswordAlgorithm,
+    ) -> Result<Credential, Status>;
 
     /// allocate request
     ///

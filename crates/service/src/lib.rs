@@ -1,17 +1,21 @@
 pub mod forwarding;
 pub mod session;
 
-use crate::session::{SessionManagerOptions, ports::PortRange};
-
-use self::{
-    forwarding::PacketForwarder,
-    session::{Identifier, SessionManager},
-};
-
 use std::{net::SocketAddr, sync::Arc};
 
+use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
+
+use crate::{
+    forwarding::PacketForwarder,
+    session::{Identifier, SessionManager, SessionManagerOptions, ports::PortRange},
+};
+
 pub trait ServiceHandler: Send + Sync + 'static {
-    fn get_password(&self, username: &str) -> impl Future<Output = Option<[u8; 16]>> + Send;
+    fn get_password(
+        &self,
+        username: &str,
+        algorithm: PasswordAlgorithm,
+    ) -> impl Future<Output = Option<Password>> + Send;
     /// allocate request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)

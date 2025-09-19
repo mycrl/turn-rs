@@ -12,7 +12,7 @@ use crate::rpc::{
 };
 
 use anyhow::Result;
-use base64::{Engine, prelude::BASE64_STANDARD};
+use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 use service::{ServiceHandler, session::Identifier};
 
 #[derive(Clone)]
@@ -38,40 +38,29 @@ impl Handler {
 }
 
 impl ServiceHandler for Handler {
-    async fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
         // Match the static authentication information first.
         if let Some(password) = self.config.auth.static_credentials.get(username) {
-            return Some(codec::crypto::password_md5(
+            return Some(codec::crypto::generate_password(
                 username,
                 password,
                 &self.config.server.realm,
+                algorithm,
             ));
         }
 
         // Try again to match the static authentication key.
-        if let Some(password) = &self.config.auth.static_auth_secret {
-            // Because (TURN REST api) this RFC does not mandate the format of the username,
-            // only suggested values. In principle, the RFC also indicates that the
-            // timestamp part of username can be set at will, so the timestamp is not
-            // verified here, and the external web service guarantees its security by
-            // itself.
-            //
-            // https://datatracker.ietf.org/doc/html/draft-uberti-behave-turn-rest-00#section-2.2
-            let password = BASE64_STANDARD.encode(
-                codec::crypto::hmac_sha1(password.as_bytes(), &[username.as_bytes()])
-                    .ok()?
-                    .as_slice(),
-            );
-
-            return Some(codec::crypto::password_md5(
+        if let Some(secret) = &self.config.auth.static_auth_secret {
+            return Some(codec::crypto::static_auth_secret(
                 username,
-                &password,
+                &secret,
                 &self.config.server.realm,
+                algorithm,
             ));
         }
 
         if self.config.auth.enable_hooks_auth {
-            return self.rpc.get_password(username).await;
+            return self.rpc.get_password(username, algorithm).await;
         }
 
         None

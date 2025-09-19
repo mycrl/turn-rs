@@ -3,9 +3,9 @@ pub mod methods;
 
 use crate::{
     Attributes, Error,
-    crypto::{fingerprint, hmac_sha1},
+    crypto::{Password, fingerprint, hmac_sha1},
     message::{
-        attributes::{Attribute, AttributeType, MessageIntegrity},
+        attributes::{Attribute, AttributeType, MessageIntegrity, MessageIntegritySha256},
         methods::Method,
     },
 };
@@ -163,13 +163,13 @@ impl<'a, 'b> MessageEncoder<'a> {
     ///
     /// assert_eq!(&buf[..], &result);
     /// ```
-    pub fn flush(&mut self, digest: Option<&[u8; 16]>) -> Result<(), Error> {
+    pub fn flush(&mut self, password: Option<&Password>) -> Result<(), Error> {
         // write attribute list size.
         self.set_len(self.bytes.len() - 20);
 
         // if need message integrity?
-        if let Some(a) = digest {
-            self.integrity(a)?;
+        if let Some(it) = password {
+            self.checksum(it)?;
         }
 
         Ok(())
@@ -217,7 +217,7 @@ impl<'a, 'b> MessageEncoder<'a> {
     ///
     /// assert_eq!(&buf[..], &result);
     /// ```
-    fn integrity(&mut self, digest: &[u8; 16]) -> Result<(), Error> {
+    fn checksum(&mut self, passwrd: &Password) -> Result<(), Error> {
         assert!(self.bytes.len() >= 20);
         let len = self.bytes.len();
 
@@ -226,10 +226,16 @@ impl<'a, 'b> MessageEncoder<'a> {
         self.set_len(len + 4);
 
         // write MessageIntegrity attribute.
-        let hmac_output = hmac_sha1(digest, &[self.bytes])?;
-        self.bytes.put_u16(AttributeType::MessageIntegrity as u16);
-        self.bytes.put_u16(20);
-        self.bytes.put(hmac_output.as_slice());
+        {
+            let hmac = hmac_sha1(passwrd, &[self.bytes]);
+            self.bytes.put_u16(match passwrd {
+                Password::Md5(_) => AttributeType::MessageIntegrity as u16,
+                Password::Sha256(_) => AttributeType::MessageIntegritySha256 as u16,
+            });
+
+            self.bytes.put_u16(20);
+            self.bytes.put(hmac.as_slice());
+        }
 
         // compute new size,
         // new size include the Fingerprint attribute size.
@@ -363,7 +369,7 @@ impl<'a> Message<'a> {
     /// let mut attributes = Attributes::default();
     /// let message = Message::decode(&buffer[..], &mut attributes).unwrap();
     /// let result = message
-    ///     .integrity(&turn_server_codec::crypto::password_md5(
+    ///     .checksum(&turn_server_codec::crypto::password_md5(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
@@ -372,16 +378,18 @@ impl<'a> Message<'a> {
     ///
     /// assert!(result);
     /// ```
-    pub fn integrity(&self, digest: &[u8; 16]) -> Result<(), Error> {
+    pub fn checksum(&self, password: &Password) -> Result<(), Error> {
         if self.bytes.is_empty() || self.size < 20 {
             return Err(Error::InvalidInput);
         }
 
         // unwrap MessageIntegrity attribute,
         // an error occurs if not found.
-        let integrity = self
-            .get::<MessageIntegrity>()
-            .ok_or(Error::NotFoundIntegrity)?;
+        let integrity = match password {
+            Password::Md5(_) => self.get::<MessageIntegrity>(),
+            Password::Sha256(_) => self.get::<MessageIntegritySha256>(),
+        }
+        .ok_or(Error::NotFoundIntegrity)?;
 
         // create multiple submit.
         let size_buf = (self.size + 4).to_be_bytes();
@@ -392,12 +400,11 @@ impl<'a> Message<'a> {
         ];
 
         // digest the message buffer.
-        let hmac_output = hmac_sha1(digest, &body)?;
-        let hmac_buf = hmac_output.as_slice();
-
-        // Compare local and original attribute.
-        if integrity != hmac_buf {
-            return Err(Error::IntegrityFailed);
+        {
+            // Compare local and original attribute.
+            if integrity != hmac_sha1(password, &body).as_slice() {
+                return Err(Error::IntegrityFailed);
+            }
         }
 
         Ok(())

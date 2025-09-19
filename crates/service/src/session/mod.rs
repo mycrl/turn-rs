@@ -1,7 +1,9 @@
 pub mod ports;
 
-use self::ports::{PortAllocator, PortRange};
-use super::ServiceHandler;
+use crate::{
+    ServiceHandler,
+    session::ports::{PortAllocator, PortRange},
+};
 
 use std::{
     hash::Hash,
@@ -16,6 +18,7 @@ use std::{
 };
 
 use ahash::{HashMap, HashMapExt};
+use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use rand::Rng;
 
@@ -133,7 +136,7 @@ pub enum Session {
         /// Digest data is data that summarises usernames and passwords by means of
         /// long-term authentication.
         username: String,
-        password: [u8; 16],
+        password: Password,
         /// Assignment information for the session.
         ///
         /// SessionManager are all bound to only one port and one channel.
@@ -422,7 +425,12 @@ where
     /// // The third call should return cached digest
     /// assert_eq!(sessions.get_password(&addr, "test"), Some(digest));
     /// ```
-    pub async fn get_password(&self, addr: &Identifier, username: &str) -> Option<[u8; 16]> {
+    pub async fn get_password(
+        &self,
+        addr: &Identifier,
+        username: &str,
+        algorithm: PasswordAlgorithm,
+    ) -> Option<Password> {
         // Already authenticated, get the cached digest directly.
         {
             if let Some(Session::Authenticated { password, .. }) = self.sessions.read().get(addr) {
@@ -432,7 +440,7 @@ where
 
         // Get the current user's password from an external handler and create a
         // digest.
-        let password = self.handler.get_password(username).await?;
+        let password = self.handler.get_password(username, algorithm).await?;
 
         // Record a new session.
         {

@@ -96,9 +96,16 @@ message TurnDestroyEvent {
     string username = 2;
 }
 
+enum PasswordAlgorithm {
+    UNSPECIFIED = 0;
+    MD5 = 1;
+    SHA256 = 2;
+}
+
 // get turn message integrity request
 message GetTurnPasswordRequest {
-    string username = 1;
+    PasswordAlgorithm algorithm = 1;
+    string username = 2;
 }
 
 // get turn message integrity response
