@@ -180,7 +180,6 @@ where
     }
 }
 
-#[rustfmt::skip]
 fn reject<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>, error: ErrorType) -> Option<Outbound<'a>>
 where
     T: ServiceHandler,
@@ -190,13 +189,20 @@ where
     {
         let mut message = MessageEncoder::extend(method, req.payload, req.bytes);
         message.append::<ErrorCode>(ErrorCode::from(error));
-        message.append::<Nonce>(req.state.manager.get_session_or_default(&req.id).get_ref()?.nonce());
-        message.append::<Realm>(&req.state.realm);
 
         if error == ErrorType::Unauthorized {
+            message.append::<Realm>(&req.state.realm);
+            message.append::<Nonce>(
+                req.state
+                    .manager
+                    .get_session_or_default(&req.id)
+                    .get_ref()?
+                    .nonce(),
+            );
+
             message.append::<PasswordAlgorithms>(vec![
-                PasswordAlgorithm::Md5, 
-                PasswordAlgorithm::Sha256
+                PasswordAlgorithm::Md5,
+                PasswordAlgorithm::Sha256,
             ]);
         }
 
