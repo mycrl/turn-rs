@@ -312,7 +312,12 @@ where
     ///
     /// // get_session always creates a new session if it doesn't exist
     /// {
-    ///     let lock = sessions.get_session(&addr);
+    ///     assert!(sessions.get_session(&addr).get_ref().is_none());
+    /// }
+    /// 
+    /// // get_session always creates a new session if it doesn't exist
+    /// {
+    ///     let lock = sessions.get_session_or_default(&addr);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
     ///         Session::New { .. } => {},
@@ -1031,7 +1036,7 @@ where
     ///
     /// // get_session always creates a new session if it doesn't exist
     /// {
-    ///     let lock = sessions.get_session(&addr);
+    ///     let lock = sessions.get_session_or_default(&addr);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
     ///         Session::New { .. } => {},
@@ -1047,6 +1052,7 @@ where
     ///         Session::Authenticated { expires, .. } => *expires,
     ///         _ => panic!("Expected authenticated session"),
     ///     };
+    /// 
     ///     assert!(expires == 600 || expires == 601 || expires == 602);
     /// }
     ///
@@ -1054,7 +1060,7 @@ where
     ///
     /// // After refresh with lifetime 0, session should be removed
     /// {
-    ///     assert!(sessions.get_session(&addr).get_ref().unwrap().is_new());
+    ///     assert!(sessions.get_session(&addr).get_ref().is_none());
     /// }
     /// ```
     pub fn refresh(&self, addr: &Identifier, lifetime: u32) -> bool {
