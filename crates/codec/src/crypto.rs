@@ -1,5 +1,5 @@
-use hmac::{Hmac, Mac, digest::CtOutput};
-use md5::{Digest, Md5};
+use aws_lc_rs::{digest, hmac};
+use md5::{Digest, Md5}; // aws-lc-rs不支持MD5，保留
 
 use crate::Error;
 
@@ -8,7 +8,7 @@ use crate::Error;
 /// # Test
 ///
 /// ```
-/// use turn_codec::hmac_sha1;
+/// use turn_server_codec::crypto::hmac_sha1;
 ///
 /// let buffer = [
 ///     0x00u8, 0x03, 0x00, 0x50, 0x21, 0x12, 0xa4, 0x42, 0x64, 0x4f, 0x5a,
@@ -31,22 +31,22 @@ use crate::Error;
 /// ];
 ///
 /// let hmac_output = hmac_sha1(&key, &[&buffer])
-///     .unwrap()
-///     .into_bytes();
+///     .unwrap();
 ///
-/// assert_eq!(hmac_output.as_slice(), &sign);
+/// assert_eq!(&hmac_output, &sign);
 /// ```
-pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<CtOutput<Hmac<sha1::Sha1>>, Error> {
-    match Hmac::<sha1::Sha1>::new_from_slice(key) {
-        Err(_) => Err(Error::SummaryFailed),
-        Ok(mut mac) => {
-            for buf in source {
-                mac.update(buf);
-            }
+pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<[u8; 20], Error> {
+    let key = hmac::Key::new(hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY, key);
+    let mut ctx = hmac::Context::with_key(&key);
 
-            Ok(mac.finalize())
-        }
+    for buf in source {
+        ctx.update(buf);
     }
+
+    let signature = ctx.sign();
+    let mut result = [0u8; 20];
+    result.copy_from_slice(signature.as_ref());
+    Ok(result)
 }
 
 /// CRC32 Fingerprint.
@@ -54,7 +54,7 @@ pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> Result<CtOutput<Hmac<sha1::Sha
 /// # Test
 ///
 /// ```
-/// use turn_codec::fingerprint;
+/// use turn_server_codec::crypto::fingerprint;
 ///
 /// assert_eq!(fingerprint(b"1"), 3498621689);
 /// ```
@@ -62,14 +62,14 @@ pub fn fingerprint(bytes: &[u8]) -> u32 {
     crc32fast::hash(bytes) ^ 0x5354_554e
 }
 
-/// create long term credential.
+/// create long term credential for md5.
 ///
 /// > key = MD5(username ":" OpaqueString(realm) ":" OpaqueString(password))
 ///
 /// # Test
 ///
 /// ```
-/// use turn_codec::password_md5;
+/// use turn_server_codec::crypto::password_md5;
 ///
 /// let buffer = [
 ///     0x3eu8, 0x2f, 0x79, 0x1e, 0x1f, 0x14, 0xd1, 0x73, 0xfc, 0x91, 0xff,
@@ -88,4 +88,32 @@ pub fn password_md5(username: &str, password: &str, realm: &str) -> [u8; 16] {
     let mut hasher = Md5::new();
     hasher.update([username, realm, password].join(":"));
     hasher.finalize().into()
+}
+
+/// create long term credential for sha256.
+///
+/// > key = SHA256(username ":" OpaqueString(realm) ":" OpaqueString(password))
+///
+/// # Test
+///
+/// ```
+/// use turn_server_codec::crypto::password_sha256;
+///
+/// let key = password_sha256(
+///     "panda",
+///     "panda",
+///     "raspberry",
+/// );
+///
+/// // SHA256 produces 32 bytes
+/// assert_eq!(key.len(), 32);
+/// ```
+pub fn password_sha256(username: &str, password: &str, realm: &str) -> [u8; 32] {
+    let mut ctx = digest::Context::new(&digest::SHA256);
+    let input = [username, realm, password].join(":");
+    ctx.update(input.as_bytes());
+    let digest = ctx.finish();
+    let mut result = [0u8; 32];
+    result.copy_from_slice(digest.as_ref());
+    result
 }
