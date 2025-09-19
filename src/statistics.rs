@@ -106,13 +106,11 @@ impl Statistics {
     /// # Example
     ///
     /// ```
-    /// use std::net::SocketAddr;
     /// use turn_server::statistics::*;
-    /// use codec::message::attributes::Transport;
     /// use service::session::Identifier;
     ///
     /// let statistics = Statistics::default();
-    /// let sender = statistics.get_reporter(Transport::UDP);
+    /// let sender = statistics.get_reporter();
     ///
     /// let addr = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
@@ -132,7 +130,6 @@ impl Statistics {
     /// # Example
     ///
     /// ```
-    /// use std::net::SocketAddr;
     /// use turn_server::statistics::*;
     /// use service::session::Identifier;
     ///
@@ -164,7 +161,6 @@ impl Statistics {
     /// # Example
     ///
     /// ```
-    /// use std::net::SocketAddr;
     /// use turn_server::statistics::*;
     /// use service::session::Identifier;
     ///
@@ -192,7 +188,6 @@ impl Statistics {
     /// # Example
     ///
     /// ```
-    /// use std::net::SocketAddr;
     /// use turn_server::statistics::*;
     /// use service::session::Identifier;
     ///

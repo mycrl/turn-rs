@@ -19,6 +19,14 @@ impl PortRange {
     pub fn contains(&self, port: u16) -> bool {
         port >= self.start && port <= self.end
     }
+
+    pub fn start(&self) -> u16 {
+        self.start
+    }
+
+    pub fn end(&self) -> u16 {
+        self.end
+    }
 }
 
 impl Default for PortRange {
@@ -139,7 +147,7 @@ pub enum Bit {
 ///
 /// ```
 /// use std::collections::HashSet;
-/// use turn_service::session::ports::*;
+/// use turn_server_service::session::ports::*;
 ///
 /// let mut pool = PortAllocator::default();
 /// let mut ports = HashSet::with_capacity(PortAllocator::default().capacity());
@@ -183,7 +191,7 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::ports::*;
+    /// use turn_server_service::session::ports::*;
     ///
     /// assert_eq!(PortAllocator::default().capacity(), 65535 - 49152);
     /// ```
@@ -196,17 +204,17 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::ports::*;
+    /// use turn_server_service::session::ports::*;
     ///
     /// let pool = PortAllocator::default();
     ///
-    /// assert_eq!(pool.port_range().start, 49152);
-    /// assert_eq!(pool.port_range().end, 65535);
+    /// assert_eq!(pool.port_range().start(), 49152);
+    /// assert_eq!(pool.port_range().end(), 65535);
     ///
-    /// let pool = PortAllocator::new(50000..60000);
+    /// let pool = PortAllocator::new((50000..60000).into());
     ///
-    /// assert_eq!(pool.port_range().start, 50000);
-    /// assert_eq!(pool.port_range().end, 60000);
+    /// assert_eq!(pool.port_range().start(), 50000);
+    /// assert_eq!(pool.port_range().end(), 60000);
     /// ```
     pub fn port_range(&self) -> &PortRange {
         &self.port_range
@@ -215,7 +223,7 @@ impl PortAllocator {
     /// get pools allocated size.
     ///
     /// ```
-    /// use turn_service::session::ports::*;
+    /// use turn_server_service::session::ports::*;
     ///
     /// let mut pools = PortAllocator::default();
     /// assert_eq!(pools.len(), 0);
@@ -230,7 +238,7 @@ impl PortAllocator {
     /// get pools allocated size is empty.
     ///
     /// ```
-    /// use turn_service::session::ports::*;
+    /// use turn_server_service::session::ports::*;
     ///
     /// let mut pools = PortAllocator::default();
     /// assert_eq!(pools.len(), 0);
@@ -245,7 +253,7 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::ports::*;
+    /// use turn_server_service::session::ports::*;
     ///
     /// let mut pool = PortAllocator::default();
     ///
@@ -319,7 +327,7 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::ports::*;
+    /// use turn_server_service::session::ports::*;
     ///
     /// let mut pool = PortAllocator::default();
     ///
@@ -351,7 +359,7 @@ impl PortAllocator {
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::ports::*;
+    /// use turn_server_service::session::ports::*;
     ///
     /// let mut pool = PortAllocator::default();
     ///

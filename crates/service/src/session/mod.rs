@@ -97,7 +97,7 @@ where
 /// and manually.
 ///
 /// ```
-/// use turn_service::session::Timer;
+/// use turn_server_service::session::Timer;
 ///
 /// let timer = Timer::default();
 ///
@@ -276,16 +276,19 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::*;
-    /// use turn_service::*;
+    /// use turn_server_service::session::*;
+    /// use turn_server_service::*;
+    /// use codec::message::attributes::PasswordAlgorithm;
+    /// use codec::crypto::Password;
+    /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::long_term_credential_digest(username, "test", "test"))
+    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -297,13 +300,13 @@ where
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let digest = [
+    /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
     ///     239,
-    /// ];
+    /// ]);
     ///
     /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: 49152..65535,
+    ///     port_range: (49152..65535).into(),
     ///     handler: ServiceHandlerTest,
     /// });
     ///
@@ -317,7 +320,7 @@ where
     ///     }
     /// }
     ///
-    /// sessions.get_password(&addr, "test");
+    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// {
     ///     let lock = sessions.get_session(&addr);
@@ -379,16 +382,19 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::*;
-    /// use turn_service::*;
+    /// use turn_server_service::session::*;
+    /// use turn_server_service::*;
+    /// use codec::message::attributes::PasswordAlgorithm;
+    /// use codec::crypto::Password;
+    /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::long_term_credential_digest(username, "test", "test"))
+    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -400,13 +406,13 @@ where
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let digest = [
+    /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
     ///     239,
-    /// ];
+    /// ]);
     ///
     /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: 49152..65535,
+    ///     port_range: (49152..65535).into(),
     ///     handler: ServiceHandlerTest,
     /// });
     ///
@@ -414,16 +420,16 @@ where
     /// {
     ///     sessions.get_session(&addr);
     /// }
-    /// assert_eq!(sessions.get_password(&addr, "test1"), None);
+    /// assert_eq!(pollster::block_on(sessions.get_password(&addr, "test1", PasswordAlgorithm::Md5)), None);
     ///
     /// // Create a new session for the next test
     /// {
     ///     sessions.get_session(&addr);
     /// }
-    /// assert_eq!(sessions.get_password(&addr, "test"), Some(digest));
+    /// assert_eq!(sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on(), Some(digest));
     ///
     /// // The third call should return cached digest
-    /// assert_eq!(sessions.get_password(&addr, "test"), Some(digest));
+    /// assert_eq!(sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on(), Some(digest));
     /// ```
     pub async fn get_password(
         &self,
@@ -477,16 +483,19 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::*;
-    /// use turn_service::*;
+    /// use turn_server_service::session::*;
+    /// use turn_server_service::*;
+    /// use codec::message::attributes::PasswordAlgorithm;
+    /// use codec::crypto::Password;
+    /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::long_term_credential_digest(username, "test", "test"))
+    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -498,17 +507,17 @@ where
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let digest = [
+    /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
     ///     239,
-    /// ];
+    /// ]);
     ///
     /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: 49152..65535,
+    ///     port_range: (49152..65535).into(),
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test");
+    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// {
     ///     let lock = sessions.get_session(&addr);
@@ -571,16 +580,19 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::*;
-    /// use turn_service::*;
+    /// use turn_server_service::session::*;
+    /// use turn_server_service::*;
+    /// use codec::message::attributes::PasswordAlgorithm;
+    /// use codec::crypto::Password;
+    /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::long_term_credential_digest(username, "test", "test"))
+    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -598,18 +610,18 @@ where
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let digest = [
+    /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
     ///     239,
-    /// ];
+    /// ]);
     ///
     /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: 49152..65535,
+    ///     port_range: (49152..65535).into(),
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test");
-    /// sessions.get_password(&peer_addr, "test");
+    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// let port = sessions.allocate(&addr).unwrap();
     /// let peer_port = sessions.allocate(&peer_addr).unwrap();
@@ -689,16 +701,19 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::*;
-    /// use turn_service::*;
+    /// use turn_server_service::session::*;
+    /// use turn_server_service::*;
+    /// use codec::message::attributes::PasswordAlgorithm;
+    /// use codec::crypto::Password;
+    /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::long_term_credential_digest(username, "test", "test"))
+    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -716,18 +731,18 @@ where
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let digest = [
+    /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
     ///     239,
-    /// ];
+    /// ]);
     ///
     /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: 49152..65535,
+    ///     port_range: (49152..65535).into(),
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test");
-    /// sessions.get_password(&peer_addr, "test");
+    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// let port = sessions.allocate(&addr).unwrap();
     /// let peer_port = sessions.allocate(&peer_addr).unwrap();
@@ -829,16 +844,19 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::*;
-    /// use turn_service::*;
+    /// use turn_server_service::session::*;
+    /// use turn_server_service::*;
+    /// use codec::message::attributes::PasswordAlgorithm;
+    /// use codec::crypto::Password;
+    /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::long_term_credential_digest(username, "test", "test"))
+    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -856,18 +874,18 @@ where
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let digest = [
+    /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
     ///     239,
-    /// ];
+    /// ]);
     ///
     /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: 49152..65535,
+    ///     port_range: (49152..65535).into(),
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test");
-    /// sessions.get_password(&peer_addr, "test");
+    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// let port = sessions.allocate(&addr).unwrap();
     /// let peer_port = sessions.allocate(&peer_addr).unwrap();
@@ -903,16 +921,19 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::*;
-    /// use turn_service::*;
+    /// use turn_server_service::session::*;
+    /// use turn_server_service::*;
+    /// use codec::message::attributes::PasswordAlgorithm;
+    /// use codec::crypto::Password;
+    /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::long_term_credential_digest(username, "test", "test"))
+    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -930,18 +951,18 @@ where
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let digest = [
+    /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
     ///     239,
-    /// ];
+    /// ]);
     ///
     /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: 49152..65535,
+    ///     port_range: (49152..65535).into(),
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test");
-    /// sessions.get_password(&peer_addr, "test");
+    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// let port = sessions.allocate(&addr).unwrap();
     /// let peer_port = sessions.allocate(&peer_addr).unwrap();
@@ -974,16 +995,19 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_service::session::*;
-    /// use turn_service::*;
+    /// use turn_server_service::session::*;
+    /// use turn_server_service::*;
+    /// use codec::message::attributes::PasswordAlgorithm;
+    /// use codec::crypto::Password;
+    /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     fn get_password(&self, username: &str) -> Option<[u8; 16]> {
+    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::long_term_credential_digest(username, "test", "test"))
+    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -995,13 +1019,13 @@ where
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let digest = [
+    /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
     ///     239,
-    /// ];
+    /// ]);
     ///
     /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: 49152..65535,
+    ///     port_range: (49152..65535).into(),
     ///     handler: ServiceHandlerTest,
     /// });
     ///
@@ -1015,7 +1039,7 @@ where
     ///     }
     /// }
     ///
-    /// sessions.get_password(&addr, "test");
+    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// {
     ///     let lock = sessions.get_session(&addr);

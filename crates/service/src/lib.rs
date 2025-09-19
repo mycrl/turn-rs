@@ -16,6 +16,7 @@ pub trait ServiceHandler: Send + Sync + 'static {
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> impl Future<Output = Option<Password>> + Send;
+
     /// allocate request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)

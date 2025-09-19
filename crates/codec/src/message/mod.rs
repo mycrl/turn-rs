@@ -154,10 +154,11 @@ impl<'a, 'b> MessageEncoder<'a> {
     ///     MessageEncoder::extend(Method::Binding(MethodType::Request), &old, &mut buf);
     ///
     /// message
-    ///     .flush(Some(&turn_server_codec::crypto::password_md5(
+    ///     .flush(Some(&turn_server_codec::crypto::generate_password(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
+    ///         turn_server_codec::message::attributes::PasswordAlgorithm::Md5,
     ///     )))
     ///     .unwrap();
     ///
@@ -208,10 +209,11 @@ impl<'a, 'b> MessageEncoder<'a> {
     ///     MessageEncoder::extend(Method::Binding(MethodType::Request), &old, &mut buf);
     ///
     /// message
-    ///     .flush(Some(&turn_server_codec::crypto::password_md5(
+    ///     .flush(Some(&turn_server_codec::crypto::generate_password(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
+    ///         turn_server_codec::message::attributes::PasswordAlgorithm::Md5,
     ///     )))
     ///     .unwrap();
     ///
@@ -369,10 +371,11 @@ impl<'a> Message<'a> {
     /// let mut attributes = Attributes::default();
     /// let message = Message::decode(&buffer[..], &mut attributes).unwrap();
     /// let result = message
-    ///     .checksum(&turn_server_codec::crypto::password_md5(
+    ///     .checksum(&turn_server_codec::crypto::generate_password(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
+    ///         turn_server_codec::message::attributes::PasswordAlgorithm::Md5,
     ///     ))
     ///     .is_ok();
     ///

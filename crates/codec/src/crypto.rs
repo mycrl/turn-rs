@@ -87,20 +87,29 @@ pub fn fingerprint(bytes: &[u8]) -> u32 {
 /// # Test
 ///
 /// ```
-/// use turn_server_codec::crypto::password_md5;
+/// use turn_server_codec::crypto::{generate_password, Password};
+/// use turn_server_codec::message::attributes::PasswordAlgorithm;
 ///
 /// let buffer = [
 ///     0x3eu8, 0x2f, 0x79, 0x1e, 0x1f, 0x14, 0xd1, 0x73, 0xfc, 0x91, 0xff,
 ///     0x2f, 0x59, 0xb5, 0x0f, 0xd1,
 /// ];
 ///
-/// let key = password_md5(
+/// let password = generate_password(
 ///     "panda",
 ///     "panda",
 ///     "raspberry",
+///     PasswordAlgorithm::Md5,
 /// );
 ///
-/// assert_eq!(key, buffer);
+/// match password {
+///     Password::Md5(it) => {
+///         assert_eq!(it, buffer);
+///     }
+///     Password::Sha256(it) => {
+///         unreachable!();
+///     }
+/// }
 /// ```
 pub fn generate_password(
     username: &str,

@@ -11,5 +11,8 @@ rand = "0.9"
 codec = { workspace = true }
 serde = { version = "1", optional = true }
 
+[dev-dependencies]
+pollster = "0.4.0"
+
 [features]
 serde = ["dep:serde"]
