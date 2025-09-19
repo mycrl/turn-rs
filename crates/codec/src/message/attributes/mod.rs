@@ -1,323 +1,18 @@
-use std::{
-    fmt::Debug,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
-};
+pub mod address;
+pub mod error;
 
-use bytes::{Buf, BufMut, BytesMut};
+use std::{fmt::Debug, net::SocketAddr};
+
+use bytes::{Buf, BufMut};
 use num_enum::TryFromPrimitive;
 
-use crate::Error;
-
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
-pub enum IpFamily {
-    V4 = 0x01,
-    V6 = 0x02,
-}
-
-/// [RFC3489]: https://datatracker.ietf.org/doc/html/rfc3489
-///
-/// The Address attribute indicates a reflexive transport address
-/// of the client.  It consists of an 8-bit address family and a 16-bit
-/// port, followed by a fixed-length value representing the IP address.
-/// If the address family is IPv4, the address MUST be 32 bits.  If the
-/// address family is IPv6, the address MUST be 128 bits.  All fields
-/// must be in network byte order.
-///
-/// The format of the MAPPED-ADDRESS attribute is:
-///
-/// ```text
-/// 0                   1                   2                   3
-/// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// |0 0 0 0 0 0 0 0|    Family     |           Port                |
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// |                                                               |
-/// |                 Address (32 bits or 128 bits)                 |
-/// |                                                               |
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// ```
-///
-/// Figure 5: Format of MAPPED-ADDRESS Attribute
-///
-/// The address family can take on the following values:
-///
-/// * 0x01:IPv4
-/// * 0x02:IPv6
-///
-/// The first 8 bits of the MAPPED-ADDRESS MUST be set to 0 and MUST be
-/// ignored by receivers.  These bits are present for aligning parameters
-/// on natural 32-bit boundaries.
-///
-/// This attribute is used only by servers for achieving backwards
-/// compatibility with [RFC3489] clients.
-///
-/// The XOR-MAPPED-ADDRESS attribute is identical to the MAPPED-ADDRESS
-/// attribute, except that the reflexive transport address is obfuscated
-/// through the XOR function.
-///
-/// The format of the XOR-MAPPED-ADDRESS is:
-///
-/// ```text
-/// 0                   1                   2                   3
-/// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// |0 0 0 0 0 0 0 0|    Family     |         X-Port                |
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// |                X-Address (Variable)
-/// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-///
-///          Figure 6: Format of XOR-MAPPED-ADDRESS Attribute
-/// ```
-///
-/// The Family field represents the IP address family and is encoded
-/// identically to the Family field in MAPPED-ADDRESS.
-///
-/// X-Port is computed by XOR'ing the mapped port with the most
-/// significant 16 bits of the magic cookie.  If the IP address family is
-/// IPv4, X-Address is computed by XOR'ing the mapped IP address with the
-/// magic cookie.  If the IP address family is IPv6, X-Address is
-/// computed by XOR'ing the mapped IP address with the concatenation of
-/// the magic cookie and the 96-bit transaction ID.  In all cases, the
-/// XOR operation works on its inputs in network byte order (that is, the
-/// order they will be encoded in the message).
-///
-/// The rules for encoding and processing the first 8 bits of the
-/// attribute's value, the rules for handling multiple occurrences of the
-/// attribute, and the rules for processing address families are the same
-/// as for MAPPED-ADDRESS.
-///
-/// Note: XOR-MAPPED-ADDRESS and MAPPED-ADDRESS differ only in their
-/// encoding of the transport address.  The former encodes the transport
-/// address by XOR'ing it with the magic cookie.  The latter encodes it
-/// directly in binary.  [RFC3489] originally specified only MAPPED-
-/// ADDRESS.  However, deployment experience found that some NATs rewrite
-/// the 32-bit binary payloads containing the NAT's public IP address,
-/// such as STUN's MAPPED-ADDRESS attribute, in the well-meaning but
-/// misguided attempt to provide a generic Application Layer Gateway
-/// (ALG) function.  Such behavior interferes with the operation of STUN
-/// and also causes failure of STUN's message-integrity checking.
-#[derive(Debug, Clone, Copy)]
-pub struct XAddress;
-
-impl XAddress {
-    /// encoder SocketAddr as Bytes.
-    ///
-    /// # Test
-    ///
-    /// ```
-    /// use bytes::BytesMut;
-    /// use turn_codec::message::attributes::XAddress;
-    ///
-    /// let xor_addr_bytes: [u8; 8] =
-    ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
-    ///
-    /// let addr_bytes: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
-    ///
-    /// let token: [u8; 12] = [
-    ///     0x6c, 0x46, 0x62, 0x54, 0x75, 0x4b, 0x44, 0x51, 0x46, 0x48, 0x4c, 0x71,
-    /// ];
-    ///
-    /// let source = "192.168.0.107:56748".parse().unwrap();
-    ///
-    /// let mut buffer = BytesMut::with_capacity(1280);
-    /// XAddress::encode(&source, &token, &mut buffer, true);
-    /// assert_eq!(&xor_addr_bytes, &buffer[..]);
-    ///
-    /// let mut buffer = BytesMut::with_capacity(1280);
-    /// XAddress::encode(&source, &token, &mut buffer, false);
-    /// assert_eq!(&addr_bytes, &buffer[..]);
-    /// ```
-    pub fn serialize(addr: &SocketAddr, token: &[u8], bytes: &mut BytesMut, is_xor: bool) {
-        bytes.put_u8(0);
-        let xor_addr = if is_xor { xor(addr, token) } else { *addr };
-
-        bytes.put_u8(if xor_addr.is_ipv4() {
-            IpFamily::V4
-        } else {
-            IpFamily::V6
-        } as u8);
-
-        bytes.put_u16(xor_addr.port());
-        if let IpAddr::V4(ip) = xor_addr.ip() {
-            bytes.put(&ip.octets()[..]);
-        }
-
-        if let IpAddr::V6(ip) = xor_addr.ip() {
-            bytes.put(&ip.octets()[..]);
-        }
-    }
-
-    /// decoder Bytes as SocketAddr.
-    ///
-    /// # Test
-    ///
-    /// ```
-    /// use turn_codec::message::attributes::XAddress;
-    ///
-    /// let xor_addr_bytes: [u8; 8] =
-    ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
-    ///
-    /// let addr_bytes: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
-    ///
-    /// let token: [u8; 12] = [
-    ///     0x6c, 0x46, 0x62, 0x54, 0x75, 0x4b, 0x44, 0x51, 0x46, 0x48, 0x4c, 0x71,
-    /// ];
-    ///
-    /// let source = "192.168.0.107:56748".parse().unwrap();
-    ///
-    /// let addr = XAddress::decode(&xor_addr_bytes, &token, true).unwrap();
-    /// assert_eq!(addr, source);
-    ///
-    /// let addr = XAddress::decode(&addr_bytes, &token, false).unwrap();
-    /// assert_eq!(addr, source);
-    /// ```
-    pub fn deserialize(packet: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr, Error> {
-        if packet.len() < 4 {
-            return Err(Error::InvalidInput);
-        }
-
-        let port = u16::from_be_bytes([packet[2], packet[3]]);
-        let ip_addr = match IpFamily::try_from(packet[1]).map_err(|_| Error::InvalidInput)? {
-            IpFamily::V4 => from_bytes_v4(packet)?,
-            IpFamily::V6 => from_bytes_v6(packet)?,
-        };
-
-        let dyn_addr = SocketAddr::new(ip_addr, port);
-        Ok(if is_xor {
-            xor(&dyn_addr, token)
-        } else {
-            dyn_addr
-        })
-    }
-}
-
-/// # Test
-///
-/// ```
-/// use std::net::IpAddr;
-/// use turn_codec::message::attributes::from_bytes_v4;
-///
-/// let bytes: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
-///
-/// let source: IpAddr = "192.168.0.107".parse().unwrap();
-///
-/// let addr = from_bytes_v4(&bytes).unwrap();
-/// assert_eq!(addr, source);
-/// ```
-pub fn from_bytes_v4(packet: &[u8]) -> Result<IpAddr, Error> {
-    if packet.len() != 8 {
-        return Err(Error::InvalidInput);
-    }
-
-    let bytes: [u8; 4] = packet[4..8].try_into()?;
-    Ok(IpAddr::V4(bytes.into()))
-}
-
-/// # Test
-///
-/// ```
-/// use std::net::IpAddr;
-/// use turn_codec::message::attributes::from_bytes_v6;
-///
-/// let bytes: [u8; 20] = [
-///     0x00, 0x01, 0xdd, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-///     0x00, 0x00, 0xFF, 0xFF, 0xC0, 0x0A, 0x2F, 0x0F,
-/// ];
-///
-/// let source: IpAddr = "::ffff:192.10.47.15".parse().unwrap();
-///
-/// let addr = from_bytes_v6(&bytes).unwrap();
-/// assert_eq!(addr, source);
-/// ```
-pub fn from_bytes_v6(packet: &[u8]) -> Result<IpAddr, Error> {
-    if packet.len() != 20 {
-        return Err(Error::InvalidInput);
-    }
-
-    let bytes: [u8; 16] = packet[4..20].try_into()?;
-    Ok(IpAddr::V6(bytes.into()))
-}
-
-/// # Test
-///
-/// ```
-/// use std::net::SocketAddr;
-/// use turn_codec::message::attributes::xor;
-///
-/// let source: SocketAddr = "192.168.0.107:1".parse().unwrap();
-///
-/// let res: SocketAddr = "225.186.164.41:8467".parse().unwrap();
-///
-/// let token: [u8; 12] = [
-///     0x6c, 0x46, 0x62, 0x54, 0x75, 0x4b, 0x44, 0x51, 0x46, 0x48, 0x4c, 0x71,
-/// ];
-///
-/// let addr = xor(&source, &token);
-/// assert_eq!(addr, res);
-/// ```
-pub fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
-    let port = addr.port() ^ (0x2112A442 >> 16) as u16;
-    let ip_addr = match addr.ip() {
-        IpAddr::V4(x) => xor_v4(x),
-        IpAddr::V6(x) => xor_v6(x, token),
-    };
-
-    SocketAddr::new(ip_addr, port)
-}
-
-/// # Test
-///
-/// ```
-/// use std::net::{IpAddr, Ipv4Addr};
-/// use turn_codec::message::attributes::xor_v4;
-///
-/// let source: Ipv4Addr = "192.168.0.107".parse().unwrap();
-///
-/// let xor: IpAddr = "225.186.164.41".parse().unwrap();
-///
-/// let addr = xor_v4(source);
-/// assert_eq!(addr, xor);
-/// ```
-pub fn xor_v4(addr: Ipv4Addr) -> IpAddr {
-    let mut octets = addr.octets();
-    for (i, b) in octets.iter_mut().enumerate() {
-        *b ^= (0x2112A442 >> (24 - i * 8)) as u8;
-    }
-
-    IpAddr::V4(From::from(octets))
-}
-
-/// # Test
-///
-/// ```
-/// use std::net::{IpAddr, Ipv6Addr};
-/// use turn_codec::message::attributes::xor_v6;
-///
-/// let source: Ipv6Addr = "::ffff:192.10.47.15".parse().unwrap();
-///
-/// let xor: IpAddr =
-///     "2112:a442:6c46:6254:754b:bbae:8642:637e".parse().unwrap();
-///
-/// let token: [u8; 12] = [
-///     0x6c, 0x46, 0x62, 0x54, 0x75, 0x4b, 0x44, 0x51, 0x46, 0x48, 0x4c, 0x71,
-/// ];
-///
-/// let addr = xor_v6(source, &token);
-/// assert_eq!(addr, xor);
-/// ```
-pub fn xor_v6(addr: Ipv6Addr, token: &[u8]) -> IpAddr {
-    let mut octets = addr.octets();
-    for (i, b) in octets.iter_mut().enumerate().take(4) {
-        *b ^= (0x2112A442 >> (24 - i * 8)) as u8;
-    }
-
-    for (i, b) in octets.iter_mut().enumerate().take(16).skip(4) {
-        *b ^= token[i - 4];
-    }
-
-    IpAddr::V6(From::from(octets))
-}
+use crate::{
+    Error,
+    message::attributes::{
+        address::{IpFamily, XAddress},
+        error::ErrorType,
+    },
+};
 
 /// STUN Attributes Registry
 ///
@@ -449,7 +144,7 @@ pub trait Attribute<'a> {
 
     /// write the current attribute to the bytesfer.
     #[allow(unused_variables)]
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {}
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {}
 
     /// convert bytesfer to current attribute.
     fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error>;
@@ -478,7 +173,7 @@ impl<'a> Attribute<'a> for UserName {
 
     const TYPE: AttributeType = AttributeType::UserName;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put(value.as_bytes());
     }
 
@@ -506,7 +201,7 @@ impl<'a> Attribute<'a> for UserHash {
 
     const TYPE: AttributeType = AttributeType::UserHash;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put(value);
     }
 
@@ -530,7 +225,7 @@ impl<'a> Attribute<'a> for Data {
 
     const TYPE: AttributeType = AttributeType::Data;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put(value);
     }
 
@@ -566,7 +261,7 @@ impl<'a> Attribute<'a> for Realm {
 
     const TYPE: AttributeType = AttributeType::Realm;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put(value.as_bytes());
     }
 
@@ -595,7 +290,7 @@ impl<'a> Attribute<'a> for Nonce {
 
     const TYPE: AttributeType = AttributeType::Nonce;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put(value);
     }
 
@@ -624,7 +319,7 @@ impl<'a> Attribute<'a> for Software {
 
     const TYPE: AttributeType = AttributeType::Software;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put(value.as_bytes());
     }
 
@@ -673,7 +368,7 @@ impl<'a> Attribute<'a> for MessageIntegrity {
 
     const TYPE: AttributeType = AttributeType::MessageIntegrity;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put(value);
     }
 
@@ -725,7 +420,7 @@ impl<'a> Attribute<'a> for MessageIntegritySha256 {
 
     const TYPE: AttributeType = AttributeType::MessageIntegritySha256;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put(value);
     }
 
@@ -770,7 +465,7 @@ impl<'a> Attribute<'a> for PasswordAlgorithm {
 
     const TYPE: AttributeType = AttributeType::PasswordAlgorithm;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u16(value as u16);
         bytes.put_u16(0);
     }
@@ -805,7 +500,7 @@ impl<'a> Attribute<'a> for XorPeerAddress {
 
     const TYPE: AttributeType = AttributeType::XorPeerAddress;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
         XAddress::serialize(&value, token, bytes, true)
     }
 
@@ -829,7 +524,7 @@ impl<'a> Attribute<'a> for XorRelayedAddress {
 
     const TYPE: AttributeType = AttributeType::XorRelayedAddress;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
         XAddress::serialize(&value, token, bytes, true)
     }
 
@@ -880,7 +575,7 @@ impl<'a> Attribute<'a> for XorMappedAddress {
 
     const TYPE: AttributeType = AttributeType::XorMappedAddress;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
         XAddress::serialize(&value, token, bytes, true)
     }
 
@@ -918,7 +613,7 @@ impl<'a> Attribute<'a> for MappedAddress {
 
     const TYPE: AttributeType = AttributeType::MappedAddress;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
         XAddress::serialize(&value, token, bytes, false)
     }
 
@@ -940,106 +635,12 @@ impl<'a> Attribute<'a> for ResponseOrigin {
 
     const TYPE: AttributeType = AttributeType::ResponseOrigin;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, token: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
         XAddress::serialize(&value, token, bytes, false)
     }
 
     fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
         XAddress::deserialize(bytes, token, false)
-    }
-}
-
-/// The following error codes, along with their recommended reason
-/// phrases, are defined:
-///
-/// 300  Try Alternate: The client should contact an alternate server for
-///      this request.  This error response MUST only be sent if the
-///      request included either a USERNAME or USERHASH attribute and a
-///      valid MESSAGE-INTEGRITY or MESSAGE-INTEGRITY-SHA256 attribute;
-///      otherwise, it MUST NOT be sent and error code 400 (Bad Request)
-///      is suggested.  This error response MUST be protected with the
-///      MESSAGE-INTEGRITY or MESSAGE-INTEGRITY-SHA256 attribute, and
-///      receivers MUST validate the MESSAGE-INTEGRITY or MESSAGE-
-///      INTEGRITY-SHA256 of this response before redirecting themselves
-///      to an alternate server.
-///      Note: Failure to generate and validate message integrity for a
-///      300 response allows an on-path attacker to falsify a 300
-///      response thus causing subsequent STUN messages to be sent to a
-///      victim.
-///      
-/// 400  Bad Request: The request was malformed.  The client SHOULD NOT
-///      retry the request without modification from the previous
-///      attempt.  The server may not be able to generate a valid
-///      MESSAGE-INTEGRITY or MESSAGE-INTEGRITY-SHA256 for this error, so
-///      the client MUST NOT expect a valid MESSAGE-INTEGRITY or MESSAGE-
-///      INTEGRITY-SHA256 attribute on this response.
-///      
-/// 401  Unauthenticated: The request did not contain the correct
-///      credentials to proceed.  The client should retry the request
-///      with proper credentials.
-///      
-/// 420  Unknown Attribute: The server received a STUN packet containing
-///      a comprehension-required attribute that it did not understand.
-///      The server MUST put this unknown attribute in the UNKNOWN-
-///      ATTRIBUTE attribute of its error response.
-///      
-/// 438  Stale Nonce: The NONCE used by the client was no longer valid.
-///      The client should retry, using the NONCE provided in the
-///      response.
-///      
-/// 500  Server Error: The server has suffered a temporary error.  The
-///      client should try again.
-const fn errno(code: u16) -> u16 {
-    ((code / 100) << 8) | (code % 100)
-}
-
-#[repr(u16)]
-#[derive(PartialEq, Eq, Copy, Clone, Debug, Hash, TryFromPrimitive)]
-pub enum ErrorType {
-    TryAlternate = errno(300),
-    BadRequest = errno(400),
-    Unauthorized = errno(401),
-    Forbidden = errno(403),
-    UnknownAttribute = errno(420),
-    AllocationMismatch = errno(437),
-    StaleNonce = errno(438),
-    AddressFamilyNotSupported = errno(440),
-    WrongCredentials = errno(441),
-    UnsupportedTransportAddress = errno(442),
-    PeerAddressFamilyMismatch = errno(443),
-    AllocationQuotaReached = errno(486),
-    ServerError = errno(500),
-    InsufficientCapacity = errno(508),
-}
-
-impl From<ErrorType> for &'static str {
-    /// # Test
-    ///
-    /// ```
-    /// use std::convert::Into;
-    /// use turn_codec::message::attributes::ErrorType;
-    ///
-    /// let err: &'static str = ErrorType::TryAlternate.into();
-    /// assert_eq!(err, "Try Alternate");
-    /// ```
-    #[rustfmt::skip]
-    fn from(val: ErrorType) -> Self {
-        match val {
-            ErrorType::TryAlternate => "Try Alternate",
-            ErrorType::BadRequest => "Bad Request",
-            ErrorType::Unauthorized => "Unauthorized",
-            ErrorType::Forbidden => "Forbidden",
-            ErrorType::UnknownAttribute => "Unknown Attribute",
-            ErrorType::AllocationMismatch => "Allocation Mismatch",
-            ErrorType::StaleNonce => "Stale Nonce",
-            ErrorType::AddressFamilyNotSupported => "Address Family not Supported",
-            ErrorType::WrongCredentials => "Wrong Credentials",
-            ErrorType::UnsupportedTransportAddress => "Unsupported Transport Address",
-            ErrorType::AllocationQuotaReached => "Allocation Quota Reached",
-            ErrorType::ServerError => "Server Error",
-            ErrorType::InsufficientCapacity => "Insufficient Capacity",
-            ErrorType::PeerAddressFamilyMismatch => "Peer Address Family Mismatch",
-        }
     }
 }
 
@@ -1093,7 +694,7 @@ impl<'a> Attribute<'a> for ErrorCode<'a> {
 
     const TYPE: AttributeType = AttributeType::ErrorCode;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         value.serialize(bytes);
     }
 
@@ -1108,9 +709,9 @@ impl From<ErrorType> for ErrorCode<'_> {
     /// # Example
     ///
     /// ```no_run
-    /// use turn_codec::message::attributes::{Error, ErrorType};
+    /// use turn_server_codec::message::attributes::error::ErrorType;
     ///
-    /// Error::from(ErrorType::TryAlternate);
+    /// // Error::from(ErrorType::TryAlternate);
     /// ```
     fn from(value: ErrorType) -> Self {
         Self {
@@ -1127,7 +728,8 @@ impl ErrorCode<'_> {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use turn_codec::message::attributes::{Error, ErrorType};
+    /// use turn_server_codec::message::attributes::error::ErrorType;
+    /// use turn_server_codec::Error;
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -1135,11 +737,12 @@ impl ErrorCode<'_> {
     /// ];
     ///
     /// let mut buf = BytesMut::with_capacity(1280);
-    /// let error = Error::from(ErrorType::TryAlternate);
-    /// error.encode(&mut buf);
+    /// let error = turn_server_codec::message::attributes::ErrorCode::from(ErrorType::TryAlternate);
+    ///
+    /// error.serialize(&mut buf);
     /// assert_eq!(&buf[..], &buffer);
     /// ```
-    pub fn serialize(self, bytes: &mut BytesMut) {
+    pub fn serialize<B: BufMut>(self, bytes: &mut B) {
         bytes.put_u16(0x0000);
         bytes.put_u16(self.code);
         bytes.put(self.message.as_bytes());
@@ -1153,14 +756,15 @@ impl<'a> TryFrom<&'a [u8]> for ErrorCode<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::attributes::{Error, ErrorType};
+    /// use turn_server_codec::message::attributes::error::ErrorType;
+    /// use turn_server_codec::Error;
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
     ///     0x65, 0x72, 0x6e, 0x61, 0x74, 0x65,
     /// ];
     ///
-    /// let error = Error::try_from(&buffer[..]).unwrap();
+    /// let error = turn_server_codec::message::attributes::ErrorCode::try_from(&buffer[..]).unwrap();
     /// assert_eq!(error.code, ErrorType::TryAlternate as u16);
     /// assert_eq!(error.message, "Try Alternate");
     /// ```
@@ -1201,7 +805,7 @@ impl<'a> Attribute<'a> for Lifetime {
 
     const TYPE: AttributeType = AttributeType::Lifetime;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u32(value)
     }
 
@@ -1234,7 +838,7 @@ impl<'a> Attribute<'a> for ReqeestedTransport {
 
     const TYPE: AttributeType = AttributeType::ReqeestedTransport;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u32(value as u32)
     }
 
@@ -1286,7 +890,7 @@ impl<'a> Attribute<'a> for Fingerprint {
 
     const TYPE: AttributeType = AttributeType::Fingerprint;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u32(value)
     }
 
@@ -1309,7 +913,7 @@ impl<'a> Attribute<'a> for ChannelNumber {
 
     const TYPE: AttributeType = AttributeType::ChannelNumber;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u16(value)
     }
 
@@ -1336,7 +940,7 @@ impl<'a> Attribute<'a> for IceControlling {
 
     const TYPE: AttributeType = AttributeType::IceControlling;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u64(value)
     }
 
@@ -1358,7 +962,7 @@ impl<'a> Attribute<'a> for UseCandidate {
 
     const TYPE: AttributeType = AttributeType::UseCandidate;
 
-    fn serialize(_: Self::Item, _: &mut BytesMut, _: &'a [u8]) {}
+    fn serialize<B: BufMut>(_: Self::Item, _: &mut B, _: &'a [u8]) {}
 
     fn deserialize(_: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         Ok(())
@@ -1383,7 +987,7 @@ impl<'a> Attribute<'a> for IceControlled {
 
     const TYPE: AttributeType = AttributeType::IceControlled;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u64(value)
     }
 
@@ -1405,7 +1009,7 @@ impl<'a> Attribute<'a> for Priority {
 
     const TYPE: AttributeType = AttributeType::Priority;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u32(value)
     }
 
@@ -1431,7 +1035,7 @@ impl<'a> Attribute<'a> for ReservationToken {
 
     const TYPE: AttributeType = AttributeType::ReservationToken;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u64(value)
     }
 
@@ -1453,7 +1057,7 @@ impl<'a> Attribute<'a> for EvenPort {
 
     const TYPE: AttributeType = AttributeType::EvenPort;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u8(if value { 0b10000000 } else { 0b00000000 })
     }
 
@@ -1476,7 +1080,7 @@ impl<'a> Attribute<'a> for RequestedAddressFamily {
 
     const TYPE: AttributeType = AttributeType::RequestedAddressFamily;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u8(value as u8)
     }
 
@@ -1499,7 +1103,7 @@ impl<'a> Attribute<'a> for AdditionalAddressFamily {
 
     const TYPE: AttributeType = AttributeType::AdditionalAddressFamily;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u8(value as u8)
     }
 
@@ -1549,11 +1153,11 @@ impl<'a> Attribute<'a> for AccessToken<'a> {
 
     const TYPE: AttributeType = AttributeType::AccessToken;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u16(value.nonce.len() as u16);
-        bytes.extend_from_slice(value.nonce.as_bytes());
+        bytes.put(value.nonce.as_bytes());
         bytes.put_u16(value.mac_key.len() as u16);
-        bytes.extend_from_slice(value.mac_key.as_bytes());
+        bytes.put(value.mac_key.as_bytes());
         bytes.put_u64(value.timestamp);
         bytes.put_u32(value.lifetime);
     }
@@ -1625,7 +1229,7 @@ impl<'a> Attribute<'a> for ThirdPartyAuathorization {
 
     const TYPE: AttributeType = AttributeType::ThirdPartyAuathorization;
 
-    fn serialize(value: Self::Item, bytes: &mut BytesMut, _: &'a [u8]) {
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put(value.as_bytes());
     }
 

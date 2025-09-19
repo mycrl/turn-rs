@@ -97,7 +97,7 @@ impl TryFrom<u16> for Method {
     /// # Test
     ///
     /// ```
-    /// use turn_codec::message::methods::*;
+    /// use turn_server_codec::message::methods::*;
     /// use std::convert::TryFrom;
     ///
     /// assert_eq!(Method::try_from(0x0001).unwrap(), BINDING_REQUEST);
@@ -146,7 +146,7 @@ impl Into<u16> for Method {
     /// # Test
     ///
     /// ```
-    /// use turn_codec::message::methods::*;
+    /// use turn_server_codec::message::methods::*;
     /// use std::convert::Into;
     ///
     /// assert_eq!(0x0001u16, <Method as Into<u16>>::into(BINDING_REQUEST));

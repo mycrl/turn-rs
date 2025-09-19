@@ -21,10 +21,7 @@ pub struct MessageEncoder<'a> {
 
 impl<'a, 'b> MessageEncoder<'a> {
     pub fn new(method: Method, token: &'a [u8; 12], bytes: &'a mut BytesMut) -> Self {
-        unsafe {
-            bytes.set_len(0);
-        }
-
+        bytes.clear();
         bytes.put_u16(method.into());
         bytes.put_u16(0);
         bytes.put_u32(MAGIC_NUMBER);
@@ -40,9 +37,9 @@ impl<'a, 'b> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::methods::*;
-    /// use turn_codec::message::*;
-    /// use turn_codec::*;
+    /// use turn_server_codec::message::methods::*;
+    /// use turn_server_codec::message::*;
+    /// use turn_server_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -59,7 +56,7 @@ impl<'a, 'b> MessageEncoder<'a> {
     pub fn extend(method: Method, reader: &Message<'a>, bytes: &'a mut BytesMut) -> Self {
         let token = reader.token();
 
-        unsafe { bytes.set_len(0) }
+        bytes.clear();
         bytes.put_u16(method.into());
         bytes.put_u16(0);
         bytes.put_u32(MAGIC_NUMBER);
@@ -76,10 +73,10 @@ impl<'a, 'b> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::attributes::*;
-    /// use turn_codec::message::methods::*;
-    /// use turn_codec::message::*;
-    /// use turn_codec::*;
+    /// use turn_server_codec::message::attributes::*;
+    /// use turn_server_codec::message::methods::*;
+    /// use turn_server_codec::message::*;
+    /// use turn_server_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -134,9 +131,9 @@ impl<'a, 'b> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::methods::*;
-    /// use turn_codec::message::*;
-    /// use turn_codec::*;
+    /// use turn_server_codec::message::methods::*;
+    /// use turn_server_codec::message::*;
+    /// use turn_server_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -157,7 +154,7 @@ impl<'a, 'b> MessageEncoder<'a> {
     ///     MessageEncoder::extend(Method::Binding(MethodType::Request), &old, &mut buf);
     ///
     /// message
-    ///     .flush(Some(&long_term_credential_digest(
+    ///     .flush(Some(&turn_server_codec::crypto::password_md5(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
@@ -188,9 +185,9 @@ impl<'a, 'b> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::methods::*;
-    /// use turn_codec::message::*;
-    /// use turn_codec::*;
+    /// use turn_server_codec::message::methods::*;
+    /// use turn_server_codec::message::*;
+    /// use turn_server_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -211,7 +208,7 @@ impl<'a, 'b> MessageEncoder<'a> {
     ///     MessageEncoder::extend(Method::Binding(MethodType::Request), &old, &mut buf);
     ///
     /// message
-    ///     .flush(Some(&long_term_credential_digest(
+    ///     .flush(Some(&turn_server_codec::crypto::password_md5(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
@@ -229,7 +226,7 @@ impl<'a, 'b> MessageEncoder<'a> {
         self.set_len(len + 4);
 
         // write MessageIntegrity attribute.
-        let hmac_output = hmac_sha1(digest, &[self.bytes])?.into_bytes();
+        let hmac_output = hmac_sha1(digest, &[self.bytes])?;
         self.bytes.put_u16(AttributeType::MessageIntegrity as u16);
         self.bytes.put_u16(20);
         self.bytes.put(hmac_output.as_slice());
@@ -285,10 +282,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::attributes::*;
-    /// use turn_codec::message::methods::*;
-    /// use turn_codec::message::*;
-    /// use turn_codec::*;
+    /// use turn_server_codec::message::attributes::*;
+    /// use turn_server_codec::message::methods::*;
+    /// use turn_server_codec::message::*;
+    /// use turn_server_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -314,10 +311,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::attributes::*;
-    /// use turn_codec::message::methods::*;
-    /// use turn_codec::message::*;
-    /// use turn_codec::*;
+    /// use turn_server_codec::message::attributes::*;
+    /// use turn_server_codec::message::methods::*;
+    /// use turn_server_codec::message::*;
+    /// use turn_server_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -347,9 +344,9 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::methods::*;
-    /// use turn_codec::message::*;
-    /// use turn_codec::*;
+    /// use turn_server_codec::message::methods::*;
+    /// use turn_server_codec::message::*;
+    /// use turn_server_codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x03, 0x00, 0x50, 0x21, 0x12, 0xa4, 0x42, 0x64, 0x4f, 0x5a,
@@ -366,7 +363,7 @@ impl<'a> Message<'a> {
     /// let mut attributes = Attributes::default();
     /// let message = Message::decode(&buffer[..], &mut attributes).unwrap();
     /// let result = message
-    ///     .integrity(&long_term_credential_digest(
+    ///     .integrity(&turn_server_codec::crypto::password_md5(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
@@ -395,7 +392,7 @@ impl<'a> Message<'a> {
         ];
 
         // digest the message buffer.
-        let hmac_output = hmac_sha1(digest, &body)?.into_bytes();
+        let hmac_output = hmac_sha1(digest, &body)?;
         let hmac_buf = hmac_output.as_slice();
 
         // Compare local and original attribute.
@@ -410,10 +407,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_codec::message::attributes::*;
-    /// use turn_codec::message::methods::*;
-    /// use turn_codec::message::*;
-    /// use turn_codec::*;
+    /// use turn_server_codec::message::attributes::*;
+    /// use turn_server_codec::message::methods::*;
+    /// use turn_server_codec::message::*;
+    /// use turn_server_codec::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
@@ -522,7 +519,7 @@ impl<'a> Message<'a> {
     /// # Test
     ///
     /// ```
-    /// use turn_codec::message::*;
+    /// use turn_server_codec::message::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
@@ -549,11 +546,11 @@ impl<'a> Message<'a> {
 /// # Test
 ///
 /// ```
-/// use turn_codec::message::filling_length;
+/// use turn_server_codec::message::alignment_32;
 ///
-/// assert_eq!(filling_length(4), 0);
-/// assert_eq!(filling_length(0), 0);
-/// assert_eq!(filling_length(5), 3);
+/// assert_eq!(alignment_32(4), 0);
+/// assert_eq!(alignment_32(0), 0);
+/// assert_eq!(alignment_32(5), 3);
 /// ```
 #[inline(always)]
 pub fn alignment_32(size: usize) -> usize {

@@ -9,7 +9,11 @@ use bytes::BytesMut;
 use codec::{
     DecodeResult, Decoder,
     channel_data::ChannelData,
-    message::{Message, MessageEncoder, attributes::*, methods::*},
+    message::{
+        Message, MessageEncoder,
+        attributes::{error::ErrorType, *},
+        methods::*,
+    },
 };
 
 struct State<T>

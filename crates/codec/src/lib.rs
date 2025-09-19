@@ -121,8 +121,8 @@ impl Decoder {
     /// # Test
     ///
     /// ```
-    /// use turn_codec::message::attributes::UserName;
-    /// use turn_codec::{Decoder, DecodeResult};
+    /// use turn_server_codec::message::attributes::UserName;
+    /// use turn_server_codec::{Decoder, DecodeResult};
     ///
     /// let buffer = [
     ///     0x00, 0x01, 0x00, 0x4c, 0x21, 0x12, 0xa4, 0x42, 0x71, 0x66, 0x46, 0x31,
@@ -162,7 +162,7 @@ impl Decoder {
     /// # Test
     ///
     /// ```
-    /// use turn_codec::Decoder;
+    /// use turn_server_codec::Decoder;
     ///
     /// let buffer = [
     ///     0x00, 0x01, 0x00, 0x4c, 0x21, 0x12, 0xa4, 0x42, 0x71, 0x66, 0x46, 0x31,

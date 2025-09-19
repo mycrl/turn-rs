@@ -60,7 +60,6 @@ impl ServiceHandler for Handler {
             let password = BASE64_STANDARD.encode(
                 codec::crypto::hmac_sha1(password.as_bytes(), &[username.as_bytes()])
                     .ok()?
-                    .into_bytes()
                     .as_slice(),
             );
 

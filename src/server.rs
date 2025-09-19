@@ -115,7 +115,7 @@ impl Exchanger {
     fn get_receiver(&self, interface: SocketAddr) -> UnboundedReceiver<(Bytes, OutboundType)> {
         let (sender, receiver) = unbounded_channel();
         self.0.insert(interface, sender);
-        
+
         receiver
     }
 
@@ -290,7 +290,9 @@ trait Listener: Sized + Send {
 
                     exchanger.remove(&address);
 
-                    log::info!("socket disconnect: addr={address:?}, interface={local_addr:?}, transport={transport:?}");
+                    log::info!(
+                        "socket disconnect: addr={address:?}, interface={local_addr:?}, transport={transport:?}"
+                    );
                 });
             }
 

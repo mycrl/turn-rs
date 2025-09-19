@@ -35,7 +35,7 @@ impl<'a> ChannelData<'a> {
     ///
     /// ```
     /// use bytes::{BufMut, BytesMut};
-    /// use turn_codec::channel_data::ChannelData;
+    /// use turn_server_codec::channel_data::ChannelData;
     ///
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
@@ -71,7 +71,7 @@ impl<'a> ChannelData<'a> {
     ///
     /// ```
     /// use bytes::{BufMut, BytesMut};
-    /// use turn_codec::channel_data::ChannelData;
+    /// use turn_server_codec::channel_data::ChannelData;
     ///
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
@@ -88,7 +88,7 @@ impl<'a> ChannelData<'a> {
     /// assert_eq!(ret.bytes, &data[..]);
     /// ```
     pub fn encode(self, bytes: &mut BytesMut) {
-        unsafe { bytes.set_len(0) }
+        bytes.clear();
         bytes.put_u16(self.number);
         bytes.put_u16(self.bytes.len() as u16);
         bytes.extend_from_slice(self.bytes);
@@ -98,7 +98,7 @@ impl<'a> ChannelData<'a> {
     ///
     /// ```
     /// use bytes::{BufMut, BytesMut};
-    /// use turn_codec::channel_data::ChannelData;
+    /// use turn_server_codec::channel_data::ChannelData;
     ///
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
