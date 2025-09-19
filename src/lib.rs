@@ -9,6 +9,7 @@ pub mod statistics;
 use self::{config::Config, handler::Handler, statistics::Statistics};
 
 use service::ServiceOptions;
+use tokio::task::JoinSet;
 
 #[rustfmt::skip]
 static SOFTWARE: &str = concat!(
@@ -31,11 +32,24 @@ pub async fn start_server(config: Config) -> anyhow::Result<()> {
         handler: Handler::new(config.clone(), statistics.clone()).await?,
     });
 
-    tokio::try_join!(
-        server::start_server(config.clone(), service.clone(), statistics.clone()),
+    {
+        let mut workers = JoinSet::new();
+
+        workers.spawn(server::start_server(
+            config.clone(),
+            service.clone(),
+            statistics.clone(),
+        ));
+
         #[cfg(feature = "rpc")]
-        rpc::start_server(config, service, statistics),
-    )?;
+        workers.spawn(rpc::start_server(config, service, statistics));
+
+        if let Some(res) = workers.join_next().await {
+            workers.abort_all();
+
+            return Ok(res??);
+        }
+    }
 
     Ok(())
 }

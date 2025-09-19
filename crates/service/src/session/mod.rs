@@ -314,7 +314,7 @@ where
     /// {
     ///     assert!(sessions.get_session(&addr).get_ref().is_none());
     /// }
-    /// 
+    ///
     /// // get_session always creates a new session if it doesn't exist
     /// {
     ///     let lock = sessions.get_session_or_default(&addr);
@@ -1052,7 +1052,7 @@ where
     ///         Session::Authenticated { expires, .. } => *expires,
     ///         _ => panic!("Expected authenticated session"),
     ///     };
-    /// 
+    ///
     ///     assert!(expires == 600 || expires == 601 || expires == 602);
     /// }
     ///

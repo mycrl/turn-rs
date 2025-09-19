@@ -1,3 +1,4 @@
+#[cfg(feature = "rpc")]
 use std::sync::Arc;
 
 use crate::{config::Config, statistics::Statistics};
@@ -59,6 +60,7 @@ impl ServiceHandler for Handler {
             ));
         }
 
+        #[cfg(feature = "rpc")]
         if self.config.auth.enable_hooks_auth {
             return self.rpc.get_password(username, algorithm).await;
         }
