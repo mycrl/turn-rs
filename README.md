@@ -39,22 +39,6 @@ First of all, I remain in awe and respect for coturn, which is a much more matur
 
 However, turn-rs is not a simple duplicate implementation, and this project is not a blind “RIIR”. Because turn server is currently the largest use of the scene or WebRTC, for WebRTC business, many features are not too much necessary, so keep it simple and fast is the best choice.
 
-##### "Better performance"
-
-Because turn-rs only focuses on the core business, it removes a lot of features that are almost less commonly used in WebRTC scenarios, resulting in better performance, both in terms of throughput and memory performance.
-
-##### "Database storage is not supported"
-
-I don't think turn servers should be concerned about user information, just do their essential work, it's better to leave the hosting and storing of user information to other services, and interacting with databases adds complexity.
-
-##### "No transport layer encryption"
-
-Unlike coturn, which provides various transport layer encryption, turn-rs does not provide any transport layer encryption. Currently turn clients that support encryption are relatively rare, and there is minimal benefit to the turn server in providing transport layer encryption, since for WebRTC the transport data is already encrypted.
-
-##### "Only allow turn-rs as transit address"
-
-Some clients currently use local addresses for the turn server to create bindings and permissions under certain NAT types, coturn supports this behaviour. However, turn-rs does not allow this behaviour, any client must use the turn server's transit address to communicate, which provides help for clients to hide their IP addresses.
-
 ## Table of contents
 
 -   [features](#features)
