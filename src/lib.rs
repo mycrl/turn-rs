@@ -47,7 +47,7 @@ pub async fn start_server(config: Config) -> anyhow::Result<()> {
         if let Some(res) = workers.join_next().await {
             workers.abort_all();
 
-            return Ok(res??);
+            return res?;
         }
     }
 

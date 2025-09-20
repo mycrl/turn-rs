@@ -30,11 +30,11 @@ use proto::{
 
 use crate::{Service, config::Config, rpc::proto::GetTurnPasswordRequest, statistics::Statistics};
 
-impl Into<ProtoPasswordAlgorithm> for PasswordAlgorithm {
-    fn into(self) -> ProtoPasswordAlgorithm {
-        match self {
-            PasswordAlgorithm::Md5 => ProtoPasswordAlgorithm::Md5,
-            PasswordAlgorithm::Sha256 => ProtoPasswordAlgorithm::Sha256,
+impl From<PasswordAlgorithm> for ProtoPasswordAlgorithm {
+    fn from(val: PasswordAlgorithm) -> Self {
+        match val {
+            PasswordAlgorithm::Md5 => Self::Md5,
+            PasswordAlgorithm::Sha256 => Self::Sha256,
         }
     }
 }
@@ -280,12 +280,11 @@ impl RpcHooksService {
     }
 
     pub fn send_event(&self, event: HooksEvent) {
-        if let Some(inner) = &self.0 {
-            if !inner.event_channel.is_closed() {
-                if let Err(e) = inner.event_channel.try_send(event) {
-                    log::error!("Failed to send event to hooks server: {}", e);
-                }
-            }
+        if let Some(inner) = &self.0
+            && !inner.event_channel.is_closed()
+            && let Err(e) = inner.event_channel.try_send(event)
+        {
+            log::error!("Failed to send event to hooks server: {}", e);
         }
     }
 

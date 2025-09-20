@@ -69,14 +69,14 @@ pub const DATA_INDICATION: Method = Method::DataIndication;
 
 impl Method {
     pub fn is_error(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Method::Binding(MethodType::Error)
-            | Method::Refresh(MethodType::Error)
-            | Method::Allocate(MethodType::Error)
-            | Method::CreatePermission(MethodType::Error)
-            | Method::ChannelBind(MethodType::Error) => true,
-            _ => false,
-        }
+                | Method::Refresh(MethodType::Error)
+                | Method::Allocate(MethodType::Error)
+                | Method::CreatePermission(MethodType::Error)
+                | Method::ChannelBind(MethodType::Error)
+        )
     }
 
     pub fn error(&self) -> Option<Method> {
@@ -142,50 +142,50 @@ impl TryFrom<u16> for Method {
     }
 }
 
-impl Into<u16> for Method {
+impl From<Method> for u16 {
     /// # Test
     ///
     /// ```
     /// use turn_server_codec::message::methods::*;
-    /// use std::convert::Into;
+    /// use std::convert::From;
     ///
-    /// assert_eq!(0x0001u16, <Method as Into<u16>>::into(BINDING_REQUEST));
-    /// assert_eq!(0x0101u16, <Method as Into<u16>>::into(BINDING_RESPONSE));
-    /// assert_eq!(0x0111u16, <Method as Into<u16>>::into(BINDING_ERROR));
-    /// assert_eq!(0x0003u16, <Method as Into<u16>>::into(ALLOCATE_REQUEST));
-    /// assert_eq!(0x0103u16, <Method as Into<u16>>::into(ALLOCATE_RESPONSE));
-    /// assert_eq!(0x0113u16, <Method as Into<u16>>::into(ALLOCATE_ERROR));
-    /// assert_eq!(0x0008u16, <Method as Into<u16>>::into(CREATE_PERMISSION_REQUEST));
-    /// assert_eq!(0x0108u16, <Method as Into<u16>>::into(CREATE_PERMISSION_RESPONSE));
-    /// assert_eq!(0x0118u16, <Method as Into<u16>>::into(CREATE_PERMISSION_ERROR));
-    /// assert_eq!(0x0009u16, <Method as Into<u16>>::into(CHANNEL_BIND_REQUEST));
-    /// assert_eq!(0x0109u16, <Method as Into<u16>>::into(CHANNEL_BIND_RESPONSE));
-    /// assert_eq!(0x0119u16, <Method as Into<u16>>::into(CHANNEL_BIND_ERROR));
-    /// assert_eq!(0x0004u16, <Method as Into<u16>>::into(REFRESH_REQUEST));
-    /// assert_eq!(0x0104u16, <Method as Into<u16>>::into(REFRESH_RESPONSE));
-    /// assert_eq!(0x0114u16, <Method as Into<u16>>::into(REFRESH_ERROR));
-    /// assert_eq!(0x0016u16, <Method as Into<u16>>::into(SEND_INDICATION));
-    /// assert_eq!(0x0017u16, <Method as Into<u16>>::into(DATA_INDICATION));
+    /// assert_eq!(0x0001u16, u16::from(BINDING_REQUEST));
+    /// assert_eq!(0x0101u16, u16::from(BINDING_RESPONSE));
+    /// assert_eq!(0x0111u16, u16::from(BINDING_ERROR));
+    /// assert_eq!(0x0003u16, u16::from(ALLOCATE_REQUEST));
+    /// assert_eq!(0x0103u16, u16::from(ALLOCATE_RESPONSE));
+    /// assert_eq!(0x0113u16, u16::from(ALLOCATE_ERROR));
+    /// assert_eq!(0x0008u16, u16::from(CREATE_PERMISSION_REQUEST));
+    /// assert_eq!(0x0108u16, u16::from(CREATE_PERMISSION_RESPONSE));
+    /// assert_eq!(0x0118u16, u16::from(CREATE_PERMISSION_ERROR));
+    /// assert_eq!(0x0009u16, u16::from(CHANNEL_BIND_REQUEST));
+    /// assert_eq!(0x0109u16, u16::from(CHANNEL_BIND_RESPONSE));
+    /// assert_eq!(0x0119u16, u16::from(CHANNEL_BIND_ERROR));
+    /// assert_eq!(0x0004u16, u16::from(REFRESH_REQUEST));
+    /// assert_eq!(0x0104u16, u16::from(REFRESH_RESPONSE));
+    /// assert_eq!(0x0114u16, u16::from(REFRESH_ERROR));
+    /// assert_eq!(0x0016u16, u16::from(SEND_INDICATION));
+    /// assert_eq!(0x0017u16, u16::from(DATA_INDICATION));
     /// ```
-    fn into(self) -> u16 {
-        match self {
-            Self::Binding(MethodType::Request) => 0x0001,
-            Self::Binding(MethodType::Response) => 0x0101,
-            Self::Binding(MethodType::Error) => 0x0111,
-            Self::Allocate(MethodType::Request) => 0x0003,
-            Self::Allocate(MethodType::Response) => 0x0103,
-            Self::Allocate(MethodType::Error) => 0x0113,
-            Self::CreatePermission(MethodType::Request) => 0x0008,
-            Self::CreatePermission(MethodType::Response) => 0x0108,
-            Self::CreatePermission(MethodType::Error) => 0x0118,
-            Self::ChannelBind(MethodType::Request) => 0x0009,
-            Self::ChannelBind(MethodType::Response) => 0x0109,
-            Self::ChannelBind(MethodType::Error) => 0x0119,
-            Self::Refresh(MethodType::Request) => 0x0004,
-            Self::Refresh(MethodType::Response) => 0x0104,
-            Self::Refresh(MethodType::Error) => 0x0114,
-            Self::SendIndication => 0x0016,
-            Self::DataIndication => 0x0017,
+    fn from(val: Method) -> Self {
+        match val {
+            Method::Binding(MethodType::Request) => 0x0001,
+            Method::Binding(MethodType::Response) => 0x0101,
+            Method::Binding(MethodType::Error) => 0x0111,
+            Method::Allocate(MethodType::Request) => 0x0003,
+            Method::Allocate(MethodType::Response) => 0x0103,
+            Method::Allocate(MethodType::Error) => 0x0113,
+            Method::CreatePermission(MethodType::Request) => 0x0008,
+            Method::CreatePermission(MethodType::Response) => 0x0108,
+            Method::CreatePermission(MethodType::Error) => 0x0118,
+            Method::ChannelBind(MethodType::Request) => 0x0009,
+            Method::ChannelBind(MethodType::Response) => 0x0109,
+            Method::ChannelBind(MethodType::Error) => 0x0119,
+            Method::Refresh(MethodType::Request) => 0x0004,
+            Method::Refresh(MethodType::Response) => 0x0104,
+            Method::Refresh(MethodType::Error) => 0x0114,
+            Method::SendIndication => 0x0016,
+            Method::DataIndication => 0x0017,
         }
     }
 }

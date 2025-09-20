@@ -669,7 +669,7 @@ where
             // Each peer port must be present.
             let mut peers = Vec::with_capacity(15);
             for port in ports {
-                if let Some(it) = port_mapping_table.get(&port) {
+                if let Some(it) = port_mapping_table.get(port) {
                     peers.push((it, *port));
                 } else {
                     return false;
@@ -916,7 +916,7 @@ where
     pub fn get_channel_relay_address(&self, addr: &Identifier, channel: u16) -> Option<Endpoint> {
         self.channel_relay_table
             .read()
-            .get(&addr)?
+            .get(addr)?
             .get(&channel)
             .copied()
     }
@@ -992,7 +992,7 @@ where
     /// );
     /// ```
     pub fn get_relay_address(&self, addr: &Identifier, port: u16) -> Option<Endpoint> {
-        self.port_relay_table.read().get(&addr)?.get(&port).copied()
+        self.port_relay_table.read().get(addr)?.get(&port).copied()
     }
 
     /// Refresh the session for addr.
@@ -1070,14 +1070,12 @@ where
 
         if lifetime == 0 {
             self.remove_session(&[*addr]);
+        } else if let Some(Session::Authenticated { expires, .. }) =
+            self.sessions.write().get_mut(addr)
+        {
+            *expires = self.timer.get() + lifetime as u64;
         } else {
-            if let Some(Session::Authenticated { expires, .. }) =
-                self.sessions.write().get_mut(addr)
-            {
-                *expires = self.timer.get() + lifetime as u64;
-            } else {
-                return false;
-            }
+            return false;
         }
 
         true

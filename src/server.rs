@@ -79,7 +79,7 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
     if let Some(res) = servers.join_next().await {
         servers.abort_all();
 
-        return Ok(res??);
+        return res?;
     }
 
     Ok(())
@@ -129,10 +129,10 @@ impl Exchanger {
         let mut is_destroy = false;
 
         {
-            if let Some(sender) = self.0.get(interface) {
-                if sender.send((data, ty)).is_err() {
-                    is_destroy = true;
-                }
+            if let Some(sender) = self.0.get(interface)
+                && sender.send((data, ty)).is_err()
+            {
+                is_destroy = true;
             }
         }
 
@@ -150,7 +150,7 @@ impl Exchanger {
 trait Socket: Send + 'static {
     fn read(&mut self) -> impl Future<Output = Option<Bytes>> + Send;
     fn write(&mut self, buffer: &[u8]) -> impl Future<Output = Result<()>> + Send;
-    fn close(&mut self);
+    fn close(&mut self) -> impl Future<Output = ()> + Send;
 }
 
 #[allow(unused)]
@@ -238,10 +238,8 @@ trait Listener: Sized + Send {
                                             &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)],
                                         );
 
-                                        if let OutboundType::Message(method) = ty {
-                                            if method.is_error() {
-                                                reporter.send(&id, &[Stats::ErrorPkts(1)]);
-                                            }
+                                        if let OutboundType::Message(method) = ty && method.is_error() {
+                                            reporter.send(&id, &[Stats::ErrorPkts(1)]);
                                         }
                                     }
                                 }
@@ -258,12 +256,10 @@ trait Listener: Sized + Send {
                                 // bit needs to be filled, because if the channel data comes
                                 // from udp, it is not guaranteed to be aligned and needs to be
                                 // checked.
-                                if transport == Transport::Tcp {
-                                    if method == OutboundType::ChannelData {
-                                        let pad = bytes.len() % 4;
-                                        if pad > 0 && socket.write(&[0u8; 8][..(4 - pad)]).await.is_err() {
-                                            break;
-                                        }
+                                if transport == Transport::Tcp && method == OutboundType::ChannelData {
+                                    let pad = bytes.len() % 4;
+                                    if pad > 0 && socket.write(&[0u8; 8][..(4 - pad)]).await.is_err() {
+                                        break;
                                     }
                                 }
                             }
@@ -281,7 +277,7 @@ trait Listener: Sized + Send {
                     }
 
                     // close the socket
-                    socket.close();
+                    socket.close().await;
 
                     // When the socket connection is closed, the procedure to close the session is
                     // process directly once, avoiding the connection being disconnected
@@ -344,7 +340,7 @@ mod udp {
             Ok(())
         }
 
-        fn close(&mut self) {
+        async fn close(&mut self) {
             self.bytes_receiver.close();
 
             let _ = self.close_signal_sender.send(self.addr);
@@ -473,7 +469,7 @@ mod tcp {
 
     enum MaybeSslStream {
         #[cfg(feature = "ssl")]
-        Ssl(TlsStream<TcpStream>),
+        Ssl(Box<TlsStream<TcpStream>>),
         Base(TcpStream),
     }
 
@@ -499,7 +495,7 @@ mod tcp {
 
     enum Reader {
         #[cfg(feature = "ssl")]
-        Ssl(ReadHalf<TlsStream<TcpStream>>),
+        Ssl(ReadHalf<Box<TlsStream<TcpStream>>>),
         Base(ReadHalf<TcpStream>),
     }
 
@@ -515,7 +511,7 @@ mod tcp {
 
     enum Writer {
         #[cfg(feature = "ssl")]
-        Ssl(WriteHalf<TlsStream<TcpStream>>),
+        Ssl(WriteHalf<Box<TlsStream<TcpStream>>>),
         Base(WriteHalf<TcpStream>),
     }
 
@@ -626,10 +622,10 @@ mod tcp {
             Ok(self.writer.write_all(buffer).await?)
         }
 
-        fn close(&mut self) {
+        async fn close(&mut self) {
             self.receiver.close();
 
-            let _ = self.close_signal_sender.send(());
+            let _ = self.close_signal_sender.send(()).await;
         }
     }
 
@@ -677,7 +673,7 @@ mod tcp {
                         tokio::spawn(async move {
                             if let Ok(socket) = acceptor.accept(socket).await {
                                 let _ = tx.send((
-                                    TcpSocket::new(MaybeSslStream::Ssl(socket), addr),
+                                    TcpSocket::new(MaybeSslStream::Ssl(socket.into()), addr),
                                     addr,
                                 ));
                             };

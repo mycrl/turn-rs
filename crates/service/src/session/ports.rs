@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use rand::Rng;
 
@@ -49,9 +49,9 @@ impl From<std::ops::Range<u16>> for PortRange {
     }
 }
 
-impl ToString for PortRange {
-    fn to_string(&self) -> String {
-        format!("{}..{}", self.start, self.end)
+impl Display for PortRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}..{}", self.start, self.end)
     }
 }
 
@@ -104,7 +104,7 @@ impl<'de> Deserialize<'de> for PortRange {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(Self::from_str(&s).map_err(|e| serde::de::Error::custom(e.0))?)
+        Self::from_str(&s).map_err(|e| serde::de::Error::custom(e.0))
     }
 }
 

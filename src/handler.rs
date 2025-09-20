@@ -54,7 +54,7 @@ impl ServiceHandler for Handler {
         if let Some(secret) = &self.config.auth.static_auth_secret {
             return Some(codec::crypto::static_auth_secret(
                 username,
-                &secret,
+                secret,
                 &self.config.server.realm,
                 algorithm,
             ));
@@ -191,7 +191,7 @@ impl ServiceHandler for Handler {
     /// The server then responds with a CreatePermission success response.
     /// There are no mandatory attributes in the success response.
     ///
-    /// > NOTE: A server need not do anything special to implement
+    /// NOTE: A server need not do anything special to implement
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
@@ -288,7 +288,7 @@ impl ServiceHandler for Handler {
 
         #[cfg(feature = "rpc")]
         {
-            self.statistics.unregister(&id);
+            self.statistics.unregister(id);
 
             self.rpc.send_event(HooksEvent::Destroy(TurnDestroyEvent {
                 id: id.to_string(),

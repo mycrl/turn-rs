@@ -19,7 +19,7 @@ pub struct MessageEncoder<'a> {
     bytes: &'a mut BytesMut,
 }
 
-impl<'a, 'b> MessageEncoder<'a> {
+impl<'a> MessageEncoder<'a> {
     pub fn new(method: Method, token: &'a [u8; 12], bytes: &'a mut BytesMut) -> Self {
         bytes.clear();
         bytes.put_u16(method.into());
@@ -339,7 +339,7 @@ impl<'a> Message<'a> {
             .get_all(&T::TYPE)
             .map(|it| T::deserialize(&self.bytes[it.clone()], self.token()))
             .filter(|it| it.is_ok())
-            .map(|it| it.unwrap())
+            .flatten()
     }
 
     /// check MessageRefIntegrity attribute.

@@ -104,7 +104,6 @@ impl Attributes {
             .iter()
             .filter(move |(k, _)| k == kind)
             .map(|(_, v)| v)
-            .into_iter()
     }
 
     pub fn clear(&mut self) {

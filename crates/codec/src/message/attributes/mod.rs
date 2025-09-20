@@ -519,12 +519,8 @@ impl<'a> Attribute<'a> for PasswordAlgorithms {
     fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
         let mut algorithms = Vec::new();
 
-        loop {
-            if let Ok(algorithm) = PasswordAlgorithm::deserialize(bytes, token) {
-                algorithms.push(algorithm);
-            } else {
-                break;
-            }
+        while let Ok(algorithm) = PasswordAlgorithm::deserialize(bytes, token) {
+            algorithms.push(algorithm);
         }
 
         Ok(algorithms)
@@ -1108,7 +1104,7 @@ impl<'a> Attribute<'a> for EvenPort {
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        if bytes.len() < 1 {
+        if bytes.is_empty() {
             return Err(Error::InvalidInput);
         }
 
@@ -1135,7 +1131,7 @@ impl<'a> Attribute<'a> for RequestedAddressFamily {
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        if bytes.len() < 1 {
+        if bytes.is_empty() {
             return Err(Error::InvalidInput);
         }
 
@@ -1162,7 +1158,7 @@ impl<'a> Attribute<'a> for AdditionalAddressFamily {
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        if bytes.len() < 1 {
+        if bytes.is_empty() {
             return Err(Error::InvalidInput);
         }
 

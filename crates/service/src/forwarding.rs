@@ -58,15 +58,15 @@ where
         let algorithm = self
             .payload
             .get::<PasswordAlgorithm>()
-            .unwrap_or_else(|| PasswordAlgorithm::Md5);
+            .unwrap_or(PasswordAlgorithm::Md5);
 
         let password = self
             .state
             .manager
-            .get_password(&self.id, username, algorithm)
+            .get_password(self.id, username, algorithm)
             .await?;
 
-        if let Err(_) = self.payload.checksum(&password) {
+        if self.payload.checksum(&password).is_err() {
             return None;
         }
 
@@ -195,7 +195,7 @@ where
             message.append::<Nonce>(
                 req.state
                     .manager
-                    .get_session_or_default(&req.id)
+                    .get_session_or_default(req.id)
                     .get_ref()?
                     .nonce(),
             );
@@ -241,7 +241,7 @@ where
     T: ServiceHandler,
 {
     {
-        let mut message = MessageEncoder::extend(BINDING_RESPONSE, &req.payload, req.bytes);
+        let mut message = MessageEncoder::extend(BINDING_RESPONSE, req.payload, req.bytes);
         message.append::<XorMappedAddress>(req.id.source);
         message.append::<MappedAddress>(req.id.source);
         message.append::<ResponseOrigin>(req.state.interface);
@@ -286,7 +286,7 @@ where
         return reject(req, ErrorType::AllocationQuotaReached);
     };
 
-    req.state.handler.on_allocated(&req.id, username, port);
+    req.state.handler.on_allocated(req.id, username, port);
 
     {
         let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.bytes);
@@ -359,12 +359,12 @@ where
     if !req
         .state
         .manager
-        .bind_channel(&req.id, &req.state.endpoint, peer.port(), number)
+        .bind_channel(req.id, &req.state.endpoint, peer.port(), number)
     {
         return reject(req, ErrorType::Forbidden);
     }
 
-    req.state.handler.on_channel_bind(&req.id, username, number);
+    req.state.handler.on_channel_bind(req.id, username, number);
 
     {
         MessageEncoder::extend(CHANNEL_BIND_RESPONSE, req.payload, req.bytes)
@@ -436,14 +436,14 @@ where
     if !req
         .state
         .manager
-        .create_permission(&req.id, &req.state.endpoint, &ports)
+        .create_permission(req.id, &req.state.endpoint, &ports)
     {
         return reject(req, ErrorType::Forbidden);
     }
 
     req.state
         .handler
-        .on_create_permission(&req.id, username, &ports);
+        .on_create_permission(req.id, username, &ports);
 
     {
         MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.bytes)
@@ -509,31 +509,29 @@ where
     let data = req.payload.get::<Data>()?;
 
     if let Some(Session::Authenticated { allocate_port, .. }) =
-        req.state.manager.get_session(&req.id).get_ref()
+        req.state.manager.get_session(req.id).get_ref() && let Some(local_port) = *allocate_port
     {
-        if let Some(local_port) = *allocate_port {
-            let relay = req.state.manager.get_relay_address(&req.id, peer.port())?;
+        let relay = req.state.manager.get_relay_address(req.id, peer.port())?;
 
-            {
-                let mut message = MessageEncoder::extend(DATA_INDICATION, &req.payload, req.bytes);
-                message.append::<XorPeerAddress>(SocketAddr::new(req.state.interface.ip(), local_port));
-                message.append::<Data>(data);
-                message.flush(None).ok()?;
-            }
-
-            return Some(Outbound::Message {
-                method: DATA_INDICATION,
-                bytes: req.bytes,
-                target: OutboundTarget {
-                    relay: Some(relay.source),
-                    endpoint: if req.state.endpoint != relay.endpoint {
-                        Some(relay.endpoint)
-                    } else {
-                        None
-                    },
-                },
-            });
+        {
+            let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.bytes);
+            message.append::<XorPeerAddress>(SocketAddr::new(req.state.interface.ip(), local_port));
+            message.append::<Data>(data);
+            message.flush(None).ok()?;
         }
+
+        return Some(Outbound::Message {
+            method: DATA_INDICATION,
+            bytes: req.bytes,
+            target: OutboundTarget {
+                relay: Some(relay.source),
+                endpoint: if req.state.endpoint != relay.endpoint {
+                    Some(relay.endpoint)
+                } else {
+                    None
+                },
+            },
+        });
     }
 
     None
@@ -584,14 +582,14 @@ where
     };
 
     let lifetime = req.payload.get::<Lifetime>().unwrap_or(600);
-    if !req.state.manager.refresh(&req.id, lifetime) {
+    if !req.state.manager.refresh(req.id, lifetime) {
         return reject(req, ErrorType::AllocationMismatch);
     }
 
-    req.state.handler.on_refresh(&req.id, username, lifetime);
+    req.state.handler.on_refresh(req.id, username, lifetime);
 
     {
-        let mut message = MessageEncoder::extend(REFRESH_RESPONSE, &req.payload, req.bytes);
+        let mut message = MessageEncoder::extend(REFRESH_RESPONSE, req.payload, req.bytes);
         message.append::<Lifetime>(lifetime);
         message.flush(Some(&password)).ok()?;
     }
@@ -636,13 +634,10 @@ fn channel_data_route<'a, T>(
 where
     T: ServiceHandler,
 {
-    let Some(relay) = req
+    let relay = req
         .state
         .manager
-        .get_channel_relay_address(&req.id, req.payload.number())
-    else {
-        return None;
-    };
+        .get_channel_relay_address(req.id, req.payload.number())?;
 
     Some(Outbound::ChannelData {
         bytes,

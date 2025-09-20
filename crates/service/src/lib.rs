@@ -104,7 +104,7 @@ pub trait ServiceHandler: Send + Sync + 'static {
     /// The server then responds with a CreatePermission success response.
     /// There are no mandatory attributes in the success response.
     ///
-    /// > NOTE: A server need not do anything special to implement
+    /// NOTE: A server need not do anything special to implement
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
@@ -200,7 +200,7 @@ where
 
     /// Get packet forwarder.
     pub fn get_forwarder(&self, endpoint: SocketAddr, interface: SocketAddr) -> PacketForwarder<T> {
-        PacketForwarder::new(&self, endpoint, interface)
+        PacketForwarder::new(self, endpoint, interface)
     }
 
     pub fn get_session_manager(&self) -> &SessionManager<T> {
