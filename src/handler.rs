@@ -234,17 +234,17 @@ impl ServiceHandler for Handler {
     /// Subsequent processing depends on the "desired lifetime" value:
     ///
     /// * If the "desired lifetime" is zero, then the request succeeds and
-    /// the allocation is deleted.
+    ///   the allocation is deleted.
     ///
     /// * If the "desired lifetime" is non-zero, then the request succeeds
-    /// and the allocation's time-to-expiry is set to the "desired
-    /// lifetime".
+    ///   and the allocation's time-to-expiry is set to the "desired
+    ///   lifetime".
     ///
     /// If the request succeeds, then the server sends a success response
     /// containing:
     ///
     /// * A LIFETIME attribute containing the current value of the time-to-
-    /// expiry timer.
+    ///   expiry timer.
     ///
     /// NOTE: A server need not do anything special to implement
     /// idempotency of Refresh requests over UDP using the "stateless
