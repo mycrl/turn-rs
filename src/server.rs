@@ -1,9 +1,10 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
+use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
 use bytes::Bytes;
 use codec::message::methods::Method;
-use dashmap::DashMap;
+use parking_lot::RwLock;
 use service::{
     forwarding::{ForwardResult, Outbound},
     session::Identifier,
@@ -99,11 +100,11 @@ enum OutboundType {
 
 /// Handles packet forwarding between transport protocols.
 #[derive(Clone)]
-struct Exchanger(Arc<DashMap<SocketAddr, UnboundedSender<(Bytes, OutboundType)>>>);
+struct Exchanger(Arc<RwLock<HashMap<SocketAddr, UnboundedSender<(Bytes, OutboundType)>>>>);
 
 impl Default for Exchanger {
     fn default() -> Self {
-        Self(Arc::new(DashMap::with_capacity(1024)))
+        Self(Arc::new(RwLock::new(HashMap::with_capacity(1024))))
     }
 }
 
@@ -114,7 +115,7 @@ impl Exchanger {
     /// the data forwarded to this socket can be obtained by routing.
     fn get_receiver(&self, interface: SocketAddr) -> UnboundedReceiver<(Bytes, OutboundType)> {
         let (sender, receiver) = unbounded_channel();
-        self.0.insert(interface, sender);
+        self.0.write().insert(interface, sender);
 
         receiver
     }
@@ -129,7 +130,7 @@ impl Exchanger {
         let mut is_destroy = false;
 
         {
-            if let Some(sender) = self.0.get(interface)
+            if let Some(sender) = self.0.read().get(interface)
                 && sender.send((data, ty)).is_err()
             {
                 is_destroy = true;
@@ -143,7 +144,7 @@ impl Exchanger {
 
     /// delete socket.
     pub fn remove(&self, interface: &SocketAddr) {
-        drop(self.0.remove(interface))
+        drop(self.0.write().remove(interface))
     }
 }
 

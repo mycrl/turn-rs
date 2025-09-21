@@ -3,7 +3,8 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use dashmap::DashMap;
+use ahash::HashMap;
+use parking_lot::RwLock;
 use service::session::Identifier;
 
 /// The type of information passed in the statisticsing channel
@@ -82,12 +83,14 @@ impl<T: Number> Counts<T> {
 
 /// worker cluster statistics
 #[derive(Clone)]
-pub struct Statistics(Arc<DashMap<Identifier, Counts<Count>>>);
+pub struct Statistics(Arc<RwLock<HashMap<Identifier, Counts<Count>>>>);
 
 impl Default for Statistics {
     #[cfg(feature = "rpc")]
     fn default() -> Self {
-        Self(Arc::new(DashMap::with_capacity(1024)))
+        use ahash::HashMapExt;
+
+        Self(Arc::new(RwLock::new(HashMap::with_capacity(1024))))
     }
 
     // There's no need to take up so much memory when you don't have stats enabled.
@@ -144,7 +147,7 @@ impl Statistics {
     /// assert_eq!(statistics.get(&addr).is_some(), true);
     /// ```
     pub fn register(&self, addr: Identifier) {
-        self.0.insert(
+        self.0.write().insert(
             addr,
             Counts {
                 received_bytes: Count::default(),
@@ -178,7 +181,7 @@ impl Statistics {
     /// assert_eq!(statistics.get(&addr).is_some(), false);
     /// ```
     pub fn unregister(&self, addr: &Identifier) {
-        self.0.remove(addr);
+        self.0.write().remove(addr);
     }
 
     /// Obtain a list of statistics from statisticsing
@@ -202,7 +205,7 @@ impl Statistics {
     /// assert_eq!(statistics.get(&addr).is_some(), true);
     /// ```
     pub fn get(&self, addr: &Identifier) -> Option<Counts<usize>> {
-        self.0.get(addr).map(|counts| Counts {
+        self.0.read().get(addr).map(|counts| Counts {
             received_bytes: counts.received_bytes.get(),
             received_pkts: counts.received_pkts.get(),
             send_bytes: counts.send_bytes.get(),
@@ -220,7 +223,7 @@ impl Statistics {
 #[derive(Clone)]
 #[allow(unused)]
 pub struct StatisticsReporter {
-    table: Arc<DashMap<Identifier, Counts<Count>>>,
+    table: Arc<RwLock<HashMap<Identifier, Counts<Count>>>>,
 }
 
 impl StatisticsReporter {
@@ -228,7 +231,7 @@ impl StatisticsReporter {
     pub fn send(&self, addr: &Identifier, reports: &[Stats]) {
         #[cfg(feature = "rpc")]
         {
-            if let Some(counts) = self.table.get(addr) {
+            if let Some(counts) = self.table.read().get(addr) {
                 for item in reports {
                     counts.add(item);
                 }
