@@ -13,7 +13,7 @@ use service::{
 use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
     task::JoinSet,
-    time::sleep,
+    time::interval,
 };
 
 use crate::{
@@ -204,9 +204,7 @@ trait Listener: Sized + Send {
                 let exchanger = exchanger.clone();
 
                 tokio::spawn(async move {
-                    let sleep = sleep(Duration::from_secs(1));
-                    tokio::pin!(sleep);
-
+                    let mut interval = interval(Duration::from_secs(1));
                     let mut read_delay = 0;
 
                     loop {
@@ -264,7 +262,7 @@ trait Listener: Sized + Send {
                                     }
                                 }
                             }
-                            _ = &mut sleep => {
+                            _ = interval.tick() => {
                                 read_delay += 1;
 
                                 if read_delay >= idle_timeout {
