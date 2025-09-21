@@ -111,24 +111,33 @@ impl XAddress {
     ///
     /// let addr_bytes: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
     ///
-    /// let token: [u8; 12] = [
+    /// let transaction_id: [u8; 12] = [
     ///     0x6c, 0x46, 0x62, 0x54, 0x75, 0x4b, 0x44, 0x51, 0x46, 0x48, 0x4c, 0x71,
     /// ];
     ///
     /// let source = "192.168.0.107:56748".parse().unwrap();
     ///
     /// let mut buffer = BytesMut::with_capacity(1280);
-    /// XAddress::serialize(&source, &token, &mut buffer, true);
+    /// XAddress::serialize(&source, &transaction_id, &mut buffer, true);
     /// assert_eq!(&xor_addr_bytes, &buffer[..]);
     ///
     /// let mut buffer = BytesMut::with_capacity(1280);
-    /// XAddress::serialize(&source, &token, &mut buffer, false);
+    /// XAddress::serialize(&source, &transaction_id, &mut buffer, false);
     /// assert_eq!(&addr_bytes, &buffer[..]);
     /// ```
-    pub fn serialize<B: BufMut>(addr: &SocketAddr, token: &[u8], bytes: &mut B, is_xor: bool) {
+    pub fn serialize<B: BufMut>(
+        addr: &SocketAddr,
+        transaction_id: &[u8],
+        bytes: &mut B,
+        is_xor: bool,
+    ) {
         bytes.put_u8(0);
 
-        let xor_addr = if is_xor { xor(addr, token) } else { *addr };
+        let xor_addr = if is_xor {
+            xor(addr, transaction_id)
+        } else {
+            *addr
+        };
 
         bytes.put_u8(if xor_addr.is_ipv4() {
             IpFamily::V4
@@ -159,19 +168,23 @@ impl XAddress {
     ///
     /// let addr_bytes: [u8; 8] = [0x00, 0x01, 0xdd, 0xac, 0xc0, 0xa8, 0x00, 0x6b];
     ///
-    /// let token: [u8; 12] = [
+    /// let transaction_id: [u8; 12] = [
     ///     0x6c, 0x46, 0x62, 0x54, 0x75, 0x4b, 0x44, 0x51, 0x46, 0x48, 0x4c, 0x71,
     /// ];
     ///
     /// let source = "192.168.0.107:56748".parse().unwrap();
     ///
-    /// let addr = XAddress::deserialize(&xor_addr_bytes, &token, true).unwrap();
+    /// let addr = XAddress::deserialize(&xor_addr_bytes, &transaction_id, true).unwrap();
     /// assert_eq!(addr, source);
     ///
-    /// let addr = XAddress::deserialize(&addr_bytes, &token, false).unwrap();
+    /// let addr = XAddress::deserialize(&addr_bytes, &transaction_id, false).unwrap();
     /// assert_eq!(addr, source);
     /// ```
-    pub fn deserialize(mut bytes: &[u8], token: &[u8], is_xor: bool) -> Result<SocketAddr, Error> {
+    pub fn deserialize(
+        mut bytes: &[u8],
+        transaction_id: &[u8],
+        is_xor: bool,
+    ) -> Result<SocketAddr, Error> {
         if bytes.len() < 4 {
             return Err(Error::InvalidInput);
         }
@@ -190,7 +203,11 @@ impl XAddress {
             port,
         );
 
-        Ok(if is_xor { xor(&addr, token) } else { addr })
+        Ok(if is_xor {
+            xor(&addr, transaction_id)
+        } else {
+            addr
+        })
     }
 }
 
@@ -251,14 +268,14 @@ pub fn ipv6_from_bytes(bytes: &[u8]) -> Result<IpAddr, Error> {
 ///
 /// let res: SocketAddr = "225.186.164.41:8467".parse().unwrap();
 ///
-/// let token: [u8; 12] = [
+/// let transaction_id: [u8; 12] = [
 ///     0x6c, 0x46, 0x62, 0x54, 0x75, 0x4b, 0x44, 0x51, 0x46, 0x48, 0x4c, 0x71,
 /// ];
 ///
-/// let addr = xor(&source, &token);
+/// let addr = xor(&source, &transaction_id);
 /// assert_eq!(addr, res);
 /// ```
-pub fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
+pub fn xor(addr: &SocketAddr, transaction_id: &[u8]) -> SocketAddr {
     SocketAddr::new(
         match addr.ip() {
             IpAddr::V4(it) => {
@@ -276,7 +293,7 @@ pub fn xor(addr: &SocketAddr, token: &[u8]) -> SocketAddr {
                 }
 
                 for (i, b) in octets.iter_mut().enumerate().take(16).skip(4) {
-                    *b ^= token[i - 4];
+                    *b ^= transaction_id[i - 4];
                 }
 
                 IpAddr::V6(From::from(octets))

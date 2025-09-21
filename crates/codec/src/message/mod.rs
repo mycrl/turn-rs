@@ -15,19 +15,22 @@ use bytes::{BufMut, BytesMut};
 static MAGIC_NUMBER: u32 = 0x2112A442;
 
 pub struct MessageEncoder<'a> {
-    token: &'a [u8],
+    transaction_id: &'a [u8],
     bytes: &'a mut BytesMut,
 }
 
 impl<'a> MessageEncoder<'a> {
-    pub fn new(method: Method, token: &'a [u8; 12], bytes: &'a mut BytesMut) -> Self {
+    pub fn new(method: Method, transaction_id: &'a [u8; 12], bytes: &'a mut BytesMut) -> Self {
         bytes.clear();
         bytes.put_u16(method.into());
         bytes.put_u16(0);
         bytes.put_u32(MAGIC_NUMBER);
-        bytes.put(token.as_slice());
+        bytes.put(transaction_id.as_slice());
 
-        Self { bytes, token }
+        Self {
+            bytes,
+            transaction_id,
+        }
     }
 
     /// rely on old message to create new message.
@@ -54,14 +57,17 @@ impl<'a> MessageEncoder<'a> {
     /// assert_eq!(&buf[..], &buffer[..]);
     /// ```
     pub fn extend(method: Method, reader: &Message<'a>, bytes: &'a mut BytesMut) -> Self {
-        let token = reader.token();
+        let transaction_id = reader.transaction_id();
 
         bytes.clear();
         bytes.put_u16(method.into());
         bytes.put_u16(0);
         bytes.put_u32(MAGIC_NUMBER);
-        bytes.put(token);
-        Self { bytes, token }
+        bytes.put(transaction_id);
+        Self {
+            bytes,
+            transaction_id,
+        }
     }
 
     /// append attribute.
@@ -107,7 +113,7 @@ impl<'a> MessageEncoder<'a> {
         // here is to reserve the position.
         let os = self.bytes.len();
         unsafe { self.bytes.advance_mut(2) }
-        T::serialize(value, self.bytes, self.token);
+        T::serialize(value, self.bytes, self.transaction_id);
 
         // compute write index,
         // back to source index write size.
@@ -278,7 +284,7 @@ impl<'a> Message<'a> {
 
     /// message transaction id.
     #[inline]
-    pub fn token(&self) -> &'a [u8] {
+    pub fn transaction_id(&self) -> &'a [u8] {
         &self.bytes[8..20]
     }
 
@@ -307,7 +313,35 @@ impl<'a> Message<'a> {
     /// ```
     pub fn get<T: Attribute<'a>>(&self) -> Option<T::Item> {
         let range = self.attributes.get(&T::TYPE)?;
-        T::deserialize(&self.bytes[range], self.token()).ok()
+        T::deserialize(&self.bytes[range], self.transaction_id()).ok()
+    }
+
+    /// get attribute for type.
+    ///
+    /// get attribute from message attribute list.
+    ///
+    /// # Test
+    ///
+    /// ```
+    /// use std::convert::TryFrom;
+    /// use turn_server_codec::message::attributes::*;
+    /// use turn_server_codec::message::methods::*;
+    /// use turn_server_codec::message::*;
+    /// use turn_server_codec::*;
+    ///
+    /// let buffer = [
+    ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
+    ///     0x42, 0x72, 0x52, 0x64, 0x48, 0x57, 0x62, 0x4b, 0x2b,
+    /// ];
+    ///
+    /// let mut attributes = Attributes::default();
+    /// let message = Message::decode(&buffer[..], &mut attributes).unwrap();
+    ///
+    /// assert!(message.get_for_type(AttributeType::UserName).is_none());
+    /// ```
+    pub fn get_for_type(&self, attr_type: AttributeType) -> Option<&'a [u8]> {
+        let range = self.attributes.get(&attr_type)?;
+        Some(&self.bytes[range])
     }
 
     /// Gets all the values of an attribute from a list.
@@ -337,7 +371,7 @@ impl<'a> Message<'a> {
     pub fn get_all<T: Attribute<'a>>(&self) -> impl Iterator<Item = T::Item> {
         self.attributes
             .get_all(&T::TYPE)
-            .map(|it| T::deserialize(&self.bytes[it.clone()], self.token()))
+            .map(|it| T::deserialize(&self.bytes[it.clone()], self.transaction_id()))
             .filter(|it| it.is_ok())
             .flatten()
     }

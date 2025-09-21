@@ -144,10 +144,10 @@ pub trait Attribute<'a> {
 
     /// write the current attribute to the bytesfer.
     #[allow(unused_variables)]
-    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {}
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, transaction_id: &'a [u8]) {}
 
     /// convert bytesfer to current attribute.
-    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error>;
+    fn deserialize(bytes: &'a [u8], transaction_id: &'a [u8]) -> Result<Self::Item, Self::Error>;
 }
 
 /// [RFC8265]: https://datatracker.ietf.org/doc/html/rfc8265
@@ -286,16 +286,16 @@ pub struct Nonce;
 
 impl<'a> Attribute<'a> for Nonce {
     type Error = Error;
-    type Item = &'a [u8];
+    type Item = &'a str;
 
     const TYPE: AttributeType = AttributeType::Nonce;
 
     fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
-        bytes.put(value);
+        bytes.put(value.as_bytes());
     }
 
     fn deserialize(bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        Ok(bytes)
+        Ok(std::str::from_utf8(bytes)?)
     }
 }
 
@@ -510,17 +510,31 @@ impl<'a> Attribute<'a> for PasswordAlgorithms {
 
     const TYPE: AttributeType = AttributeType::PasswordAlgorithms;
 
-    fn serialize<B: BufMut>(algorithms: Self::Item, bytes: &mut B, token: &'a [u8]) {
+    fn serialize<B: BufMut>(algorithms: Self::Item, bytes: &mut B, transaction_id: &'a [u8]) {
         for algorithm in algorithms {
-            PasswordAlgorithm::serialize(algorithm, bytes, token);
+            PasswordAlgorithm::serialize(algorithm, bytes, transaction_id);
         }
     }
 
-    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
+    fn deserialize(mut bytes: &'a [u8], _: &'a [u8]) -> Result<Self::Item, Self::Error> {
         let mut algorithms = Vec::new();
 
-        while let Ok(algorithm) = PasswordAlgorithm::deserialize(bytes, token) {
-            algorithms.push(algorithm);
+        loop {
+            if bytes.len() < 4 {
+                break;
+            }
+
+            let ty = match bytes.get_u16() {
+                0x0001 => PasswordAlgorithm::Md5,
+                0x0002 => PasswordAlgorithm::Sha256,
+                _ => break,
+            };
+
+            // Ignore attribute value, as it does not exist currently
+            let size = bytes.get_u16();
+            bytes.advance(super::alignment_32(size as usize));
+
+            algorithms.push(ty);
         }
 
         Ok(algorithms)
@@ -542,12 +556,12 @@ impl<'a> Attribute<'a> for XorPeerAddress {
 
     const TYPE: AttributeType = AttributeType::XorPeerAddress;
 
-    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
-        XAddress::serialize(&value, token, bytes, true)
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, transaction_id: &'a [u8]) {
+        XAddress::serialize(&value, transaction_id, bytes, true)
     }
 
-    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::deserialize(bytes, token, true)
+    fn deserialize(bytes: &'a [u8], transaction_id: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, transaction_id, true)
     }
 }
 
@@ -566,12 +580,12 @@ impl<'a> Attribute<'a> for XorRelayedAddress {
 
     const TYPE: AttributeType = AttributeType::XorRelayedAddress;
 
-    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
-        XAddress::serialize(&value, token, bytes, true)
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, transaction_id: &'a [u8]) {
+        XAddress::serialize(&value, transaction_id, bytes, true)
     }
 
-    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::deserialize(bytes, token, true)
+    fn deserialize(bytes: &'a [u8], transaction_id: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, transaction_id, true)
     }
 }
 
@@ -617,12 +631,12 @@ impl<'a> Attribute<'a> for XorMappedAddress {
 
     const TYPE: AttributeType = AttributeType::XorMappedAddress;
 
-    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
-        XAddress::serialize(&value, token, bytes, true)
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, transaction_id: &'a [u8]) {
+        XAddress::serialize(&value, transaction_id, bytes, true)
     }
 
-    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::deserialize(bytes, token, true)
+    fn deserialize(bytes: &'a [u8], transaction_id: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, transaction_id, true)
     }
 }
 
@@ -655,12 +669,12 @@ impl<'a> Attribute<'a> for MappedAddress {
 
     const TYPE: AttributeType = AttributeType::MappedAddress;
 
-    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
-        XAddress::serialize(&value, token, bytes, false)
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, transaction_id: &'a [u8]) {
+        XAddress::serialize(&value, transaction_id, bytes, false)
     }
 
-    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::deserialize(bytes, token, false)
+    fn deserialize(bytes: &'a [u8], transaction_id: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, transaction_id, false)
     }
 }
 
@@ -677,12 +691,12 @@ impl<'a> Attribute<'a> for ResponseOrigin {
 
     const TYPE: AttributeType = AttributeType::ResponseOrigin;
 
-    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, token: &'a [u8]) {
-        XAddress::serialize(&value, token, bytes, false)
+    fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, transaction_id: &'a [u8]) {
+        XAddress::serialize(&value, transaction_id, bytes, false)
     }
 
-    fn deserialize(bytes: &'a [u8], token: &'a [u8]) -> Result<Self::Item, Self::Error> {
-        XAddress::deserialize(bytes, token, false)
+    fn deserialize(bytes: &'a [u8], transaction_id: &'a [u8]) -> Result<Self::Item, Self::Error> {
+        XAddress::deserialize(bytes, transaction_id, false)
     }
 }
 
@@ -1060,14 +1074,14 @@ impl<'a> Attribute<'a> for Priority {
     }
 }
 
-/// The RESERVATION-TOKEN attribute contains a token that uniquely identifies a
+/// The RESERVATION-TOKEN attribute contains a transaction_id that uniquely identifies a
 /// relayed transport address being held in reserve by the server. The server
 /// includes this attribute in a success response to tell the client about the
-/// token, and the client includes this attribute in a subsequent Allocate
+/// transaction_id, and the client includes this attribute in a subsequent Allocate
 /// request to request the server use that relayed transport address for the
 /// allocation.
 ///
-/// The attribute value is 8 bytes and contains the token value.
+/// The attribute value is 8 bytes and contains the transaction_id value.
 #[derive(Debug, Clone, Copy)]
 pub struct ReservationToken;
 
@@ -1190,7 +1204,7 @@ impl<'a> Attribute<'a> for DontFragment {
 /// the STUN server name.  The authorization server may have tie ups with
 /// multiple STUN servers and vice versa, so the client MUST provide the
 /// STUN server name to the authorization server so that it can select
-/// the appropriate keying material to generate the self-contained token.
+/// the appropriate keying material to generate the self-contained transaction_id.
 /// If the authorization server does not have tie up with the STUN
 /// server, then it returns an error to the client.  If the client does
 /// not support or is not capable of doing third-party authorization,
