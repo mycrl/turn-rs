@@ -20,7 +20,7 @@ use std::{
 use ahash::{HashMap, HashMapExt};
 use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
-use rand::Rng;
+use rand::{Rng, distr::Alphanumeric};
 
 /// The identifier of the session or addr.
 ///
@@ -126,11 +126,11 @@ impl Timer {
 #[derive(Debug, Clone)]
 pub enum Session {
     New {
-        nonce: [u8; 16],
+        nonce: String,
         expires: u64,
     },
     Authenticated {
-        nonce: [u8; 16],
+        nonce: String,
         /// Authentication information for the session.
         ///
         /// Digest data is data that summarises usernames and passwords by means of
@@ -149,7 +149,7 @@ pub enum Session {
 
 impl Session {
     /// Get the nonce of the session.
-    pub fn nonce(&self) -> &[u8; 16] {
+    pub fn nonce(&self) -> &str {
         match self {
             Session::New { nonce, .. } | Session::Authenticated { nonce, .. } => nonce,
         }
@@ -1083,9 +1083,10 @@ where
 }
 
 /// Generate a random nonce.
-fn make_nonce() -> [u8; 16] {
-    let mut nonce = [0u8; 16];
-    rand::rng().fill(&mut nonce);
-
-    nonce
+fn make_nonce() -> String {
+    rand::rng()
+        .sample_iter(&Alphanumeric)
+        .take(16)
+        .map(char::from)
+        .collect()
 }
