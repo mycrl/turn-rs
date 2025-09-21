@@ -10,3 +10,6 @@ num_enum = "0.7"
 aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"] }
 md-5 = "0.10"
 crc32fast = "1.5.0"
+
+[dev-dependencies]
+anyhow = "1.0"
