@@ -324,7 +324,7 @@ struct Cli {
     /// Example: turn-server --config /etc/turn-rs/config.toml
     ///
     #[arg(long, short)]
-    config: Option<String>,
+    config: String,
 }
 
 impl Config {
@@ -336,11 +336,8 @@ impl Config {
     /// default configuration is used.
     ///
     pub fn load() -> Result<Self> {
-        Ok(toml::from_str::<Self>(
-            &Cli::parse()
-                .config
-                .and_then(|path| read_to_string(path).ok())
-                .unwrap_or("".to_string()),
-        )?)
+        Ok(toml::from_str::<Self>(&read_to_string(
+            &Cli::parse().config,
+        )?)?)
     }
 }

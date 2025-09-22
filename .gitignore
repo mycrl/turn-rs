@@ -9,5 +9,5 @@
 /workflow
 build/
 .DS_Store
-turn_server.dev.toml
+*.dev.toml
 /proptest-regressions
