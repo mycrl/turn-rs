@@ -282,7 +282,9 @@ where
         return reject(req, ErrorType::Unauthorized);
     };
 
-    let Some(port) = req.state.manager.allocate(req.id) else {
+    let lifetime = req.payload.get::<Lifetime>();
+
+    let Some(port) = req.state.manager.allocate(req.id, lifetime) else {
         return reject(req, ErrorType::AllocationQuotaReached);
     };
 

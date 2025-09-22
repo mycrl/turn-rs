@@ -553,7 +553,7 @@ where
     ///
     /// assert_eq!(sessions.allocate(&addr), Some(port));
     /// ```
-    pub fn allocate(&self, addr: &Identifier) -> Option<u16> {
+    pub fn allocate(&self, addr: &Identifier, lifetime: Option<u32>) -> Option<u16> {
         let mut lock = self.sessions.write();
 
         if let Some(Session::Authenticated {
@@ -569,7 +569,7 @@ where
 
             // Records the port assigned to the current session and resets the alive time.
             let port = self.port_allocator.lock().alloc(None)?;
-            *expires = self.timer.get() + 600;
+            *expires = self.timer.get() + (lifetime.unwrap_or(600) as u64);
             *allocate_port = Some(port);
 
             // Write the allocation port binding table.
