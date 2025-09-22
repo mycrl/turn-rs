@@ -1,15 +1,7 @@
-use super::{
-    Service, ServiceHandler,
-    session::{Identifier, Session, SessionManager},
-};
+use std::net::SocketAddr;
 
-use std::{net::SocketAddr, sync::Arc};
-
-use bytes::BytesMut;
 use codec::{
-    DecodeResult, Decoder,
     channel_data::ChannelData,
-    crypto::Password,
     message::{
         Message, MessageEncoder,
         attributes::{error::ErrorType, *},
@@ -17,177 +9,26 @@ use codec::{
     },
 };
 
-struct State<T>
-where
-    T: ServiceHandler,
-{
-    pub realm: String,
-    pub software: String,
-    pub manager: Arc<SessionManager<T>>,
-    pub endpoint: SocketAddr,
-    pub interface: SocketAddr,
-    pub interfaces: Arc<Vec<SocketAddr>>,
-    pub handler: T,
-}
-
-struct Inbound<'a, 'b, T, M>
-where
-    T: ServiceHandler,
-{
-    pub id: &'a Identifier,
-    pub bytes: &'b mut BytesMut,
-    pub state: &'a State<T>,
-    pub payload: &'a M,
-}
-
-impl<'a, 'b, T> Inbound<'a, 'b, T, Message<'a>>
-where
-    T: ServiceHandler,
-{
-    #[inline(always)]
-    pub fn verify_ip(&self, address: &SocketAddr) -> bool {
-        self.state
-            .interfaces
-            .iter()
-            .any(|item| item.ip() == address.ip())
-    }
-
-    #[inline(always)]
-    pub async fn credentials(&self) -> Option<(&str, Password)> {
-        let username = self.payload.get::<UserName>()?;
-        let algorithm = self
-            .payload
-            .get::<PasswordAlgorithm>()
-            .unwrap_or(PasswordAlgorithm::Md5);
-
-        let password = self
-            .state
-            .manager
-            .get_password(self.id, username, algorithm)
-            .await?;
-
-        if self.payload.checksum(&password).is_err() {
-            return None;
-        }
-
-        Some((username, password))
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct OutboundTarget {
-    pub endpoint: Option<SocketAddr>,
-    pub relay: Option<SocketAddr>,
-}
-
-#[derive(Debug)]
-pub enum Outbound<'a> {
-    Message {
-        method: Method,
-        bytes: &'a [u8],
-        target: OutboundTarget,
+use crate::{
+    ServiceHandler,
+    routing::{
+        request::Request,
+        response::{Response, ResponseBuilder},
     },
-    ChannelData {
-        bytes: &'a [u8],
-        target: OutboundTarget,
-    },
-}
+    session::Session,
+};
 
-#[derive(Debug)]
-pub enum ForwardResult<'a> {
-    Exceptional(codec::Error),
-    Outbound(Outbound<'a>),
-    None,
-}
-
-pub struct PacketForwarder<T>
-where
-    T: ServiceHandler,
-{
-    id: Identifier,
-    state: State<T>,
-    decoder: Decoder,
-    bytes: BytesMut,
-}
-
-impl<T> PacketForwarder<T>
-where
-    T: ServiceHandler + Clone,
-{
-    pub fn new(service: &Service<T>, endpoint: SocketAddr, interface: SocketAddr) -> Self {
-        Self {
-            bytes: BytesMut::with_capacity(4096),
-            decoder: Decoder::default(),
-            id: Identifier {
-                source: "0.0.0.0:0".parse().unwrap(),
-                interface,
-            },
-            state: State {
-                interfaces: service.interfaces.clone(),
-                software: service.software.clone(),
-                handler: service.handler.clone(),
-                manager: service.manager.clone(),
-                realm: service.realm.clone(),
-                interface,
-                endpoint,
-            },
-        }
-    }
-
-    pub async fn forward<'a, 'b: 'a>(
-        &'b mut self,
-        bytes: &'b [u8],
-        address: SocketAddr,
-    ) -> ForwardResult<'a> {
-        {
-            self.id.source = address;
-        }
-
-        (match self.decoder.decode(bytes) {
-            Ok(DecodeResult::ChannelData(channel)) => channel_data_route(
-                bytes,
-                Inbound {
-                    id: &self.id,
-                    state: &self.state,
-                    bytes: &mut self.bytes,
-                    payload: &channel,
-                },
-            ),
-            Ok(DecodeResult::Message(message)) => {
-                let req = Inbound {
-                    id: &self.id,
-                    state: &self.state,
-                    bytes: &mut self.bytes,
-                    payload: &message,
-                };
-
-                match req.payload.method() {
-                    BINDING_REQUEST => binding(req),
-                    ALLOCATE_REQUEST => allocate(req).await,
-                    CREATE_PERMISSION_REQUEST => create_permission(req).await,
-                    CHANNEL_BIND_REQUEST => channel_bind(req).await,
-                    REFRESH_REQUEST => refresh(req).await,
-                    SEND_INDICATION => indication(req),
-                    _ => None,
-                }
-            }
-            Err(e) => {
-                return ForwardResult::Exceptional(e);
-            }
-        })
-        .map(ForwardResult::Outbound)
-        .unwrap_or(ForwardResult::None)
-    }
-}
-
-fn reject<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>, error: ErrorType) -> Option<Outbound<'a>>
+pub(crate) fn reject<'a, T>(
+    req: Request<'_, 'a, T, Message<'_>>,
+    error: ErrorType,
+) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
     let method = req.payload.method().error()?;
 
     {
-        let mut message = MessageEncoder::extend(method, req.payload, req.bytes);
+        let mut message = MessageEncoder::extend(method, req.payload, req.encode_buffer);
         message.append::<ErrorCode>(ErrorCode::from(error));
 
         if error == ErrorType::Unauthorized {
@@ -209,11 +50,11 @@ where
         message.flush(None).ok()?;
     }
 
-    Some(Outbound::Message {
-        target: OutboundTarget::default(),
-        bytes: req.bytes,
-        method,
-    })
+    Some(
+        ResponseBuilder::message(method)
+            .payload(req.encode_buffer)
+            .build(),
+    )
 }
 
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -236,12 +77,12 @@ where
 /// attribute within the body of the STUN response will remain untouched.
 /// In this way, the client can learn its reflexive transport address
 /// allocated by the outermost NAT with respect to the STUN server.
-fn binding<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+pub(crate) fn binding<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
     {
-        let mut message = MessageEncoder::extend(BINDING_RESPONSE, req.payload, req.bytes);
+        let mut message = MessageEncoder::extend(BINDING_RESPONSE, req.payload, req.encode_buffer);
         message.append::<XorMappedAddress>(req.id.source);
         message.append::<MappedAddress>(req.id.source);
         message.append::<ResponseOrigin>(req.state.interface);
@@ -249,11 +90,11 @@ where
         message.flush(None).ok()?;
     }
 
-    Some(Outbound::Message {
-        target: OutboundTarget::default(),
-        method: BINDING_RESPONSE,
-        bytes: req.bytes,
-    })
+    Some(
+        ResponseBuilder::message(BINDING_RESPONSE)
+            .payload(req.encode_buffer)
+            .build(),
+    )
 }
 
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -270,7 +111,7 @@ where
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard contexts.
-async fn allocate<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+pub(crate) async fn allocate<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -278,7 +119,7 @@ where
         return reject(req, ErrorType::ServerError);
     }
 
-    let Some((username, password)) = req.credentials().await else {
+    let Some((username, password)) = req.verify().await else {
         return reject(req, ErrorType::Unauthorized);
     };
 
@@ -291,7 +132,7 @@ where
     req.state.handler.on_allocated(req.id, username, port);
 
     {
-        let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.bytes);
+        let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.encode_buffer);
         message.append::<XorRelayedAddress>(SocketAddr::new(req.state.interface.ip(), port));
         message.append::<XorMappedAddress>(req.id.source);
         message.append::<Lifetime>(600);
@@ -299,11 +140,11 @@ where
         message.flush(Some(&password)).ok()?;
     }
 
-    Some(Outbound::Message {
-        target: OutboundTarget::default(),
-        method: ALLOCATE_RESPONSE,
-        bytes: req.bytes,
-    })
+    Some(
+        ResponseBuilder::message(ALLOCATE_RESPONSE)
+            .payload(req.encode_buffer)
+            .build(),
+    )
 }
 
 /// The server MAY impose restrictions on the IP address and port values
@@ -334,7 +175,9 @@ where
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-async fn channel_bind<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+pub(crate) async fn channel_bind<'a, T>(
+    req: Request<'_, 'a, T, Message<'_>>,
+) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -354,7 +197,7 @@ where
         return reject(req, ErrorType::BadRequest);
     }
 
-    let Some((username, password)) = req.credentials().await else {
+    let Some((username, password)) = req.verify().await else {
         return reject(req, ErrorType::Unauthorized);
     };
 
@@ -369,16 +212,16 @@ where
     req.state.handler.on_channel_bind(req.id, username, number);
 
     {
-        MessageEncoder::extend(CHANNEL_BIND_RESPONSE, req.payload, req.bytes)
+        MessageEncoder::extend(CHANNEL_BIND_RESPONSE, req.payload, req.encode_buffer)
             .flush(Some(&password))
             .ok()?;
     }
 
-    Some(Outbound::Message {
-        target: OutboundTarget::default(),
-        method: CHANNEL_BIND_RESPONSE,
-        bytes: req.bytes,
-    })
+    Some(
+        ResponseBuilder::message(CHANNEL_BIND_RESPONSE)
+            .payload(req.encode_buffer)
+            .build(),
+    )
 }
 
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -418,11 +261,13 @@ where
 /// CreatePermission requests over UDP using the "stateless stack approach".
 /// Retransmitted CreatePermission requests will simply refresh the
 /// permissions.
-async fn create_permission<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+pub(crate) async fn create_permission<'a, T>(
+    req: Request<'_, 'a, T, Message<'_>>,
+) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
-    let Some((username, password)) = req.credentials().await else {
+    let Some((username, password)) = req.verify().await else {
         return reject(req, ErrorType::Unauthorized);
     };
 
@@ -448,16 +293,16 @@ where
         .on_create_permission(req.id, username, &ports);
 
     {
-        MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.bytes)
+        MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.encode_buffer)
             .flush(Some(&password))
             .ok()?;
     }
 
-    Some(Outbound::Message {
-        method: CREATE_PERMISSION_RESPONSE,
-        target: OutboundTarget::default(),
-        bytes: req.bytes,
-    })
+    Some(
+        ResponseBuilder::message(CREATE_PERMISSION_RESPONSE)
+            .payload(req.encode_buffer)
+            .build(),
+    )
 }
 
 /// When the server receives a Send indication, it processes as per
@@ -503,7 +348,7 @@ where
 ///
 /// The resulting UDP datagram is then sent to the peer.
 #[rustfmt::skip]
-fn indication<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+pub(crate) fn indication<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -511,29 +356,24 @@ where
     let data = req.payload.get::<Data>()?;
 
     if let Some(Session::Authenticated { allocate_port, .. }) =
-        req.state.manager.get_session(req.id).get_ref() && let Some(local_port) = *allocate_port
+        req.state.manager.get_session(req.id).get_ref()
+        && let Some(local_port) = *allocate_port
     {
         let relay = req.state.manager.get_relay_address(req.id, peer.port())?;
 
         {
-            let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.bytes);
+            let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.encode_buffer);
             message.append::<XorPeerAddress>(SocketAddr::new(req.state.interface.ip(), local_port));
             message.append::<Data>(data);
             message.flush(None).ok()?;
         }
 
-        return Some(Outbound::Message {
-            method: DATA_INDICATION,
-            bytes: req.bytes,
-            target: OutboundTarget {
-                relay: Some(relay.source),
-                endpoint: if req.state.endpoint != relay.endpoint {
-                    Some(relay.endpoint)
-                } else {
-                    None
-                },
-            },
-        });
+        return Some(
+            ResponseBuilder::message(DATA_INDICATION)
+                .payload(req.encode_buffer)
+                .target(req.target(relay))
+                .build(),
+        );
     }
 
     None
@@ -575,11 +415,11 @@ where
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-async fn refresh<'a, T>(req: Inbound<'_, 'a, T, Message<'_>>) -> Option<Outbound<'a>>
+pub(crate) async fn refresh<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
-    let Some((username, password)) = req.credentials().await else {
+    let Some((username, password)) = req.verify().await else {
         return reject(req, ErrorType::Unauthorized);
     };
 
@@ -591,16 +431,16 @@ where
     req.state.handler.on_refresh(req.id, username, lifetime);
 
     {
-        let mut message = MessageEncoder::extend(REFRESH_RESPONSE, req.payload, req.bytes);
+        let mut message = MessageEncoder::extend(REFRESH_RESPONSE, req.payload, req.encode_buffer);
         message.append::<Lifetime>(lifetime);
         message.flush(Some(&password)).ok()?;
     }
 
-    Some(Outbound::Message {
-        target: OutboundTarget::default(),
-        method: REFRESH_RESPONSE,
-        bytes: req.bytes,
-    })
+    Some(
+        ResponseBuilder::message(REFRESH_RESPONSE)
+            .payload(req.encode_buffer)
+            .build(),
+    )
 }
 
 /// If the ChannelData message is received on a channel that is not bound
@@ -629,10 +469,10 @@ where
 /// the Length field in the ChannelData message is 0, then there will be
 /// no data in the UDP datagram, but the UDP datagram is still formed and
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
-fn channel_data_route<'a, T>(
+pub(crate) fn channel_data<'a, T>(
     bytes: &'a [u8],
-    req: Inbound<'_, 'a, T, ChannelData<'_>>,
-) -> Option<Outbound<'a>>
+    req: Request<'_, 'a, T, ChannelData<'_>>,
+) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -641,15 +481,10 @@ where
         .manager
         .get_channel_relay_address(req.id, req.payload.number())?;
 
-    Some(Outbound::ChannelData {
-        bytes,
-        target: OutboundTarget {
-            relay: Some(relay.source),
-            endpoint: if req.state.endpoint != relay.endpoint {
-                Some(relay.endpoint)
-            } else {
-                None
-            },
-        },
-    })
+    Some(
+        ResponseBuilder::channel_data()
+            .payload(bytes)
+            .target(req.target(relay))
+            .build(),
+    )
 }

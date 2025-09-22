@@ -176,7 +176,7 @@ impl<'a> MessageEncoder<'a> {
 
         // if need message integrity?
         if let Some(it) = password {
-            self.checksum(it)?;
+            self.verify(it)?;
         }
 
         Ok(())
@@ -225,7 +225,7 @@ impl<'a> MessageEncoder<'a> {
     ///
     /// assert_eq!(&buf[..], &result);
     /// ```
-    fn checksum(&mut self, passwrd: &Password) -> Result<(), Error> {
+    fn verify(&mut self, passwrd: &Password) -> Result<(), Error> {
         assert!(self.bytes.len() >= 20);
         let len = self.bytes.len();
 
@@ -405,7 +405,7 @@ impl<'a> Message<'a> {
     /// let mut attributes = Attributes::default();
     /// let message = Message::decode(&buffer[..], &mut attributes).unwrap();
     /// let result = message
-    ///     .checksum(&turn_server_codec::crypto::generate_password(
+    ///     .verify(&turn_server_codec::crypto::generate_password(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
@@ -415,7 +415,7 @@ impl<'a> Message<'a> {
     ///
     /// assert!(result);
     /// ```
-    pub fn checksum(&self, password: &Password) -> Result<(), Error> {
+    pub fn verify(&self, password: &Password) -> Result<(), Error> {
         if self.bytes.is_empty() || self.size < 20 {
             return Err(Error::InvalidInput);
         }

@@ -5,7 +5,6 @@ use std::{net::SocketAddr, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
 use bytes::Bytes;
-use codec::message::methods::Method;
 use parking_lot::RwLock;
 
 use tokio::{
@@ -81,15 +80,11 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
     Ok(())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum OutboundType {
-    Message(Method),
-    ChannelData,
-}
-
 /// Handles packet forwarding between transport protocols.
 #[derive(Clone)]
-pub struct Exchanger(Arc<RwLock<HashMap<SocketAddr, UnboundedSender<(Bytes, OutboundType)>>>>);
+pub struct Exchanger(
+    Arc<RwLock<HashMap<SocketAddr, UnboundedSender<(Bytes, bool /* is_channel_data*/)>>>>,
+);
 
 impl Default for Exchanger {
     fn default() -> Self {
@@ -102,7 +97,10 @@ impl Exchanger {
     ///
     /// Each transport protocol is layered according to its own socket, and
     /// the data forwarded to this socket can be obtained by routing.
-    fn get_receiver(&self, interface: SocketAddr) -> UnboundedReceiver<(Bytes, OutboundType)> {
+    fn get_receiver(
+        &self,
+        interface: SocketAddr,
+    ) -> UnboundedReceiver<(Bytes, bool /* is_channel_data */)> {
         let (sender, receiver) = unbounded_channel();
         self.0.write().insert(interface, sender);
 
@@ -115,12 +113,12 @@ impl Exchanger {
     /// is forwarded to the corresponding socket. However, it should be noted
     /// that calling this function will not notify whether the socket exists.
     /// If it does not exist, the data will be discarded by default.
-    fn send(&self, interface: &SocketAddr, ty: OutboundType, data: Bytes) {
+    fn send(&self, interface: &SocketAddr, is_channel_data: bool, data: Bytes) {
         let mut is_destroy = false;
 
         {
             if let Some(sender) = self.0.read().get(interface)
-                && sender.send((data, ty)).is_err()
+                && sender.send((data, is_channel_data)).is_err()
             {
                 is_destroy = true;
             }

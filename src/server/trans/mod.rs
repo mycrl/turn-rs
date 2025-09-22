@@ -5,16 +5,14 @@ use std::{net::SocketAddr, time::Duration};
 
 use anyhow::Result;
 use bytes::Bytes;
-use service::{
-    forwarding::{ForwardResult, Outbound},
-    session::Identifier,
-};
+use service::{routing::RouteResult, session::Identifier};
+
 use tokio::time::interval;
 
 use crate::{
     Service,
     config::Ssl,
-    server::{Exchanger, OutboundType},
+    server::Exchanger,
     statistics::{Statistics, Stats},
 };
 
@@ -75,7 +73,7 @@ pub trait Listener: Sized + Send {
                 };
 
                 let mut receiver = exchanger.get_receiver(address);
-                let mut forwarder = service.get_forwarder(address, options.external);
+                let mut router = service.make_router(address, options.external);
                 let reporter = statistics.get_reporter();
 
                 let service = service.clone();
@@ -90,38 +88,27 @@ pub trait Listener: Sized + Send {
                             Some(buffer) = socket.read() => {
                                 read_delay = 0;
 
-                                if let ForwardResult::Outbound(outbound) = forwarder.forward(&buffer, address).await
+                                if let RouteResult::Response(response) = router.route(&buffer, address).await
                                 {
-                                    let (ty, bytes, target) = match outbound {
-                                        Outbound::Message {
-                                            method,
-                                            bytes,
-                                            target,
-                                        } => (OutboundType::Message(method), bytes, target),
-                                        Outbound::ChannelData { bytes, target } => {
-                                            (OutboundType::ChannelData, bytes, target)
-                                        }
-                                    };
-
-                                    if let Some(endpoint) = target.endpoint {
-                                        exchanger.send(&endpoint, ty, Bytes::copy_from_slice(bytes));
+                                    if let Some(endpoint) = response.target().endpoint {
+                                        exchanger.send(&endpoint, response.is_channel_data(), Bytes::copy_from_slice(response.payload()));
                                     } else {
-                                        if socket.write(bytes).await.is_err() {
+                                        if socket.write(response.payload()).await.is_err() {
                                             break;
                                         }
 
                                         reporter.send(
                                             &id,
-                                            &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)],
+                                            &[Stats::SendBytes(response.payload().len()), Stats::SendPkts(1)],
                                         );
 
-                                        if let OutboundType::Message(method) = ty && method.is_error() {
+                                        if response.is_error() {
                                             reporter.send(&id, &[Stats::ErrorPkts(1)]);
                                         }
                                     }
                                 }
                             }
-                            Some((bytes, method)) = receiver.recv() => {
+                            Some((bytes, is_channel_data)) = receiver.recv() => {
                                 if socket.write(&bytes).await.is_err() {
                                     break;
                                 } else {
@@ -133,7 +120,7 @@ pub trait Listener: Sized + Send {
                                 // bit needs to be filled, because if the channel data comes
                                 // from udp, it is not guaranteed to be aligned and needs to be
                                 // checked.
-                                if transport == Transport::Tcp && method == OutboundType::ChannelData {
+                                if transport == Transport::Tcp && is_channel_data {
                                     let pad = bytes.len() % 4;
                                     if pad > 0 && socket.write(&[0u8; 8][..(4 - pad)]).await.is_err() {
                                         break;

@@ -72,7 +72,7 @@ fn test_turn_server_codec() -> Result<()> {
         assert_eq!(message.get::<Realm>(), Some("localhost"));
         assert_eq!(message.get::<Nonce>(), Some("UHm1hiE0jm9r9rGS"));
 
-        message.checksum(&password)?;
+        message.verify(&password)?;
     }
 
     {
@@ -86,7 +86,7 @@ fn test_turn_server_codec() -> Result<()> {
         assert_eq!(message.get::<XorMappedAddress>(), Some("127.0.0.1:51678".parse()?));
         assert_eq!(message.get::<Lifetime>(), Some(600));
 
-        message.checksum(&password)?;
+        message.verify(&password)?;
     }
 
     {
@@ -101,7 +101,7 @@ fn test_turn_server_codec() -> Result<()> {
         assert_eq!(message.get::<Realm>(), Some("localhost"));
         assert_eq!(message.get::<Nonce>(), Some("9jLBcjff3xrKRAES"));
 
-        message.checksum(&password)?;
+        message.verify(&password)?;
     }
 
     {
@@ -112,7 +112,7 @@ fn test_turn_server_codec() -> Result<()> {
 
         assert_eq!(message.method(), CREATE_PERMISSION_RESPONSE);
 
-        message.checksum(&password)?;
+        message.verify(&password)?;
     }
 
     {
@@ -128,7 +128,7 @@ fn test_turn_server_codec() -> Result<()> {
         assert_eq!(message.get::<Realm>(), Some("localhost"));
         assert_eq!(message.get::<Nonce>(), Some("9jLBcjff3xrKRAES"));
 
-        message.checksum(&password)?;
+        message.verify(&password)?;
     }
 
     {
@@ -139,7 +139,7 @@ fn test_turn_server_codec() -> Result<()> {
 
         assert_eq!(message.method(), CHANNEL_BIND_RESPONSE);
 
-        message.checksum(&password)?;
+        message.verify(&password)?;
     }
 
     {
@@ -176,7 +176,7 @@ fn test_turn_server_codec() -> Result<()> {
         assert_eq!(message.get::<Realm>(), Some("localhost"));
         assert_eq!(message.get::<Nonce>(), Some("UHm1hiE0jm9r9rGS"));
 
-        message.checksum(&password)?;
+        message.verify(&password)?;
     }
 
     {
@@ -188,7 +188,7 @@ fn test_turn_server_codec() -> Result<()> {
         assert_eq!(message.method(), REFRESH_RESPONSE);
         assert_eq!(message.get::<Lifetime>(), Some(0));
 
-        message.checksum(&password)?;
+        message.verify(&password)?;
     }
 
     Ok(())

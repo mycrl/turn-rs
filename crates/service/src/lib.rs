@@ -1,4 +1,4 @@
-pub mod forwarding;
+pub mod routing;
 pub mod session;
 
 use std::{net::SocketAddr, sync::Arc};
@@ -6,7 +6,7 @@ use std::{net::SocketAddr, sync::Arc};
 use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 
 use crate::{
-    forwarding::PacketForwarder,
+    routing::Router,
     session::{Identifier, SessionManager, SessionManagerOptions, ports::PortRange},
 };
 
@@ -198,9 +198,9 @@ where
         }
     }
 
-    /// Get packet forwarder.
-    pub fn get_forwarder(&self, endpoint: SocketAddr, interface: SocketAddr) -> PacketForwarder<T> {
-        PacketForwarder::new(self, endpoint, interface)
+    /// create a router.
+    pub fn make_router(&self, endpoint: SocketAddr, interface: SocketAddr) -> Router<T> {
+        Router::new(self, endpoint, interface)
     }
 
     pub fn get_session_manager(&self) -> &SessionManager<T> {
