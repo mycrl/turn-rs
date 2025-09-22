@@ -181,11 +181,14 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
 
 #[tonic::async_trait]
 pub trait TurnHooksServer: Send + Sync {
+    #[allow(unused_variables)]
     async fn get_password(
         &self,
         username: &str,
         algorithm: PasswordAlgorithm,
-    ) -> Result<Credential, Status>;
+    ) -> Result<Credential, Status> {
+        Err(Status::unimplemented("get_password is not implemented"))
+    }
 
     /// allocate request
     ///
@@ -203,7 +206,8 @@ pub trait TurnHooksServer: Send + Sync {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    async fn on_allocated(&self, id: String, username: String, port: u16);
+    #[allow(unused_variables)]
+    async fn on_allocated(&self, id: String, username: String, port: u16) {}
 
     /// channel bind request
     ///
@@ -216,7 +220,8 @@ pub trait TurnHooksServer: Send + Sync {
     /// Otherwise, the server replies with a ChannelBind success response.
     /// There are no required attributes in a successful ChannelBind
     /// response.
-    async fn on_channel_bind(&self, id: String, username: String, channel: u16);
+    #[allow(unused_variables)]
+    async fn on_channel_bind(&self, id: String, username: String, channel: u16) {}
 
     /// create permission request
     ///
@@ -229,7 +234,8 @@ pub trait TurnHooksServer: Send + Sync {
     /// Otherwise, the server replies with a ChannelBind success response.
     /// There are no required attributes in a successful ChannelBind
     /// response.
-    async fn on_create_permission(&self, id: String, username: String, ports: Vec<u16>);
+    #[allow(unused_variables)]
+    async fn on_create_permission(&self, id: String, username: String, ports: Vec<u16>) {}
 
     /// refresh request
     ///
@@ -242,14 +248,16 @@ pub trait TurnHooksServer: Send + Sync {
     /// Otherwise, the server replies with a ChannelBind success response.
     /// There are no required attributes in a successful ChannelBind
     /// response.
-    async fn on_refresh(&self, id: String, username: String, lifetime: u32);
+    #[allow(unused_variables)]
+    async fn on_refresh(&self, id: String, username: String, lifetime: u32) {}
 
     /// session closed
     ///
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    async fn on_destroy(&self, id: String, username: String);
+    #[allow(unused_variables)]
+    async fn on_destroy(&self, id: String, username: String) {}
 
     /// start the turn hooks server
     ///
