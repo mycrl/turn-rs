@@ -22,7 +22,7 @@ use tokio_rustls::{
     server::TlsStream,
 };
 
-use crate::server::trans::{ListenOptions, Listener, MAX_MESSAGE_SIZE, Socket};
+use crate::server::transport::{ListenOptions, Listener, MAX_MESSAGE_SIZE, Socket};
 
 enum MaybeSslStream {
     #[cfg(feature = "ssl")]

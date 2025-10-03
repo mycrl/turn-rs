@@ -1,4 +1,4 @@
-pub mod trans;
+pub mod transport;
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -15,7 +15,7 @@ use tokio::{
 use crate::{
     Service,
     config::{Config, Interface},
-    server::trans::{ListenOptions, Listener, Transport, tcp::TcpServer, udp::UdpServer},
+    server::transport::{ListenOptions, Listener, Transport, tcp::TcpServer, udp::UdpServer},
     statistics::Statistics,
 };
 
