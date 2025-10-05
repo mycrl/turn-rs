@@ -348,7 +348,7 @@ where
         let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.encode_buffer);
         message.append::<XorRelayedAddress>(SocketAddr::new(req.state.interface.ip(), port));
         message.append::<XorMappedAddress>(req.id.source);
-        message.append::<Lifetime>(600);
+        message.append::<Lifetime>(lifetime.unwrap_or(600));
         message.append::<Software>(&req.state.software);
         message.flush(Some(&password)).ok()?;
     }
