@@ -1,7 +1,15 @@
-use std::net::SocketAddr;
+use crate::{
+    Service, ServiceHandler,
+    session::{Identifier, Session, SessionManager},
+};
 
+use std::{net::SocketAddr, sync::Arc};
+
+use bytes::BytesMut;
 use codec::{
+    DecodeResult, Decoder,
     channel_data::ChannelData,
+    crypto::Password,
     message::{
         Message, MessageEncoder,
         attributes::{error::ErrorType, *},
@@ -9,19 +17,224 @@ use codec::{
     },
 };
 
-use crate::{
-    ServiceHandler,
-    routing::{
-        request::Request,
-        response::{Response, ResponseBuilder},
-    },
-    session::Session,
-};
+struct Request<'a, 'b, T, M>
+where
+    T: ServiceHandler,
+{
+    id: &'a Identifier,
+    encode_buffer: &'b mut BytesMut,
+    state: &'a State<T>,
+    payload: &'a M,
+}
 
-pub(crate) fn reject<'a, T>(
-    req: Request<'_, 'a, T, Message<'_>>,
-    error: ErrorType,
-) -> Option<Response<'a>>
+impl<'a, 'b, T> Request<'a, 'b, T, Message<'a>>
+where
+    T: ServiceHandler,
+{
+    // Verify the IP address specified by the client in the request, such as the
+    // peer address used when creating permissions and binding channels. Currently,
+    // only peer addresses that are local addresses of the TURN server are allowed;
+    // arbitrary addresses are not permitted.
+    //
+    // Allowing arbitrary addresses would pose security risks, such as enabling
+    // the TURN server to forward data to any target.
+    #[inline(always)]
+    fn verify_ip(&self, address: &SocketAddr) -> bool {
+        self.state
+            .interfaces
+            .iter()
+            .any(|item| item.ip() == address.ip())
+    }
+
+    // The key for the HMAC depends on whether long-term or short-term
+    // credentials are in use.  For long-term credentials, the key is 16
+    // bytes:
+    //
+    // key = MD5(username ":" realm ":" SASLprep(password))
+    //
+    // That is, the 16-byte key is formed by taking the MD5 hash of the
+    // result of concatenating the following five fields: (1) the username,
+    // with any quotes and trailing nulls removed, as taken from the
+    // USERNAME attribute (in which case SASLprep has already been applied);
+    // (2) a single colon; (3) the realm, with any quotes and trailing nulls
+    // removed; (4) a single colon; and (5) the password, with any trailing
+    // nulls removed and after processing using SASLprep.  For example, if
+    // the username was 'user', the realm was 'realm', and the password was
+    // 'pass', then the 16-byte HMAC key would be the result of performing
+    // an MD5 hash on the string 'user:realm:pass', the resulting hash being
+    // 0x8493fbc53ba582fb4c044c456bdc40eb.
+    //
+    // For short-term credentials:
+    //
+    // key = SASLprep(password)
+    //
+    // where MD5 is defined in RFC 1321 [RFC1321] and SASLprep() is defined
+    // in RFC 4013 [RFC4013].
+    //
+    // The structure of the key when used with long-term credentials
+    // facilitates deployment in systems that also utilize SIP.  Typically,
+    // SIP systems utilizing SIP's digest authentication mechanism do not
+    // actually store the password in the database.  Rather, they store a
+    // value called H(A1), which is equal to the key defined above.
+    //
+    // Based on the rules above, the hash used to construct MESSAGE-
+    // INTEGRITY includes the length field from the STUN message header.
+    // Prior to performing the hash, the MESSAGE-INTEGRITY attribute MUST be
+    // inserted into the message (with dummy content).  The length MUST then
+    // be set to point to the length of the message up to, and including,
+    // the MESSAGE-INTEGRITY attribute itself, but excluding any attributes
+    // after it.  Once the computation is performed, the value of the
+    // MESSAGE-INTEGRITY attribute can be filled in, and the value of the
+    // length in the STUN header can be set to its correct value -- the
+    // length of the entire message.  Similarly, when validating the
+    // MESSAGE-INTEGRITY, the length field should be adjusted to point to
+    // the end of the MESSAGE-INTEGRITY attribute prior to calculating the
+    // HMAC.  Such adjustment is necessary when attributes, such as
+    // FINGERPRINT, appear after MESSAGE-INTEGRITY.
+    #[inline(always)]
+    async fn verify(&self) -> Option<(&str, Password)> {
+        let username = self.payload.get::<UserName>()?;
+        let algorithm = self
+            .payload
+            .get::<PasswordAlgorithm>()
+            .unwrap_or(PasswordAlgorithm::Md5);
+
+        let password = self
+            .state
+            .manager
+            .get_password(self.id, username, algorithm)
+            .await?;
+
+        if self.payload.verify(&password).is_err() {
+            return None;
+        }
+
+        Some((username, password))
+    }
+}
+
+// The target of the response.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Target {
+    pub endpoint: Option<SocketAddr>,
+    pub relay: Option<SocketAddr>,
+}
+
+// The response.
+#[derive(Debug)]
+pub enum Response<'a> {
+    Message {
+        method: Method,
+        bytes: &'a [u8],
+        target: Target,
+    },
+    ChannelData {
+        bytes: &'a [u8],
+        target: Target,
+    },
+}
+
+pub(crate) struct State<T>
+where
+    T: ServiceHandler,
+{
+    pub realm: String,
+    pub software: String,
+    pub manager: Arc<SessionManager<T>>,
+    pub endpoint: SocketAddr,
+    pub interface: SocketAddr,
+    pub interfaces: Arc<Vec<SocketAddr>>,
+    pub handler: T,
+}
+
+#[derive(Debug)]
+pub enum RouteResult<'a> {
+    Exceptional(codec::Error),
+    Response(Response<'a>),
+    None,
+}
+
+pub struct Router<T>
+where
+    T: ServiceHandler,
+{
+    current_id: Identifier,
+    state: State<T>,
+    decoder: Decoder,
+    bytes: BytesMut,
+}
+
+impl<T> Router<T>
+where
+    T: ServiceHandler + Clone,
+{
+    pub fn new(service: &Service<T>, endpoint: SocketAddr, interface: SocketAddr) -> Self {
+        Self {
+            bytes: BytesMut::with_capacity(4096),
+            decoder: Decoder::default(),
+            current_id: Identifier {
+                source: "0.0.0.0:0".parse().unwrap(),
+                interface,
+            },
+            state: State {
+                interfaces: service.interfaces.clone(),
+                software: service.software.clone(),
+                handler: service.handler.clone(),
+                manager: service.manager.clone(),
+                realm: service.realm.clone(),
+                interface,
+                endpoint,
+            },
+        }
+    }
+
+    pub async fn route<'a, 'b: 'a>(
+        &'b mut self,
+        bytes: &'b [u8],
+        address: SocketAddr,
+    ) -> RouteResult<'a> {
+        {
+            self.current_id.source = address;
+        }
+
+        (match self.decoder.decode(bytes) {
+            Ok(DecodeResult::ChannelData(channel)) => channel_data(
+                bytes,
+                Request {
+                    id: &self.current_id,
+                    state: &self.state,
+                    encode_buffer: &mut self.bytes,
+                    payload: &channel,
+                },
+            ),
+            Ok(DecodeResult::Message(message)) => {
+                let req = Request {
+                    id: &self.current_id,
+                    state: &self.state,
+                    encode_buffer: &mut self.bytes,
+                    payload: &message,
+                };
+
+                match req.payload.method() {
+                    BINDING_REQUEST => binding(req),
+                    ALLOCATE_REQUEST => allocate(req).await,
+                    CREATE_PERMISSION_REQUEST => create_permission(req).await,
+                    CHANNEL_BIND_REQUEST => channel_bind(req).await,
+                    REFRESH_REQUEST => refresh(req).await,
+                    SEND_INDICATION => indication(req),
+                    _ => None,
+                }
+            }
+            Err(e) => {
+                return RouteResult::Exceptional(e);
+            }
+        })
+        .map(RouteResult::Response)
+        .unwrap_or(RouteResult::None)
+    }
+}
+
+fn reject<'a, T>(req: Request<'_, 'a, T, Message<'_>>, error: ErrorType) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -50,11 +263,11 @@ where
         message.flush(None).ok()?;
     }
 
-    Some(
-        ResponseBuilder::message(method)
-            .payload(req.encode_buffer)
-            .build(),
-    )
+    Some(Response::Message {
+        target: Target::default(),
+        bytes: req.encode_buffer,
+        method,
+    })
 }
 
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -77,7 +290,7 @@ where
 /// attribute within the body of the STUN response will remain untouched.
 /// In this way, the client can learn its reflexive transport address
 /// allocated by the outermost NAT with respect to the STUN server.
-pub(crate) fn binding<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+fn binding<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -90,11 +303,11 @@ where
         message.flush(None).ok()?;
     }
 
-    Some(
-        ResponseBuilder::message(BINDING_RESPONSE)
-            .payload(req.encode_buffer)
-            .build(),
-    )
+    Some(Response::Message {
+        target: Target::default(),
+        method: BINDING_RESPONSE,
+        bytes: req.encode_buffer,
+    })
 }
 
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -111,7 +324,7 @@ where
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard contexts.
-pub(crate) async fn allocate<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+async fn allocate<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -140,11 +353,11 @@ where
         message.flush(Some(&password)).ok()?;
     }
 
-    Some(
-        ResponseBuilder::message(ALLOCATE_RESPONSE)
-            .payload(req.encode_buffer)
-            .build(),
-    )
+    Some(Response::Message {
+        target: Target::default(),
+        method: ALLOCATE_RESPONSE,
+        bytes: req.encode_buffer,
+    })
 }
 
 /// The server MAY impose restrictions on the IP address and port values
@@ -175,9 +388,7 @@ where
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-pub(crate) async fn channel_bind<'a, T>(
-    req: Request<'_, 'a, T, Message<'_>>,
-) -> Option<Response<'a>>
+async fn channel_bind<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -217,11 +428,11 @@ where
             .ok()?;
     }
 
-    Some(
-        ResponseBuilder::message(CHANNEL_BIND_RESPONSE)
-            .payload(req.encode_buffer)
-            .build(),
-    )
+    Some(Response::Message {
+        target: Target::default(),
+        method: CHANNEL_BIND_RESPONSE,
+        bytes: req.encode_buffer,
+    })
 }
 
 /// [rfc8489](https://tools.ietf.org/html/rfc8489)
@@ -261,9 +472,7 @@ where
 /// CreatePermission requests over UDP using the "stateless stack approach".
 /// Retransmitted CreatePermission requests will simply refresh the
 /// permissions.
-pub(crate) async fn create_permission<'a, T>(
-    req: Request<'_, 'a, T, Message<'_>>,
-) -> Option<Response<'a>>
+async fn create_permission<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -298,11 +507,11 @@ where
             .ok()?;
     }
 
-    Some(
-        ResponseBuilder::message(CREATE_PERMISSION_RESPONSE)
-            .payload(req.encode_buffer)
-            .build(),
-    )
+    Some(Response::Message {
+        method: CREATE_PERMISSION_RESPONSE,
+        target: Target::default(),
+        bytes: req.encode_buffer,
+    })
 }
 
 /// When the server receives a Send indication, it processes as per
@@ -348,7 +557,7 @@ where
 ///
 /// The resulting UDP datagram is then sent to the peer.
 #[rustfmt::skip]
-pub(crate) fn indication<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+fn indication<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -356,8 +565,7 @@ where
     let data = req.payload.get::<Data>()?;
 
     if let Some(Session::Authenticated { allocate_port, .. }) =
-        req.state.manager.get_session(req.id).get_ref()
-        && let Some(local_port) = *allocate_port
+        req.state.manager.get_session(req.id).get_ref() && let Some(local_port) = *allocate_port
     {
         let relay = req.state.manager.get_relay_address(req.id, peer.port())?;
 
@@ -368,12 +576,18 @@ where
             message.flush(None).ok()?;
         }
 
-        return Some(
-            ResponseBuilder::message(DATA_INDICATION)
-                .payload(req.encode_buffer)
-                .target(req.target(relay))
-                .build(),
-        );
+        return Some(Response::Message {
+            method: DATA_INDICATION,
+            bytes: req.encode_buffer,
+            target: Target {
+                relay: Some(relay.source),
+                endpoint: if req.state.endpoint != relay.endpoint {
+                    Some(relay.endpoint)
+                } else {
+                    None
+                },
+            },
+        });
     }
 
     None
@@ -415,7 +629,7 @@ where
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-pub(crate) async fn refresh<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+async fn refresh<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -436,11 +650,11 @@ where
         message.flush(Some(&password)).ok()?;
     }
 
-    Some(
-        ResponseBuilder::message(REFRESH_RESPONSE)
-            .payload(req.encode_buffer)
-            .build(),
-    )
+    Some(Response::Message {
+        target: Target::default(),
+        method: REFRESH_RESPONSE,
+        bytes: req.encode_buffer,
+    })
 }
 
 /// If the ChannelData message is received on a channel that is not bound
@@ -469,7 +683,7 @@ where
 /// the Length field in the ChannelData message is 0, then there will be
 /// no data in the UDP datagram, but the UDP datagram is still formed and
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
-pub(crate) fn channel_data<'a, T>(
+fn channel_data<'a, T>(
     bytes: &'a [u8],
     req: Request<'_, 'a, T, ChannelData<'_>>,
 ) -> Option<Response<'a>>
@@ -481,10 +695,15 @@ where
         .manager
         .get_channel_relay_address(req.id, req.payload.number())?;
 
-    Some(
-        ResponseBuilder::channel_data()
-            .payload(bytes)
-            .target(req.target(relay))
-            .build(),
-    )
+    Some(Response::ChannelData {
+        bytes,
+        target: Target {
+            relay: Some(relay.source),
+            endpoint: if req.state.endpoint != relay.endpoint {
+                Some(relay.endpoint)
+            } else {
+                None
+            },
+        },
+    })
 }

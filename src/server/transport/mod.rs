@@ -5,14 +5,17 @@ use std::{net::SocketAddr, time::Duration};
 
 use anyhow::Result;
 use bytes::Bytes;
-use service::{routing::RouteResult, session::Identifier};
+use service::{
+    routing::{Response, RouteResult},
+    session::Identifier,
+};
 
 use tokio::time::interval;
 
 use crate::{
     Service,
     config::Ssl,
-    server::Exchanger,
+    server::{Exchanger, PayloadType},
     statistics::{Statistics, Stats},
 };
 
@@ -88,27 +91,38 @@ pub trait Listener: Sized + Send {
                             Some(buffer) = socket.read() => {
                                 read_delay = 0;
 
-                                if let RouteResult::Response(response) = router.route(&buffer, address).await
+                                if let RouteResult::Response(outbound) = router.route(&buffer, address).await
                                 {
-                                    if let Some(endpoint) = response.target().endpoint {
-                                        exchanger.send(&endpoint, response.is_channel_data(), Bytes::copy_from_slice(response.payload()));
+                                    let (ty, bytes, target) = match outbound {
+                                        Response::Message {
+                                            method,
+                                            bytes,
+                                            target,
+                                        } => (PayloadType::Message(method), bytes, target),
+                                        Response::ChannelData { bytes, target } => {
+                                            (PayloadType::ChannelData, bytes, target)
+                                        }
+                                    };
+
+                                    if let Some(endpoint) = target.endpoint {
+                                        exchanger.send(&endpoint, ty, Bytes::copy_from_slice(bytes));
                                     } else {
-                                        if socket.write(response.payload()).await.is_err() {
+                                        if socket.write(bytes).await.is_err() {
                                             break;
                                         }
 
                                         reporter.send(
                                             &id,
-                                            &[Stats::SendBytes(response.payload().len()), Stats::SendPkts(1)],
+                                            &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)],
                                         );
 
-                                        if response.is_error() {
+                                        if let PayloadType::Message(method) = ty && method.is_error() {
                                             reporter.send(&id, &[Stats::ErrorPkts(1)]);
                                         }
                                     }
                                 }
                             }
-                            Some((bytes, is_channel_data)) = receiver.recv() => {
+                            Some((bytes, method)) = receiver.recv() => {
                                 if socket.write(&bytes).await.is_err() {
                                     break;
                                 } else {
@@ -120,7 +134,7 @@ pub trait Listener: Sized + Send {
                                 // bit needs to be filled, because if the channel data comes
                                 // from udp, it is not guaranteed to be aligned and needs to be
                                 // checked.
-                                if transport == Transport::Tcp && is_channel_data {
+                                if transport == Transport::Tcp && method == PayloadType::ChannelData {
                                     let pad = bytes.len() % 4;
                                     if pad > 0 && socket.write(&[0u8; 8][..(4 - pad)]).await.is_err() {
                                         break;

@@ -537,7 +537,7 @@ where
     ///     }
     /// }
     ///
-    /// let port = sessions.allocate(&addr).unwrap();
+    /// let port = sessions.allocate(&addr, None).unwrap();
     /// {
     ///     let lock = sessions.get_session(&addr);
     ///     let session = lock.get_ref().unwrap();
@@ -551,7 +551,7 @@ where
     ///     }
     /// }
     ///
-    /// assert_eq!(sessions.allocate(&addr), Some(port));
+    /// assert_eq!(sessions.allocate(&addr, None), Some(port));
     /// ```
     pub fn allocate(&self, addr: &Identifier, lifetime: Option<u32>) -> Option<u16> {
         let mut lock = self.sessions.write();
@@ -628,8 +628,8 @@ where
     /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
     /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
-    /// let port = sessions.allocate(&addr).unwrap();
-    /// let peer_port = sessions.allocate(&peer_addr).unwrap();
+    /// let port = sessions.allocate(&addr, None).unwrap();
+    /// let peer_port = sessions.allocate(&peer_addr, None).unwrap();
     ///
     /// assert!(!sessions.create_permission(&addr, &endpoint, &[port]));
     /// assert!(sessions.create_permission(&addr, &endpoint, &[peer_port]));
@@ -749,8 +749,8 @@ where
     /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
     /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
-    /// let port = sessions.allocate(&addr).unwrap();
-    /// let peer_port = sessions.allocate(&peer_addr).unwrap();
+    /// let port = sessions.allocate(&addr, None).unwrap();
+    /// let peer_port = sessions.allocate(&peer_addr, None).unwrap();
     /// {
     ///     assert_eq!(
     ///         match sessions.get_session(&addr).get_ref().unwrap() {
@@ -892,8 +892,8 @@ where
     /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
     /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
-    /// let port = sessions.allocate(&addr).unwrap();
-    /// let peer_port = sessions.allocate(&peer_addr).unwrap();
+    /// let port = sessions.allocate(&addr, None).unwrap();
+    /// let peer_port = sessions.allocate(&peer_addr, None).unwrap();
     ///
     /// assert!(sessions.bind_channel(&addr, &endpoint, peer_port, 0x4000));
     /// assert!(sessions.bind_channel(&peer_addr, &endpoint, port, 0x4000));
@@ -969,8 +969,8 @@ where
     /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
     /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
     ///
-    /// let port = sessions.allocate(&addr).unwrap();
-    /// let peer_port = sessions.allocate(&peer_addr).unwrap();
+    /// let port = sessions.allocate(&addr, None).unwrap();
+    /// let peer_port = sessions.allocate(&peer_addr, None).unwrap();
     ///
     /// assert!(sessions.create_permission(&addr, &endpoint, &[peer_port]));
     /// assert!(sessions.create_permission(&peer_addr, &endpoint, &[port]));
