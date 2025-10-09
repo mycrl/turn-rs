@@ -1,4 +1,4 @@
-FROM clux/muslrust:stable AS builder
+FROM rust:alpine3.22 AS builder
 WORKDIR /usr/src/
 COPY . .
 RUN cargo build --release --all-features
