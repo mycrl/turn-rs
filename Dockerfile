@@ -1,9 +1,9 @@
-FROM rust:alpine3.22 AS builder
+FROM rust:bookworm AS builder
 WORKDIR /usr/src/
 COPY . .
 RUN cargo build --release --all-features
     
-FROM debian:buster-slim
+FROM debian:bookworm-slim
 WORKDIR /app
 RUN apt update && \
     apt-get install pkg-config libssl-dev -y
