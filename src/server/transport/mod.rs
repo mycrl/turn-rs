@@ -6,7 +6,7 @@ use std::{net::SocketAddr, time::Duration};
 use anyhow::Result;
 use bytes::Bytes;
 use service::{
-    routing::{Response, RouteResult},
+    routing::Response,
     session::Identifier,
 };
 
@@ -91,9 +91,13 @@ pub trait Listener: Sized + Send {
                             Some(buffer) = socket.read() => {
                                 read_delay = 0;
 
-                                if let RouteResult::Response(outbound) = router.route(&buffer, address).await
+                                if let Ok(res) = router.route(&buffer, address).await
                                 {
-                                    let (ty, bytes, target) = match outbound {
+                                    let Some(res) = res else {
+                                        continue;
+                                    };
+
+                                    let (ty, bytes, target) = match res {
                                         Response::Message {
                                             method,
                                             bytes,

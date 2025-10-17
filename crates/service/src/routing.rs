@@ -147,13 +147,6 @@ where
     pub handler: T,
 }
 
-#[derive(Debug)]
-pub enum RouteResult<'a> {
-    Exceptional(codec::Error),
-    Response(Response<'a>),
-    None,
-}
-
 pub struct Router<T>
 where
     T: ServiceHandler,
@@ -192,13 +185,13 @@ where
         &'b mut self,
         bytes: &'b [u8],
         address: SocketAddr,
-    ) -> RouteResult<'a> {
+    ) -> Result<Option<Response<'a>>, codec::Error> {
         {
             self.current_id.source = address;
         }
 
-        (match self.decoder.decode(bytes) {
-            Ok(DecodeResult::ChannelData(channel)) => channel_data(
+        Ok(match self.decoder.decode(bytes)? {
+            DecodeResult::ChannelData(channel) => channel_data(
                 bytes,
                 Request {
                     id: &self.current_id,
@@ -207,7 +200,7 @@ where
                     payload: &channel,
                 },
             ),
-            Ok(DecodeResult::Message(message)) => {
+            DecodeResult::Message(message) => {
                 let req = Request {
                     id: &self.current_id,
                     state: &self.state,
@@ -225,12 +218,7 @@ where
                     _ => None,
                 }
             }
-            Err(e) => {
-                return RouteResult::Exceptional(e);
-            }
         })
-        .map(RouteResult::Response)
-        .unwrap_or(RouteResult::None)
     }
 }
 
