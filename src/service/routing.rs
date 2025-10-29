@@ -1,12 +1,13 @@
-use crate::{
+use std::{net::SocketAddr, sync::Arc};
+
+use bytes::BytesMut;
+
+use super::{
     Service, ServiceHandler,
     session::{Identifier, Session, SessionManager},
 };
 
-use std::{net::SocketAddr, sync::Arc};
-
-use bytes::BytesMut;
-use codec::{
+use crate::codec::{
     DecodeResult, Decoder,
     channel_data::ChannelData,
     crypto::Password,
@@ -182,7 +183,7 @@ where
         &'b mut self,
         bytes: &'b [u8],
         address: SocketAddr,
-    ) -> Result<Option<Response<'a>>, codec::Error> {
+    ) -> Result<Option<Response<'a>>, crate::codec::Error> {
         {
             self.current_id.source = address;
         }

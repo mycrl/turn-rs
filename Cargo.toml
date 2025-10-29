@@ -30,12 +30,25 @@ tonic = { version = "0.14", features = ["deflate"], optional = true }
 prost = { version = "0.14", optional = true }
 tonic-prost = { version = "0.14", optional = true }
 url = { version = "2.5.7", optional = true }
-codec = { workspace = true }
-service = { workspace = true, features = ["serde"] }
+base64 = "0.22"
+num_enum = "0.7"
+aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"] }
+md-5 = "0.10"
+crc32fast = "1.5.0"
+rand = "0.9"
 
 [build-dependencies]
 anyhow = "1.0"
 tonic-prost-build = { version = "0.14", optional = true }
+
+[dev-dependencies]
+anyhow = "1.0"
+criterion = "0.7"
+pollster = "0.4.0"
+
+[[bench]]
+name = "stun"
+harness = false
 
 [features]
 default = ["all"]
@@ -57,8 +70,4 @@ codegen-units = 1
 
 [workspace]
 resolver = "2"
-members = ["./", "crates/codec", "crates/service", "sdk"]
-
-[workspace.dependencies]
-codec = { path = "crates/codec", version = "0.1.0", package = "turn-server-codec" }
-service = { path = "crates/service", version = "0.1.0", package = "turn-server-service" }
+members = ["./", "./sdk"]

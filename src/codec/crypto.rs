@@ -4,7 +4,7 @@ use aws_lc_rs::{digest, hmac};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use md5::{Digest, Md5};
 
-use crate::message::attributes::PasswordAlgorithm;
+use super::message::attributes::PasswordAlgorithm;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Password {
@@ -28,7 +28,7 @@ impl Deref for Password {
 /// # Test
 ///
 /// ```
-/// use turn_server_codec::crypto::hmac_sha1;
+/// use turn_server::codec::crypto::hmac_sha1;
 ///
 /// let buffer = [
 ///     0x00u8, 0x03, 0x00, 0x50, 0x21, 0x12, 0xa4, 0x42, 0x64, 0x4f, 0x5a,
@@ -72,7 +72,7 @@ pub fn hmac_sha1(key: &[u8], source: &[&[u8]]) -> [u8; 20] {
 /// # Test
 ///
 /// ```
-/// use turn_server_codec::crypto::fingerprint;
+/// use turn_server::codec::crypto::fingerprint;
 ///
 /// assert_eq!(fingerprint(b"1"), 3498621689);
 /// ```
@@ -87,8 +87,8 @@ pub fn fingerprint(bytes: &[u8]) -> u32 {
 /// # Test
 ///
 /// ```
-/// use turn_server_codec::crypto::{generate_password, Password};
-/// use turn_server_codec::message::attributes::PasswordAlgorithm;
+/// use turn_server::codec::crypto::{generate_password, Password};
+/// use turn_server::codec::message::attributes::PasswordAlgorithm;
 ///
 /// let buffer = [
 ///     0x3eu8, 0x2f, 0x79, 0x1e, 0x1f, 0x14, 0xd1, 0x73, 0xfc, 0x91, 0xff,
@@ -155,3 +155,4 @@ pub fn static_auth_secret(
 
     generate_password(username, &password, realm, algorithm)
 }
+

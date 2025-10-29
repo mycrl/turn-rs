@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use bytes::{Bytes, BytesMut};
-use codec::Decoder;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::{TcpListener as TokioTcpListener, TcpStream},
@@ -22,7 +21,10 @@ use tokio_rustls::{
     server::TlsStream,
 };
 
-use crate::server::transport::{ListenOptions, Listener, MAX_MESSAGE_SIZE, Socket};
+use crate::{
+    codec::Decoder,
+    server::transport::{ListenOptions, Listener, MAX_MESSAGE_SIZE, Socket},
+};
 
 enum MaybeSslStream {
     #[cfg(feature = "ssl")]

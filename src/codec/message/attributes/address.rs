@@ -3,7 +3,7 @@ use std::net::{IpAddr, SocketAddr};
 use bytes::{Buf, BufMut};
 use num_enum::TryFromPrimitive;
 
-use crate::Error;
+use super::Error;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
@@ -104,7 +104,7 @@ impl XAddress {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use turn_server_codec::message::attributes::address::XAddress;
+    /// use turn_server::codec::message::attributes::address::XAddress;
     ///
     /// let xor_addr_bytes: [u8; 8] =
     ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
@@ -161,7 +161,7 @@ impl XAddress {
     /// # Test
     ///
     /// ```
-    /// use turn_server_codec::message::attributes::address::XAddress;
+    /// use turn_server::codec::message::attributes::address::XAddress;
     ///
     /// let xor_addr_bytes: [u8; 8] =
     ///     [0x00, 0x01, 0xfc, 0xbe, 0xe1, 0xba, 0xa4, 0x29];
@@ -215,7 +215,7 @@ impl XAddress {
 ///
 /// ```
 /// use std::net::IpAddr;
-/// use turn_server_codec::message::attributes::address::ipv4_from_bytes;
+/// use turn_server::codec::message::attributes::address::ipv4_from_bytes;
 ///
 /// let bytes: [u8; 4] = [0xc0, 0xa8, 0x00, 0x6b];
 ///
@@ -237,7 +237,7 @@ pub fn ipv4_from_bytes(bytes: &[u8]) -> Result<IpAddr, Error> {
 ///
 /// ```
 /// use std::net::IpAddr;
-/// use turn_server_codec::message::attributes::address::ipv6_from_bytes;
+/// use turn_server::codec::message::attributes::address::ipv6_from_bytes;
 ///
 /// let bytes: [u8; 16] = [
 ///     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -262,7 +262,7 @@ pub fn ipv6_from_bytes(bytes: &[u8]) -> Result<IpAddr, Error> {
 ///
 /// ```
 /// use std::net::SocketAddr;
-/// use turn_server_codec::message::attributes::address::xor;
+/// use turn_server::codec::message::attributes::address::xor;
 ///
 /// let source: SocketAddr = "192.168.0.107:1".parse().unwrap();
 ///
@@ -302,3 +302,4 @@ pub fn xor(addr: &SocketAddr, transaction_id: &[u8]) -> SocketAddr {
         addr.port() ^ (0x2112A442 >> 16) as u16,
     )
 }
+

@@ -3,9 +3,9 @@ pub mod session;
 
 use std::{net::SocketAddr, sync::Arc};
 
-use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
+use crate::codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 
-use crate::{
+use self::{
     routing::Router,
     session::{Identifier, SessionManager, SessionManagerOptions, ports::PortRange},
 };
@@ -164,7 +164,6 @@ pub trait ServiceHandler: Send + Sync + 'static {
 
 pub struct ServiceOptions<T> {
     pub port_range: PortRange,
-    pub software: String,
     pub realm: String,
     pub interfaces: Vec<SocketAddr>,
     pub handler: T,
@@ -192,7 +191,7 @@ where
                 handler: options.handler.clone(),
             }),
             interfaces: Arc::new(options.interfaces),
-            software: options.software,
+            software: crate::SOFTWARE.to_string(),
             handler: options.handler,
             realm: options.realm,
         }

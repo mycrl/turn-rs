@@ -1,18 +1,19 @@
 #[cfg(feature = "rpc")]
 pub mod rpc;
 
+pub mod codec;
 pub mod config;
 pub mod handler;
 pub mod server;
+pub mod service;
 pub mod statistics;
 
-use self::{config::Config, handler::Handler, statistics::Statistics};
+use self::{config::Config, handler::Handler, service::ServiceOptions, statistics::Statistics};
 
-use service::ServiceOptions;
 use tokio::task::JoinSet;
 
 #[rustfmt::skip]
-static SOFTWARE: &str = concat!(
+pub(crate) static SOFTWARE: &str = concat!(
     "turn-rs.",
     env!("CARGO_PKG_VERSION")
 );
@@ -25,7 +26,6 @@ pub(crate) type Service = service::Service<Handler>;
 pub async fn start_server(config: Config) -> anyhow::Result<()> {
     let statistics = Statistics::default();
     let service = service::Service::new(ServiceOptions {
-        software: SOFTWARE.to_string(),
         realm: config.server.realm.clone(),
         port_range: config.server.port_range,
         interfaces: config.server.get_externals(),

@@ -6,9 +6,9 @@ use std::{fmt::Debug, net::SocketAddr};
 use bytes::{Buf, BufMut};
 use num_enum::TryFromPrimitive;
 
-use crate::{
+use super::{
     Error,
-    message::attributes::{
+    attributes::{
         address::{IpFamily, XAddress},
         error::ErrorType,
     },
@@ -765,7 +765,7 @@ impl From<ErrorType> for ErrorCode<'_> {
     /// # Example
     ///
     /// ```no_run
-    /// use turn_server_codec::message::attributes::error::ErrorType;
+    /// use turn_server::codec::message::attributes::error::ErrorType;
     ///
     /// // Error::from(ErrorType::TryAlternate);
     /// ```
@@ -784,8 +784,8 @@ impl ErrorCode<'_> {
     ///
     /// ```
     /// use bytes::BytesMut;
-    /// use turn_server_codec::message::attributes::error::ErrorType;
-    /// use turn_server_codec::Error;
+    /// use turn_server::codec::message::attributes::error::ErrorType;
+    /// use turn_server::codec::Error;
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
@@ -793,7 +793,7 @@ impl ErrorCode<'_> {
     /// ];
     ///
     /// let mut buf = BytesMut::with_capacity(1280);
-    /// let error = turn_server_codec::message::attributes::ErrorCode::from(ErrorType::TryAlternate);
+    /// let error = turn_server::codec::message::attributes::ErrorCode::from(ErrorType::TryAlternate);
     ///
     /// error.serialize(&mut buf);
     /// assert_eq!(&buf[..], &buffer);
@@ -812,15 +812,15 @@ impl<'a> TryFrom<&'a [u8]> for ErrorCode<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::error::ErrorType;
-    /// use turn_server_codec::Error;
+    /// use turn_server::codec::message::attributes::error::ErrorType;
+    /// use turn_server::codec::Error;
     ///
     /// let buffer = [
     ///     0x00u8, 0x00, 0x03, 0x00, 0x54, 0x72, 0x79, 0x20, 0x41, 0x6c, 0x74,
     ///     0x65, 0x72, 0x6e, 0x61, 0x74, 0x65,
     /// ];
     ///
-    /// let error = turn_server_codec::message::attributes::ErrorCode::try_from(&buffer[..]).unwrap();
+    /// let error = turn_server::codec::message::attributes::ErrorCode::try_from(&buffer[..]).unwrap();
     /// assert_eq!(error.code, ErrorType::TryAlternate as u16);
     /// assert_eq!(error.message, "Try Alternate");
     /// ```
@@ -1231,3 +1231,5 @@ impl<'a> Attribute<'a> for ThirdPartyAuathorization {
         Ok(std::str::from_utf8(bytes)?)
     }
 }
+
+

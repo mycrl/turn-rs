@@ -1,7 +1,7 @@
 pub mod attributes;
 pub mod methods;
 
-use crate::{
+use super::{
     Attributes, Error,
     crypto::{Password, fingerprint, hmac_sha1},
     message::{
@@ -40,9 +40,9 @@ impl<'a> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_server::codec::message::methods::*;
+    /// use turn_server::codec::message::*;
+    /// use turn_server::codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -79,10 +79,10 @@ impl<'a> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::*;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_server::codec::message::attributes::*;
+    /// use turn_server::codec::message::methods::*;
+    /// use turn_server::codec::message::*;
+    /// use turn_server::codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -137,9 +137,9 @@ impl<'a> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_server::codec::message::methods::*;
+    /// use turn_server::codec::message::*;
+    /// use turn_server::codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -160,11 +160,11 @@ impl<'a> MessageEncoder<'a> {
     ///     MessageEncoder::extend(Method::Binding(MethodType::Request), &old, &mut buf);
     ///
     /// message
-    ///     .flush(Some(&turn_server_codec::crypto::generate_password(
+    ///     .flush(Some(&turn_server::codec::crypto::generate_password(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
-    ///         turn_server_codec::message::attributes::PasswordAlgorithm::Md5,
+    ///         turn_server::codec::message::attributes::PasswordAlgorithm::Md5,
     ///     )))
     ///     .unwrap();
     ///
@@ -192,9 +192,9 @@ impl<'a> MessageEncoder<'a> {
     /// ```
     /// use bytes::BytesMut;
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_server::codec::message::methods::*;
+    /// use turn_server::codec::message::*;
+    /// use turn_server::codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -215,11 +215,11 @@ impl<'a> MessageEncoder<'a> {
     ///     MessageEncoder::extend(Method::Binding(MethodType::Request), &old, &mut buf);
     ///
     /// message
-    ///     .flush(Some(&turn_server_codec::crypto::generate_password(
+    ///     .flush(Some(&turn_server::codec::crypto::generate_password(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
-    ///         turn_server_codec::message::attributes::PasswordAlgorithm::Md5,
+    ///         turn_server::codec::message::attributes::PasswordAlgorithm::Md5,
     ///     )))
     ///     .unwrap();
     ///
@@ -296,10 +296,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::*;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_server::codec::message::attributes::*;
+    /// use turn_server::codec::message::methods::*;
+    /// use turn_server::codec::message::*;
+    /// use turn_server::codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -324,10 +324,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::*;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_server::codec::message::attributes::*;
+    /// use turn_server::codec::message::methods::*;
+    /// use turn_server::codec::message::*;
+    /// use turn_server::codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -353,10 +353,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::*;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_server::codec::message::attributes::*;
+    /// use turn_server::codec::message::methods::*;
+    /// use turn_server::codec::message::*;
+    /// use turn_server::codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49,
@@ -386,9 +386,9 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_server::codec::message::methods::*;
+    /// use turn_server::codec::message::*;
+    /// use turn_server::codec::*;
     ///
     /// let buffer = [
     ///     0x00u8, 0x03, 0x00, 0x50, 0x21, 0x12, 0xa4, 0x42, 0x64, 0x4f, 0x5a,
@@ -405,11 +405,11 @@ impl<'a> Message<'a> {
     /// let mut attributes = Attributes::default();
     /// let message = Message::decode(&buffer[..], &mut attributes).unwrap();
     /// let result = message
-    ///     .verify(&turn_server_codec::crypto::generate_password(
+    ///     .verify(&turn_server::codec::crypto::generate_password(
     ///         "panda",
     ///         "panda",
     ///         "raspberry",
-    ///         turn_server_codec::message::attributes::PasswordAlgorithm::Md5,
+    ///         turn_server::codec::message::attributes::PasswordAlgorithm::Md5,
     ///     ))
     ///     .is_ok();
     ///
@@ -451,10 +451,10 @@ impl<'a> Message<'a> {
     ///
     /// ```
     /// use std::convert::TryFrom;
-    /// use turn_server_codec::message::attributes::*;
-    /// use turn_server_codec::message::methods::*;
-    /// use turn_server_codec::message::*;
-    /// use turn_server_codec::*;
+    /// use turn_server::codec::message::attributes::*;
+    /// use turn_server::codec::message::methods::*;
+    /// use turn_server::codec::message::*;
+    /// use turn_server::codec::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
@@ -563,7 +563,7 @@ impl<'a> Message<'a> {
     /// # Test
     ///
     /// ```
-    /// use turn_server_codec::message::*;
+    /// use turn_server::codec::message::*;
     ///
     /// let buffer: [u8; 20] = [
     ///     0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, 0x72, 0x6d, 0x49, 0x42,
@@ -590,7 +590,7 @@ impl<'a> Message<'a> {
 /// # Test
 ///
 /// ```
-/// use turn_server_codec::message::alignment_32;
+/// use turn_server::codec::message::alignment_32;
 ///
 /// assert_eq!(alignment_32(4), 0);
 /// assert_eq!(alignment_32(0), 0);
@@ -605,3 +605,6 @@ pub fn alignment_32(size: usize) -> usize {
 
     4 - range
 }
+
+
+
