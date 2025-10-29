@@ -113,25 +113,22 @@ where
     }
 }
 
-// The target of the response.
+/// The target of the response.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Target {
     pub endpoint: Option<SocketAddr>,
     pub relay: Option<SocketAddr>,
 }
 
-// The response.
+/// The response.
 #[derive(Debug)]
-pub enum Response<'a> {
-    Message {
-        method: Method,
-        bytes: &'a [u8],
-        target: Target,
-    },
-    ChannelData {
-        bytes: &'a [u8],
-        target: Target,
-    },
+pub struct Response<'a> {
+    /// if the method is None, the response is a channel data response
+    pub method: Option<Method>,
+    /// the bytes of the response
+    pub bytes: &'a [u8],
+    /// the target of the response
+    pub target: Target,
 }
 
 pub(crate) struct State<T>
@@ -251,10 +248,10 @@ where
         message.flush(None).ok()?;
     }
 
-    Some(Response::Message {
+    Some(Response {
         target: Target::default(),
         bytes: req.encode_buffer,
-        method,
+        method: Some(method),
     })
 }
 
@@ -291,9 +288,9 @@ where
         message.flush(None).ok()?;
     }
 
-    Some(Response::Message {
+    Some(Response {
+        method: Some(BINDING_RESPONSE),
         target: Target::default(),
-        method: BINDING_RESPONSE,
         bytes: req.encode_buffer,
     })
 }
@@ -341,9 +338,9 @@ where
         message.flush(Some(&password)).ok()?;
     }
 
-    Some(Response::Message {
+    Some(Response {
         target: Target::default(),
-        method: ALLOCATE_RESPONSE,
+        method: Some(ALLOCATE_RESPONSE),
         bytes: req.encode_buffer,
     })
 }
@@ -416,9 +413,9 @@ where
             .ok()?;
     }
 
-    Some(Response::Message {
+    Some(Response {
         target: Target::default(),
-        method: CHANNEL_BIND_RESPONSE,
+        method: Some(CHANNEL_BIND_RESPONSE),
         bytes: req.encode_buffer,
     })
 }
@@ -495,8 +492,8 @@ where
             .ok()?;
     }
 
-    Some(Response::Message {
-        method: CREATE_PERMISSION_RESPONSE,
+    Some(Response {
+        method: Some(CREATE_PERMISSION_RESPONSE),
         target: Target::default(),
         bytes: req.encode_buffer,
     })
@@ -564,8 +561,8 @@ where
             message.flush(None).ok()?;
         }
 
-        return Some(Response::Message {
-            method: DATA_INDICATION,
+        return Some(Response {
+            method: Some(DATA_INDICATION),
             bytes: req.encode_buffer,
             target: Target {
                 relay: Some(relay.source),
@@ -638,9 +635,9 @@ where
         message.flush(Some(&password)).ok()?;
     }
 
-    Some(Response::Message {
+    Some(Response {
         target: Target::default(),
-        method: REFRESH_RESPONSE,
+        method: Some(REFRESH_RESPONSE),
         bytes: req.encode_buffer,
     })
 }
@@ -683,7 +680,7 @@ where
         .manager
         .get_channel_relay_address(req.id, req.payload.number())?;
 
-    Some(Response::ChannelData {
+    Some(Response {
         bytes,
         target: Target {
             relay: Some(relay.source),
@@ -693,5 +690,6 @@ where
                 None
             },
         },
+        method: None,
     })
 }

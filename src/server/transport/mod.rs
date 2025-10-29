@@ -5,10 +5,7 @@ use std::{net::SocketAddr, time::Duration};
 
 use anyhow::Result;
 use bytes::Bytes;
-use service::{
-    routing::Response,
-    session::Identifier,
-};
+use service::session::Identifier;
 
 use tokio::time::interval;
 
@@ -93,19 +90,14 @@ pub trait Listener: Sized + Send {
 
                                 if let Ok(res) = router.route(&buffer, address).await
                                 {
-                                    let Some(res) = res else {
+                                    let (ty, bytes, target) = if let Some(it) = res {
+                                        (
+                                            it.method.map(PayloadType::Message).unwrap_or(PayloadType::ChannelData),
+                                            it.bytes,
+                                            it.target,
+                                        )
+                                    } else {
                                         continue;
-                                    };
-
-                                    let (ty, bytes, target) = match res {
-                                        Response::Message {
-                                            method,
-                                            bytes,
-                                            target,
-                                        } => (PayloadType::Message(method), bytes, target),
-                                        Response::ChannelData { bytes, target } => {
-                                            (PayloadType::ChannelData, bytes, target)
-                                        }
                                     };
 
                                     if let Some(endpoint) = target.endpoint {
