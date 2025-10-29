@@ -68,8 +68,8 @@ impl From<ErrorType> for &'static str {
     ///
     /// ```
     /// use std::convert::Into;
-    /// use turn_server_codec::message::attributes::error::ErrorType;
-    /// use turn_server_codec::Error;
+    /// use turn_server::codec::message::attributes::error::ErrorType;
+    /// use turn_server::codec::Error;
     ///
     /// let err: &'static str = ErrorType::TryAlternate.into();
     /// assert_eq!(err, "Try Alternate");
@@ -94,3 +94,4 @@ impl From<ErrorType> for &'static str {
         }
     }
 }
+

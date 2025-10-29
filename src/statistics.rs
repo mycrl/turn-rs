@@ -111,7 +111,7 @@ impl Statistics {
     ///
     /// ```
     /// use turn_server::statistics::*;
-    /// use service::session::Identifier;
+    /// use turn_server::service::session::Identifier;
     ///
     /// let statistics = Statistics::default();
     /// let sender = statistics.get_reporter();
@@ -135,7 +135,7 @@ impl Statistics {
     ///
     /// ```
     /// use turn_server::statistics::*;
-    /// use service::session::Identifier;
+    /// use turn_server::service::session::Identifier;
     ///
     /// let statistics = Statistics::default();
     ///
@@ -166,7 +166,7 @@ impl Statistics {
     ///
     /// ```
     /// use turn_server::statistics::*;
-    /// use service::session::Identifier;
+    /// use turn_server::service::session::Identifier;
     ///
     /// let statistics = Statistics::default();
     ///
@@ -193,7 +193,7 @@ impl Statistics {
     ///
     /// ```
     /// use turn_server::statistics::*;
-    /// use service::session::Identifier;
+    /// use turn_server::service::session::Identifier;
     ///
     /// let statistics = Statistics::default();
     ///

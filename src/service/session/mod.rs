@@ -98,7 +98,7 @@ where
 /// and manually.
 ///
 /// ```
-/// use turn_server_service::session::Timer;
+/// use turn_server::service::session::Timer;
 ///
 /// let timer = Timer::default();
 ///
@@ -277,10 +277,10 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
-    /// use codec::message::attributes::PasswordAlgorithm;
-    /// use codec::crypto::Password;
+    /// use turn_server::service::session::*;
+    /// use turn_server::service::*;
+    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
+    /// use turn_server::codec::crypto::Password;
     /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
@@ -289,7 +289,7 @@ where
     /// impl ServiceHandler for ServiceHandlerTest {
     ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
+    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -388,10 +388,10 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
-    /// use codec::message::attributes::PasswordAlgorithm;
-    /// use codec::crypto::Password;
+    /// use turn_server::service::session::*;
+    /// use turn_server::service::*;
+    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
+    /// use turn_server::codec::crypto::Password;
     /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
@@ -400,7 +400,7 @@ where
     /// impl ServiceHandler for ServiceHandlerTest {
     ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
+    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -489,10 +489,10 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
-    /// use codec::message::attributes::PasswordAlgorithm;
-    /// use codec::crypto::Password;
+    /// use turn_server::service::session::*;
+    /// use turn_server::service::*;
+    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
+    /// use turn_server::codec::crypto::Password;
     /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
@@ -501,7 +501,7 @@ where
     /// impl ServiceHandler for ServiceHandlerTest {
     ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
+    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -586,10 +586,10 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
-    /// use codec::message::attributes::PasswordAlgorithm;
-    /// use codec::crypto::Password;
+    /// use turn_server::service::session::*;
+    /// use turn_server::service::*;
+    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
+    /// use turn_server::codec::crypto::Password;
     /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
@@ -598,7 +598,7 @@ where
     /// impl ServiceHandler for ServiceHandlerTest {
     ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
+    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -707,10 +707,10 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
-    /// use codec::message::attributes::PasswordAlgorithm;
-    /// use codec::crypto::Password;
+    /// use turn_server::service::session::*;
+    /// use turn_server::service::*;
+    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
+    /// use turn_server::codec::crypto::Password;
     /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
@@ -719,7 +719,7 @@ where
     /// impl ServiceHandler for ServiceHandlerTest {
     ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
+    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -850,10 +850,10 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
-    /// use codec::message::attributes::PasswordAlgorithm;
-    /// use codec::crypto::Password;
+    /// use turn_server::service::session::*;
+    /// use turn_server::service::*;
+    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
+    /// use turn_server::codec::crypto::Password;
     /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
@@ -862,7 +862,7 @@ where
     /// impl ServiceHandler for ServiceHandlerTest {
     ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
+    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -927,10 +927,10 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
-    /// use codec::message::attributes::PasswordAlgorithm;
-    /// use codec::crypto::Password;
+    /// use turn_server::service::session::*;
+    /// use turn_server::service::*;
+    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
+    /// use turn_server::codec::crypto::Password;
     /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
@@ -939,7 +939,7 @@ where
     /// impl ServiceHandler for ServiceHandlerTest {
     ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
+    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -1001,10 +1001,10 @@ where
     /// # Test
     ///
     /// ```
-    /// use turn_server_service::session::*;
-    /// use turn_server_service::*;
-    /// use codec::message::attributes::PasswordAlgorithm;
-    /// use codec::crypto::Password;
+    /// use turn_server::service::session::*;
+    /// use turn_server::service::*;
+    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
+    /// use turn_server::codec::crypto::Password;
     /// use pollster::FutureExt;
     ///
     /// #[derive(Clone)]
@@ -1013,7 +1013,7 @@ where
     /// impl ServiceHandler for ServiceHandlerTest {
     ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
-    ///             Some(codec::crypto::generate_password(username, "test", "test", algorithm))
+    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
     ///             None
     ///         }
@@ -1091,3 +1091,4 @@ fn make_nonce() -> String {
         .map(char::from)
         .collect()
 }
+
