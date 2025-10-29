@@ -5,7 +5,6 @@ use std::{net::SocketAddr, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
 use bytes::Bytes;
-use codec::message::methods::Method;
 use parking_lot::RwLock;
 
 use tokio::{
@@ -15,6 +14,7 @@ use tokio::{
 
 use crate::{
     Service,
+    codec::message::methods::Method,
     config::{Config, Interface},
     server::transport::{ListenOptions, Listener, Transport, tcp::TcpServer, udp::UdpServer},
     statistics::Statistics,

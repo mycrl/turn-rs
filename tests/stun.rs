@@ -1,5 +1,5 @@
 use anyhow::Result;
-use turn_server_codec::{
+use turn_server::codec::{
     DecodeResult, Decoder,
     crypto::generate_password,
     message::{
@@ -14,7 +14,7 @@ fn test_turn_server_codec() -> Result<()> {
     let mut decoder = Decoder::default();
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/BindingRequest.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/BindingRequest.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -24,7 +24,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/BindingResponse.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/BindingResponse.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -36,7 +36,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/UnauthorizedAllocateRequest.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/UnauthorizedAllocateRequest.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -46,7 +46,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/UnauthorizedAllocateResponse.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/UnauthorizedAllocateResponse.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -61,7 +61,7 @@ fn test_turn_server_codec() -> Result<()> {
     let password = generate_password("user1", "test", "localhost", PasswordAlgorithm::Md5);
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/AllocateRequest.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/AllocateRequest.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -76,7 +76,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/AllocateResponse.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/AllocateResponse.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -90,7 +90,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/CreatePermissionRequest.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/CreatePermissionRequest.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -105,7 +105,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/CreatePermissionResponse.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/CreatePermissionResponse.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -116,7 +116,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/ChannelBindRequest.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/ChannelBindRequest.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -132,7 +132,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/ChannelBindResponse.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/ChannelBindResponse.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -143,7 +143,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/DataIndication.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/DataIndication.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -154,7 +154,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/SendIndication.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/SendIndication.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -165,7 +165,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/RefreshRequest.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/RefreshRequest.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };
@@ -180,7 +180,7 @@ fn test_turn_server_codec() -> Result<()> {
     }
 
     {
-        let message = decoder.decode(include_bytes!("../../../tests/samples/RefreshResponse.bin"))?;
+        let message = decoder.decode(include_bytes!("./samples/RefreshResponse.bin"))?;
         let DecodeResult::Message(message) = message else {
             return Err(anyhow::anyhow!("Expected Message"));
         };

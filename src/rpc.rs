@@ -5,8 +5,6 @@ pub mod proto {
 use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
-use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
-use service::session::{Identifier, Session};
 use tokio::sync::{
     Mutex,
     mpsc::{Sender, channel},
@@ -28,7 +26,14 @@ use proto::{
     turn_service_server::{TurnService, TurnServiceServer},
 };
 
-use crate::{Service, config::Config, rpc::proto::GetTurnPasswordRequest, statistics::Statistics};
+use crate::{
+    Service,
+    codec::{crypto::Password, message::attributes::PasswordAlgorithm},
+    config::Config,
+    rpc::proto::GetTurnPasswordRequest,
+    service::session::{Identifier, Session},
+    statistics::Statistics,
+};
 
 impl From<PasswordAlgorithm> for ProtoPasswordAlgorithm {
     fn from(val: PasswordAlgorithm) -> Self {

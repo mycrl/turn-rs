@@ -5,7 +5,8 @@ use std::sync::{
 
 use ahash::HashMap;
 use parking_lot::RwLock;
-use service::session::Identifier;
+
+use crate::service::session::Identifier;
 
 /// The type of information passed in the statisticsing channel
 #[derive(Debug, Clone, Copy)]

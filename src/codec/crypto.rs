@@ -4,7 +4,7 @@ use aws_lc_rs::{digest, hmac};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use md5::{Digest, Md5};
 
-use crate::message::attributes::PasswordAlgorithm;
+use super::message::attributes::PasswordAlgorithm;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Password {

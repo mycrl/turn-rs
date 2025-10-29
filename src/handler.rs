@@ -1,7 +1,15 @@
 #[cfg(feature = "rpc")]
 use std::sync::Arc;
 
-use crate::{config::Config, statistics::Statistics};
+use crate::{
+    codec::{
+        crypto::{Password, generate_password, static_auth_secret},
+        message::attributes::PasswordAlgorithm,
+    },
+    config::Config,
+    service::{ServiceHandler, session::Identifier},
+    statistics::Statistics,
+};
 
 #[cfg(feature = "rpc")]
 use crate::rpc::{
@@ -13,8 +21,6 @@ use crate::rpc::{
 };
 
 use anyhow::Result;
-use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
-use service::{ServiceHandler, session::Identifier};
 
 #[derive(Clone)]
 pub struct Handler {
@@ -42,7 +48,7 @@ impl ServiceHandler for Handler {
     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
         // Match the static authentication information first.
         if let Some(password) = self.config.auth.static_credentials.get(username) {
-            return Some(codec::crypto::generate_password(
+            return Some(generate_password(
                 username,
                 password,
                 &self.config.server.realm,
@@ -52,7 +58,7 @@ impl ServiceHandler for Handler {
 
         // Try again to match the static authentication key.
         if let Some(secret) = &self.config.auth.static_auth_secret {
-            return Some(codec::crypto::static_auth_secret(
+            return Some(static_auth_secret(
                 username,
                 secret,
                 &self.config.server.realm,

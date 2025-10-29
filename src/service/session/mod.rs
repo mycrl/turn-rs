@@ -1,9 +1,11 @@
 pub mod ports;
 
-use crate::{
+use super::{
     ServiceHandler,
     session::ports::{PortAllocator, PortRange},
 };
+
+use crate::codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 
 use std::{
     hash::Hash,
@@ -18,7 +20,6 @@ use std::{
 };
 
 use ahash::{HashMap, HashMapExt};
-use codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use rand::{Rng, distr::Alphanumeric};
 

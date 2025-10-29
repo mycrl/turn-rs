@@ -1,4 +1,4 @@
-use crate::Error;
+use super::Error;
 
 /// STUN Methods Registry
 ///

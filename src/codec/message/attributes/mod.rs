@@ -6,9 +6,9 @@ use std::{fmt::Debug, net::SocketAddr};
 use bytes::{Buf, BufMut};
 use num_enum::TryFromPrimitive;
 
-use crate::{
+use super::{
     Error,
-    message::attributes::{
+    attributes::{
         address::{IpFamily, XAddress},
         error::ErrorType,
     },

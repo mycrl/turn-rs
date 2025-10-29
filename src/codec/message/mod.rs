@@ -1,7 +1,7 @@
 pub mod attributes;
 pub mod methods;
 
-use crate::{
+use super::{
     Attributes, Error,
     crypto::{Password, fingerprint, hmac_sha1},
     message::{

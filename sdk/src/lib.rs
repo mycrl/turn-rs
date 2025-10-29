@@ -4,10 +4,10 @@ pub mod proto {
     tonic::include_proto!("turn.server");
 }
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, ops::Deref};
 
-pub use codec::message::attributes::PasswordAlgorithm;
-
+use aws_lc_rs::digest;
+use md5::{Digest, Md5};
 use tonic::{
     Request, Response, Status,
     transport::{Channel, Server},
@@ -20,6 +20,12 @@ use crate::proto::{
     turn_hooks_service_server::{TurnHooksService, TurnHooksServiceServer},
     turn_service_client::TurnServiceClient,
 };
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum PasswordAlgorithm {
+    Md5 = 0x0001,
+    Sha256 = 0x0002,
+}
 
 impl TryInto<PasswordAlgorithm> for proto::PasswordAlgorithm {
     type Error = Status;
@@ -92,6 +98,49 @@ pub struct Credential<'a> {
 
 struct TurnHooksServerInner<T>(T);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Password {
+    Md5([u8; 16]),
+    Sha256([u8; 32]),
+}
+
+impl Deref for Password {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Password::Md5(it) => it,
+            Password::Sha256(it) => it,
+        }
+    }
+}
+
+pub fn generate_password(
+    username: &str,
+    password: &str,
+    realm: &str,
+    algorithm: PasswordAlgorithm,
+) -> Password {
+    match algorithm {
+        PasswordAlgorithm::Md5 => {
+            let mut hasher = Md5::new();
+
+            hasher.update([username, realm, password].join(":"));
+
+            Password::Md5(hasher.finalize().into())
+        }
+        PasswordAlgorithm::Sha256 => {
+            let mut ctx = digest::Context::new(&digest::SHA256);
+
+            ctx.update([username, realm, password].join(":").as_bytes());
+
+            let mut result = [0u8; 32];
+            result.copy_from_slice(ctx.finish().as_ref());
+            Password::Sha256(result)
+        }
+    }
+}
+
 #[tonic::async_trait]
 impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> {
     async fn get_password(
@@ -103,7 +152,7 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
 
         if let Ok(credential) = self.0.get_password(&request.username, algorithm).await {
             Ok(Response::new(GetTurnPasswordResponse {
-                password: codec::crypto::generate_password(
+                password: generate_password(
                     &request.username,
                     credential.password,
                     credential.realm,

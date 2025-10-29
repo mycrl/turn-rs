@@ -2,7 +2,6 @@ use std::{fmt::Display, str::FromStr};
 
 use rand::Rng;
 
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,7 +86,6 @@ impl FromStr for PortRange {
     }
 }
 
-#[cfg(feature = "serde")]
 impl Serialize for PortRange {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -97,7 +95,6 @@ impl Serialize for PortRange {
     }
 }
 
-#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for PortRange {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

@@ -3,7 +3,7 @@ use std::net::{IpAddr, SocketAddr};
 use bytes::{Buf, BufMut};
 use num_enum::TryFromPrimitive;
 
-use crate::Error;
+use super::Error;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
