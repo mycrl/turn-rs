@@ -23,7 +23,7 @@ use tokio_rustls::{
 
 use crate::{
     codec::Decoder,
-    server::transport::{ListenOptions, Listener, MAX_MESSAGE_SIZE, Socket},
+    server::transport::{MAX_MESSAGE_SIZE, Server, ServerOptions, Socket},
 };
 
 enum MaybeSslStream {
@@ -193,10 +193,10 @@ pub struct TcpServer {
     local_addr: SocketAddr,
 }
 
-impl Listener for TcpServer {
+impl Server for TcpServer {
     type Socket = TcpSocket;
 
-    async fn bind(options: &ListenOptions) -> Result<Self> {
+    async fn bind(options: &ServerOptions) -> Result<Self> {
         #[cfg(feature = "ssl")]
         let acceptor = if let Some(ssl) = &options.ssl {
             Some(TlsAcceptor::from(Arc::new(

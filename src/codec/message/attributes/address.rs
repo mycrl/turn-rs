@@ -302,4 +302,3 @@ pub fn xor(addr: &SocketAddr, transaction_id: &[u8]) -> SocketAddr {
         addr.port() ^ (0x2112A442 >> 16) as u16,
     )
 }
-

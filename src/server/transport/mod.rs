@@ -12,7 +12,7 @@ use crate::{
     Service,
     config::Ssl,
     server::{Exchanger, PayloadType},
-    service::{routing::Response, session::Identifier},
+    service::session::Identifier,
     statistics::{Statistics, Stats},
 };
 
@@ -31,7 +31,7 @@ pub trait Socket: Send + 'static {
 }
 
 #[allow(unused)]
-pub struct ListenOptions {
+pub struct ServerOptions {
     pub transport: Transport,
     pub idle_timeout: u32,
     pub listen: SocketAddr,
@@ -40,15 +40,21 @@ pub struct ListenOptions {
     pub mtu: usize,
 }
 
-pub trait Listener: Sized + Send {
+pub trait Server: Sized + Send {
     type Socket: Socket;
 
-    fn bind(options: &ListenOptions) -> impl Future<Output = Result<Self>> + Send;
+    /// Bind the server to the specified address.
+    fn bind(options: &ServerOptions) -> impl Future<Output = Result<Self>> + Send;
+
+    /// Accept a new connection.
     fn accept(&mut self) -> impl Future<Output = Option<(Self::Socket, SocketAddr)>> + Send;
+
+    /// Get the local address of the listener.
     fn local_addr(&self) -> Result<SocketAddr>;
 
+    /// Start the server.
     fn start(
-        options: ListenOptions,
+        options: ServerOptions,
         service: Service,
         statistics: Statistics,
         exchanger: Exchanger,

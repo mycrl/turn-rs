@@ -94,4 +94,3 @@ impl From<ErrorType> for &'static str {
         }
     }
 }
-

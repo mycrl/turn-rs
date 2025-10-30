@@ -18,16 +18,20 @@ use super::Error;
 /// The Application Data field carries the data the client is trying to
 /// send to the peer, or that the peer is sending to the client.
 pub struct ChannelData<'a> {
-    pub bytes: &'a [u8],
-    pub number: u16,
+    bytes: &'a [u8],
+    number: u16,
 }
 
 impl<'a> ChannelData<'a> {
+    pub fn new(number: u16, bytes: &'a [u8]) -> Self {
+        Self { number, bytes }
+    }
+
     pub fn number(&self) -> u16 {
         self.number
     }
 
-    pub fn as_bytes(&self) -> &[u8] {
+    pub fn bytes(&self) -> &[u8] {
         self.bytes
     }
 
@@ -40,11 +44,7 @@ impl<'a> ChannelData<'a> {
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
     ///
-    /// ChannelData {
-    ///     number: 16384,
-    ///     bytes: &data[..],
-    /// }
-    /// .encode(&mut bytes);
+    /// ChannelData::new(16384, &data[..]).encode(&mut bytes);
     ///
     /// let size = ChannelData::message_size(&bytes[..], false).unwrap();
     ///
@@ -76,16 +76,12 @@ impl<'a> ChannelData<'a> {
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
     ///
-    /// ChannelData {
-    ///     number: 16384,
-    ///     bytes: &data[..],
-    /// }
-    /// .encode(&mut bytes);
+    /// ChannelData::new(16384, &data[..]).encode(&mut bytes);
     ///
     /// let ret = ChannelData::decode(&bytes[..]).unwrap();
     ///
-    /// assert_eq!(ret.number, 16384);
-    /// assert_eq!(ret.bytes, &data[..]);
+    /// assert_eq!(ret.number(), 16384);
+    /// assert_eq!(ret.bytes(), &data[..]);
     /// ```
     pub fn encode(self, bytes: &mut BytesMut) {
         bytes.clear();
@@ -103,16 +99,12 @@ impl<'a> ChannelData<'a> {
     /// let data: [u8; 4] = [0x40, 0x00, 0x00, 0x40];
     /// let mut bytes = BytesMut::with_capacity(1500);
     ///
-    /// ChannelData {
-    ///     number: 16384,
-    ///     bytes: &data[..],
-    /// }
-    /// .encode(&mut bytes);
+    /// ChannelData::new(16384, &data[..]).encode(&mut bytes);
     ///
     /// let ret = ChannelData::decode(&bytes[..]).unwrap();
     ///
-    /// assert_eq!(ret.number, 16384);
-    /// assert_eq!(ret.bytes, &data[..]);
+    /// assert_eq!(ret.number(), 16384);
+    /// assert_eq!(ret.bytes(), &data[..]);
     /// ```
     pub fn decode(bytes: &'a [u8]) -> Result<Self, Error> {
         if bytes.len() < 4 {
@@ -135,4 +127,3 @@ impl<'a> ChannelData<'a> {
         })
     }
 }
-

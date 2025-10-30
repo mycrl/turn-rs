@@ -605,6 +605,3 @@ pub fn alignment_32(size: usize) -> usize {
 
     4 - range
 }
-
-
-

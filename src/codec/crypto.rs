@@ -155,4 +155,3 @@ pub fn static_auth_secret(
 
     generate_password(username, &password, realm, algorithm)
 }
-

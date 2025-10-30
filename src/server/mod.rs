@@ -16,7 +16,7 @@ use crate::{
     Service,
     codec::message::methods::Method,
     config::{Config, Interface},
-    server::transport::{ListenOptions, Listener, Transport, tcp::TcpServer, udp::UdpServer},
+    server::transport::{Server, ServerOptions, Transport, tcp::TcpServer, udp::UdpServer},
     statistics::Statistics,
 };
 
@@ -34,7 +34,7 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                 mtu,
             } => {
                 servers.spawn(UdpServer::start(
-                    ListenOptions {
+                    ServerOptions {
                         transport: Transport::Udp,
                         idle_timeout,
                         ssl: None,
@@ -54,7 +54,7 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                 ssl,
             } => {
                 servers.spawn(TcpServer::start(
-                    ListenOptions {
+                    ServerOptions {
                         transport: Transport::Tcp,
                         idle_timeout,
                         external,

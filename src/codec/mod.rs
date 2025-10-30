@@ -65,6 +65,24 @@ pub enum DecodeResult<'a> {
     ChannelData(ChannelData<'a>),
 }
 
+impl<'a> DecodeResult<'a> {
+    /// Consumes the decode result and returns the message if it is a message.
+    pub fn into_message(self) -> Option<Message<'a>> {
+        match self {
+            DecodeResult::Message(msg) => Some(msg),
+            _ => None,
+        }
+    }
+
+    /// Consumes the decode result and returns the channel data if it is channel data.
+    pub fn into_channel_data(self) -> Option<ChannelData<'a>> {
+        match self {
+            DecodeResult::ChannelData(data) => Some(data),
+            _ => None,
+        }
+    }
+}
+
 /// A cache of the list of attributes, this is for internal use only.
 #[derive(Debug, Clone)]
 pub struct Attributes(Vec<(AttributeType, Range<usize>)>);
@@ -191,4 +209,3 @@ impl Decoder {
         })
     }
 }
-

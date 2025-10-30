@@ -189,4 +189,3 @@ impl From<Method> for u16 {
         }
     }
 }
-

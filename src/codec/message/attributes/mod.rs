@@ -1231,5 +1231,3 @@ impl<'a> Attribute<'a> for ThirdPartyAuathorization {
         Ok(std::str::from_utf8(bytes)?)
     }
 }
-
-

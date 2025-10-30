@@ -10,7 +10,7 @@ use tokio::{
     },
 };
 
-use crate::server::transport::{ListenOptions, Listener, Socket};
+use crate::server::transport::{Server, ServerOptions, Socket};
 
 pub struct UdpSocket {
     close_signal_sender: UnboundedSender<SocketAddr>,
@@ -49,10 +49,10 @@ pub struct UdpServer {
     socket: Arc<TokioUdpSocket>,
 }
 
-impl Listener for UdpServer {
+impl Server for UdpServer {
     type Socket = UdpSocket;
 
-    async fn bind(options: &ListenOptions) -> Result<Self> {
+    async fn bind(options: &ServerOptions) -> Result<Self> {
         let socket = Arc::new(TokioUdpSocket::bind(options.listen).await?);
         let (socket_sender, socket_receiver) = unbounded_channel::<(UdpSocket, SocketAddr)>();
         let (close_signal_sender, mut close_signal_receiver) = unbounded_channel::<SocketAddr>();

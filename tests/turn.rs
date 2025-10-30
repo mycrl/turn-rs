@@ -1,6 +1,7 @@
+mod samples;
+
 use std::net::{Ipv4Addr, SocketAddr};
 
-use anyhow::Result;
 use turn_server::{
     codec::{
         Decoder,
@@ -16,6 +17,10 @@ use turn_server::{
 struct AuthHandler;
 
 impl AuthHandler {
+    const fn username() -> &'static str {
+        "user1"
+    }
+
     const fn password() -> &'static str {
         "test"
     }
@@ -26,9 +31,9 @@ impl AuthHandler {
 }
 
 impl ServiceHandler for AuthHandler {
-    async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    async fn get_password(&self, _: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
         Some(generate_password(
-            username,
+            Self::username(),
             Self::password(),
             Self::realm(),
             algorithm,
@@ -36,129 +41,122 @@ impl ServiceHandler for AuthHandler {
     }
 }
 
-#[test]
-fn turn_test() -> Result<()> {
-    pollster::block_on(async {
-        let mut decoder = Decoder::default();
+#[tokio::test]
+// #[rustfmt::skip]
+async fn turn_test() {
+    let mut decoder = Decoder::default();
 
-        let base_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 3478));
-        let client_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 51678));
+    let interface = SocketAddr::from((Ipv4Addr::LOCALHOST, 3478));
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 51678));
 
-        let service = Service::new(ServiceOptions {
-            port_range: PortRange::default(),
-            realm: "localhost".to_string(),
-            interfaces: vec![base_addr],
-            handler: AuthHandler::default(),
-        });
+    let service = Service::new(ServiceOptions {
+        port_range: PortRange::default(),
+        realm: AuthHandler::realm().to_string(),
+        interfaces: vec![interface],
+        handler: AuthHandler::default(),
+    });
 
-        let mut router = service.make_router(base_addr, base_addr);
+    let mut router = service.make_router(interface, interface);
 
-        {
-            let Response { bytes, .. } = router
-                .route(include_bytes!("./samples/BindingRequest.bin"), client_addr)
-                .await?
-                .expect("expected binding response");
+    {
+        let Response { bytes, .. } = router
+            .route(samples::BINDING_REQUEST, addr)
+            .await
+            .unwrap()
+            .unwrap();
 
-            let message = decoder.decode(bytes)?.into_message().expect("expected message");
-            assert_eq!(message.method(), BINDING_RESPONSE);
-            assert_eq!(message.get::<XorMappedAddress>(), Some(client_addr));
-            assert_eq!(message.get::<MappedAddress>(), Some(client_addr));
-            assert_eq!(message.get::<ResponseOrigin>(), Some(base_addr));
-        }
+        let message = decoder.decode(bytes).unwrap().into_message().unwrap();
 
-        {
-            let Response { method, bytes, .. } = router
-                .route(
-                    include_bytes!("./samples/UnauthorizedAllocateRequest.bin"),
-                    client_addr,
-                )
-                .await?
-                .expect("expected allocate error response");
+        assert_eq!(message.method(), BINDING_RESPONSE);
+        assert_eq!(message.get::<XorMappedAddress>(), Some(addr));
+        assert_eq!(message.get::<MappedAddress>(), Some(addr));
+        assert_eq!(message.get::<ResponseOrigin>(), Some(addr));
+    }
 
-            assert_eq!(method, Some(ALLOCATE_ERROR));
+    {
+        let Response { bytes, .. } = router
+            .route(samples::UNAUTHORIZED_ALLOCATE_REQUEST, addr)
+            .await
+            .unwrap()
+            .unwrap();
 
-            let message = decoder.decode(bytes)?.into_message().expect("expected message");
-            assert_eq!(
-                message.get::<ErrorCode>(),
-                Some(ErrorCode::from(error::ErrorType::Unauthorized))
-            );
-            assert_eq!(message.get::<Realm>(), Some("localhost"));
-            assert!(message.get::<Nonce>().is_some());
-            assert!(message.get::<PasswordAlgorithms>().is_some());
-        }
+        let message = decoder.decode(bytes).unwrap().into_message().unwrap();
 
-        {
-            let Response { method, bytes, .. } = router
-                .route(include_bytes!("./samples/AllocateRequest.bin"), client_addr)
-                .await?
-                .expect("expected allocate response");
+        assert_eq!(message.method(), ALLOCATE_ERROR);
+        assert_eq!(message.get::<ErrorCode>(), Some(ErrorCode::from(error::ErrorType::Unauthorized)));
+        assert_eq!(message.get::<Realm>(), Some("localhost"));
+        assert!(message.get::<Nonce>().is_some());
+        assert!(message.get::<PasswordAlgorithms>().is_some());
+    }
 
-            assert_eq!(method, Some(ALLOCATE_RESPONSE));
+    {
+        let Response { bytes, .. } = router
+            .route(samples::ALLOCATE_REQUEST, addr)
+            .await
+            .unwrap()
+            .unwrap();
 
-            let message = decoder.decode(bytes)?.into_message().expect("expected message");
-            let relayed = message.get::<XorRelayedAddress>().unwrap();
-            assert_eq!(relayed.ip().to_string(), "127.0.0.1");
-            assert!(relayed.port() >= 49152);
-            assert_eq!(message.get::<XorMappedAddress>(), Some(client_addr));
-            assert_eq!(message.get::<Lifetime>(), Some(600));
-        }
+        let message = decoder.decode(bytes).unwrap().into_message().unwrap();
 
-        {
-            let Response { method, bytes, .. } = router
-                .route(
-                    include_bytes!("./samples/CreatePermissionRequest.bin"),
-                    client_addr,
-                )
-                .await?
-                .expect("expected create permission response");
+        assert_eq!(message.method(), ALLOCATE_RESPONSE);
+        assert_eq!(message.get::<XorMappedAddress>(), Some(addr));
+        assert_eq!(message.get::<Lifetime>(), Some(600));
 
-            assert_eq!(method, Some(CREATE_PERMISSION_RESPONSE));
+        let relayed = message.get::<XorRelayedAddress>().unwrap();
+        assert_eq!(relayed.ip().to_string(), "127.0.0.1");
+        assert!(relayed.port() >= 49152);
+    }
 
-            let message = decoder.decode(bytes)?.into_message().expect("expected message");
-            assert_eq!(message.method(), CREATE_PERMISSION_RESPONSE);
-        }
+    {
+        let Response { bytes, .. } = router
+            .route(samples::CREATE_PERMISSION_REQUEST, addr)
+            .await
+            .unwrap()
+            .unwrap();
 
-        {
-            let Response { method, bytes, .. } = router
-                .route(
-                    include_bytes!("./samples/ChannelBindRequest.bin"),
-                    client_addr,
-                )
-                .await?
-                .expect("expected channel bind response");
+        let message = decoder.decode(bytes).unwrap().into_message().unwrap();
 
-            assert_eq!(method, Some(CHANNEL_BIND_RESPONSE));
+        assert_eq!(message.method(), CREATE_PERMISSION_RESPONSE);
+        assert_eq!(message.get::<Lifetime>(), Some(600));
+    }
 
-            let message = decoder.decode(bytes)?.into_message().expect("expected message");
-            assert_eq!(message.method(), CHANNEL_BIND_RESPONSE);
-        }
+    {
+        let Response { bytes, .. } = router
+            .route(samples::CHANNEL_BIND_REQUEST, addr)
+            .await
+            .unwrap()
+            .unwrap();
 
-        {
-            let Response { method, bytes, target } = router
-                .route(include_bytes!("./samples/SendIndication.bin"), client_addr)
-                .await?
-                .expect("expected send indication response");
+        let message = decoder.decode(bytes).unwrap().into_message().unwrap();
 
-            assert_eq!(method, Some(DATA_INDICATION));
+        assert_eq!(message.method(), CHANNEL_BIND_RESPONSE);
+    }
 
-            let message = decoder.decode(bytes)?.into_message().expect("expected message");
-            assert!(message.get::<XorPeerAddress>().is_some());
-            assert!(message.get::<Data>().is_some());
-            assert!(target.relay.is_some());
-        }
+    {
+        let Response { bytes, target, .. } = router
+            .route(samples::SEND_INDICATION, addr)
+            .await
+            .unwrap()
+            .unwrap();
 
-        {
-            let Response { method, bytes, .. } = router
-                .route(include_bytes!("./samples/RefreshRequest.bin"), client_addr)
-                .await?
-                .expect("expected refresh response");
+        let message = decoder.decode(bytes).unwrap().into_message().unwrap();
 
-            assert_eq!(method, Some(REFRESH_RESPONSE));
+        assert_eq!(message.method(), DATA_INDICATION);
+        assert!(message.get::<XorPeerAddress>().is_some());
+        assert!(message.get::<Data>().is_some());
+        assert!(target.relay.is_some());
+    }
 
-            let message = decoder.decode(bytes)?.into_message().expect("expected message");
-            assert_eq!(message.get::<Lifetime>(), Some(600));
-        }
+    {
+        let Response { bytes, .. } = router
+            .route(samples::REFRESH_REQUEST, addr)
+            .await
+            .unwrap()
+            .unwrap();
 
-        Ok(())
-    })
+        let message = decoder.decode(bytes).unwrap().into_message().unwrap();
+
+        assert_eq!(message.method(), REFRESH_RESPONSE);
+        assert_eq!(message.get::<Lifetime>(), Some(600));
+    }
 }
