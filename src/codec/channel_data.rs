@@ -31,7 +31,7 @@ impl<'a> ChannelData<'a> {
         self.number
     }
 
-    pub fn bytes(&self) -> &[u8] {
+    pub fn bytes(&self) -> &'a [u8] {
         self.bytes
     }
 
