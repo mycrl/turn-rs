@@ -1083,7 +1083,27 @@ where
     }
 }
 
-/// Generate a random nonce.
+/// Generate a cryptographically random nonce for STUN/TURN authentication.
+///
+/// The nonce is a critical security component in STUN/TURN's long-term credential
+/// mechanism (RFC 5389). It serves multiple purposes:
+/// - Prevents replay attacks by ensuring each authentication is unique
+/// - Acts as a server-issued challenge in the digest authentication flow
+/// - Binds authentication attempts to specific sessions
+///
+/// This implementation generates a 16-character alphanumeric string using a
+/// cryptographically secure random number generator. The length is chosen to
+/// provide sufficient entropy (approximately 95 bits) to make brute-force
+/// attacks computationally infeasible while remaining well under the RFC's
+/// 128-character limit.
+///
+/// # Returns
+/// A random 16-character string containing alphanumeric characters [a-zA-Z0-9].
+///
+/// # Security
+/// Uses `rand::rng()` which provides cryptographic-quality randomness suitable
+/// for security-sensitive operations. See RFC 7616 Section 5.4 for additional
+/// guidance on nonce value selection.
 fn make_nonce() -> String {
     rand::rng()
         .sample_iter(&Alphanumeric)
