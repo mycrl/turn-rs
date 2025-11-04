@@ -42,6 +42,7 @@ tonic-prost-build = { version = "0.14", optional = true }
 
 [dev-dependencies]
 criterion = "0.7"
+pollster = "0.4"
 
 [[bench]]
 name = "stun"
