@@ -91,6 +91,12 @@ impl Server for UdpServer {
                                 }
                             } else {
                                 let (tx, bytes_receiver) = channel::<Bytes>(100);
+                                
+                                // Send the first packet to the new socket
+                                if tx.try_send(Bytes::copy_from_slice(&buffer[..size])).is_err() {
+                                    continue;
+                                }
+                                
                                 sockets.insert(addr, tx);
 
                                 if socket_sender
