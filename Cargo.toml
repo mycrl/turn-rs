@@ -69,3 +69,4 @@ codegen-units = 1
 [workspace]
 resolver = "2"
 members = ["./", "./sdk"]
+exclude = ["fuzz"]
