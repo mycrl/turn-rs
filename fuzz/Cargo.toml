@@ -20,7 +20,7 @@ features = ["udp", "tcp"]
 
 [[bin]]
 name = "fuzz_stun_decoder"
-path = "fuzz_targets/fuzz_target_1.rs"
+path = "fuzz_targets/fuzz_stun_decoder.rs"
 test = false
 doc = false
 bench = false
