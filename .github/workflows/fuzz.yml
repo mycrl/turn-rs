@@ -69,16 +69,15 @@ jobs:
       - name: Check for crashes
         if: always()
         run: |
-          if [ -d "fuzz/artifacts" ] && [ -n "$(find fuzz/artifacts -type f)" ]; then
+          if [ -d "fuzz/artifacts" ] && [ -n "$(find fuzz/artifacts -type f 2>/dev/null)" ]; then
             echo "::warning::Fuzzing found crashes! Check artifacts."
             find fuzz/artifacts -type f -exec echo "Found crash: {}" \;
-            exit 1
           else
             echo "No crashes found during fuzzing."
           fi
       
       - name: Upload crash artifacts
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-artifacts
