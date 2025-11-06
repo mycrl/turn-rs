@@ -48,6 +48,10 @@ pollster = "0.4"
 name = "stun"
 harness = false
 
+[[bench]]
+name = "service"
+harness = false
+
 [features]
 default = ["all"]
 all = ["udp", "tcp", "ssl", "rpc"]
