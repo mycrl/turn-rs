@@ -46,7 +46,7 @@ jobs:
                       ~/.cargo/registry/cache/
                       ~/.cargo/git/db/
                       target/
-                  key: "miri-ubuntu-latest"
+                  key: miri-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
             - name: Install Rust nightly
               run: |
                   rustup toolchain install nightly --component miri
