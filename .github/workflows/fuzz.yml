@@ -1,4 +1,6 @@
 name: Fuzz Testing
+permissions:
+  contents: read
 
 on:
   # Run on schedule (weekly)
