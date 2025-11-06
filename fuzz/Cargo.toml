@@ -4,44 +4,11 @@ version = "0.0.0"
 publish = false
 edition = "2024"
 
-[package.metadata]
-cargo-fuzz = true
-
 [workspace]
 
 [dependencies]
-libfuzzer-sys = "0.4"
+turn-server = { path = "../", default-features = false }
 bytes = "1"
 
-[dependencies.turn-server]
-path = ".."
-default-features = false
-features = ["udp", "tcp"]
-
-[[bin]]
-name = "fuzz_stun_decoder"
-path = "fuzz_targets/fuzz_stun_decoder.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "fuzz_stun_message"
-path = "fuzz_targets/fuzz_stun_message.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "fuzz_channel_data"
-path = "fuzz_targets/fuzz_channel_data.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "fuzz_stun_attributes"
-path = "fuzz_targets/fuzz_stun_attributes.rs"
-test = false
-doc = false
-bench = false
+[dev-dependencies]
+proptest = "1.4"

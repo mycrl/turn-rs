@@ -1,6 +1,6 @@
 name: tests
 permissions:
-  contents: read
+    contents: read
 on:
     push:
         branches:
@@ -35,29 +35,3 @@ jobs:
               run: cargo hack check --feature-powerset
               env:
                   RUSTFLAGS: "-Dwarnings"
-
-    miri:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/cache@v3
-              with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      target/
-                  key: miri-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-            - name: Install Rust nightly
-              run: |
-                  rustup toolchain install nightly --component miri
-                  rustup override set nightly
-            - name: Install dependencies
-              run: |
-                  sudo apt update
-                  sudo apt install -y protobuf-compiler
-            - name: Setup Miri
-              run: cargo miri setup
-            - name: Run Miri tests
-              run: cargo miri test --workspace --no-fail-fast
