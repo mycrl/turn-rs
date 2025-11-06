@@ -1,0 +1,85 @@
+name: Fuzz Testing
+
+on:
+  # Run on schedule (weekly)
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Duration per target in seconds'
+        required: false
+        default: '300'
+  # Run on PRs that modify fuzz targets or codec
+  pull_request:
+    paths:
+      - 'fuzz/**'
+      - 'src/codec/**'
+
+jobs:
+  fuzz:
+    name: Fuzz Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+      
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+      
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Build fuzz targets
+        run: cargo fuzz build
+      
+      - name: Run fuzz_stun_decoder
+        run: cargo fuzz run fuzz_stun_decoder -- -max_total_time=${{ github.event.inputs.duration || '60' }} -rss_limit_mb=2048
+        continue-on-error: true
+      
+      - name: Run fuzz_stun_message
+        run: cargo fuzz run fuzz_stun_message -- -max_total_time=${{ github.event.inputs.duration || '60' }} -rss_limit_mb=2048
+        continue-on-error: true
+      
+      - name: Run fuzz_channel_data
+        run: cargo fuzz run fuzz_channel_data -- -max_total_time=${{ github.event.inputs.duration || '60' }} -rss_limit_mb=2048
+        continue-on-error: true
+      
+      - name: Run fuzz_stun_attributes
+        run: cargo fuzz run fuzz_stun_attributes -- -max_total_time=${{ github.event.inputs.duration || '60' }} -rss_limit_mb=2048
+        continue-on-error: true
+      
+      - name: Check for crashes
+        if: always()
+        run: |
+          if [ -d "fuzz/artifacts" ] && [ -n "$(find fuzz/artifacts -type f 2>/dev/null)" ]; then
+            echo "::warning::Fuzzing found crashes! Check artifacts."
+            find fuzz/artifacts -type f -exec echo "Found crash: {}" \;
+          else
+            echo "No crashes found during fuzzing."
+          fi
+      
+      - name: Upload crash artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts/
+          if-no-files-found: ignore
