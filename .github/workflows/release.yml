@@ -12,6 +12,8 @@ jobs:
               run: |
                   cargo login ${{ secrets.CRATES_IO_TOKEN }}
                   cargo publish
+                  cd sdk
+                  cargo publish
     publish-to-github-package:
         needs: publish-to-cratesio
         runs-on: ubuntu-latest
