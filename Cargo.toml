@@ -42,6 +42,7 @@ tonic-prost-build = { version = "0.14", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["async_tokio"] }
+pollster = "0.4.0"
 proptest = "1.4"
 
 [[bench]]
