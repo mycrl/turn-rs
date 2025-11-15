@@ -43,6 +43,7 @@ tonic-prost-build = { version = "0.14", optional = true }
 [dev-dependencies]
 criterion = "0.7"
 pollster = "0.4"
+proptest = "1.4"
 
 [[bench]]
 name = "stun"
@@ -69,4 +70,3 @@ codegen-units = 1
 [workspace]
 resolver = "2"
 members = ["./", "./sdk"]
-exclude = ["fuzz"]
