@@ -41,12 +41,15 @@ rand = "0.9"
 tonic-prost-build = { version = "0.14", optional = true }
 
 [dev-dependencies]
-criterion = "0.7"
-pollster = "0.4"
+criterion = { version = "0.7", features = ["async_tokio"] }
 proptest = "1.4"
 
 [[bench]]
 name = "stun"
+harness = false
+
+[[bench]]
+name = "turn"
 harness = false
 
 [features]

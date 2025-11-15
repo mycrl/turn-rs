@@ -4,19 +4,7 @@ use std::sync::LazyLock;
 
 use bytes::BytesMut;
 use proptest::{array, char::range, collection::vec, option, prelude::*, prop_oneof};
-use turn_server::codec::{
-    DecodeResult, Decoder, Error,
-    channel_data::ChannelData,
-    crypto::{Password, generate_password},
-    message::{
-        Message, MessageEncoder,
-        attributes::{error::ErrorType, *},
-        methods::*,
-    },
-};
-
-static PASSWORD: LazyLock<Password> =
-    LazyLock::new(|| generate_password("user1", "test", "localhost", PasswordAlgorithm::Md5));
+use turn_server::prelude::*;
 
 macro_rules! assert_decoded {
     (message {
@@ -94,6 +82,9 @@ macro_rules! assert_decoded {
         )?
     }};
 }
+
+static PASSWORD: LazyLock<Password> =
+    LazyLock::new(|| generate_password("user1", "test", "localhost", PasswordAlgorithm::Md5));
 
 #[test]
 fn stun_binding_request() {

@@ -8,6 +8,24 @@ pub mod server;
 pub mod service;
 pub mod statistics;
 
+pub mod prelude {
+    pub use super::codec::{
+        channel_data::*,
+        crypto::*,
+        message::{
+            attributes::{error::*, *},
+            methods::*,
+            *,
+        },
+        *,
+    };
+
+    pub use super::service::{
+        session::{ports::*, *},
+        *,
+    };
+}
+
 use self::{config::Config, handler::Handler, service::ServiceOptions, statistics::Statistics};
 
 use tokio::task::JoinSet;

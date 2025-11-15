@@ -1,5 +1,5 @@
-use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use turn_server::codec::Decoder;
+use criterion::*;
+use turn_server::prelude::*;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut decoder = Decoder::default();
