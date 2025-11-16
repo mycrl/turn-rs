@@ -4,4 +4,4 @@
 -   [Build](build.md)
 -   [Start the server](start-the-server.md)
 -   [Configure](configure.md)
--   [API](api.md)
+-   [API](../protos/server.proto)

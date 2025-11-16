@@ -1,46 +1,72 @@
-pub mod api;
+#[cfg(feature = "grpc")]
+pub mod grpc;
+
+pub mod codec;
 pub mod config;
-pub mod observer;
-pub mod router;
+pub mod handler;
 pub mod server;
+pub mod service;
 pub mod statistics;
-pub mod stun;
-pub mod turn;
 
-use std::sync::Arc;
+pub mod prelude {
+    pub use super::codec::{
+        channel_data::*,
+        crypto::*,
+        message::{
+            attributes::{error::*, *},
+            methods::*,
+            *,
+        },
+        *,
+    };
 
-use self::{config::Config, observer::Observer, statistics::Statistics, turn::Service};
+    pub use super::service::{
+        session::{ports::*, *},
+        *,
+    };
+}
+
+use self::{config::Config, handler::Handler, service::ServiceOptions, statistics::Statistics};
+
+use tokio::task::JoinSet;
 
 #[rustfmt::skip]
-static SOFTWARE: &str = concat!(
+pub(crate) static SOFTWARE: &str = concat!(
     "turn-rs.",
     env!("CARGO_PKG_VERSION")
 );
 
+pub(crate) type Service = service::Service<Handler>;
+
 /// In order to let the integration test directly use the turn-server crate and
 /// start the server, a function is opened to replace the main function to
 /// directly start the server.
-pub async fn startup(config: Arc<Config>) -> anyhow::Result<()> {
+pub async fn start_server(config: Config) -> anyhow::Result<()> {
     let statistics = Statistics::default();
-    let service = Service::new(
-        SOFTWARE.to_string(),
-        config.turn.realm.clone(),
-        config.turn.get_externals(),
-        Observer::new(config.clone(), statistics.clone()).await?,
-    );
+    let service = service::Service::new(ServiceOptions {
+        realm: config.server.realm.clone(),
+        port_range: config.server.port_range,
+        interfaces: config.server.get_externals(),
+        handler: Handler::new(config.clone(), statistics.clone()).await?,
+    });
 
-    server::start(&config, &statistics, &service).await?;
-
-    #[cfg(feature = "api")]
     {
-        api::start_server(config, service, statistics).await?;
-    }
+        let mut workers = JoinSet::new();
 
-    // The turn server is non-blocking after it runs and needs to be kept from
-    // exiting immediately if the api server is not enabled.
-    #[cfg(not(feature = "api"))]
-    {
-        std::future::pending::<()>().await;
+        workers.spawn(server::start_server(
+            config.clone(),
+            service.clone(),
+            statistics.clone(),
+        ));
+
+        #[cfg(feature = "grpc")]
+        workers.spawn(grpc::start_server(config, service, statistics));
+
+        if let Some(res) = workers.join_next().await {
+            workers.abort_all();
+
+            return res?;
+        }
     }
 
     Ok(())

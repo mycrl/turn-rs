@@ -1,0 +1,144 @@
+name: publish github release
+
+permissions:
+    contents: read
+
+on:
+    push:
+        tags:
+            - "v*"
+
+jobs:
+    validate-version:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Ensure tag matches crate versions
+              run: python .github/scripts/check_tag.py
+
+    build-binaries:
+        needs: validate-version
+        runs-on: "${{ matrix.os }}"
+        strategy:
+            matrix:
+                os:
+                    - ubuntu-latest
+                    - windows-latest
+                    - macos-latest
+                target:
+                    - aarch64-apple-darwin
+                    - aarch64-unknown-linux-gnu
+                    - x86_64-pc-windows-msvc
+                    - x86_64-unknown-linux-gnu
+                exclude:
+                    - os: windows-latest
+                      target: aarch64-unknown-linux-gnu
+                    - os: windows-latest
+                      target: x86_64-unknown-linux-gnu
+                    - os: windows-latest
+                      target: aarch64-apple-darwin
+                    - os: ubuntu-latest
+                      target: x86_64-pc-windows-msvc
+                    - os: ubuntu-latest
+                      target: aarch64-apple-darwin
+                    - os: macos-latest
+                      target: x86_64-pc-windows-msvc
+                    - os: macos-latest
+                      target: aarch64-unknown-linux-gnu
+                    - os: macos-latest
+                      target: x86_64-unknown-linux-gnu
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      target/
+                  key: "${{ matrix.os }}-${{ matrix.target }}"
+
+            - name: Install dependencies (Linux)
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt update
+                  sudo apt install -y gcc-aarch64-linux-gnu protobuf-compiler
+                  rustup update
+                  rustup target add ${{ matrix.target }}
+                  cargo install cargo-zigbuild --force
+                  sudo snap install zig --classic --beta
+
+            - name: Install dependencies (macOS)
+              if: runner.os == 'macOS'
+              run: |
+                  rustup update
+                  rustup target add ${{ matrix.target }}
+                  brew install protobuf
+
+            - name: Install dependencies (Windows)
+              if: runner.os == 'Windows'
+              run: |
+                  choco install protoc --yes --no-progress
+                  rustup update
+                  rustup target add ${{ matrix.target }}
+
+            - name: Build release (Linux)
+              if: runner.os == 'Linux'
+              run: cargo zigbuild --target ${{ matrix.target }} --release --all-features
+
+            - name: Build release (macOS)
+              if: runner.os == 'macOS'
+              run: cargo build --target ${{ matrix.target }} --release --all-features
+
+            - name: Build release (Windows)
+              if: runner.os == 'Windows'
+              run: cargo build --release --all-features
+
+            - name: Rename release (Linux & macOS)
+              if: runner.os == 'macOS' || runner.os == 'Linux'
+              run: |
+                  mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
+
+            - name: Rename release (Windows)
+              if: runner.os == 'Windows'
+              run: |
+                  Remove-Item -Path "./target/release/turn-server-${{ matrix.target }}.exe" -ErrorAction SilentlyContinue
+                  Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}.exe"
+
+            - name: Upload artifact (Linux & macOS)
+              if: runner.os == 'macOS' || runner.os == 'Linux'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.target }}
+                  path: |
+                      ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
+
+            - name: Upload artifact (Windows)
+              if: runner.os == 'Windows'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ${{ matrix.target }}
+                  path: |
+                      ./target/release/turn-server-${{ matrix.target }}.exe
+
+    publish-github-release:
+        needs: build-binaries
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+            - name: Create release
+              uses: softprops/action-gh-release@v1
+              env:
+                  GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+              with:
+                  tag_name: ${{ github.ref_name }}
+                  name: ${{ github.ref_name }}
+                  draft: false
+                  prerelease: false
+                  files: artifacts/**/*

@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package turn.server;
+
+import "google/protobuf/empty.proto";
+
+// turn server info
+message TurnServerInfo {
+    // software info
+    string software = 1;
+    // uptime seconds
+    uint64 uptime = 2;
+    // interfaces
+    repeated string interfaces = 3;
+    // port capacity size
+    uint32 port_capacity = 4;
+    // port allocated size
+    uint32 port_allocated = 5;
+}
+
+// session query params
+message SessionQueryParams {
+    string id = 1;
+}
+
+// turn session
+message TurnSession {
+    string username = 1;
+    // permissions port
+    repeated int32 permissions = 2;
+    // channels number
+    repeated int32 channels = 3;
+    // allocated port number
+    optional int32 port = 4;
+    // expires seconds
+    int64 expires = 6;
+}
+
+// turn session statistics
+message TurnSessionStatistics {
+    // received bytes
+    uint64 received_bytes = 1;
+    // send bytes
+    uint64 send_bytes = 2;
+    // received packets
+    uint64 received_pkts = 3;
+    // send packets
+    uint64 send_pkts = 4;
+    // error packets
+    uint64 error_pkts = 5;
+}
+
+// turn service
+service TurnService {
+    // get server info
+    rpc GetInfo(google.protobuf.Empty) returns (TurnServerInfo);
+    // get session
+    rpc GetSession(SessionQueryParams) returns (TurnSession);
+    // get session statistics
+    rpc GetSessionStatistics(SessionQueryParams) returns (TurnSessionStatistics);
+    // destroy session
+    rpc DestroySession(SessionQueryParams) returns (google.protobuf.Empty);
+}
+
+// turn allocated event
+message TurnAllocatedEvent {
+    string id = 1;
+    string username = 2;
+    int32 port = 3;
+}
+
+// turn channel bind event
+message TurnChannelBindEvent {
+    string id = 1;
+    string username = 2;
+    int32 channel = 3;
+}
+
+// turn create permission event
+message TurnCreatePermissionEvent {
+    string id = 1;
+    string username = 2;
+    repeated int32 ports = 3;
+}
+
+// turn refresh event
+message TurnRefreshEvent {
+    string id = 1;
+    string username = 2;
+    int32 lifetime = 3;
+}
+
+// turn destroy event
+message TurnDestroyEvent {
+    string id = 1;
+    string username = 2;
+}
+
+enum PasswordAlgorithm {
+    UNSPECIFIED = 0;
+    MD5 = 1;
+    SHA256 = 2;
+}
+
+// get turn message integrity request
+message GetTurnPasswordRequest {
+    PasswordAlgorithm algorithm = 1;
+    string username = 2;
+}
+
+// get turn message integrity response
+message GetTurnPasswordResponse {
+    bytes password = 2;
+}
+
+// turn hooks service
+service TurnHooksService {
+
+    // hooks
+    rpc GetPassword(GetTurnPasswordRequest) returns (GetTurnPasswordResponse);
+
+    // events
+    rpc OnAllocatedEvent(TurnAllocatedEvent) returns (google.protobuf.Empty);
+    rpc OnChannelBindEvent(TurnChannelBindEvent) returns (google.protobuf.Empty);
+    rpc OnCreatePermissionEvent(TurnCreatePermissionEvent) returns (google.protobuf.Empty);
+    rpc OnRefreshEvent(TurnRefreshEvent) returns (google.protobuf.Empty);
+    rpc OnDestroyEvent(TurnDestroyEvent) returns (google.protobuf.Empty);
+}

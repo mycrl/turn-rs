@@ -25,15 +25,17 @@ export RUSTFLAGS='-C target-cpu=native'
 
 ### Features
 
+If you don't need a particular feature, you can reduce the package size by enabling only the features you require.
+
 -   `udp` - (enabled by default) Enables UDP transport layer support.
 -   `tcp` - Enables TCP transport layer support.
--   `api` - Enable the HTTP REST API server feature.
--   `prometheus` - Enable prometheus indicator support.
+-   `ssl` - Enable SSL encryption support.
+-   `grpc` - Enable the GRPC server feature.
 
-No features are enabled by default and need to be turned on by manual specification.
+All features are enabled by default.
 
 ```bash
-cargo build --release --features udp,tcp,api,prometheus
+cargo build --release
 ```
 
 After the compilation is complete, you can find the binary file in the `target/release` directory.

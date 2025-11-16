@@ -1,0 +1,21 @@
+[package]
+name = "turn-server-protos"
+version = "0.1.0-beta.1"
+edition = "2024"
+description = "Shared TURN server gRPC protocol definitions."
+license = "MIT"
+repository = "https://github.com/mycrl/turn-rs"
+readme = "README.md"
+publish = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+prost = "0.14"
+prost-types = "0.14"
+tonic = { version = "0.14", features = ["transport"] }
+tonic-prost = "0.14"
+
+[build-dependencies]
+tonic-prost-build = "0.14"

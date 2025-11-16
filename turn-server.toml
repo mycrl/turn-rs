@@ -1,83 +1,156 @@
-[turn]
+[server]
+#
+# Port range, the maximum range is 49152 - 65535.
+#
+port-range = "49152..65535"
+#
+#
+# Maximum number of threads the TURN server can use.
+#
+max-threads = 12
+#
+#
 # turn server realm
 #
-# specify the domain where the server is located.
-# for a single node, this configuration is fixed,
-# but each node can be configured as a different domain.
-# this is a good idea to divide the nodes by namespace.
+# specify the domain where the server is located. for a single node,
+# this configuration is fixed, but each node can be configured as a
+# different domain. this is a good idea to divide the nodes by namespace.
 #
 realm = "localhost"
-
+#
+#
 # turn server listen interfaces
 #
 # The address and port to which the UDP Server is bound. Multiple
 # addresses can be bound at the same time. The binding address supports
 # ipv4 and ipv6.
 #
-[[turn.interfaces]]
+[[server.interfaces]]
 transport = "udp"
-bind = "127.0.0.1:3478"
+listen = "127.0.0.1:3478"
+#
+#
 # external address
 #
-# specify the node external address and port.
-# for the case of exposing the service to the outside,
-# you need to manually specify the server external IP
-# address and service listening port.
+# specify the node external address and port. for the case of
+# exposing the service to the outside, you need to manually
+# specify the server external IP address and service listening
+# port.
+#
 external = "127.0.0.1:3478"
 #
-# [[turn.interfaces]]
-# transport = "tcp"
-# bind = "127.0.0.1:3478"
-# external = "127.0.0.1:3478"
-
-# [[turn.interfaces]]
-# transport = "udp"
-# bind = "[::1]:3478"
-# external = "[::1]:3478"
-
-# [[turn.interfaces]]
-# transport = "tcp"
-# bind = "[::1]:3478"
-# external = "[::1]:3478"
-
-[api]
-# controller bind
 #
-# This option specifies the http server binding address used to control
+# Idle timeout
+#
+# If no packet is received within the specified number of
+# seconds, the connection will be closed to prevent resources
+# from being occupied for a long time.
+#
+idle-timeout = 20
+#
+#
+# Maximum Transmission Unit (MTU) size for network packets.
+#
+mtu = 1500
+#
+#
+# ssl configuration
+#
+# [server.interfaces.ssl]
+# private-key = "/etc/turn-rs/tls/private.key"
+# certificate-chain = "/etc/turn-rs/tls/certificate.crt"
+#
+#
+# Additional interface examples (commented):
+#
+# [[server.interfaces]]
+# transport = "tcp"
+# listen = "127.0.0.1:3478"
+# external = "127.0.0.1:3478"
+# 
+# [[server.interfaces]]
+# transport = "udp"
+# listen = "[::1]:3478"
+# external = "[::1]:3478"
+# 
+#
+#
+# rpc server listen
+#
+# This option specifies the grpc server binding address used to control
 # the turn server.
 #
-# Warn: This http server does not contain any means of authentication,
-# and sensitive information and dangerous operations can be obtained
-# through this service, please do not expose it directly to an unsafe
-# environment.
+# [api]
+# listen = "127.0.0.1:3000"
 #
-bind = "127.0.0.1:3000"
-
-[log]
+#
+# Set a timeout on for all request handlers.
+#
+# timeout = 5
+#
+#
+# ssl configuration
+#
+# [api.ssl]
+# private-key = "/etc/turn-rs/tls/private.key"
+# certificate-chain = "/etc/turn-rs/tls/certificate.crt"
+#
+#
+#
+# [hooks]
+#
+# hooks server endpoint
+#
+# The endpoint of the hooks server
+#
+# endpoint = "http://127.0.0.1:3000"
+#
+#
+# Maximum number of channels for the hooks server.
+#
+# max-channel-size = 1024
+#
+#
+# ssl configuration
+#
+# [hooks.ssl]
+# private-key = "/etc/turn-rs/tls/private.key"
+# certificate-chain = "/etc/turn-rs/tls/certificate.crt"
+#
+#
+#
 # log level
-#
 # An enum representing the available verbosity levels of the logger.
-#
+[log]
 level = "info"
-
-[auth]
-# Static authentication key value (string) that applies only to the TURN
-# REST API.
 #
-# If set, the turn server will not request external services via the HTTP
+#
+#
+[auth]
+#
+# Enable hooks authentication.
+#
+# This option can be used to enable the hooks authentication.
+#
+enable-hooks-auth = false
+#
+#
+# Static authentication key value (string) that applies only to the TURN REST API.
+# If set, the turn server will not request external services via the GRPC
 # Hooks API to obtain the key.
 #
-# static_auth_secret = ""
-
-
+# static-auth-secret = ""
+#
+#
 # static user password
 #
-# This option can be used to specify the
-# static identity authentication information used by the turn server for
-# verification. Note: this is a high-priority authentication method, turn
-# The server will try to use static authentication first, and then use
-# external control service authentication.
+# This option can be used to specify the static identity authentication
+# information used by the turn server for verification.
 #
-[auth.static_credentials]
-# user1 = "test"
-# user2 = "test"
+# Note: this is a high-priority authentication method, the server
+# will try to use static authentication first, and then use external
+# control service authentication.
+#
+[auth.static-credentials]
+user1 = "test"
+user2 = "test"

@@ -1,16 +1,13 @@
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-use std::sync::Arc;
-
 use turn_server::config::Config;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let config = Arc::new(Config::load()?);
+fn main() -> anyhow::Result<()> {
+    let config = Config::load()?;
     simple_logger::init_with_level(config.log.level.as_level())?;
 
-    if config.turn.interfaces.is_empty() {
+    if config.server.interfaces.is_empty() {
         log::warn!(
             "No interfaces are bound, no features are enabled, it's just a program without any functionality :-)"
         );
@@ -18,5 +15,9 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    turn_server::startup(config).await
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(config.server.max_threads)
+        .enable_all()
+        .build()?
+        .block_on(turn_server::start_server(config))
 }

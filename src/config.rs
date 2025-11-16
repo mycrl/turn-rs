@@ -1,135 +1,217 @@
 use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, str::FromStr};
 
-use anyhow::anyhow;
+use anyhow::Result;
 use clap::Parser;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-#[repr(C)]
-#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum Transport {
-    TCP = 0,
-    UDP = 1,
-}
+use crate::service::session::ports::PortRange;
 
-impl FromStr for Transport {
-    type Err = anyhow::Error;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(match value {
-            "udp" => Self::UDP,
-            "tcp" => Self::TCP,
-            _ => return Err(anyhow!("unknown transport: {value}")),
-        })
-    }
+/// SSL configuration
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct Ssl {
+    ///
+    /// SSL private key file
+    ///
+    pub private_key: String,
+    ///
+    /// SSL certificate chain file
+    ///
+    pub certificate_chain: String,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Interface {
-    pub transport: Transport,
-    /// turn server listen address
-    pub bind: SocketAddr,
-    /// external address
-    ///
-    /// specify the node external address and port.
-    /// for the case of exposing the service to the outside,
-    /// you need to manually specify the server external IP
-    /// address and service listening port.
-    pub external: SocketAddr,
+#[serde(tag = "transport", rename_all = "kebab-case")]
+pub enum Interface {
+    Tcp {
+        listen: SocketAddr,
+        ///
+        /// external address
+        ///
+        /// specify the node external address and port.
+        /// for the case of exposing the service to the outside,
+        /// you need to manually specify the server external IP
+        /// address and service listening port.
+        ///
+        external: SocketAddr,
+        ///
+        /// Idle timeout
+        ///
+        /// If no packet is received within the specified number of seconds, the
+        /// connection will be closed to prevent resources from being occupied
+        /// for a long time.
+        #[serde(default = "Interface::idle_timeout")]
+        idle_timeout: u32,
+        ///
+        /// SSL configuration
+        ///
+        #[serde(default)]
+        ssl: Option<Ssl>,
+    },
+    Udp {
+        listen: SocketAddr,
+        ///
+        /// external address
+        ///
+        /// specify the node external address and port.
+        /// for the case of exposing the service to the outside,
+        /// you need to manually specify the server external IP
+        /// address and service listening port.
+        ///
+        external: SocketAddr,
+        ///
+        /// Idle timeout
+        ///
+        /// If no packet is received within the specified number of seconds, the
+        /// connection will be closed to prevent resources from being occupied
+        /// for a long time.
+        #[serde(default = "Interface::idle_timeout")]
+        idle_timeout: u32,
+        ///
+        /// Maximum Transmission Unit (MTU) size for network packets.
+        ///
+        #[serde(default = "Interface::mtu")]
+        mtu: usize,
+    },
 }
 
-impl FromStr for Interface {
-    type Err = anyhow::Error;
+impl Interface {
+    fn mtu() -> usize {
+        1500
+    }
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (transport, addrs) = s
-            .split('@')
-            .collect_tuple()
-            .ok_or_else(|| anyhow!("invalid interface transport: {}", s))?;
-
-        let (bind, external) = addrs
-            .split('/')
-            .collect_tuple()
-            .ok_or_else(|| anyhow!("invalid interface address: {}", s))?;
-
-        Ok(Interface {
-            external: external.parse::<SocketAddr>()?,
-            bind: bind.parse::<SocketAddr>()?,
-            transport: transport.parse()?,
-        })
+    fn idle_timeout() -> u32 {
+        20
     }
 }
 
-#[derive(Deserialize, Debug)]
-pub struct Turn {
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct Server {
+    ///
+    /// Port range, the maximum range is 65535 - 49152.
+    ///
+    #[serde(default = "Server::port_range")]
+    pub port_range: PortRange,
+    ///
+    /// Maximum number of threads the TURN server can use.
+    ///
+    #[serde(default = "Server::max_threads")]
+    pub max_threads: usize,
+    ///
     /// turn server realm
     ///
     /// specify the domain where the server is located.
     /// for a single node, this configuration is fixed,
     /// but each node can be configured as a different domain.
     /// this is a good idea to divide the nodes by namespace.
-    #[serde(default = "Turn::realm")]
+    ///
+    #[serde(default = "Server::realm")]
     pub realm: String,
-
+    ///
     /// turn server listen interfaces
     ///
     /// The address and port to which the UDP Server is bound. Multiple
     /// addresses can be bound at the same time. The binding address supports
     /// ipv4 and ipv6.
-    #[serde(default = "Turn::interfaces")]
+    ///
+    #[serde(default)]
     pub interfaces: Vec<Interface>,
 }
 
-impl Turn {
+impl Server {
     pub fn get_externals(&self) -> Vec<SocketAddr> {
-        self.interfaces.iter().map(|item| item.external).collect()
+        self.interfaces
+            .iter()
+            .map(|item| match item {
+                Interface::Tcp { external, .. } => *external,
+                Interface::Udp { external, .. } => *external,
+            })
+            .collect()
     }
 }
 
-impl Turn {
+impl Server {
     fn realm() -> String {
         "localhost".to_string()
     }
 
-    fn interfaces() -> Vec<Interface> {
-        vec![]
+    fn port_range() -> PortRange {
+        PortRange::default()
+    }
+
+    fn max_threads() -> usize {
+        num_cpus::get()
     }
 }
 
-impl Default for Turn {
+impl Default for Server {
     fn default() -> Self {
         Self {
             realm: Self::realm(),
-            interfaces: Self::interfaces(),
+            interfaces: Default::default(),
+            port_range: Self::port_range(),
+            max_threads: Self::max_threads(),
         }
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct Hooks {
+    #[serde(default = "Hooks::max_channel_size")]
+    pub max_channel_size: usize,
+    pub endpoint: String,
+    #[serde(default)]
+    pub ssl: Option<Ssl>,
+    #[serde(default = "Hooks::timeout")]
+    pub timeout: u32,
+}
+
+impl Hooks {
+    fn max_channel_size() -> usize {
+        1024
+    }
+
+    fn timeout() -> u32 {
+        5
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Api {
-    /// api bind
     ///
-    /// This option specifies the http server binding address used to control
+    /// rpc server listen
+    ///
+    /// This option specifies the rpc server binding address used to control
     /// the turn server.
     ///
-    /// Warn: This http server does not contain any means of authentication,
-    /// and sensitive information and dangerous operations can be obtained
-    /// through this service, please do not expose it directly to an unsafe
-    /// environment.
     #[serde(default = "Api::bind")]
-    pub bind: SocketAddr,
+    pub listen: SocketAddr,
+    #[serde(default)]
+    pub ssl: Option<Ssl>,
+    #[serde(default = "Api::timeout")]
+    pub timeout: u32,
 }
 
 impl Api {
     fn bind() -> SocketAddr {
         "127.0.0.1:3000".parse().unwrap()
     }
+
+    fn timeout() -> u32 {
+        5
+    }
 }
 
 impl Default for Api {
     fn default() -> Self {
-        Self { bind: Self::bind() }
+        Self {
+            timeout: Self::timeout(),
+            listen: Self::bind(),
+            ssl: None,
+        }
     }
 }
 
@@ -176,40 +258,54 @@ impl LogLevel {
     }
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Log {
+    ///
     /// log level
     ///
     /// An enum representing the available verbosity levels of the logger.
+    ///
     #[serde(default)]
     pub level: LogLevel,
 }
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Auth {
+    ///
     /// static user password
     ///
-    /// This option can be used to specify the
-    /// static identity authentication information used by the turn server for
-    /// verification. Note: this is a high-priority authentication method, turn
-    /// The server will try to use static authentication first, and then use
-    /// external control service authentication.
+    /// This option can be used to specify the static identity authentication
+    /// information used by the turn server for verification.
+    ///
+    /// Note: this is a high-priority authentication method, turn The server will
+    /// try to use static authentication first, and then use external control
+    /// service authentication.
+    ///
     #[serde(default)]
     pub static_credentials: HashMap<String, String>,
+    ///
     /// Static authentication key value (string) that applies only to the TURN
     /// REST API.
     ///
     /// If set, the turn server will not request external services via the HTTP
     /// Hooks API to obtain the key.
+    ///
     pub static_auth_secret: Option<String>,
+    #[serde(default)]
+    pub enable_hooks_auth: bool,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Config {
     #[serde(default)]
-    pub turn: Turn,
+    pub server: Server,
     #[serde(default)]
-    pub api: Api,
+    pub api: Option<Api>,
+    #[serde(default)]
+    pub hooks: Option<Hooks>,
     #[serde(default)]
     pub log: Log,
     #[serde(default)]
@@ -223,119 +319,26 @@ pub struct Config {
     author = env!("CARGO_PKG_AUTHORS"),
 )]
 struct Cli {
+    ///
     /// Specify the configuration file path
     ///
-    /// Example: --config /etc/turn-rs/config.toml
+    /// Example: turn-server --config /etc/turn-rs/config.toml
+    ///
     #[arg(long, short)]
-    config: Option<String>,
-    /// Static user password
-    ///
-    /// Example: --auth-static-credentials test=test
-    #[arg(long, value_parser = Cli::parse_credential)]
-    auth_static_credentials: Option<Vec<(String, String)>>,
-    /// Static authentication key value (string) that applies only to the TURN
-    /// REST API
-    #[arg(long)]
-    auth_static_auth_secret: Option<String>,
-    /// An enum representing the available verbosity levels of the logger
-    #[arg(
-        long,
-        value_parser = clap::value_parser!(LogLevel),
-    )]
-    log_level: Option<LogLevel>,
-    /// This option specifies the http server binding address used to control
-    /// the turn server
-    #[arg(long)]
-    api_bind: Option<SocketAddr>,
-    /// TURN server realm
-    #[arg(long)]
-    turn_realm: Option<String>,
-    /// TURN server listen interfaces
-    ///
-    /// Example: --turn-interfaces udp@127.0.0.1:3478/127.0.0.1:3478
-    #[arg(long)]
-    turn_interfaces: Option<Vec<Interface>>,
-}
-
-impl Cli {
-    // [username]:[password]
-    fn parse_credential(s: &str) -> Result<(String, String), anyhow::Error> {
-        let (username, password) = s
-            .split('=')
-            .collect_tuple()
-            .ok_or_else(|| anyhow!("invalid credential str: {}", s))?;
-        Ok((username.to_string(), password.to_string()))
-    }
+    config: String,
 }
 
 impl Config {
+    ///
     /// Load configure from config file and command line parameters.
     ///
-    /// Load command line parameters, if the configuration file path is
-    /// specified, the configuration is read from the configuration file,
-    /// otherwise the default configuration is used.
-    pub fn load() -> anyhow::Result<Self> {
-        let cli = Cli::parse();
-        let mut config = toml::from_str::<Self>(
-            &cli.config
-                .and_then(|path| read_to_string(path).ok())
-                .unwrap_or("".to_string()),
-        )?;
-
-        // Command line arguments have a high priority and override configuration file
-        // options; here they are used to replace the configuration parsed out of the
-        // configuration file.
-        {
-            if let Some(credentials) = cli.auth_static_credentials {
-                for (k, v) in credentials {
-                    config.auth.static_credentials.insert(k, v);
-                }
-            }
-
-            if let Some(secret) = cli.auth_static_auth_secret {
-                config.auth.static_auth_secret.replace(secret);
-            }
-
-            if let Some(level) = cli.log_level {
-                config.log.level = level;
-            }
-
-            if let Some(bind) = cli.api_bind {
-                config.api.bind = bind;
-            }
-
-            if let Some(realm) = cli.turn_realm {
-                config.turn.realm = realm;
-            }
-
-            if let Some(interfaces) = cli.turn_interfaces {
-                for interface in interfaces {
-                    config.turn.interfaces.push(interface);
-                }
-            }
-        }
-
-        // Filters out transport protocols that are not enabled.
-        {
-            let mut interfaces = Vec::with_capacity(config.turn.interfaces.len());
-
-            {
-                for it in &config.turn.interfaces {
-                    #[cfg(feature = "udp")]
-                    if it.transport == Transport::UDP {
-                        interfaces.push(it.clone());
-                    }
-
-                    #[cfg(feature = "tcp")]
-                    if it.transport == Transport::TCP {
-                        interfaces.push(it.clone());
-                    }
-                }
-            }
-
-            config.turn.interfaces = interfaces;
-        }
-
-        Ok(config)
+    /// Load command line parameters, if the configuration file path is specified,
+    /// the configuration is read from the configuration file, otherwise the
+    /// default configuration is used.
+    ///
+    pub fn load() -> Result<Self> {
+        Ok(toml::from_str::<Self>(&read_to_string(
+            &Cli::parse().config,
+        )?)?)
     }
 }

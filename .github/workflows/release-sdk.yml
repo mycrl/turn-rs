@@ -1,0 +1,30 @@
+name: publish sdk crate
+permissions:
+    contents: read
+
+on:
+    push:
+        tags:
+            - "sdk-*"
+
+jobs:
+    validate-version:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Ensure tag matches SDK crate version
+              run: python .github/scripts/check_tag.py
+
+    publish:
+        needs: validate-version
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install protoc
+              run: |
+                  sudo apt update
+                  sudo apt install -y protobuf-compiler
+            - name: Publish turn-server-sdk crate
+              env:
+                  CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+              run: cargo publish --manifest-path sdk/Cargo.toml

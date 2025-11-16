@@ -1,16 +1,10 @@
 name: tests
+permissions:
+    contents: read
 on:
     push:
         branches:
             - main
-        paths:
-            - drivers/**
-            - tests/**
-            - stun/**
-            - turn/**
-            - turn-server/**
-            - Cargo.toml
-            - Cargo.lock
     pull_request:
         branches:
             - main
@@ -27,6 +21,17 @@ jobs:
                       ~/.cargo/registry/cache/
                       ~/.cargo/git/db/
                       target/
-                  key: "${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}"
-            - name: Run tests
-              run: cargo test
+                  key: "test-ubuntu-latest"
+            - name: Install dependencies
+              run: |
+                  sudo apt update
+                  sudo apt install -y protobuf-compiler
+                  cargo install cargo-hack --force
+            - name: Run tests for all features
+              run: cargo test --workspace
+              env:
+                  RUSTFLAGS: "-Dwarnings"
+            - name: Run check all possible feature combinations
+              run: cargo hack check --feature-powerset
+              env:
+                  RUSTFLAGS: "-Dwarnings"

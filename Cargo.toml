@@ -1,59 +1,61 @@
 [package]
 name = "turn-server"
-version = "3.4.0"
+version = "4.0.0-beta.1"
 edition = "2024"
 authors = ["mycrl <lepidodendraceae@gmail.com>"]
 description = "A pure rust-implemented turn server."
 readme = "./README.md"
 homepage = "https://github.com/mycrl/turn-rs"
 repository = "https://github.com/mycrl/turn-rs"
-license = "GPL-2.0-or-later"
+license = "MIT"
 keywords = ["stun", "webrtc", "turn", "turn-server"]
 categories = ["parsing", "network-programming"]
 
 [dependencies]
 ahash = "0.8"
 anyhow = "1.0"
-axum = "0.8"
 bytes = "1"
-base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
+parking_lot = "0.12"
 log = "0.4"
 mimalloc = { version = "0.1", default-features = false }
-parking_lot = "0.12"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1.0"
+toml = "0.9.6"
 simple_logger = "5"
 tokio = { version = "1", features = ["full"] }
-toml = "0.9"
-rand = "0.9"
-itertools = "0.14"
-prometheus = "0.14"
+tokio-rustls = { version = "0.26", features = ["aws-lc-rs"], optional = true }
+tokio-stream = { version = "0.1", features = ["sync"], optional = true }
+num_cpus = "1.17.0"
+tonic = { version = "0.14", features = ["deflate"], optional = true }
+protos = { path = "./protos", version = "0.1.0-beta.1", package = "turn-server-protos", optional = true }
+url = { version = "2.5.7", optional = true }
+base64 = "0.22"
 num_enum = "0.7"
+aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"] }
 md-5 = "0.10"
-hmac = "0.12"
-sha-1 = "0.10"
-crc = "3"
-thiserror = "2.0.4"
-tokio-stream = { version = "0.1", features = ["sync"] }
+crc32fast = "1.5.0"
+rand = "0.9"
 
 [dev-dependencies]
-criterion = "0.7"
-anyhow = "1.0"
-base64 = "0.22.1"
-tokio = { version = "1", features = ["full"] }
-bytes = "1.4.0"
+criterion = { version = "0.7", features = ["async_tokio"] }
+pollster = "0.4.0"
+proptest = "1.4"
 
 [[bench]]
-name = "benchmark"
+name = "stun"
+harness = false
+
+[[bench]]
+name = "turn"
 harness = false
 
 [features]
-default = ["udp"]
-udp = []
+default = ["udp", "tcp", "ssl", "grpc"]
 tcp = []
-api = []
-prometheus = ["api"]
+udp = []
+ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc"]
+tonic = ["dep:tonic"]
+grpc = ["tonic", "dep:url", "dep:protos"]
 
 [profile.release]
 debug-assertions = false
@@ -63,3 +65,7 @@ panic = "abort"
 debug = false
 lto = true
 codegen-units = 1
+
+[workspace]
+resolver = "2"
+members = ["./", "./sdk", "./protos"]

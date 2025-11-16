@@ -14,10 +14,20 @@
 <div align="center">
   <strong>TURN Server implemented by ❤️ Rust</strong>
 </div>
+<div align="center">
+  <a href="https://zdoc.app/de/mycrl/turn-rs">Deutsch</a> | 
+  <a href="https://zdoc.app/es/mycrl/turn-rs">Español</a> | 
+  <a href="https://zdoc.app/fr/mycrl/turn-rs">français</a> | 
+  <a href="https://zdoc.app/ja/mycrl/turn-rs">日本語</a> | 
+  <a href="https://zdoc.app/ko/mycrl/turn-rs">한국어</a> | 
+  <a href="https://zdoc.app/pt/mycrl/turn-rs">Português</a> | 
+  <a href="https://zdoc.app/ru/mycrl/turn-rs">Русский</a> | 
+  <a href="https://zdoc.app/zh/mycrl/turn-rs">中文</a>
+</div>
 
 ---
 
-A pure Rust implementation of a forwarding server that utilizes the memory and concurrency security provided by Rust to handle 40 million channel data forwarding messages and 600,000 allocation requests per second in a single thread, The forwarding latency is less than 35 microseconds (one full local network send/receive delay between A and B). The project is more focused on the core business and does not require access to complex configuration projects, almost out-of-the-box.
+A pure Rust implementation of a forwarding server leverages Rust's memory and concurrency safety to process 40 million channel data forwarding messages and 600,000 allocation requests per second within a single thread (excluding network stack overhead). Forwarding latency remains below 35 microseconds (equivalent to a complete local network send/receive delay between points A and B). This project prioritizes core functionality, requiring minimal configuration for use and offering near-out-of-the-box usability.
 
 This is a very lightweight implementation, and turn-rs will get your data flowing quickly if you only start the basic functionality, and while it uses pre-allocated memory in many places to cope with bursty performance, it generally performs well (it delivers very high-speed forwarding performance on my Raspberry Pi 4 as well as still performs well in the face of a large number of clients).
 
@@ -28,22 +38,6 @@ If you only need a pure turn server to cope with WebRTC business and require exc
 First of all, I remain in awe and respect for coturn, which is a much more mature implementation and has very comprehensive support for a wide range of features.
 
 However, turn-rs is not a simple duplicate implementation, and this project is not a blind “RIIR”. Because turn server is currently the largest use of the scene or WebRTC, for WebRTC business, many features are not too much necessary, so keep it simple and fast is the best choice.
-
-##### "Better performance"
-
-Because turn-rs only focuses on the core business, it removes a lot of features that are almost less commonly used in WebRTC scenarios, resulting in better performance, both in terms of throughput and memory performance.
-
-##### "Database storage is not supported"
-
-I don't think turn servers should be concerned about user information, just do their essential work, it's better to leave the hosting and storing of user information to other services, and interacting with databases adds complexity.
-
-##### "No transport layer encryption"
-
-Unlike coturn, which provides various transport layer encryption, turn-rs does not provide any transport layer encryption. Currently turn clients that support encryption are relatively rare, and there is minimal benefit to the turn server in providing transport layer encryption, since for WebRTC the transport data is already encrypted.
-
-##### "Only allow turn-rs as transit address"
-
-Some clients currently use local addresses for the turn server to create bindings and permissions under certain NAT types, coturn supports this behaviour. However, turn-rs does not allow this behaviour, any client must use the turn server's transit address to communicate, which provides help for clients to hide their IP addresses.
 
 ## Table of contents
 
@@ -57,16 +51,15 @@ Some clients currently use local addresses for the turn server to create binding
     -   [build](./docs/build.md)
     -   [start the server](./docs/start-the-server.md)
     -   [configure](./docs/configure.md)
-    -   [api](./docs/api.md)
+    -   [api](./protos/server.proto)
 
 ## Features
 
--   Prometheus metrics exporter.
 -   Only long-term credential mechanisms are used.
 -   Static authentication lists can be used in configuration files.
 -   Only virtual ports are always allocated and no real system ports are occupied.
 -   The transport layer supports TCP and UDP protocols, and supports binding multiple network cards or interfaces.
--   The REST API can be used so that the turn server can proactively notify the external service of events, and the external can also proactively control the turn server and manage the session.
+-   The GRPC API can be used so that the turn server can proactively notify the external service of events, and the external can also proactively control the turn server and manage the session.
 
 #### RFC
 
@@ -127,15 +120,17 @@ cargo build --release
 
 #### Features
 
+If you don't need a particular feature, you can reduce the package size by enabling only the features you require.
+
 -   `udp` - (enabled by default) Enables UDP transport layer support.
 -   `tcp` - Enables TCP transport layer support.
--   `api` - Enable the HTTP REST API server feature.
--   `prometheus` - Enable prometheus indicator support.
+-   `ssl` - Enable SSL encryption support.
+-   `grpc` - Enable the GRPC server feature.
 
-No features are enabled by default and need to be turned on by manual specification.
+All features are enabled by default.
 
 ```bash
-cargo build --release --all-features
+cargo build --release
 ```
 
 After the compilation is complete, you can find the binary file in the `"target/release"` directory.

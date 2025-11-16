@@ -1,0 +1,14 @@
+[package]
+name = "turn-server-sdk"
+version = "0.1.0-beta.1"
+edition = "2024"
+description = "Client SDK for interacting with the turn-server gRPC API."
+license = "MIT"
+repository = "https://github.com/mycrl/turn-rs"
+readme = "README.md"
+
+[dependencies]
+tonic = { version = "0.14", features = ["deflate", "tls-aws-lc"] }
+protos = { path = "../protos", version = "0.1.0-beta.1", package = "turn-server-protos" }
+md-5 = "0.10"
+aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"] }
