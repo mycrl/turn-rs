@@ -1,4 +1,6 @@
 name: publish protos crate
+permissions:
+    contents: read
 
 on:
     push:
