@@ -8,6 +8,10 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+            - name: Install protoc
+              run: |
+                  sudo apt update
+                  sudo apt install -y protobuf-compiler
             - name: publish to crates.io
               run: |
                   cargo login ${{ secrets.CRATES_IO_TOKEN }}
@@ -92,17 +96,24 @@ jobs:
                   cargo install cargo-zigbuild --force
                   sudo snap install zig --classic --beta
 
-            - name: Install dependencies (Macos)
-              if: runner.os == 'Macos'
+            - name: Install dependencies (macOS)
+              if: runner.os == 'macOS'
               run: |
                   rustup update
                   rustup target add ${{ matrix.target }}
                   cargo install cargo-zigbuild --force
-                  brew install zig
+                  brew install zig protobuf
 
             # Build release
-            - name: Build release (Linux & Macos)
-              if: runner.os == 'Macos' || runner.os == 'Linux'
+            - name: Install dependencies (Windows)
+              if: runner.os == 'Windows'
+              run: |
+                  choco install protoc --yes --no-progress
+                  rustup update
+                  rustup target add ${{ matrix.target }}
+
+            - name: Build release (Linux & macOS)
+              if: runner.os == 'macOS' || runner.os == 'Linux'
               run: cargo zigbuild --target ${{ matrix.target }} --release --all-features
 
             - name: Build release (Windows)
@@ -110,8 +121,8 @@ jobs:
               run: cargo build --release --all-features
 
             # Rename release
-            - name: Rename release (Linux & Macos)
-              if: runner.os == 'Macos' || runner.os == 'Linux'
+            - name: Rename release (Linux & macOS)
+              if: runner.os == 'macOS' || runner.os == 'Linux'
               run: |
                   mv ./target/${{ matrix.target }}/release/turn-server ./target/${{ matrix.target }}/release/turn-server-${{ matrix.target }}
 
@@ -122,8 +133,8 @@ jobs:
                   Rename-Item -Path "./target/release/turn-server.exe" -NewName "turn-server-${{ matrix.target }}.exe";
 
             # Upload artifact
-            - name: Upload artifact (Linux & Macos)
-              if: runner.os == 'Macos' || runner.os == 'Linux'
+            - name: Upload artifact (Linux & macOS)
+              if: runner.os == 'macOS' || runner.os == 'Linux'
               uses: actions/upload-artifact@v4
               with:
                   name: ${{ matrix.target }}
