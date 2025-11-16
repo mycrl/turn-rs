@@ -28,7 +28,6 @@ jobs:
                 target:
                     - aarch64-apple-darwin
                     - aarch64-unknown-linux-gnu
-                    - x86_64-apple-darwin
                     - x86_64-pc-windows-msvc
                     - x86_64-unknown-linux-gnu
                 exclude:
@@ -38,14 +37,10 @@ jobs:
                       target: x86_64-unknown-linux-gnu
                     - os: windows-latest
                       target: aarch64-apple-darwin
-                    - os: windows-latest
-                      target: x86_64-apple-darwin
                     - os: ubuntu-latest
                       target: x86_64-pc-windows-msvc
                     - os: ubuntu-latest
                       target: aarch64-apple-darwin
-                    - os: ubuntu-latest
-                      target: x86_64-apple-darwin
                     - os: macos-latest
                       target: x86_64-pc-windows-msvc
                     - os: macos-latest
@@ -79,8 +74,7 @@ jobs:
               run: |
                   rustup update
                   rustup target add ${{ matrix.target }}
-                  cargo install cargo-zigbuild --force
-                  brew install zig protobuf
+                  brew install protobuf
 
             - name: Install dependencies (Windows)
               if: runner.os == 'Windows'
@@ -89,9 +83,13 @@ jobs:
                   rustup update
                   rustup target add ${{ matrix.target }}
 
-            - name: Build release (Linux & macOS)
-              if: runner.os == 'macOS' || runner.os == 'Linux'
+            - name: Build release (Linux)
+              if: runner.os == 'Linux'
               run: cargo zigbuild --target ${{ matrix.target }} --release --all-features
+
+            - name: Build release (macOS)
+              if: runner.os == 'macOS'
+              run: cargo build --target ${{ matrix.target }} --release --all-features
 
             - name: Build release (Windows)
               if: runner.os == 'Windows'
