@@ -7,7 +7,7 @@ description = "A pure rust-implemented turn server."
 readme = "./README.md"
 homepage = "https://github.com/mycrl/turn-rs"
 repository = "https://github.com/mycrl/turn-rs"
-license = "GPL-2.0-or-later"
+license = "MIT"
 keywords = ["stun", "webrtc", "turn", "turn-server"]
 categories = ["parsing", "network-programming"]
 
