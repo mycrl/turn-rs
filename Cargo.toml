@@ -32,7 +32,7 @@ tonic-prost = { version = "0.14", optional = true }
 url = { version = "2.5.7", optional = true }
 base64 = "0.22"
 num_enum = "0.7"
-aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"] }
+aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"], optional = true }
 md-5 = "0.10"
 crc32fast = "1.5.0"
 rand = "0.9"
@@ -54,13 +54,12 @@ name = "turn"
 harness = false
 
 [features]
-default = ["all"]
-all = ["udp", "tcp", "ssl", "rpc"]
+default = ["udp", "tcp", "ssl", "grpc"]
 tcp = []
 udp = []
-rpc-build = ["dep:tonic-prost-build", "dep:tonic-prost", "dep:prost"]
-rpc = ["dep:tonic", "rpc-build", "dep:url"]
-ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc"]
+ssl = ["dep:aws-lc-rs", "dep:tokio-rustls", "tonic/tls-aws-lc"]
+tonic = ["dep:tonic-prost-build", "dep:tonic-prost", "dep:tonic"]
+grpc = ["tonic", "dep:url", "dep:prost"]
 
 [profile.release]
 debug-assertions = false

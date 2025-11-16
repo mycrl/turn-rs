@@ -1,5 +1,5 @@
 fn main() {
-    #[cfg(feature = "rpc")]
+    #[cfg(feature = "grpc")]
     {
         tonic_prost_build::configure()
             .build_server(true)

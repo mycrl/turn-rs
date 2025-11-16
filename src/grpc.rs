@@ -24,13 +24,13 @@ use proto::{
     TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_client::TurnHooksServiceClient,
     turn_service_server::{TurnService, TurnServiceServer},
+    GetTurnPasswordRequest,
 };
 
 use crate::{
     Service,
     codec::{crypto::Password, message::attributes::PasswordAlgorithm},
     config::Config,
-    rpc::proto::GetTurnPasswordRequest,
     service::session::{Identifier, Session},
     statistics::Statistics,
 };

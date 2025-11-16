@@ -1,5 +1,5 @@
-#[cfg(feature = "rpc")]
-pub mod rpc;
+#[cfg(feature = "grpc")]
+pub mod grpc;
 
 pub mod codec;
 pub mod config;
@@ -59,8 +59,8 @@ pub async fn start_server(config: Config) -> anyhow::Result<()> {
             statistics.clone(),
         ));
 
-        #[cfg(feature = "rpc")]
-        workers.spawn(rpc::start_server(config, service, statistics));
+        #[cfg(feature = "grpc")]
+        workers.spawn(grpc::start_server(config, service, statistics));
 
         if let Some(res) = workers.join_next().await {
             workers.abort_all();

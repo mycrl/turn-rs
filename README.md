@@ -55,12 +55,11 @@ However, turn-rs is not a simple duplicate implementation, and this project is n
 
 ## Features
 
--   Prometheus metrics exporter.
 -   Only long-term credential mechanisms are used.
 -   Static authentication lists can be used in configuration files.
 -   Only virtual ports are always allocated and no real system ports are occupied.
 -   The transport layer supports TCP and UDP protocols, and supports binding multiple network cards or interfaces.
--   The REST API can be used so that the turn server can proactively notify the external service of events, and the external can also proactively control the turn server and manage the session.
+-   The GRPC API can be used so that the turn server can proactively notify the external service of events, and the external can also proactively control the turn server and manage the session.
 
 #### RFC
 
@@ -121,15 +120,17 @@ cargo build --release
 
 #### Features
 
+If you don't need a particular feature, you can reduce the package size by enabling only the features you require.
+
 -   `udp` - (enabled by default) Enables UDP transport layer support.
 -   `tcp` - Enables TCP transport layer support.
--   `api` - Enable the HTTP REST API server feature.
--   `prometheus` - Enable prometheus indicator support.
+-   `ssl` - Enable SSL encryption support.
+-   `grpc` - Enable the GRPC server feature.
 
-No features are enabled by default and need to be turned on by manual specification.
+All features are enabled by default.
 
 ```bash
-cargo build --release --all-features
+cargo build --release
 ```
 
 After the compilation is complete, you can find the binary file in the `"target/release"` directory.

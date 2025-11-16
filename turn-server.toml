@@ -77,7 +77,7 @@ mtu = 1500
 #
 # rpc server listen
 #
-# This option specifies the http server binding address used to control
+# This option specifies the grpc server binding address used to control
 # the turn server.
 #
 # [api]

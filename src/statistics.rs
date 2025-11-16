@@ -87,7 +87,7 @@ impl<T: Number> Counts<T> {
 pub struct Statistics(Arc<RwLock<HashMap<Identifier, Counts<Count>>>>);
 
 impl Default for Statistics {
-    #[cfg(feature = "rpc")]
+    #[cfg(feature = "grpc")]
     fn default() -> Self {
         use ahash::HashMapExt;
 
@@ -95,7 +95,7 @@ impl Default for Statistics {
     }
 
     // There's no need to take up so much memory when you don't have stats enabled.
-    #[cfg(not(feature = "rpc"))]
+    #[cfg(not(feature = "grpc"))]
     fn default() -> Self {
         Self(Default::default())
     }
@@ -230,7 +230,7 @@ pub struct StatisticsReporter {
 impl StatisticsReporter {
     #[allow(unused_variables)]
     pub fn send(&self, addr: &Identifier, reports: &[Stats]) {
-        #[cfg(feature = "rpc")]
+        #[cfg(feature = "grpc")]
         {
             if let Some(counts) = self.table.read().get(addr) {
                 for item in reports {
