@@ -1,7 +1,3 @@
-pub mod proto {
-    tonic::include_proto!("turn.server");
-}
-
 use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
@@ -18,13 +14,12 @@ use tonic::{
 #[cfg(feature = "ssl")]
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 
-use proto::{
-    PasswordAlgorithm as ProtoPasswordAlgorithm, SessionQueryParams, TurnAllocatedEvent,
-    TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent,
-    TurnServerInfo, TurnSession, TurnSessionStatistics,
+use protos::{
+    GetTurnPasswordRequest, PasswordAlgorithm as ProtoPasswordAlgorithm, SessionQueryParams,
+    TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
+    TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_client::TurnHooksServiceClient,
     turn_service_server::{TurnService, TurnServiceServer},
-    GetTurnPasswordRequest,
 };
 
 use crate::{

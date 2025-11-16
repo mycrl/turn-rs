@@ -12,15 +12,13 @@ use crate::{
 };
 
 #[cfg(feature = "grpc")]
-use crate::grpc::{
-    HooksEvent, IdString, RpcHooksService,
-    proto::{
-        TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
-        TurnRefreshEvent,
-    },
-};
+use crate::grpc::{HooksEvent, IdString, RpcHooksService};
 
 use anyhow::Result;
+use protos::{
+    TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
+    TurnRefreshEvent,
+};
 
 #[derive(Clone)]
 pub struct Handler {

@@ -1,6 +1,6 @@
 [package]
 name = "turn-server"
-version = "4.0.0"
+version = "4.0.0-beta.1"
 edition = "2024"
 authors = ["mycrl <lepidodendraceae@gmail.com>"]
 description = "A pure rust-implemented turn server."
@@ -27,8 +27,7 @@ tokio-rustls = { version = "0.26", features = ["aws-lc-rs"], optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 num_cpus = "1.17.0"
 tonic = { version = "0.14", features = ["deflate"], optional = true }
-prost = { version = "0.14", optional = true }
-tonic-prost = { version = "0.14", optional = true }
+protos = { path = "./protos", version = "0.1.0-beta.1", package = "turn-server-protos", optional = true }
 url = { version = "2.5.7", optional = true }
 base64 = "0.22"
 num_enum = "0.7"
@@ -36,9 +35,6 @@ aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"], optional = true }
 md-5 = "0.10"
 crc32fast = "1.5.0"
 rand = "0.9"
-
-[build-dependencies]
-tonic-prost-build = { version = "0.14", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.7", features = ["async_tokio"] }
@@ -58,8 +54,8 @@ default = ["udp", "tcp", "ssl", "grpc"]
 tcp = []
 udp = []
 ssl = ["dep:aws-lc-rs", "dep:tokio-rustls", "tonic/tls-aws-lc"]
-tonic = ["dep:tonic-prost-build", "dep:tonic-prost", "dep:tonic"]
-grpc = ["tonic", "dep:url", "dep:prost"]
+tonic = ["dep:tonic"]
+grpc = ["tonic", "dep:url", "dep:protos"]
 
 [profile.release]
 debug-assertions = false
@@ -72,4 +68,4 @@ codegen-units = 1
 
 [workspace]
 resolver = "2"
-members = ["./", "./sdk"]
+members = ["./", "./sdk", "./protos"]

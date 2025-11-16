@@ -1,8 +1,5 @@
 pub use tonic;
-
-pub mod proto {
-    tonic::include_proto!("turn.server");
-}
+pub use protos;
 
 use std::{net::SocketAddr, ops::Deref};
 
@@ -13,33 +10,14 @@ use tonic::{
     transport::{Channel, Server},
 };
 
-use crate::proto::{
+use protos::{
     GetTurnPasswordRequest, GetTurnPasswordResponse, SessionQueryParams, TurnAllocatedEvent,
     TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent,
     TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_server::{TurnHooksService, TurnHooksServiceServer},
     turn_service_client::TurnServiceClient,
+    PasswordAlgorithm,
 };
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum PasswordAlgorithm {
-    Md5 = 0x0001,
-    Sha256 = 0x0002,
-}
-
-impl TryInto<PasswordAlgorithm> for proto::PasswordAlgorithm {
-    type Error = Status;
-
-    fn try_into(self) -> Result<PasswordAlgorithm, Self::Error> {
-        Ok(match self {
-            proto::PasswordAlgorithm::Md5 => PasswordAlgorithm::Md5,
-            proto::PasswordAlgorithm::Sha256 => PasswordAlgorithm::Sha256,
-            proto::PasswordAlgorithm::Unspecified => {
-                return Err(Status::invalid_argument("Invalid password algorithm"));
-            }
-        })
-    }
-}
 
 /// turn service client
 ///
@@ -137,6 +115,9 @@ pub fn generate_password(
             let mut result = [0u8; 32];
             result.copy_from_slice(ctx.finish().as_ref());
             Password::Sha256(result)
+        },
+        PasswordAlgorithm::Unspecified => {
+            panic!("Invalid password algorithm");
         }
     }
 }
@@ -148,7 +129,7 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
         request: Request<GetTurnPasswordRequest>,
     ) -> Result<Response<GetTurnPasswordResponse>, Status> {
         let request = request.into_inner();
-        let algorithm = request.algorithm().try_into()?;
+        let algorithm = request.algorithm();
 
         if let Ok(credential) = self.0.get_password(&request.username, algorithm).await {
             Ok(Response::new(GetTurnPasswordResponse {

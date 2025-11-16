@@ -27,7 +27,7 @@
 
 ---
 
-A pure Rust implementation of a forwarding server that utilizes the memory and concurrency security provided by Rust to handle 40 million channel data forwarding messages and 600,000 allocation requests per second in a single thread, The forwarding latency is less than 35 microseconds (one full local network send/receive delay between A and B). The project is more focused on the core business and does not require access to complex configuration projects, almost out-of-the-box.
+A pure Rust implementation of a forwarding server leverages Rust's memory and concurrency safety to process 40 million channel data forwarding messages and 600,000 allocation requests per second within a single thread (excluding network stack overhead). Forwarding latency remains below 35 microseconds (equivalent to a complete local network send/receive delay between points A and B). This project prioritizes core functionality, requiring minimal configuration for use and offering near-out-of-the-box usability.
 
 This is a very lightweight implementation, and turn-rs will get your data flowing quickly if you only start the basic functionality, and while it uses pre-allocated memory in many places to cope with bursty performance, it generally performs well (it delivers very high-speed forwarding performance on my Raspberry Pi 4 as well as still performs well in the face of a large number of clients).
 
@@ -51,7 +51,7 @@ However, turn-rs is not a simple duplicate implementation, and this project is n
     -   [build](./docs/build.md)
     -   [start the server](./docs/start-the-server.md)
     -   [configure](./docs/configure.md)
-    -   [api](./docs/api.md)
+    -   [api](./protos/server.proto)
 
 ## Features
 

@@ -1,14 +1,10 @@
 [package]
 name = "turn-server-sdk"
-version = "0.1.0"
+version = "0.1.0-beta.1"
 edition = "2024"
 
 [dependencies]
-tonic = { version = "0.14", features = ["deflate"] }
-prost = "0.14"
-tonic-prost = "0.14"
+tonic = { version = "0.14", features = ["deflate", "tls-aws-lc"] }
+protos = { path = "../protos", version = "0.1.0-beta.1", package = "turn-server-protos" }
 md-5 = "0.10"
 aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"] }
-
-[build-dependencies]
-tonic-prost-build = "0.14"
