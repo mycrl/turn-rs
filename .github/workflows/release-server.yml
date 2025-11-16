@@ -1,4 +1,6 @@
 name: publish server crate
+permissions:
+  contents: read
 
 on:
     push:
