@@ -1,5 +1,8 @@
 name: publish github release
 
+permissions:
+    contents: read
+
 on:
     push:
         tags:
@@ -124,6 +127,8 @@ jobs:
     publish-github-release:
         needs: build-binaries
         runs-on: ubuntu-latest
+        permissions:
+            contents: write
         steps:
             - name: Download All Artifacts
               uses: actions/download-artifact@v4
