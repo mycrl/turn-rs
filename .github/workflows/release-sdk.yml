@@ -1,4 +1,6 @@
 name: publish sdk crate
+permissions:
+  contents: read
 
 on:
     push:
