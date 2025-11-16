@@ -3,7 +3,7 @@ name: publish docker image
 on:
     push:
         tags:
-            - "docker:*"
+            - "docker-*"
 
 jobs:
     publish-docker:
@@ -19,7 +19,7 @@ jobs:
               run: |
                   set -euo pipefail
                   tag="${GITHUB_REF_NAME}"
-                  version="${tag#docker:}"
+                  version="${tag#docker-}"
                   if [[ -z "${version}" ]]; then
                       echo "Unable to derive version from docker tag ${tag}" >&2
                       exit 1

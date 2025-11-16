@@ -41,12 +41,12 @@ def parse_tag(tag: str) -> tuple[str, str]:
     if tag.startswith("v"):
         return "release", tag[1:]
 
-    if ":" not in tag:
+    if "-" not in tag:
         raise SystemExit(
-            "release tags must either start with 'v' or use the '<kind>:<version>' format"
+            "release tags must either start with 'v' or use the '<kind>-<version>' format"
         )
 
-    kind, version = tag.split(":", 1)
+    kind, version = tag.split("-", 1)
 
     if kind not in {"server", "sdk", "protos", "docker"}:
         raise SystemExit(f"unsupported release tag kind '{kind}'")

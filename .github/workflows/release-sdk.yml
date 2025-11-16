@@ -1,11 +1,11 @@
 name: publish sdk crate
 permissions:
-  contents: read
+    contents: read
 
 on:
     push:
         tags:
-            - "sdk:*"
+            - "sdk-*"
 
 jobs:
     validate-version:

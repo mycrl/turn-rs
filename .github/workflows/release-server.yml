@@ -1,11 +1,11 @@
 name: publish server crate
 permissions:
-  contents: read
+    contents: read
 
 on:
     push:
         tags:
-            - "server:*"
+            - "server-*"
 
 jobs:
     validate-version:
