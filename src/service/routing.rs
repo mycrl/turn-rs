@@ -4,12 +4,8 @@ use bytes::BytesMut;
 
 use super::{
     Service, ServiceHandler,
-    session::{Identifier, Session, SessionManager},
+    session::{Identifier, Session, SessionManager, DEFAULT_SESSION_LIFETIME},
 };
-
-/// Default session lifetime in seconds (10 minutes)
-/// This matches the default lifetime used in SessionManager
-use crate::service::session::DEFAULT_SESSION_LIFETIME;
 
 use crate::codec::{
     DecodeResult, Decoder,
@@ -339,7 +335,7 @@ where
         let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.encode_buffer);
         message.append::<XorRelayedAddress>(SocketAddr::new(req.state.interface.ip(), port));
         message.append::<XorMappedAddress>(req.id.source);
-        message.append::<Lifetime>(lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME));
+        message.append::<Lifetime>(lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32));
         message.append::<Software>(&req.state.software);
         message.flush(Some(&password)).ok()?;
     }
@@ -628,7 +624,7 @@ where
         return reject(req, ErrorType::Unauthorized);
     };
 
-    let lifetime = req.payload.get::<Lifetime>().unwrap_or(DEFAULT_SESSION_LIFETIME);
+    let lifetime = req.payload.get::<Lifetime>().unwrap_or(DEFAULT_SESSION_LIFETIME as u32);
     if !req.state.manager.refresh(req.id, lifetime) {
         return reject(req, ErrorType::AllocationMismatch);
     }
