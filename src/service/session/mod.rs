@@ -8,19 +8,15 @@ use super::{
 use crate::codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 
 use std::{
-    hash::Hash,
-    net::SocketAddr,
-    ops::{Deref, DerefMut},
-    sync::{
+    hash::Hash, net::SocketAddr, ops::{Deref, DerefMut}, sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
-    }, time::Duration,
+    }, thread::{self, sleep}, time::Duration
 };
 
 use ahash::{HashMap, HashMapExt};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use rand::{Rng, distr::Alphanumeric};
-use tokio::time::interval;
 
 /// The identifier of the session or addr.
 ///
@@ -205,22 +201,13 @@ where
             handler: options.handler,
         });
 
-        // This is a background task that silently handles expiring sessions and
+        // This is a background thread that silently handles expiring sessions and
         // cleans up session information when it expires.
-        // Using tokio::spawn instead of thread::spawn for better integration with async runtime
         let this_ = Arc::downgrade(&this);
-        tokio::spawn(async move {
+        thread::spawn(move || {
             let mut address = Vec::with_capacity(255);
-            let mut interval = interval(Duration::from_secs(1));
 
-            loop {
-                interval.tick().await;
-
-                let Some(this) = this_.upgrade() else {
-                    // SessionManager has been dropped, exit the cleanup task
-                    break;
-                };
-
+            while let Some(this) = this_.upgrade() {
                 // The timer advances one second and gets the current time offset.
                 let now = this.timer.add();
 
@@ -244,6 +231,9 @@ where
                         address.clear();
                     }
                 }
+
+                // Fixing a second tick.
+                sleep(Duration::from_secs(1));
             }
         });
 
