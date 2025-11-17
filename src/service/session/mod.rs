@@ -119,7 +119,7 @@ impl Timer {
 }
 
 /// Default session lifetime in seconds (10 minutes)
-const DEFAULT_SESSION_LIFETIME: u64 = 600;
+pub const DEFAULT_SESSION_LIFETIME: u64 = 600;
 
 /// turn session information.
 ///
