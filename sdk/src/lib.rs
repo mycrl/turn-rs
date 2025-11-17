@@ -14,8 +14,7 @@
 //! The `TurnService` client allows you to interact with a running TURN server's gRPC API:
 //!
 //! ```no_run
-//! use turn_server_sdk::TurnService;
-//! use tonic::transport::Channel;
+//! use turn_server_sdk::{TurnService, tonic::transport::Channel};
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Connect to the TURN server gRPC endpoint
@@ -28,7 +27,7 @@
 //!
 //! // Get server information
 //! let info = client.get_info().await?;
-//! println!("Server version: {}", info.version);
+//! println!("Server software: {}", info.software);
 //!
 //! // Query a session by ID
 //! let session = client.get_session("session-id".to_string()).await?;
@@ -49,8 +48,11 @@
 //! Implement the `TurnHooksServer` trait to provide custom authentication and handle TURN events:
 //!
 //! ```no_run
-//! use turn_server_sdk::{TurnHooksServer, Credential, PasswordAlgorithm};
-//! use tonic::transport::Server;
+//! use turn_server_sdk::{
+//!     TurnHooksServer, Credential, protos::PasswordAlgorithm, 
+//!     tonic::transport::Server
+//! };
+//! 
 //! use std::net::SocketAddr;
 //!
 //! struct MyHooksServer;
@@ -98,8 +100,8 @@
 //!
 //! Generate STUN/TURN authentication passwords for long-term credentials:
 //!
-//! ```rust
-//! use turn_server_sdk::{generate_password, PasswordAlgorithm};
+//! ```no_run
+//! use turn_server_sdk::{generate_password, protos::PasswordAlgorithm};
 //!
 //! // Generate MD5 password (RFC 5389)
 //! let md5_password = generate_password(
