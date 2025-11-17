@@ -14,14 +14,13 @@ use std::{
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
-    },
-    thread::{self, sleep},
-    time::Duration,
+    }, time::Duration,
 };
 
 use ahash::{HashMap, HashMapExt};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use rand::{Rng, distr::Alphanumeric};
+use tokio::time::interval;
 
 /// The identifier of the session or addr.
 ///
@@ -119,6 +118,9 @@ impl Timer {
     }
 }
 
+/// Default session lifetime in seconds (10 minutes)
+const DEFAULT_SESSION_LIFETIME: u64 = 600;
+
 /// turn session information.
 ///
 /// A user can have many sessions.
@@ -203,13 +205,22 @@ where
             handler: options.handler,
         });
 
-        // This is a background thread that silently handles expiring sessions and
+        // This is a background task that silently handles expiring sessions and
         // cleans up session information when it expires.
+        // Using tokio::spawn instead of thread::spawn for better integration with async runtime
         let this_ = Arc::downgrade(&this);
-        thread::spawn(move || {
+        tokio::spawn(async move {
             let mut address = Vec::with_capacity(255);
+            let mut interval = interval(Duration::from_secs(1));
 
-            while let Some(this) = this_.upgrade() {
+            loop {
+                interval.tick().await;
+
+                let Some(this) = this_.upgrade() else {
+                    // SessionManager has been dropped, exit the cleanup task
+                    break;
+                };
+
                 // The timer advances one second and gets the current time offset.
                 let now = this.timer.add();
 
@@ -233,9 +244,6 @@ where
                         address.clear();
                     }
                 }
-
-                // Fixing a second tick.
-                sleep(Duration::from_secs(1));
             }
         });
 
@@ -360,9 +368,9 @@ where
                 *key,
                 Session::New {
                     // A random string of length 16.
-                    nonce: make_nonce(),
-                    // Current time stacks for 600 seconds.
-                    expires: self.timer.get() + 600,
+                    nonce: generate_nonce(),
+                    // Current time stacks for DEFAULT_SESSION_LIFETIME seconds.
+                    expires: self.timer.get() + DEFAULT_SESSION_LIFETIME,
                 },
             );
         }
@@ -460,7 +468,7 @@ where
             let nonce = if let Some(Session::New { nonce, .. }) = lock.remove(addr) {
                 nonce
             } else {
-                make_nonce()
+                generate_nonce()
             };
 
             lock.insert(
@@ -468,7 +476,7 @@ where
                 Session::Authenticated {
                     allocate_channels: Vec::with_capacity(10),
                     permissions: Vec::with_capacity(10),
-                    expires: self.timer.get() + 600,
+                    expires: self.timer.get() + DEFAULT_SESSION_LIFETIME,
                     username: username.to_string(),
                     allocate_port: None,
                     password,
@@ -570,7 +578,7 @@ where
 
             // Records the port assigned to the current session and resets the alive time.
             let port = self.port_allocator.lock().alloc(None)?;
-            *expires = self.timer.get() + (lifetime.unwrap_or(600) as u64);
+            *expires = self.timer.get() + (lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32) as u64);
             *allocate_port = Some(port);
 
             // Write the allocation port binding table.
@@ -1104,7 +1112,7 @@ where
 /// Uses `rand::rng()` which provides cryptographic-quality randomness suitable
 /// for security-sensitive operations. See RFC 7616 Section 5.4 for additional
 /// guidance on nonce value selection.
-fn make_nonce() -> String {
+fn generate_nonce() -> String {
     rand::rng()
         .sample_iter(&Alphanumeric)
         .take(16)

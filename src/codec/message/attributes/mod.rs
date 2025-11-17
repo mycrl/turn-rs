@@ -100,7 +100,7 @@ pub enum AttributeType {
     XorRelayedAddress = 0x0016,
     RequestedAddressFamily = 0x0017,
     EvenPort = 0x0018,
-    ReqeestedTransport = 0x0019,
+    RequestedTransport = 0x0019,
     DontFragment = 0x001A,
     AccessToken = 0x001B,
     MessageIntegritySha256 = 0x001C,
@@ -883,16 +883,16 @@ impl<'a> Attribute<'a> for Lifetime {
 /// ignored on reception.  It is reserved for future uses.
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
-pub enum ReqeestedTransport {
+pub enum RequestedTransport {
     Tcp = 0x06000000,
     Udp = 0x11000000,
 }
 
-impl<'a> Attribute<'a> for ReqeestedTransport {
+impl<'a> Attribute<'a> for RequestedTransport {
     type Error = Error;
     type Item = Self;
 
-    const TYPE: AttributeType = AttributeType::ReqeestedTransport;
+    const TYPE: AttributeType = AttributeType::RequestedTransport;
 
     fn serialize<B: BufMut>(value: Self::Item, bytes: &mut B, _: &'a [u8]) {
         bytes.put_u32(value as u32)

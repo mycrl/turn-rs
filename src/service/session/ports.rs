@@ -39,7 +39,9 @@ impl Default for PortRange {
 
 impl From<std::ops::Range<u16>> for PortRange {
     fn from(range: std::ops::Range<u16>) -> Self {
-        assert!(range.start <= range.end);
+        // Use debug_assert! instead of assert! to avoid panics in release builds
+        // This is a programming error, not a runtime error
+        debug_assert!(range.start <= range.end, "Port range start must be <= end");
 
         Self {
             start: range.start,
