@@ -192,7 +192,7 @@ impl TurnClient {
         {
             {
                 let mut message = self.transport.prepare_message(ALLOCATE_REQUEST);
-                message.append::<ReqeestedTransport>(ReqeestedTransport::Udp);
+                message.append::<RequestedTransport>(RequestedTransport::Udp);
                 message.flush(None)?;
 
                 self.transport.send().await?;
@@ -215,7 +215,7 @@ impl TurnClient {
 
         {
             let mut message = self.transport.prepare_message(ALLOCATE_REQUEST);
-            message.append::<ReqeestedTransport>(ReqeestedTransport::Udp);
+            message.append::<RequestedTransport>(RequestedTransport::Udp);
             message.append::<UserName>(&self.credentials.username);
             message.append::<Realm>(&self.state.realm);
             message.append::<Nonce>(&self.state.nonce);

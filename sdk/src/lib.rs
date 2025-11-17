@@ -1,5 +1,170 @@
-pub use tonic;
+//! # Turn Server SDK
+//!
+//! A Rust client SDK for interacting with the `turn-server` gRPC API exposed by the `turn-rs` project.
+//! This crate provides both client and server utilities for TURN server integration.
+//!
+//! ## Features
+//!
+//! - **TurnService Client**: Query server information, session details, and manage TURN sessions
+//! - **TurnHooksServer**: Implement custom authentication and event handling for TURN server hooks
+//! - **Password Generation**: Generate STUN/TURN authentication passwords using MD5 or SHA256
+//!
+//! ## Client Usage
+//!
+//! The `TurnService` client allows you to interact with a running TURN server's gRPC API:
+//!
+//! ```no_run
+//! use turn_server_sdk::{TurnService, tonic::transport::Channel};
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Connect to the TURN server gRPC endpoint
+//! let channel = Channel::from_static("http://127.0.0.1:3000")
+//!     .connect()
+//!     .await?;
+//!
+//! // Create a client
+//! let mut client = TurnService::new(channel);
+//!
+//! // Get server information
+//! let info = client.get_info().await?;
+//! println!("Server software: {}", info.software);
+//!
+//! // Query a session by ID
+//! let session = client.get_session("session-id".to_string()).await?;
+//! println!("Session username: {}", session.username);
+//!
+//! // Get session statistics
+//! let stats = client.get_session_statistics("session-id".to_string()).await?;
+//! println!("Bytes sent: {}", stats.send_bytes);
+//!
+//! // Destroy a session
+//! client.destroy_session("session-id".to_string()).await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Server Usage (Hooks Implementation)
+//!
+//! Implement the `TurnHooksServer` trait to provide custom authentication and handle TURN events:
+//!
+//! ```no_run
+//! use turn_server_sdk::{
+//!     TurnHooksServer, Credential, protos::PasswordAlgorithm, 
+//!     tonic::transport::Server
+//! };
+//! 
+//! use std::net::SocketAddr;
+//!
+//! struct MyHooksServer;
+//!
+//! #[tonic::async_trait]
+//! impl TurnHooksServer for MyHooksServer {
+//!     async fn get_password(
+//!         &self,
+//!         username: &str,
+//!         algorithm: PasswordAlgorithm,
+//!     ) -> Result<Credential, tonic::Status> {
+//!         // Implement your authentication logic here
+//!         // For example, look up the user in a database
+//!         Ok(Credential {
+//!             password: "user-password",
+//!             realm: "my-realm",
+//!         })
+//!     }
+//!
+//!     async fn on_allocated(&self, id: String, username: String, port: u16) {
+//!         println!("Session allocated: id={}, username={}, port={}", id, username, port);
+//!         // Handle allocation event (e.g., log to database, update metrics)
+//!     }
+//!
+//!     async fn on_destroy(&self, id: String, username: String) {
+//!         println!("Session destroyed: id={}, username={}", id, username);
+//!         // Handle session destruction (e.g., cleanup resources)
+//!     }
+//! }
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Start the hooks server
+//! let mut server = Server::builder();
+//! let hooks = MyHooksServer;
+//!
+//! hooks.start_with_server(
+//!     &mut server,
+//!     "127.0.0.1:8080".parse()?,
+//! ).await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Password Generation
+//!
+//! Generate STUN/TURN authentication passwords for long-term credentials:
+//!
+//! ```no_run
+//! use turn_server_sdk::{generate_password, protos::PasswordAlgorithm};
+//!
+//! // Generate MD5 password (RFC 5389)
+//! let md5_password = generate_password(
+//!     "username",
+//!     "password",
+//!     "realm",
+//!     PasswordAlgorithm::Md5,
+//! );
+//!
+//! // Generate SHA256 password (RFC 8489)
+//! let sha256_password = generate_password(
+//!     "username",
+//!     "password",
+//!     "realm",
+//!     PasswordAlgorithm::Sha256,
+//! );
+//!
+//! // Access the password bytes
+//! match md5_password {
+//!     turn_server_sdk::Password::Md5(bytes) => {
+//!         println!("MD5 password: {:?}", bytes);
+//!     }
+//!     turn_server_sdk::Password::Sha256(bytes) => {
+//!         println!("SHA256 password: {:?}", bytes);
+//!     }
+//! }
+//! ```
+//!
+//! ## Event Handling
+//!
+//! The `TurnHooksServer` trait provides hooks for various TURN server events:
+//!
+//! - `on_allocated`: Called when a client allocates a relay port
+//! - `on_channel_bind`: Called when a channel is bound to a peer
+//! - `on_create_permission`: Called when permissions are created for peers
+//! - `on_refresh`: Called when a session is refreshed
+//! - `on_destroy`: Called when a session is destroyed
+//!
+//! All event handlers are optional and have default no-op implementations.
+//!
+//! ## Error Handling
+//!
+//! Most operations return `Result<T, Status>` where `Status` is a gRPC status code.
+//! Common error scenarios:
+//!
+//! - `Status::not_found`: Session or resource not found
+//! - `Status::unavailable`: Server is not available
+//! - `Status::unauthenticated`: Authentication failed
+//!
+//! ## Re-exports
+//!
+//! This crate re-exports:
+//! - `tonic`: The gRPC framework used for communication
+//! - `protos`: The generated protobuf bindings for TURN server messages
+//!
+//! ## See Also
+//!
+//! - [TURN Server Documentation](../README.md)
+//! - [RFC 8489](https://tools.ietf.org/html/rfc8489) - Session Traversal Utilities for NAT (STUN)
+//! - [RFC 8656](https://tools.ietf.org/html/rfc8656) - Traversal Using Relays around NAT (TURN)
+
 pub use protos;
+pub use tonic;
 
 use std::{net::SocketAddr, ops::Deref};
 
@@ -11,12 +176,11 @@ use tonic::{
 };
 
 use protos::{
-    GetTurnPasswordRequest, GetTurnPasswordResponse, SessionQueryParams, TurnAllocatedEvent,
-    TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent,
-    TurnServerInfo, TurnSession, TurnSessionStatistics,
+    GetTurnPasswordRequest, GetTurnPasswordResponse, PasswordAlgorithm, SessionQueryParams,
+    TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
+    TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_server::{TurnHooksService, TurnHooksServiceServer},
     turn_service_client::TurnServiceClient,
-    PasswordAlgorithm,
 };
 
 /// turn service client
@@ -115,7 +279,7 @@ pub fn generate_password(
             let mut result = [0u8; 32];
             result.copy_from_slice(ctx.finish().as_ref());
             Password::Sha256(result)
-        },
+        }
         PasswordAlgorithm::Unspecified => {
             panic!("Invalid password algorithm");
         }

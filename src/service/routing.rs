@@ -4,7 +4,7 @@ use bytes::BytesMut;
 
 use super::{
     Service, ServiceHandler,
-    session::{Identifier, Session, SessionManager},
+    session::{DEFAULT_SESSION_LIFETIME, Identifier, Session, SessionManager},
 };
 
 use crate::codec::{
@@ -164,7 +164,10 @@ where
             bytes: BytesMut::with_capacity(4096),
             decoder: Decoder::default(),
             current_id: Identifier {
-                source: "0.0.0.0:0".parse().unwrap(),
+                // This is a placeholder address that will be updated on first route call
+                source: "0.0.0.0:0"
+                    .parse()
+                    .expect("Failed to parse placeholder address"),
                 interface,
             },
             state: State {
@@ -314,7 +317,7 @@ async fn allocate<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Respons
 where
     T: ServiceHandler,
 {
-    if req.payload.get::<ReqeestedTransport>().is_none() {
+    if req.payload.get::<RequestedTransport>().is_none() {
         return reject(req, ErrorType::ServerError);
     }
 
@@ -334,7 +337,7 @@ where
         let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.encode_buffer);
         message.append::<XorRelayedAddress>(SocketAddr::new(req.state.interface.ip(), port));
         message.append::<XorMappedAddress>(req.id.source);
-        message.append::<Lifetime>(lifetime.unwrap_or(600));
+        message.append::<Lifetime>(lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32));
         message.append::<Software>(&req.state.software);
         message.flush(Some(&password)).ok()?;
     }
@@ -623,7 +626,10 @@ where
         return reject(req, ErrorType::Unauthorized);
     };
 
-    let lifetime = req.payload.get::<Lifetime>().unwrap_or(600);
+    let lifetime = req
+        .payload
+        .get::<Lifetime>()
+        .unwrap_or(DEFAULT_SESSION_LIFETIME as u32);
     if !req.state.manager.refresh(req.id, lifetime) {
         return reject(req, ErrorType::AllocationMismatch);
     }

@@ -115,7 +115,7 @@ fn stun_unauthorized_allocate_request() {
     assert_decoded!(message {
         sample: samples::UNAUTHORIZED_ALLOCATE_REQUEST,
         method: ALLOCATE_REQUEST,
-        attributes: [ReqeestedTransport => Some(ReqeestedTransport::Udp)],
+        attributes: [RequestedTransport => Some(RequestedTransport::Udp)],
     });
 }
 
@@ -139,7 +139,7 @@ fn stun_allocate_request() {
         sample: samples::ALLOCATE_REQUEST,
         method: ALLOCATE_REQUEST,
         attributes: [
-            ReqeestedTransport => Some(ReqeestedTransport::Udp),
+            RequestedTransport => Some(RequestedTransport::Udp),
             UserName => Some("user1"),
             Realm => Some("localhost"),
             Nonce => Some("UHm1hiE0jm9r9rGS"),

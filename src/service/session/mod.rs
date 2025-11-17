@@ -119,6 +119,9 @@ impl Timer {
     }
 }
 
+/// Default session lifetime in seconds (10 minutes)
+pub const DEFAULT_SESSION_LIFETIME: u64 = 600;
+
 /// turn session information.
 ///
 /// A user can have many sessions.
@@ -360,9 +363,9 @@ where
                 *key,
                 Session::New {
                     // A random string of length 16.
-                    nonce: make_nonce(),
-                    // Current time stacks for 600 seconds.
-                    expires: self.timer.get() + 600,
+                    nonce: generate_nonce(),
+                    // Current time stacks for DEFAULT_SESSION_LIFETIME seconds.
+                    expires: self.timer.get() + DEFAULT_SESSION_LIFETIME,
                 },
             );
         }
@@ -460,7 +463,7 @@ where
             let nonce = if let Some(Session::New { nonce, .. }) = lock.remove(addr) {
                 nonce
             } else {
-                make_nonce()
+                generate_nonce()
             };
 
             lock.insert(
@@ -468,7 +471,7 @@ where
                 Session::Authenticated {
                     allocate_channels: Vec::with_capacity(10),
                     permissions: Vec::with_capacity(10),
-                    expires: self.timer.get() + 600,
+                    expires: self.timer.get() + DEFAULT_SESSION_LIFETIME,
                     username: username.to_string(),
                     allocate_port: None,
                     password,
@@ -570,7 +573,8 @@ where
 
             // Records the port assigned to the current session and resets the alive time.
             let port = self.port_allocator.lock().alloc(None)?;
-            *expires = self.timer.get() + (lifetime.unwrap_or(600) as u64);
+            *expires =
+                self.timer.get() + (lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32) as u64);
             *allocate_port = Some(port);
 
             // Write the allocation port binding table.
@@ -1104,7 +1108,7 @@ where
 /// Uses `rand::rng()` which provides cryptographic-quality randomness suitable
 /// for security-sensitive operations. See RFC 7616 Section 5.4 for additional
 /// guidance on nonce value selection.
-fn make_nonce() -> String {
+fn generate_nonce() -> String {
     rand::rng()
         .sample_iter(&Alphanumeric)
         .take(16)
