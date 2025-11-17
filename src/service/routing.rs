@@ -9,7 +9,7 @@ use super::{
 
 /// Default session lifetime in seconds (10 minutes)
 /// This matches the default lifetime used in SessionManager
-const DEFAULT_SESSION_LIFETIME: u32 = 600;
+use crate::service::session::DEFAULT_SESSION_LIFETIME;
 
 use crate::codec::{
     DecodeResult, Decoder,
