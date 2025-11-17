@@ -8,10 +8,15 @@ use super::{
 use crate::codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 
 use std::{
-    hash::Hash, net::SocketAddr, ops::{Deref, DerefMut}, sync::{
+    hash::Hash,
+    net::SocketAddr,
+    ops::{Deref, DerefMut},
+    sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
-    }, thread::{self, sleep}, time::Duration
+    },
+    thread::{self, sleep},
+    time::Duration,
 };
 
 use ahash::{HashMap, HashMapExt};
@@ -568,7 +573,8 @@ where
 
             // Records the port assigned to the current session and resets the alive time.
             let port = self.port_allocator.lock().alloc(None)?;
-            *expires = self.timer.get() + (lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32) as u64);
+            *expires =
+                self.timer.get() + (lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32) as u64);
             *allocate_port = Some(port);
 
             // Write the allocation port binding table.

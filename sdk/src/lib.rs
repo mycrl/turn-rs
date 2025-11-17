@@ -161,8 +161,8 @@
 //! - [RFC 8489](https://tools.ietf.org/html/rfc8489) - Session Traversal Utilities for NAT (STUN)
 //! - [RFC 8656](https://tools.ietf.org/html/rfc8656) - Traversal Using Relays around NAT (TURN)
 
-pub use tonic;
 pub use protos;
+pub use tonic;
 
 use std::{net::SocketAddr, ops::Deref};
 
@@ -174,12 +174,11 @@ use tonic::{
 };
 
 use protos::{
-    GetTurnPasswordRequest, GetTurnPasswordResponse, SessionQueryParams, TurnAllocatedEvent,
-    TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent,
-    TurnServerInfo, TurnSession, TurnSessionStatistics,
+    GetTurnPasswordRequest, GetTurnPasswordResponse, PasswordAlgorithm, SessionQueryParams,
+    TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
+    TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_server::{TurnHooksService, TurnHooksServiceServer},
     turn_service_client::TurnServiceClient,
-    PasswordAlgorithm,
 };
 
 /// turn service client
@@ -278,7 +277,7 @@ pub fn generate_password(
             let mut result = [0u8; 32];
             result.copy_from_slice(ctx.finish().as_ref());
             Password::Sha256(result)
-        },
+        }
         PasswordAlgorithm::Unspecified => {
             panic!("Invalid password algorithm");
         }
