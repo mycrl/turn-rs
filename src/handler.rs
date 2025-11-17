@@ -17,7 +17,7 @@ use crate::grpc::{HooksEvent, IdString, RpcHooksService};
 use anyhow::Result;
 
 #[cfg(feature = "grpc")]
-use protos::{
+use protos::turn::{
     TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
     TurnRefreshEvent,
 };

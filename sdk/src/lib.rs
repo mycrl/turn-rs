@@ -175,7 +175,7 @@ use tonic::{
     transport::{Channel, Server},
 };
 
-use protos::{
+use protos::turn::{
     GetTurnPasswordRequest, GetTurnPasswordResponse, PasswordAlgorithm, SessionQueryParams,
     TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
     TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,

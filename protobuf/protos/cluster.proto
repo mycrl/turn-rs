@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package turn.cluster;
+
+import "google/protobuf/empty.proto";
+
+// 节点信息
+message NodeInfo {
+    // 节点ID
+    string node_id = 1;
+    // 节点地址
+    string address = 2;
+    // 端口范围起始
+    uint32 port_range_start = 3;
+    // 端口范围结束
+    uint32 port_range_end = 4;
+    // 已分配端口数
+    uint32 allocated_ports = 5;
+    // 总容量
+    uint32 capacity = 6;
+    // 最后心跳时间（Unix时间戳）
+    int64 last_heartbeat = 7;
+}
+
+// 节点注册请求
+message RegisterNodeRequest {
+    // 节点ID
+    string node_id = 1;
+    // 节点地址
+    string address = 2;
+    // 端口范围起始
+    uint32 port_range_start = 3;
+    // 端口范围结束
+    uint32 port_range_end = 4;
+}
+
+// 节点注册响应
+message RegisterNodeResponse {
+    // 是否成功
+    bool success = 1;
+    // 消息
+    string message = 2;
+}
+
+// 更新节点状态请求
+message UpdateNodeStatusRequest {
+    // 节点ID
+    string node_id = 1;
+    // 已分配端口数
+    optional uint32 allocated_ports = 2;
+}
+
+// 根据端口查找节点请求
+message FindNodeByPortRequest {
+    // 端口号
+    uint32 port = 1;
+}
+
+// 根据端口查找节点响应
+message FindNodeByPortResponse {
+    // 节点信息（如果找到）
+    optional NodeInfo node = 1;
+}
+
+// 获取所有节点请求
+message GetNodesRequest {
+    // 是否只返回活跃节点
+    bool active_only = 1;
+}
+
+// 获取所有节点响应
+message GetNodesResponse {
+    // 节点列表
+    repeated NodeInfo nodes = 1;
+}
+
+// 集群信息
+message ClusterInfo {
+    // 总容量
+    uint32 total_capacity = 1;
+    // 已分配端口数
+    uint32 total_allocated = 2;
+    // 活跃节点数
+    uint32 active_nodes = 3;
+    // 总节点数
+    uint32 total_nodes = 4;
+}
+
+// 集群路由服务
+service ClusterRouterService {
+    // 注册节点
+    rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeResponse);
+    
+    // 更新节点状态（心跳、端口使用情况等）
+    rpc UpdateNodeStatus(UpdateNodeStatusRequest) returns (google.protobuf.Empty);
+    
+    // 根据端口查找节点
+    rpc FindNodeByPort(FindNodeByPortRequest) returns (FindNodeByPortResponse);
+    
+    // 获取所有节点
+    rpc GetNodes(GetNodesRequest) returns (GetNodesResponse);
+    
+    // 获取集群信息
+    rpc GetClusterInfo(google.protobuf.Empty) returns (ClusterInfo);
+}
+

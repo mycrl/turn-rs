@@ -14,7 +14,7 @@ use tonic::{
 #[cfg(feature = "ssl")]
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 
-use protos::{
+use protos::turn::{
     GetTurnPasswordRequest, PasswordAlgorithm as ProtoPasswordAlgorithm, SessionQueryParams,
     TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
     TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
