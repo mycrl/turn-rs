@@ -23,15 +23,15 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let runtime_handle = runtime.handle();
 
-    let local_id = Identifier {
-        source: "127.0.0.1:1000".parse().unwrap(),
-        interface: "127.0.0.1:3478".parse().unwrap(),
-    };
+    let local_id = Identifier::new(
+        "127.0.0.1:1000".parse().unwrap(),
+        "127.0.0.1:3478".parse().unwrap(),
+    );
 
-    let remote_id = Identifier {
-        source: "127.0.0.1:1001".parse().unwrap(),
-        interface: "127.0.0.1:3478".parse().unwrap(),
-    };
+    let remote_id = Identifier::new(
+        "127.0.0.1:1001".parse().unwrap(),
+        "127.0.0.1:3478".parse().unwrap(),
+    );
 
     let service = Service::new(ServiceOptions {
         port_range: Default::default(),
@@ -56,13 +56,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     let local_port = session_manager.allocate(&local_id, None).unwrap();
     let remote_port = session_manager.allocate(&remote_id, None).unwrap();
 
-    session_manager.create_permission(&remote_id, &remote_id.source, &[local_port]);
-    session_manager.create_permission(&local_id, &local_id.source, &[remote_port]);
+    session_manager.create_permission(&remote_id, &remote_id.source(), &[local_port]);
+    session_manager.create_permission(&local_id, &local_id.source(), &[remote_port]);
 
-    session_manager.bind_channel(&remote_id, &remote_id.source, local_port, 0x4000);
-    session_manager.bind_channel(&local_id, &local_id.source, remote_port, 0x4000);
+    session_manager.bind_channel(&remote_id, &remote_id.source(), local_port, 0x4000);
+    session_manager.bind_channel(&local_id, &local_id.source(), remote_port, 0x4000);
 
-    let router = service.make_router(local_id.source, local_id.interface);
+    let router = service.make_router(local_id.source(), local_id.interface());
 
     let transaction_id = {
         let mut rng = rand::rng();
@@ -111,7 +111,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         bencher.to_async(runtime_handle).iter(|| async {
             let _ = router
                 .lock()
-                .route(&bind_request, local_id.source)
+                .route(&bind_request, local_id.source())
                 .await
                 .unwrap()
                 .unwrap();
@@ -122,7 +122,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         bencher.to_async(runtime_handle).iter(|| async {
             let _ = router
                 .lock()
-                .route(&indication, local_id.source)
+                .route(&indication, local_id.source())
                 .await
                 .unwrap()
                 .unwrap();
@@ -133,7 +133,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         bencher.to_async(runtime_handle).iter(|| async {
             let _ = router
                 .lock()
-                .route(&channel_data, local_id.source)
+                .route(&channel_data, local_id.source())
                 .await
                 .unwrap()
                 .unwrap();

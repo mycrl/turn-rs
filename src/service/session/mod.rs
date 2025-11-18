@@ -29,8 +29,35 @@ use rand::{Rng, distr::Alphanumeric};
 /// information: the source address, and the transport protocol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Identifier {
-    pub source: SocketAddr,
-    pub interface: SocketAddr,
+    source: SocketAddr,
+    interface: SocketAddr,
+}
+
+impl Identifier {
+    #[inline]
+    pub fn new(source: SocketAddr, interface: SocketAddr) -> Self {
+        Self { source, interface }
+    }
+
+    #[inline]
+    pub fn source(&self) -> SocketAddr {
+        self.source
+    }
+
+    #[inline]
+    pub fn interface(&self) -> SocketAddr {
+        self.interface
+    }
+
+    #[inline]
+    pub fn source_mut(&mut self) -> &mut SocketAddr {
+        &mut self.source
+    }
+
+    #[inline]
+    pub fn interface_mut(&mut self) -> &mut SocketAddr {
+        &mut self.interface
+    }
 }
 
 /// The endpoint used to record the current session.
@@ -38,8 +65,35 @@ pub struct Identifier {
 /// This is used when forwarding data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Endpoint {
-    pub source: SocketAddr,
-    pub endpoint: SocketAddr,
+    source: SocketAddr,
+    endpoint: SocketAddr,
+}
+
+impl Endpoint {
+    #[inline]
+    pub fn new(source: SocketAddr, endpoint: SocketAddr) -> Self {
+        Self { source, endpoint }
+    }
+
+    #[inline]
+    pub fn source(&self) -> SocketAddr {
+        self.source
+    }
+
+    #[inline]
+    pub fn endpoint(&self) -> SocketAddr {
+        self.endpoint
+    }
+
+    #[inline]
+    pub fn source_mut(&mut self) -> &mut SocketAddr {
+        &mut self.source
+    }
+
+    #[inline]
+    pub fn endpoint_mut(&mut self) -> &mut SocketAddr {
+        &mut self.endpoint
+    }
 }
 
 /// The default HashMap is created without allocating capacity. To improve

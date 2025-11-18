@@ -163,13 +163,13 @@ where
         Self {
             bytes: BytesMut::with_capacity(4096),
             decoder: Decoder::default(),
-            current_id: Identifier {
-                // This is a placeholder address that will be updated on first route call
-                source: "0.0.0.0:0"
+            // This is a placeholder address that will be updated on first route call
+            current_id: Identifier::new(
+                "0.0.0.0:0"
                     .parse()
                     .expect("Failed to parse placeholder address"),
                 interface,
-            },
+            ),
             state: RouterState {
                 interfaces: service.interfaces.clone(),
                 software: service.software.clone(),
@@ -188,7 +188,7 @@ where
         address: SocketAddr,
     ) -> Result<Option<Response<'a>>, crate::codec::Error> {
         {
-            self.current_id.source = address;
+            *self.current_id.source_mut() = address;
         }
 
         Ok(match self.decoder.decode(bytes)? {
@@ -285,8 +285,8 @@ where
 {
     {
         let mut message = MessageEncoder::extend(BINDING_RESPONSE, req.payload, req.encode_buffer);
-        message.append::<XorMappedAddress>(req.id.source);
-        message.append::<MappedAddress>(req.id.source);
+        message.append::<XorMappedAddress>(req.id.source());
+        message.append::<MappedAddress>(req.id.source());
         message.append::<ResponseOrigin>(req.state.interface);
         message.append::<Software>(&req.state.software);
         message.flush(None).ok()?;
@@ -336,7 +336,7 @@ where
     {
         let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.encode_buffer);
         message.append::<XorRelayedAddress>(SocketAddr::new(req.state.interface.ip(), port));
-        message.append::<XorMappedAddress>(req.id.source);
+        message.append::<XorMappedAddress>(req.id.source());
         message.append::<Lifetime>(lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32));
         message.append::<Software>(&req.state.software);
         message.flush(Some(&password)).ok()?;
@@ -569,9 +569,9 @@ where
             method: Some(DATA_INDICATION),
             bytes: req.encode_buffer,
             target: Target {
-                relay: Some(relay.source),
-                endpoint: if req.state.endpoint != relay.endpoint {
-                    Some(relay.endpoint)
+                relay: Some(relay.source()),
+                endpoint: if req.state.endpoint != relay.endpoint() {
+                    Some(relay.endpoint())
                 } else {
                     None
                 },
@@ -690,9 +690,9 @@ where
     Some(Response {
         bytes,
         target: Target {
-            relay: Some(relay.source),
-            endpoint: if req.state.endpoint != relay.endpoint {
-                Some(relay.endpoint)
+            relay: Some(relay.source()),
+            endpoint: if req.state.endpoint != relay.endpoint() {
+                Some(relay.endpoint())
             } else {
                 None
             },

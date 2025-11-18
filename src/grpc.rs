@@ -52,16 +52,13 @@ impl IdString for Identifier {
     type Error = anyhow::Error;
 
     fn to_string(&self) -> String {
-        format!("{}/{}", self.source, self.interface)
+        format!("{}/{}", self.source(), self.interface())
     }
 
     fn from_string(s: String) -> Result<Self, Self::Error> {
         let (source, interface) = s.split_once('/').ok_or(anyhow!("Invalid identifier"))?;
 
-        Ok(Self {
-            source: source.parse()?,
-            interface: interface.parse()?,
-        })
+        Ok(Self::new(source.parse()?, interface.parse()?))
     }
 }
 

@@ -93,8 +93,8 @@ impl ServiceHandler for Handler {
     fn on_allocated(&self, id: &Identifier, username: &str, port: u16) {
         log::info!(
             "allocate: address={:?}, interface={:?}, username={:?}, port={}",
-            id.source,
-            id.interface,
+            id.source(),
+            id.interface(),
             username,
             port
         );
@@ -145,8 +145,8 @@ impl ServiceHandler for Handler {
     fn on_channel_bind(&self, id: &Identifier, username: &str, channel: u16) {
         log::info!(
             "channel bind: address={:?}, interface={:?}, username={:?}, channel={}",
-            id.source,
-            id.interface,
+            id.source(),
+            id.interface(),
             username,
             channel
         );
@@ -204,8 +204,8 @@ impl ServiceHandler for Handler {
     fn on_create_permission(&self, id: &Identifier, username: &str, ports: &[u16]) {
         log::info!(
             "create permission: address={:?}, interface={:?}, username={:?}, ports={:?}",
-            id.source,
-            id.interface,
+            id.source(),
+            id.interface(),
             username,
             ports
         );
@@ -263,8 +263,8 @@ impl ServiceHandler for Handler {
     fn on_refresh(&self, id: &Identifier, username: &str, lifetime: u32) {
         log::info!(
             "refresh: address={:?}, interface={:?}, username={:?}, lifetime={}",
-            id.source,
-            id.interface,
+            id.source(),
+            id.interface(),
             username,
             lifetime
         );
@@ -287,8 +287,8 @@ impl ServiceHandler for Handler {
     fn on_destroy(&self, id: &Identifier, username: &str) {
         log::info!(
             "closed: address={:?}, interface={:?}, username={:?}",
-            id.source,
-            id.interface,
+            id.source(),
+            id.interface(),
             username
         );
 

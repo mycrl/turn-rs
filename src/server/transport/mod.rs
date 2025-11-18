@@ -73,10 +73,7 @@ pub trait Server: Sized + Send {
             );
 
             while let Some((mut socket, address)) = listener.accept().await {
-                let id = Identifier {
-                    interface: options.external,
-                    source: address,
-                };
+                let id = Identifier::new(address, options.external);
 
                 let mut receiver = exchanger.get_receiver(address);
                 let mut router = service.make_router(address, options.external);
