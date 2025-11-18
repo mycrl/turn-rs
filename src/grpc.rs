@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use tokio::sync::{
     Mutex,
     mpsc::{Sender, channel},
@@ -227,7 +227,7 @@ impl RpcHooksService {
                             .domain_name(
                                 url::Url::parse(&hooks.endpoint)?
                                     .domain()
-                                    .ok_or_else(|| anyhow!("Invalid hooks server domain"))?,
+                                    .ok_or_else(|| anyhow::anyhow!("Invalid hooks server domain"))?,
                             ),
                     )?;
                 }
