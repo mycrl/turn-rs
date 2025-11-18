@@ -8,7 +8,7 @@ use parking_lot::RwLock;
 
 use crate::service::session::Identifier;
 
-/// The type of information passed in the statisticsing channel
+/// The type of information passed in the statistics channel
 #[derive(Debug, Clone, Copy)]
 pub enum Stats {
     ReceivedBytes(usize),
@@ -36,7 +36,7 @@ impl Number for Count {
     }
 }
 
-/// Worker independent statisticsing statistics
+/// Worker independent statistics
 pub struct Counts<T> {
     pub received_bytes: T,
     pub send_bytes: T,
@@ -104,7 +104,7 @@ impl Default for Statistics {
 impl Statistics {
     /// get signal sender
     ///
-    /// The signal sender can notify the statisticsing instance to update
+    /// The signal sender can notify the statistics instance to update
     /// internal statistics.
     ///
     /// # Example
@@ -116,12 +116,12 @@ impl Statistics {
     /// let statistics = Statistics::default();
     /// let sender = statistics.get_reporter();
     ///
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// sender.send(&addr, &[Stats::ReceivedBytes(100)]);
+    /// sender.send(&identifier, &[Stats::ReceivedBytes(100)]);
     /// ```
     pub fn get_reporter(&self) -> StatisticsReporter {
         StatisticsReporter {
@@ -139,17 +139,17 @@ impl Statistics {
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// statistics.register(addr.clone());
-    /// assert_eq!(statistics.get(&addr).is_some(), true);
+    /// statistics.register(identifier.clone());
+    /// assert_eq!(statistics.get(&identifier).is_some(), true);
     /// ```
-    pub fn register(&self, addr: Identifier) {
+    pub fn register(&self, identifier: Identifier) {
         self.0.write().insert(
-            addr,
+            identifier,
             Counts {
                 received_bytes: Count::default(),
                 send_bytes: Count::default(),
@@ -170,22 +170,22 @@ impl Statistics {
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// statistics.register(addr.clone());
-    /// assert_eq!(statistics.get(&addr).is_some(), true);
+    /// statistics.register(identifier.clone());
+    /// assert_eq!(statistics.get(&identifier).is_some(), true);
     ///
-    /// statistics.unregister(&addr);
-    /// assert_eq!(statistics.get(&addr).is_some(), false);
+    /// statistics.unregister(&identifier);
+    /// assert_eq!(statistics.get(&identifier).is_some(), false);
     /// ```
-    pub fn unregister(&self, addr: &Identifier) {
-        self.0.write().remove(addr);
+    pub fn unregister(&self, identifier: &Identifier) {
+        self.0.write().remove(identifier);
     }
 
-    /// Obtain a list of statistics from statisticsing
+    /// Obtain a list of statistics from statistics
     ///
     /// The obtained list is in the same order as it was added.
     ///
@@ -197,16 +197,16 @@ impl Statistics {
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// statistics.register(addr.clone());
-    /// assert_eq!(statistics.get(&addr).is_some(), true);
+    /// statistics.register(identifier.clone());
+    /// assert_eq!(statistics.get(&identifier).is_some(), true);
     /// ```
-    pub fn get(&self, addr: &Identifier) -> Option<Counts<usize>> {
-        self.0.read().get(addr).map(|counts| Counts {
+    pub fn get(&self, identifier: &Identifier) -> Option<Counts<usize>> {
+        self.0.read().get(identifier).map(|counts| Counts {
             received_bytes: counts.received_bytes.get(),
             received_pkts: counts.received_pkts.get(),
             send_bytes: counts.send_bytes.get(),
@@ -219,7 +219,7 @@ impl Statistics {
 /// statistics reporter
 ///
 /// It is held by each worker, and status information can be sent to the
-/// statisticsing instance through this instance to update the internal
+/// statistics instance through this instance to update the internal
 /// statistical information of the statistics.
 #[derive(Clone)]
 #[allow(unused)]
@@ -229,10 +229,10 @@ pub struct StatisticsReporter {
 
 impl StatisticsReporter {
     #[allow(unused_variables)]
-    pub fn send(&self, addr: &Identifier, reports: &[Stats]) {
+    pub fn send(&self, identifier: &Identifier, reports: &[Stats]) {
         #[cfg(feature = "grpc")]
         {
-            if let Some(counts) = self.table.read().get(addr) {
+            if let Some(counts) = self.table.read().get(identifier) {
                 for item in reports {
                     counts.add(item);
                 }

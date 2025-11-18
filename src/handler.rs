@@ -90,12 +90,12 @@ impl ServiceHandler for Handler {
     /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
-    fn on_allocated(&self, id: &Identifier, name: &str, port: u16) {
+    fn on_allocated(&self, id: &Identifier, username: &str, port: u16) {
         log::info!(
             "allocate: address={:?}, interface={:?}, username={:?}, port={}",
             id.source,
             id.interface,
-            name,
+            username,
             port
         );
 
@@ -106,7 +106,7 @@ impl ServiceHandler for Handler {
             self.rpc
                 .send_event(HooksEvent::Allocated(TurnAllocatedEvent {
                     id: id.to_string(),
-                    username: name.to_string(),
+                    username: username.to_string(),
                     port: port as i32,
                 }));
         }
@@ -142,12 +142,12 @@ impl ServiceHandler for Handler {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
-    fn on_channel_bind(&self, id: &Identifier, name: &str, channel: u16) {
+    fn on_channel_bind(&self, id: &Identifier, username: &str, channel: u16) {
         log::info!(
             "channel bind: address={:?}, interface={:?}, username={:?}, channel={}",
             id.source,
             id.interface,
-            name,
+            username,
             channel
         );
 
@@ -156,7 +156,7 @@ impl ServiceHandler for Handler {
             self.rpc
                 .send_event(HooksEvent::ChannelBind(TurnChannelBindEvent {
                     id: id.to_string(),
-                    username: name.to_string(),
+                    username: username.to_string(),
                     channel: channel as i32,
                 }));
         }
@@ -201,12 +201,12 @@ impl ServiceHandler for Handler {
     /// idempotency of CreatePermission requests over UDP using the
     /// "stateless stack approach".  Retransmitted CreatePermission
     /// requests will simply refresh the permissions.
-    fn on_create_permission(&self, id: &Identifier, name: &str, ports: &[u16]) {
+    fn on_create_permission(&self, id: &Identifier, username: &str, ports: &[u16]) {
         log::info!(
             "create permission: address={:?}, interface={:?}, username={:?}, ports={:?}",
             id.source,
             id.interface,
-            name,
+            username,
             ports
         );
 
@@ -215,7 +215,7 @@ impl ServiceHandler for Handler {
             self.rpc
                 .send_event(HooksEvent::CreatePermission(TurnCreatePermissionEvent {
                     id: id.to_string(),
-                    username: name.to_string(),
+                    username: username.to_string(),
                     ports: ports.iter().map(|p| *p as i32).collect(),
                 }));
         }
@@ -260,12 +260,12 @@ impl ServiceHandler for Handler {
     /// will cause a 437 (Allocation Mismatch) response if the
     /// allocation has already been deleted, but the client will treat
     /// this as equivalent to a success response (see below).
-    fn on_refresh(&self, id: &Identifier, name: &str, lifetime: u32) {
+    fn on_refresh(&self, id: &Identifier, username: &str, lifetime: u32) {
         log::info!(
             "refresh: address={:?}, interface={:?}, username={:?}, lifetime={}",
             id.source,
             id.interface,
-            name,
+            username,
             lifetime
         );
 
@@ -273,7 +273,7 @@ impl ServiceHandler for Handler {
         {
             self.rpc.send_event(HooksEvent::Refresh(TurnRefreshEvent {
                 id: id.to_string(),
-                username: name.to_string(),
+                username: username.to_string(),
                 lifetime: lifetime as i32,
             }));
         }
@@ -284,12 +284,12 @@ impl ServiceHandler for Handler {
     /// Triggered when the session leaves from the turn. Possible reasons: the
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
-    fn on_destroy(&self, id: &Identifier, name: &str) {
+    fn on_destroy(&self, id: &Identifier, username: &str) {
         log::info!(
             "closed: address={:?}, interface={:?}, username={:?}",
             id.source,
             id.interface,
-            name
+            username
         );
 
         #[cfg(feature = "grpc")]
@@ -298,7 +298,7 @@ impl ServiceHandler for Handler {
 
             self.rpc.send_event(HooksEvent::Destroy(TurnDestroyEvent {
                 id: id.to_string(),
-                username: name.to_string(),
+                username: username.to_string(),
             }));
         }
     }

@@ -24,7 +24,7 @@ where
 {
     id: &'a Identifier,
     encode_buffer: &'b mut BytesMut,
-    state: &'a State<T>,
+    state: &'a RouterState<T>,
     payload: &'a M,
 }
 
@@ -132,7 +132,7 @@ pub struct Response<'a> {
     pub target: Target,
 }
 
-pub(crate) struct State<T>
+pub(crate) struct RouterState<T>
 where
     T: ServiceHandler,
 {
@@ -150,7 +150,7 @@ where
     T: ServiceHandler,
 {
     current_id: Identifier,
-    state: State<T>,
+    state: RouterState<T>,
     decoder: Decoder,
     bytes: BytesMut,
 }
@@ -170,7 +170,7 @@ where
                     .expect("Failed to parse placeholder address"),
                 interface,
             },
-            state: State {
+            state: RouterState {
                 interfaces: service.interfaces.clone(),
                 software: service.software.clone(),
                 handler: service.handler.clone(),

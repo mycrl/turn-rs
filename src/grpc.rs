@@ -81,7 +81,7 @@ impl TurnService for RpcService {
             interfaces: self
                 .config
                 .server
-                .get_externals()
+                .get_external_addresses()
                 .iter()
                 .map(|addr| addr.to_string())
                 .collect(),

@@ -49,10 +49,10 @@
 //!
 //! ```no_run
 //! use turn_server_sdk::{
-//!     TurnHooksServer, Credential, protos::PasswordAlgorithm, 
+//!     TurnHooksServer, Credential, protos::PasswordAlgorithm,
 //!     tonic::transport::Server
 //! };
-//! 
+//!
 //! use std::net::SocketAddr;
 //!
 //! struct MyHooksServer;

@@ -23,17 +23,17 @@ use ahash::{HashMap, HashMapExt};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use rand::{Rng, distr::Alphanumeric};
 
-/// The identifier of the session or addr.
+/// The identifier of the session.
 ///
 /// Each session needs to be identified by a combination of three pieces of
-/// information: the addr address, and the transport protocol.
+/// information: the source address, and the transport protocol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Identifier {
     pub source: SocketAddr,
     pub interface: SocketAddr,
 }
 
-/// The addr used to record the current session.
+/// The endpoint used to record the current session.
 ///
 /// This is used when forwarding data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -210,7 +210,7 @@ where
         // cleans up session information when it expires.
         let this_ = Arc::downgrade(&this);
         thread::spawn(move || {
-            let mut address = Vec::with_capacity(255);
+            let mut identifiers = Vec::with_capacity(255);
 
             while let Some(this) = this_.upgrade() {
                 // The timer advances one second and gets the current time offset.
@@ -227,13 +227,13 @@ where
                                 Session::New { expires, .. }
                                 | Session::Authenticated { expires, .. } => *expires <= now,
                             })
-                            .for_each(|(k, _)| address.push(*k));
+                            .for_each(|(k, _)| identifiers.push(*k));
                     }
 
                     // Delete the expired sessions.
-                    if !address.is_empty() {
-                        this.remove_session(&address);
-                        address.clear();
+                    if !identifiers.is_empty() {
+                        this.remove_session(&identifiers);
+                        identifiers.clear();
                     }
                 }
 
@@ -245,14 +245,14 @@ where
         this
     }
 
-    fn remove_session(&self, addrs: &[Identifier]) {
+    fn remove_session(&self, identifiers: &[Identifier]) {
         let mut sessions = self.sessions.write();
         let mut port_allocator = self.port_allocator.lock();
         let mut port_mapping_table = self.port_mapping_table.write();
         let mut port_relay_table = self.port_relay_table.write();
         let mut channel_relay_table = self.channel_relay_table.write();
 
-        addrs.iter().for_each(|k| {
+        identifiers.iter().for_each(|k| {
             port_relay_table.remove(k);
             channel_relay_table.remove(k);
 
@@ -266,7 +266,7 @@ where
                 // releases the port back into the allocation pool.
                 if let Some(port) = allocate_port {
                     port_mapping_table.remove(&port);
-                    port_allocator.restore(port);
+                    port_allocator.deallocate(port);
                 }
 
                 // Notifies that the external session has been closed.
@@ -275,7 +275,7 @@ where
         });
     }
 
-    /// Get session for addr.
+    /// Get session for identifier.
     ///
     /// # Test
     ///
@@ -299,7 +299,7 @@ where
     ///     }
     /// }
     ///
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -316,12 +316,12 @@ where
     ///
     /// // get_session always creates a new session if it doesn't exist
     /// {
-    ///     assert!(sessions.get_session(&addr).get_ref().is_none());
+    ///     assert!(sessions.get_session(&identifier).get_ref().is_none());
     /// }
     ///
     /// // get_session always creates a new session if it doesn't exist
     /// {
-    ///     let lock = sessions.get_session_or_default(&addr);
+    ///     let lock = sessions.get_session_or_default(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
     ///         Session::New { .. } => {},
@@ -329,10 +329,10 @@ where
     ///     }
     /// }
     ///
-    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// {
-    ///     let lock = sessions.get_session(&addr);
+    ///     let lock = sessions.get_session(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
     ///         Session::Authenticated { username, allocate_port, allocate_channels, .. } => {
@@ -386,7 +386,7 @@ where
         }
     }
 
-    /// Get digest for addr.
+    /// Get digest for identifier.
     ///
     /// # Test
     ///
@@ -410,7 +410,7 @@ where
     ///     }
     /// }
     ///
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -427,28 +427,30 @@ where
     ///
     /// // First call get_session to create a new session
     /// {
-    ///     sessions.get_session(&addr);
+    ///     sessions.get_session(&identifier);
     /// }
-    /// assert_eq!(pollster::block_on(sessions.get_password(&addr, "test1", PasswordAlgorithm::Md5)), None);
+    /// assert_eq!(pollster::block_on(sessions.get_password(&identifier, "test1", PasswordAlgorithm::Md5)), None);
     ///
     /// // Create a new session for the next test
     /// {
-    ///     sessions.get_session(&addr);
+    ///     sessions.get_session(&identifier);
     /// }
-    /// assert_eq!(sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on(), Some(digest));
+    /// assert_eq!(sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on(), Some(digest));
     ///
     /// // The third call should return cached digest
-    /// assert_eq!(sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on(), Some(digest));
+    /// assert_eq!(sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on(), Some(digest));
     /// ```
     pub async fn get_password(
         &self,
-        addr: &Identifier,
+        identifier: &Identifier,
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> Option<Password> {
         // Already authenticated, get the cached digest directly.
         {
-            if let Some(Session::Authenticated { password, .. }) = self.sessions.read().get(addr) {
+            if let Some(Session::Authenticated { password, .. }) =
+                self.sessions.read().get(identifier)
+            {
                 return Some(*password);
             }
         }
@@ -460,14 +462,14 @@ where
         // Record a new session.
         {
             let mut lock = self.sessions.write();
-            let nonce = if let Some(Session::New { nonce, .. }) = lock.remove(addr) {
+            let nonce = if let Some(Session::New { nonce, .. }) = lock.remove(identifier) {
                 nonce
             } else {
                 generate_nonce()
             };
 
             lock.insert(
-                *addr,
+                *identifier,
                 Session::Authenticated {
                     allocate_channels: Vec::with_capacity(10),
                     permissions: Vec::with_capacity(10),
@@ -511,7 +513,7 @@ where
     ///     }
     /// }
     ///
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -526,10 +528,10 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// {
-    ///     let lock = sessions.get_session(&addr);
+    ///     let lock = sessions.get_session(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
     ///         Session::Authenticated { username, allocate_port, allocate_channels, .. } => {
@@ -541,9 +543,9 @@ where
     ///     }
     /// }
     ///
-    /// let port = sessions.allocate(&addr, None).unwrap();
+    /// let port = sessions.allocate(&identifier, None).unwrap();
     /// {
-    ///     let lock = sessions.get_session(&addr);
+    ///     let lock = sessions.get_session(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
     ///         Session::Authenticated { username, allocate_port, allocate_channels, .. } => {
@@ -555,16 +557,16 @@ where
     ///     }
     /// }
     ///
-    /// assert_eq!(sessions.allocate(&addr, None), Some(port));
+    /// assert_eq!(sessions.allocate(&identifier, None), Some(port));
     /// ```
-    pub fn allocate(&self, addr: &Identifier, lifetime: Option<u32>) -> Option<u16> {
+    pub fn allocate(&self, identifier: &Identifier, lifetime: Option<u32>) -> Option<u16> {
         let mut lock = self.sessions.write();
 
         if let Some(Session::Authenticated {
             allocate_port,
             expires,
             ..
-        }) = lock.get_mut(addr)
+        }) = lock.get_mut(identifier)
         {
             // If the port has already been allocated, re-allocation is not allowed.
             if let Some(port) = allocate_port {
@@ -572,13 +574,13 @@ where
             }
 
             // Records the port assigned to the current session and resets the alive time.
-            let port = self.port_allocator.lock().alloc(None)?;
+            let port = self.port_allocator.lock().allocate(None)?;
+            *allocate_port = Some(port);
             *expires =
                 self.timer.get() + (lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32) as u64);
-            *allocate_port = Some(port);
 
             // Write the allocation port binding table.
-            self.port_mapping_table.write().insert(port, *addr);
+            self.port_mapping_table.write().insert(port, *identifier);
             Some(port)
         } else {
             None
@@ -610,12 +612,12 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let peer_addr = Identifier {
+    /// let peer_identifier = Identifier {
     ///     source: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -630,21 +632,21 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
-    /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&peer_identifier, "test", PasswordAlgorithm::Md5).block_on();
     ///
-    /// let port = sessions.allocate(&addr, None).unwrap();
-    /// let peer_port = sessions.allocate(&peer_addr, None).unwrap();
+    /// let port = sessions.allocate(&identifier, None).unwrap();
+    /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
     ///
-    /// assert!(!sessions.create_permission(&addr, &endpoint, &[port]));
-    /// assert!(sessions.create_permission(&addr, &endpoint, &[peer_port]));
+    /// assert!(!sessions.create_permission(&identifier, &endpoint, &[port]));
+    /// assert!(sessions.create_permission(&identifier, &endpoint, &[peer_port]));
     ///
-    /// assert!(!sessions.create_permission(&peer_addr, &endpoint, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_addr, &endpoint, &[port]));
+    /// assert!(!sessions.create_permission(&peer_identifier, &endpoint, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_identifier, &endpoint, &[port]));
     /// ```
     pub fn create_permission(
         &self,
-        addr: &Identifier,
+        identifier: &Identifier,
         endpoint: &SocketAddr,
         ports: &[u16],
     ) -> bool {
@@ -657,7 +659,7 @@ where
             allocate_port,
             permissions,
             ..
-        }) = sessions.get_mut(addr)
+        }) = sessions.get_mut(identifier)
         {
             // The port number assigned to the current session.
             let local_port = if let Some(it) = allocate_port {
@@ -689,7 +691,7 @@ where
                     .insert(
                         local_port,
                         Endpoint {
-                            source: addr.source,
+                            source: identifier.source,
                             endpoint: *endpoint,
                         },
                     );
@@ -731,12 +733,12 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let peer_addr = Identifier {
+    /// let peer_identifier = Identifier {
     ///     source: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -751,14 +753,14 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
-    /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&peer_identifier, "test", PasswordAlgorithm::Md5).block_on();
     ///
-    /// let port = sessions.allocate(&addr, None).unwrap();
-    /// let peer_port = sessions.allocate(&peer_addr, None).unwrap();
+    /// let port = sessions.allocate(&identifier, None).unwrap();
+    /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
     /// {
     ///     assert_eq!(
-    ///         match sessions.get_session(&addr).get_ref().unwrap() {
+    ///         match sessions.get_session(&identifier).get_ref().unwrap() {
     ///             Session::Authenticated { allocate_channels, .. } => allocate_channels.len(),
     ///             _ => panic!("Expected authenticated session"),
     ///         },
@@ -768,7 +770,7 @@ where
     ///
     /// {
     ///     assert_eq!(
-    ///         match sessions.get_session(&peer_addr).get_ref().unwrap() {
+    ///         match sessions.get_session(&peer_identifier).get_ref().unwrap() {
     ///             Session::Authenticated { allocate_channels, .. } => allocate_channels.len(),
     ///             _ => panic!("Expected authenticated session"),
     ///         },
@@ -776,12 +778,12 @@ where
     ///     );
     /// }
     ///
-    /// assert!(sessions.bind_channel(&addr, &endpoint, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_addr, &endpoint, port, 0x4000));
+    /// assert!(sessions.bind_channel(&identifier, &endpoint, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_identifier, &endpoint, port, 0x4000));
     ///
     /// {
     ///     assert_eq!(
-    ///         match sessions.get_session(&addr).get_ref().unwrap() {
+    ///         match sessions.get_session(&identifier).get_ref().unwrap() {
     ///             Session::Authenticated { allocate_channels, .. } => allocate_channels.clone(),
     ///             _ => panic!("Expected authenticated session"),
     ///         },
@@ -791,7 +793,7 @@ where
     ///
     /// {
     ///     assert_eq!(
-    ///         match sessions.get_session(&peer_addr).get_ref().unwrap() {
+    ///         match sessions.get_session(&peer_identifier).get_ref().unwrap() {
     ///             Session::Authenticated { allocate_channels, .. } => allocate_channels.clone(),
     ///             _ => panic!("Expected authenticated session"),
     ///         },
@@ -801,7 +803,7 @@ where
     /// ```
     pub fn bind_channel(
         &self,
-        addr: &Identifier,
+        identifier: &Identifier,
         endpoint: &SocketAddr,
         port: u16,
         channel: u16,
@@ -818,7 +820,7 @@ where
             let mut lock = self.sessions.write();
             if let Some(Session::Authenticated {
                 allocate_channels, ..
-            }) = lock.get_mut(addr)
+            }) = lock.get_mut(identifier)
             {
                 if !allocate_channels.contains(&channel) {
                     allocate_channels.push(channel);
@@ -829,7 +831,7 @@ where
         }
 
         // Binding ports also creates permissions.
-        if !self.create_permission(addr, endpoint, &[port]) {
+        if !self.create_permission(identifier, endpoint, &[port]) {
             return false;
         }
 
@@ -841,7 +843,7 @@ where
             .insert(
                 channel,
                 Endpoint {
-                    source: addr.source,
+                    source: identifier.source,
                     endpoint: *endpoint,
                 },
             );
@@ -874,12 +876,12 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let peer_addr = Identifier {
+    /// let peer_identifier = Identifier {
     ///     source: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -894,17 +896,17 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
-    /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&peer_identifier, "test", PasswordAlgorithm::Md5).block_on();
     ///
-    /// let port = sessions.allocate(&addr, None).unwrap();
-    /// let peer_port = sessions.allocate(&peer_addr, None).unwrap();
+    /// let port = sessions.allocate(&identifier, None).unwrap();
+    /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
     ///
-    /// assert!(sessions.bind_channel(&addr, &endpoint, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_addr, &endpoint, port, 0x4000));
+    /// assert!(sessions.bind_channel(&identifier, &endpoint, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_identifier, &endpoint, port, 0x4000));
     /// assert_eq!(
     ///     sessions
-    ///         .get_channel_relay_address(&addr, 0x4000)
+    ///         .get_channel_relay_address(&identifier, 0x4000)
     ///         .unwrap()
     ///         .endpoint,
     ///     endpoint
@@ -912,16 +914,20 @@ where
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_channel_relay_address(&peer_addr, 0x4000)
+    ///         .get_channel_relay_address(&peer_identifier, 0x4000)
     ///         .unwrap()
     ///         .endpoint,
     ///     endpoint
     /// );
     /// ```
-    pub fn get_channel_relay_address(&self, addr: &Identifier, channel: u16) -> Option<Endpoint> {
+    pub fn get_channel_relay_address(
+        &self,
+        identifier: &Identifier,
+        channel: u16,
+    ) -> Option<Endpoint> {
         self.channel_relay_table
             .read()
-            .get(addr)?
+            .get(identifier)?
             .get(&channel)
             .copied()
     }
@@ -951,12 +957,12 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
     ///
-    /// let peer_addr = Identifier {
+    /// let peer_identifier = Identifier {
     ///     source: "127.0.0.1:8081".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -971,18 +977,18 @@ where
     ///     handler: ServiceHandlerTest,
     /// });
     ///
-    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
-    /// sessions.get_password(&peer_addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&peer_identifier, "test", PasswordAlgorithm::Md5).block_on();
     ///
-    /// let port = sessions.allocate(&addr, None).unwrap();
-    /// let peer_port = sessions.allocate(&peer_addr, None).unwrap();
+    /// let port = sessions.allocate(&identifier, None).unwrap();
+    /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
     ///
-    /// assert!(sessions.create_permission(&addr, &endpoint, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_addr, &endpoint, &[port]));
+    /// assert!(sessions.create_permission(&identifier, &endpoint, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_identifier, &endpoint, &[port]));
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_relay_address(&addr, peer_port)
+    ///         .get_relay_address(&identifier, peer_port)
     ///         .unwrap()
     ///         .endpoint,
     ///     endpoint
@@ -990,17 +996,21 @@ where
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_relay_address(&peer_addr, port)
+    ///         .get_relay_address(&peer_identifier, port)
     ///         .unwrap()
     ///         .endpoint,
     ///     endpoint
     /// );
     /// ```
-    pub fn get_relay_address(&self, addr: &Identifier, port: u16) -> Option<Endpoint> {
-        self.port_relay_table.read().get(addr)?.get(&port).copied()
+    pub fn get_relay_address(&self, identifier: &Identifier, port: u16) -> Option<Endpoint> {
+        self.port_relay_table
+            .read()
+            .get(identifier)?
+            .get(&port)
+            .copied()
     }
 
-    /// Refresh the session for addr.
+    /// Refresh the session for identifier.
     ///
     /// # Test
     ///
@@ -1024,7 +1034,7 @@ where
     ///     }
     /// }
     ///
-    /// let addr = Identifier {
+    /// let identifier = Identifier {
     ///     source: "127.0.0.1:8080".parse().unwrap(),
     ///     interface: "127.0.0.1:3478".parse().unwrap(),
     /// };
@@ -1041,7 +1051,7 @@ where
     ///
     /// // get_session always creates a new session if it doesn't exist
     /// {
-    ///     let lock = sessions.get_session_or_default(&addr);
+    ///     let lock = sessions.get_session_or_default(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
     ///         Session::New { .. } => {},
@@ -1049,10 +1059,10 @@ where
     ///     }
     /// }
     ///
-    /// sessions.get_password(&addr, "test", PasswordAlgorithm::Md5).block_on();
+    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
     ///
     /// {
-    ///     let lock = sessions.get_session(&addr);
+    ///     let lock = sessions.get_session(&identifier);
     ///     let expires = match lock.get_ref().unwrap() {
     ///         Session::Authenticated { expires, .. } => *expires,
     ///         _ => panic!("Expected authenticated session"),
@@ -1061,22 +1071,22 @@ where
     ///     assert!(expires == 600 || expires == 601 || expires == 602);
     /// }
     ///
-    /// assert!(sessions.refresh(&addr, 0));
+    /// assert!(sessions.refresh(&identifier, 0));
     ///
     /// // After refresh with lifetime 0, session should be removed
     /// {
-    ///     assert!(sessions.get_session(&addr).get_ref().is_none());
+    ///     assert!(sessions.get_session(&identifier).get_ref().is_none());
     /// }
     /// ```
-    pub fn refresh(&self, addr: &Identifier, lifetime: u32) -> bool {
+    pub fn refresh(&self, identifier: &Identifier, lifetime: u32) -> bool {
         if lifetime > 3600 {
             return false;
         }
 
         if lifetime == 0 {
-            self.remove_session(&[*addr]);
+            self.remove_session(&[*identifier]);
         } else if let Some(Session::Authenticated { expires, .. }) =
-            self.sessions.write().get_mut(addr)
+            self.sessions.write().get_mut(identifier)
         {
             *expires = self.timer.get() + lifetime as u64;
         } else {

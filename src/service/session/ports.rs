@@ -151,7 +151,7 @@ pub enum Bit {
 /// let mut pool = PortAllocator::default();
 /// let mut ports = HashSet::with_capacity(PortAllocator::default().capacity());
 ///
-/// while let Some(port) = pool.alloc(None) {
+/// while let Some(port) = pool.allocate(None) {
 ///     ports.insert(port);
 /// }
 ///
@@ -227,7 +227,7 @@ impl PortAllocator {
     /// let mut pools = PortAllocator::default();
     /// assert_eq!(pools.len(), 0);
     ///
-    /// pools.alloc(None).unwrap();
+    /// pools.allocate(None).unwrap();
     /// assert_eq!(pools.len(), 1);
     /// ```
     pub fn len(&self) -> usize {
@@ -256,12 +256,12 @@ impl PortAllocator {
     ///
     /// let mut pool = PortAllocator::default();
     ///
-    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
-    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49152));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49153));
     ///
-    /// assert!(pool.alloc(None).is_some());
+    /// assert!(pool.allocate(None).is_some());
     /// ```
-    pub fn alloc(&mut self, start: Option<usize>) -> Option<u16> {
+    pub fn allocate(&mut self, start: Option<usize>) -> Option<u16> {
         let mut index = None;
         let mut offset = start.unwrap_or_else(|| rand::rng().random_range(0..self.max_offset));
 
@@ -330,14 +330,14 @@ impl PortAllocator {
     ///
     /// let mut pool = PortAllocator::default();
     ///
-    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
-    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49152));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49153));
     ///
     /// pool.set_bit(0, 0, Bit::High);
     /// pool.set_bit(0, 1, Bit::High);
     ///
-    /// assert_eq!(pool.alloc(Some(0)), Some(49154));
-    /// assert_eq!(pool.alloc(Some(0)), Some(49155));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49154));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49155));
     /// ```
     pub fn set_bit(&mut self, bucket: usize, index: usize, bit: Bit) {
         let high_mask = 1 << (63 - index);
@@ -353,7 +353,7 @@ impl PortAllocator {
         };
     }
 
-    /// restore port in the buckets.
+    /// deallocate port in the buckets.
     ///
     /// # Test
     ///
@@ -362,16 +362,16 @@ impl PortAllocator {
     ///
     /// let mut pool = PortAllocator::default();
     ///
-    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
-    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49152));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49153));
     ///
-    /// pool.restore(49152);
-    /// pool.restore(49153);
+    /// pool.deallocate(49152);
+    /// pool.deallocate(49153);
     ///
-    /// assert_eq!(pool.alloc(Some(0)), Some(49152));
-    /// assert_eq!(pool.alloc(Some(0)), Some(49153));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49152));
+    /// assert_eq!(pool.allocate(Some(0)), Some(49153));
     /// ```
-    pub fn restore(&mut self, port: u16) {
+    pub fn deallocate(&mut self, port: u16) {
         assert!(self.port_range.contains(port));
 
         // Calculate the location in the partition from the port number.

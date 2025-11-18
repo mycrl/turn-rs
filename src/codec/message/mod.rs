@@ -225,7 +225,7 @@ impl<'a> MessageEncoder<'a> {
     ///
     /// assert_eq!(&buf[..], &result);
     /// ```
-    fn verify(&mut self, passwrd: &Password) -> Result<(), Error> {
+    fn verify(&mut self, password: &Password) -> Result<(), Error> {
         assert!(self.bytes.len() >= 20);
         let len = self.bytes.len();
 
@@ -235,8 +235,8 @@ impl<'a> MessageEncoder<'a> {
 
         // write MessageIntegrity attribute.
         {
-            let hmac = hmac_sha1(passwrd, &[self.bytes]);
-            self.bytes.put_u16(match passwrd {
+            let hmac = hmac_sha1(password, &[self.bytes]);
+            self.bytes.put_u16(match password {
                 Password::Md5(_) => AttributeType::MessageIntegrity as u16,
                 Password::Sha256(_) => AttributeType::MessageIntegritySha256 as u16,
             });

@@ -120,7 +120,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn get_externals(&self) -> Vec<SocketAddr> {
+    pub fn get_external_addresses(&self) -> Vec<SocketAddr> {
         self.interfaces
             .iter()
             .map(|item| match item {
