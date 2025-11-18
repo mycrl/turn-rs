@@ -116,10 +116,10 @@ impl Statistics {
     /// let statistics = Statistics::default();
     /// let sender = statistics.get_reporter();
     ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// sender.send(&identifier, &[Stats::ReceivedBytes(100)]);
     /// ```
@@ -139,10 +139,10 @@ impl Statistics {
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// statistics.register(identifier.clone());
     /// assert_eq!(statistics.get(&identifier).is_some(), true);
@@ -170,10 +170,10 @@ impl Statistics {
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// statistics.register(identifier.clone());
     /// assert_eq!(statistics.get(&identifier).is_some(), true);
@@ -197,10 +197,10 @@ impl Statistics {
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// statistics.register(identifier.clone());
     /// assert_eq!(statistics.get(&identifier).is_some(), true);

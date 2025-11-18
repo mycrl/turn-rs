@@ -353,10 +353,10 @@ where
     ///     }
     /// }
     ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -464,10 +464,10 @@ where
     ///     }
     /// }
     ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -567,10 +567,10 @@ where
     ///     }
     /// }
     ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -666,15 +666,15 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
-    /// let peer_identifier = Identifier {
-    ///     source: "127.0.0.1:8081".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let peer_identifier = Identifier::new(
+    ///     "127.0.0.1:8081".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -787,15 +787,15 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
-    /// let peer_identifier = Identifier {
-    ///     source: "127.0.0.1:8081".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let peer_identifier = Identifier::new(
+    ///     "127.0.0.1:8081".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -930,15 +930,15 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
-    /// let peer_identifier = Identifier {
-    ///     source: "127.0.0.1:8081".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let peer_identifier = Identifier::new(
+    ///     "127.0.0.1:8081".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -962,7 +962,7 @@ where
     ///     sessions
     ///         .get_channel_relay_address(&identifier, 0x4000)
     ///         .unwrap()
-    ///         .endpoint,
+    ///         .endpoint(),
     ///     endpoint
     /// );
     ///
@@ -970,7 +970,7 @@ where
     ///     sessions
     ///         .get_channel_relay_address(&peer_identifier, 0x4000)
     ///         .unwrap()
-    ///         .endpoint,
+    ///         .endpoint(),
     ///     endpoint
     /// );
     /// ```
@@ -1011,15 +1011,15 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
-    /// let peer_identifier = Identifier {
-    ///     source: "127.0.0.1:8081".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let peer_identifier = Identifier::new(
+    ///     "127.0.0.1:8081".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -1044,7 +1044,7 @@ where
     ///     sessions
     ///         .get_relay_address(&identifier, peer_port)
     ///         .unwrap()
-    ///         .endpoint,
+    ///         .endpoint(),
     ///     endpoint
     /// );
     ///
@@ -1052,7 +1052,7 @@ where
     ///     sessions
     ///         .get_relay_address(&peer_identifier, port)
     ///         .unwrap()
-    ///         .endpoint,
+    ///         .endpoint(),
     ///     endpoint
     /// );
     /// ```
@@ -1088,10 +1088,10 @@ where
     ///     }
     /// }
     ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    /// };
+    /// let identifier = Identifier::new(
+    ///     "127.0.0.1:8080".parse().unwrap(),
+    ///     "127.0.0.1:3478".parse().unwrap(),
+    /// );
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
