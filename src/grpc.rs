@@ -49,16 +49,25 @@ pub trait IdString {
 }
 
 impl IdString for Identifier {
-    type Error = anyhow::Error;
+    type Error = Status;
 
     fn to_string(&self) -> String {
         format!("{}/{}", self.source(), self.interface())
     }
 
     fn from_string(s: String) -> Result<Self, Self::Error> {
-        let (source, interface) = s.split_once('/').ok_or(anyhow!("Invalid identifier"))?;
+        let (source, interface) = s
+            .split_once('/')
+            .ok_or(Status::invalid_argument("Invalid identifier"))?;
 
-        Ok(Self::new(source.parse()?, interface.parse()?))
+        Ok(Self::new(
+            source
+                .parse()
+                .map_err(|_| Status::invalid_argument("Invalid source address"))?,
+            interface
+                .parse()
+                .map_err(|_| Status::invalid_argument("Invalid interface address"))?,
+        ))
     }
 }
 
@@ -101,10 +110,7 @@ impl TurnService for RpcService {
         }) = self
             .service
             .get_session_manager()
-            .get_session(
-                &Identifier::from_string(request.into_inner().id)
-                    .map_err(|_| Status::invalid_argument("Invalid identifier"))?,
-            )
+            .get_session(&Identifier::from_string(request.into_inner().id)?)
             .get_ref()
         {
             Ok(Response::new(TurnSession {
@@ -123,10 +129,10 @@ impl TurnService for RpcService {
         &self,
         request: Request<SessionQueryParams>,
     ) -> Result<Response<TurnSessionStatistics>, Status> {
-        if let Some(counts) = self.statistics.get(
-            &Identifier::from_string(request.into_inner().id)
-                .map_err(|_| Status::invalid_argument("Invalid identifier"))?,
-        ) {
+        if let Some(counts) = self
+            .statistics
+            .get(&Identifier::from_string(request.into_inner().id)?)
+        {
             Ok(Response::new(TurnSessionStatistics {
                 received_bytes: counts.received_bytes as u64,
                 send_bytes: counts.send_bytes as u64,
@@ -143,11 +149,11 @@ impl TurnService for RpcService {
         &self,
         request: Request<SessionQueryParams>,
     ) -> Result<Response<()>, Status> {
-        if self.service.get_session_manager().refresh(
-            &Identifier::from_string(request.into_inner().id)
-                .map_err(|_| Status::invalid_argument("Invalid identifier"))?,
-            0,
-        ) {
+        if self
+            .service
+            .get_session_manager()
+            .refresh(&Identifier::from_string(request.into_inner().id)?, 0)
+        {
             Ok(Response::new(()))
         } else {
             Err(Status::failed_precondition("Session not found"))
