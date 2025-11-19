@@ -14,8 +14,6 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-turn-server-sdk = { path = "../sdk" }  # For local development
-# or
 turn-server-sdk = "0.1.0-beta.1"  # When published
 ```
 
