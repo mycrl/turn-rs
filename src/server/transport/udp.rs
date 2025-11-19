@@ -84,6 +84,10 @@ impl Server for UdpServer {
                                 }
                             };
 
+                            if size < 4 {
+                                continue;
+                            }
+
                             if let Some(stream) = sockets.get(&addr) {
                                 if stream.try_send(Bytes::copy_from_slice(&buffer[..size])).is_err()
                                 {
