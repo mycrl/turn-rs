@@ -1,28 +1,29 @@
 <!--lint disable no-literal-urls-->
 <div align="center">
-  <img src="./logo.svg" width="200px"/>
+    <img src="./logo.svg" width="200px"/>
 </div>
 <br/>
 <div align="center">
-  <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/tests.yml?branch=main&style=flat-square"/>
-  <img src="https://img.shields.io/crates/v/turn-server?style=flat-square"/>
-  <img src="https://img.shields.io/docsrs/turn-server?style=flat-square"/>
-  <img src="https://img.shields.io/github/license/mycrl/turn-rs?style=flat-square"/>
-  <img src="https://img.shields.io/github/issues/mycrl/turn-rs?style=flat-square"/>
-  <img src="https://img.shields.io/github/stars/mycrl/turn-rs?style=flat-square"/>
+    <strong>TURN Server implemented by ❤️ Rust</strong>
+    <p>The TURN Server is a VoIP media traffic NAT traversal server and gateway.</p>
 </div>
 <div align="center">
-  <strong>TURN Server implemented by ❤️ Rust</strong>
+    <img src="https://img.shields.io/github/actions/workflow/status/mycrl/turn-rs/tests.yml?branch=main&style=flat-square"/>
+    <img src="https://img.shields.io/crates/v/turn-server?style=flat-square"/>
+    <img src="https://img.shields.io/docsrs/turn-server?style=flat-square"/>
+    <img src="https://img.shields.io/github/license/mycrl/turn-rs?style=flat-square"/>
+    <img src="https://img.shields.io/github/issues/mycrl/turn-rs?style=flat-square"/>
+    <img src="https://img.shields.io/github/stars/mycrl/turn-rs?style=flat-square"/>
 </div>
 <div align="center">
-  <a href="https://zdoc.app/de/mycrl/turn-rs">Deutsch</a> | 
-  <a href="https://zdoc.app/es/mycrl/turn-rs">Español</a> | 
-  <a href="https://zdoc.app/fr/mycrl/turn-rs">français</a> | 
-  <a href="https://zdoc.app/ja/mycrl/turn-rs">日本語</a> | 
-  <a href="https://zdoc.app/ko/mycrl/turn-rs">한국어</a> | 
-  <a href="https://zdoc.app/pt/mycrl/turn-rs">Português</a> | 
-  <a href="https://zdoc.app/ru/mycrl/turn-rs">Русский</a> | 
-  <a href="https://zdoc.app/zh/mycrl/turn-rs">中文</a>
+    <a href="https://zdoc.app/de/mycrl/turn-rs">Deutsch</a> | 
+    <a href="https://zdoc.app/es/mycrl/turn-rs">Español</a> | 
+    <a href="https://zdoc.app/fr/mycrl/turn-rs">français</a> | 
+    <a href="https://zdoc.app/ja/mycrl/turn-rs">日本語</a> | 
+    <a href="https://zdoc.app/ko/mycrl/turn-rs">한국어</a> | 
+    <a href="https://zdoc.app/pt/mycrl/turn-rs">Português</a> | 
+    <a href="https://zdoc.app/ru/mycrl/turn-rs">Русский</a> | 
+    <a href="https://zdoc.app/zh/mycrl/turn-rs">中文</a>
 </div>
 
 ---
