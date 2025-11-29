@@ -24,7 +24,6 @@ toml = "0.9.6"
 simple_logger = "5"
 tokio = { version = "1", features = ["full"] }
 tokio-rustls = { version = "0.26", features = ["aws-lc-rs"], optional = true }
-tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 num_cpus = "1.17.0"
 tonic = { version = "0.14", features = ["deflate"], optional = true }
 protos = { path = "./protos", version = "0.1.0-beta.1", package = "turn-server-protos", optional = true }
