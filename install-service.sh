@@ -11,8 +11,8 @@ if [ ! -d "/etc/turn-server" ]; then
     mkdir /etc/turn-server 
 fi
 
-if [ ! -f "/etc/turn-server/config.json" ]; then 
-    cp ./turn-server.json /etc/turn-server/config.json
+if [ ! -f "/etc/turn-server/config.toml" ]; then 
+    cp ./turn-server.toml /etc/turn-server/config.toml
 fi
 
 if [ ! -f "/etc/systemd/system/turn-server.service" ]; then 
