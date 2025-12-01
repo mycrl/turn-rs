@@ -236,8 +236,7 @@ impl RpcHooksService {
                     builder
                         .connect_timeout(Duration::from_secs(5))
                         .timeout(Duration::from_secs(1))
-                        .connect()
-                        .await?,
+                        .connect_lazy(),
                 )
             };
 
