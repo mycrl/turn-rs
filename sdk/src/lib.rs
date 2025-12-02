@@ -295,7 +295,11 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
         let request = request.into_inner();
         let algorithm = request.algorithm();
 
-        if let Ok(credential) = self.0.get_password(&request.username, algorithm).await {
+        if let Ok(credential) = self
+            .0
+            .get_password(&request.realm, &request.username, algorithm)
+            .await
+        {
             Ok(Response::new(GetTurnPasswordResponse {
                 password: generate_password(
                     &request.username,
@@ -378,6 +382,7 @@ pub trait TurnHooksServer: Send + Sync {
     #[allow(unused_variables)]
     async fn get_password(
         &self,
+        realm: &str,
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> Result<Credential, Status> {

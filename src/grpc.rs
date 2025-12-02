@@ -225,9 +225,9 @@ impl RpcHooksService {
                         ClientTlsConfig::new()
                             .ca_certificate(Certificate::from_pem(ssl.certificate_chain.clone()))
                             .domain_name(
-                                url::Url::parse(&hooks.endpoint)?
-                                    .domain()
-                                    .ok_or_else(|| anyhow::anyhow!("Invalid hooks server domain"))?,
+                                url::Url::parse(&hooks.endpoint)?.domain().ok_or_else(|| {
+                                    anyhow::anyhow!("Invalid hooks server domain")
+                                })?,
                             ),
                     )?;
                 }
@@ -292,6 +292,7 @@ impl RpcHooksService {
 
     pub async fn get_password(
         &self,
+        realm: &str,
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> Option<Password> {
@@ -302,6 +303,7 @@ impl RpcHooksService {
                 .lock()
                 .await
                 .get_password(Request::new(GetTurnPasswordRequest {
+                    realm: realm.to_string(),
                     username: username.to_string(),
                     algorithm: algorithm as i32,
                 }))

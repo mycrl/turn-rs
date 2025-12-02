@@ -1,6 +1,6 @@
 [package]
 name = "turn-server"
-version = "4.0.0-beta.2"
+version = "4.0.0-beta.3"
 edition = "2024"
 authors = ["mycrl <lepidodendraceae@gmail.com>"]
 description = "A pure rust-implemented turn server."
@@ -26,7 +26,7 @@ tokio = { version = "1", features = ["full"] }
 tokio-rustls = { version = "0.26", features = ["aws-lc-rs"], optional = true }
 num_cpus = "1.17.0"
 tonic = { version = "0.14", features = ["deflate"], optional = true }
-protos = { path = "./protos", version = "0.1.0-beta.1", package = "turn-server-protos", optional = true }
+protos = { path = "./protos", version = "0.1.0-beta.2", package = "turn-server-protos", optional = true }
 url = { version = "2.5.7", optional = true }
 base64 = "0.22"
 num_enum = "0.7"

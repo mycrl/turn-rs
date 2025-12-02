@@ -68,7 +68,10 @@ impl ServiceHandler for Handler {
 
         #[cfg(feature = "grpc")]
         if self.config.auth.enable_hooks_auth {
-            return self.rpc.get_password(username, algorithm).await;
+            return self
+                .rpc
+                .get_password(&self.config.server.realm, username, algorithm)
+                .await;
         }
 
         None

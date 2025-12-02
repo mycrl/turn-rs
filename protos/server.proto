@@ -106,6 +106,7 @@ enum PasswordAlgorithm {
 message GetTurnPasswordRequest {
     PasswordAlgorithm algorithm = 1;
     string username = 2;
+    string realm = 3;
 }
 
 // get turn message integrity response
