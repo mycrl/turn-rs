@@ -15,6 +15,7 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 turn-server-sdk = "0.1.0-beta.1"  # When published
+turn-server-protos = "0.1.0-beta.1"
 ```
 
 ## Client Usage
@@ -22,8 +23,7 @@ turn-server-sdk = "0.1.0-beta.1"  # When published
 The `TurnService` client allows you to interact with a running TURN server's gRPC API:
 
 ```rust
-use turn_server_sdk::TurnService;
-use tonic::transport::Channel;
+use turn_server_sdk::{TurnService， tonic::transport::Channel};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,19 +59,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 Implement the `TurnHooksServer` trait to provide custom authentication and handle TURN events:
 
 ```rust
-use turn_server_sdk::{TurnHooksServer, Credential, PasswordAlgorithm};
-use tonic::transport::Server;
 use std::net::SocketAddr;
+
+use turn_server_sdk::{
+    Credential, TurnHooksServer,
+    protos::PasswordAlgorithm,
+    tonic::{Status, transport::Server},
+};
 
 struct MyHooksServer;
 
-#[tonic::async_trait]
+#[turn_server_sdk::tonic::async_trait]
 impl TurnHooksServer for MyHooksServer {
     async fn get_password(
         &self,
         username: &str,
         algorithm: PasswordAlgorithm,
-    ) -> Result<Credential, tonic::Status> {
+    ) -> Result<Credential, Status> {
         // Implement your authentication logic here
         // For example, look up the user in a database
         Ok(Credential {
@@ -123,7 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 Generate STUN/TURN authentication passwords for long-term credentials:
 
 ```rust
-use turn_server_sdk::{generate_password, PasswordAlgorithm};
+use turn_server_sdk::{generate_password, protos::PasswordAlgorithm};
 
 // Generate MD5 password (RFC 5389)
 let md5_password = generate_password(
