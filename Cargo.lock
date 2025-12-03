@@ -2219,7 +2219,7 @@ dependencies = [
 
 [[package]]
 name = "turn-server-sdk"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "aws-lc-rs",
  "md-5",

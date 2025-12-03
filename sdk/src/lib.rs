@@ -233,9 +233,9 @@ impl TurnService {
 /// credential
 ///
 /// This struct is used to store the credential for the turn hooks server.
-pub struct Credential<'a> {
-    pub password: &'a str,
-    pub realm: &'a str,
+pub struct Credential {
+    pub password: String,
+    pub realm: String,
 }
 
 struct TurnHooksServerInner<T>(T);
@@ -303,8 +303,8 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
             Ok(Response::new(GetTurnPasswordResponse {
                 password: generate_password(
                     &request.username,
-                    credential.password,
-                    credential.realm,
+                    &credential.password,
+                    &credential.realm,
                     algorithm,
                 )
                 .to_vec(),
