@@ -61,14 +61,15 @@
 //! impl TurnHooksServer for MyHooksServer {
 //!     async fn get_password(
 //!         &self,
+//!         realm: &str,
 //!         username: &str,
 //!         algorithm: PasswordAlgorithm,
 //!     ) -> Result<Credential, tonic::Status> {
 //!         // Implement your authentication logic here
 //!         // For example, look up the user in a database
 //!         Ok(Credential {
-//!             password: "user-password",
-//!             realm: "my-realm",
+//!             password: "user-password".to_string(),
+//!             realm: realm.to_string(),
 //!         })
 //!     }
 //!
