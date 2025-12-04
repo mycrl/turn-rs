@@ -59,8 +59,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 Implement the `TurnHooksServer` trait to provide custom authentication and handle TURN events:
 
 ```rust
-use std::net::SocketAddr;
-
 use turn_server_sdk::{
     Credential, TurnHooksServer,
     protos::PasswordAlgorithm,
@@ -73,14 +71,15 @@ struct MyHooksServer;
 impl TurnHooksServer for MyHooksServer {
     async fn get_password(
         &self,
+        realm: &str,
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> Result<Credential, Status> {
         // Implement your authentication logic here
         // For example, look up the user in a database
         Ok(Credential {
-            password: "user-password",
-            realm: "my-realm",
+            password: "user-password".to_string(),
+            realm: realm.to_string(),
         })
     }
 
@@ -115,7 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     hooks.start_with_server(
         &mut server,
-        "127.0.0.1:8080".parse()?,
+        "127.0.0.1:3000".parse()?,
     ).await?;
 
     Ok(())
