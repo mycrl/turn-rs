@@ -2239,7 +2239,7 @@ dependencies = [
 
 [[package]]
 name = "turn-server-sdk"
-version = "0.1.0-beta.4"
+version = "0.1.0-beta.5"
 dependencies = [
  "md-5",
  "sha2",
