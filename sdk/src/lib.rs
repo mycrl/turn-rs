@@ -165,11 +165,10 @@
 //! - [RFC 8656](https://tools.ietf.org/html/rfc8656) - Traversal Using Relays around NAT (TURN)
 
 pub use protos;
-pub use tonic;
+use sha2::Sha256;
 
 use std::{net::SocketAddr, ops::Deref};
 
-use aws_lc_rs::digest;
 use md5::{Digest, Md5};
 use tonic::{
     Request, Response, Status,
@@ -273,12 +272,12 @@ pub fn generate_password(
             Password::Md5(hasher.finalize().into())
         }
         PasswordAlgorithm::Sha256 => {
-            let mut ctx = digest::Context::new(&digest::SHA256);
+            let mut hasher = Sha256::new();
 
-            ctx.update([username, realm, password].join(":").as_bytes());
+            hasher.update([username, realm, password].join(":").as_bytes());
 
             let mut result = [0u8; 32];
-            result.copy_from_slice(ctx.finish().as_ref());
+            result.copy_from_slice(&hasher.finalize());
             Password::Sha256(result)
         }
         PasswordAlgorithm::Unspecified => {

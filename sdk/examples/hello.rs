@@ -1,12 +1,9 @@
-use turn_server_sdk::{
-    Credential, TurnHooksServer,
-    protos::PasswordAlgorithm,
-    tonic::{Status, transport::Server},
-};
+use turn_server_sdk::{Credential, TurnHooksServer, protos::PasswordAlgorithm};
+use tonic::{Status, transport::Server};
 
 struct MyHooksServer;
 
-#[turn_server_sdk::tonic::async_trait]
+#[tonic::async_trait]
 impl TurnHooksServer for MyHooksServer {
     async fn get_password(
         &self,

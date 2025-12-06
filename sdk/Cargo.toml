@@ -8,10 +8,11 @@ repository = "https://github.com/mycrl/turn-rs"
 readme = "README.md"
 
 [dependencies]
-tonic = { version = "0.14", features = ["deflate", "tls-aws-lc"] }
+tonic = { version = "0.14", default-features = false, features = ["transport"] }
 protos = { path = "../protos", version = "0.1.0-beta.3", package = "turn-server-protos" }
 md-5 = "0.10"
-aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"] }
+sha2 = "0.10.9"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+tonic = { version = "0.14", features = ["deflate"] }
