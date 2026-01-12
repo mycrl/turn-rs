@@ -1079,15 +1079,42 @@ where
     /// When peer address is this server's own relay address, we need to forward
     /// directly to the client who owns that relay port, instead of sending to network.
     /// 
+    /// This method also validates that the sender has permission to send to the target
+    /// relay port. If the sender's session does not have the target port in its
+    /// permissions list, None is returned.
+    /// 
     /// Returns the Endpoint (source and endpoint addresses) of the client who owns 
-    /// the given relay port, or None if the port is not a relay port on this server.
-    pub fn get_internal_relay_endpoint(&self, relay_port: u16) -> Option<Endpoint> {
+    /// the given relay port, or None if:
+    /// - The port is not a relay port on this server
+    /// - The sender does not have permission to send to this port
+    /// - The target session is not authenticated
+    pub fn get_internal_relay_endpoint(
+        &self, 
+        sender: &Identifier, 
+        relay_port: u16
+    ) -> Option<Endpoint> {
         // Check if this port is a relay port allocated on this server
         let port_mapping = self.port_mapping_table.read();
         let target_identifier = port_mapping.get(&relay_port)?;
         
-        // Get the session that owns this relay port
+        // Get the sessions lock
         let sessions = self.sessions.read();
+        
+        // Verify sender has permission to send to this relay port
+        if let Some(Session::Authenticated { permissions, .. }) = sessions.get(sender) {
+            if !permissions.contains(&relay_port) {
+                log::debug!(
+                    "TURN internal relay: sender {:?} has no permission for port {}",
+                    sender.source(),
+                    relay_port
+                );
+                return None;
+            }
+        } else {
+            return None;
+        }
+        
+        // Get the session that owns this relay port
         if let Some(Session::Authenticated { .. }) = sessions.get(target_identifier) {
             // Return the source and endpoint of the target client
             // The source is the client's address, and we use it as both source and endpoint

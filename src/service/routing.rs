@@ -572,7 +572,8 @@ where
 
         let relay = if is_internal_relay {
             // Internal relay-to-relay: peer is another client on this same TURN server
-            match req.state.manager.get_internal_relay_endpoint(peer.port()) {
+            // This also validates that sender has permission to send to the target port
+            match req.state.manager.get_internal_relay_endpoint(req.id, peer.port()) {
                 Some(r) => {
                     log::debug!(
                         "TURN indication: internal relay-to-relay, peer relay port {} -> target {:?}",
@@ -583,7 +584,7 @@ where
                 }
                 None => {
                     log::warn!(
-                        "TURN indication: internal relay port {} not found, \
+                        "TURN indication: internal relay port {} not found or no permission, \
                         src={:?}, peer={:?}",
                         peer.port(),
                         req.id.source(),
