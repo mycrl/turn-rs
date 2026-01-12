@@ -739,6 +739,16 @@ where
 
             // Create a port forwarding mapping relationship for each peer session.
             for (peer, port) in peers {
+                log::debug!(
+                    "TURN create_permission: mapping peer {:?} port {} -> \
+                    local_port={}, source={:?}, endpoint={:?}",
+                    peer,
+                    port,
+                    local_port,
+                    identifier.source,
+                    endpoint
+                );
+                
                 port_relay_table
                     .entry(*peer)
                     .or_insert_with(|| HashMap::with_capacity(20))
@@ -1062,6 +1072,35 @@ where
             .get(identifier)?
             .get(&port)
             .copied()
+    }
+
+    /// Get the endpoint for internal relay-to-relay forwarding.
+    /// 
+    /// When peer address is this server's own relay address, we need to forward
+    /// directly to the client who owns that relay port, instead of sending to network.
+    /// 
+    /// Returns the Endpoint (source and endpoint addresses) of the client who owns 
+    /// the given relay port, or None if the port is not a relay port on this server.
+    pub fn get_internal_relay_endpoint(&self, relay_port: u16) -> Option<Endpoint> {
+        // Check if this port is a relay port allocated on this server
+        let port_mapping = self.port_mapping_table.read();
+        let target_identifier = port_mapping.get(&relay_port)?;
+        
+        // Get the session that owns this relay port
+        let sessions = self.sessions.read();
+        if let Some(Session::Authenticated { .. }) = sessions.get(target_identifier) {
+            // Return the source and endpoint of the target client
+            // The source is the client's address, and we use it as both source and endpoint
+            // because we want to forward directly to this client
+            Some(Endpoint::new(target_identifier.source(), target_identifier.source()))
+        } else {
+            None
+        }
+    }
+
+    /// Check if a given port is a relay port allocated on this server.
+    pub fn is_internal_relay_port(&self, port: u16) -> bool {
+        self.port_mapping_table.read().contains_key(&port)
     }
 
     /// Refresh the session for identifier.

@@ -545,6 +545,16 @@ where
 /// and [15](https://tools.ietf.org/html/rfc8656#section-15).
 ///
 /// The resulting UDP datagram is then sent to the peer.
+///
+/// # Internal Relay-to-Relay Forwarding
+///
+/// When two clients are both connected to the same TURN server and communicate
+/// via their relay addresses, a special internal forwarding path is used.
+/// Instead of looking up the permission table (which is keyed by the sender's
+/// identifier), the server detects that the peer address is one of its own
+/// relay ports and directly forwards the data to the client who owns that
+/// relay port. This enables relay-to-relay communication for clients in
+/// isolated networks that can only reach each other through the TURN server.
 #[rustfmt::skip]
 fn indication<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
 where
@@ -556,7 +566,66 @@ where
     if let Some(Session::Authenticated { allocate_port, .. }) =
         req.state.manager.get_session(req.id).get_ref() && let Some(local_port) = *allocate_port
     {
-        let relay = req.state.manager.get_relay_address(req.id, peer.port())?;
+        // Check if peer address is this server's own relay address (internal relay-to-relay)
+        let is_internal_relay = req.state.interfaces.iter().any(|iface| iface.ip() == peer.ip())
+            && req.state.manager.is_internal_relay_port(peer.port());
+
+        let relay = if is_internal_relay {
+            // Internal relay-to-relay: peer is another client on this same TURN server
+            match req.state.manager.get_internal_relay_endpoint(peer.port()) {
+                Some(r) => {
+                    log::debug!(
+                        "TURN indication: internal relay-to-relay, peer relay port {} -> target {:?}",
+                        peer.port(),
+                        r.source()
+                    );
+                    r
+                }
+                None => {
+                    log::warn!(
+                        "TURN indication: internal relay port {} not found, \
+                        src={:?}, peer={:?}",
+                        peer.port(),
+                        req.id.source(),
+                        peer
+                    );
+                    return None;
+                }
+            }
+        } else {
+            // Normal case: use permission-based routing
+            match req.state.manager.get_relay_address(req.id, peer.port()) {
+                Some(r) => r,
+                None => {
+                    log::warn!(
+                        "TURN indication: relay address not found for peer port {}, \
+                        src={:?}, peer={:?}",
+                        peer.port(),
+                        req.id.source(),
+                        peer
+                    );
+                    return None;
+                }
+            }
+        };
+
+        // Debug log: track endpoint for forwarding
+        let target_endpoint = if req.state.endpoint != relay.endpoint() {
+            Some(relay.endpoint())
+        } else {
+            None
+        };
+        
+        log::debug!(
+            "TURN indication: forwarding {} bytes, src={:?} -> peer={:?}, \
+            relay.source={:?}, relay.endpoint={:?}, target_endpoint={:?}",
+            data.len(),
+            req.id.source(),
+            peer,
+            relay.source(),
+            relay.endpoint(),
+            target_endpoint
+        );
 
         {
             let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.encode_buffer);
@@ -570,15 +639,15 @@ where
             bytes: req.encode_buffer,
             target: Target {
                 relay: Some(relay.source()),
-                endpoint: if req.state.endpoint != relay.endpoint() {
-                    Some(relay.endpoint())
-                } else {
-                    None
-                },
+                endpoint: target_endpoint,
             },
         });
     }
 
+    log::debug!(
+        "TURN indication: session not found or not authenticated, src={:?}",
+        req.id.source()
+    );
     None
 }
 

@@ -117,13 +117,37 @@ impl Exchanger {
     /// If it does not exist, the data will be discarded by default.
     fn send(&self, interface: &SocketAddr, ty: PayloadType, data: Bytes) {
         let mut is_destroy = false;
+        let mut found = false;
 
         {
-            if let Some(sender) = self.0.read().get(interface)
-                && sender.send((data, ty)).is_err()
-            {
-                is_destroy = true;
+            let guard = self.0.read();
+            if let Some(sender) = guard.get(interface) {
+                found = true;
+                if sender.send((data.clone(), ty)).is_err() {
+                    is_destroy = true;
+                    log::warn!(
+                        "Exchanger: failed to send to {}, channel closed",
+                        interface
+                    );
+                } else {
+                    log::debug!(
+                        "Exchanger: forwarded {} bytes to {}, type={:?}",
+                        data.len(),
+                        interface,
+                        ty
+                    );
+                }
             }
+        }
+
+        if !found {
+            log::warn!(
+                "Exchanger: target {} not found! Data ({} bytes) discarded. \
+                Registered endpoints: {:?}",
+                interface,
+                data.len(),
+                self.0.read().keys().collect::<Vec<_>>()
+            );
         }
 
         if is_destroy {
