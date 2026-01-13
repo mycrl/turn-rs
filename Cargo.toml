@@ -56,9 +56,9 @@ harness = false
 default = ["udp", "tcp", "ssl", "api", "prometheus"]
 tcp = []
 udp = []
-ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc"]
+ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc", "dep:axum-server"]
 api = ["dep:tonic", "dep:url", "dep:protos"]
-prometheus = ["dep:axum", "dep:axum-server", "dep:serde_json", "dep:prometheus"]
+prometheus = ["dep:axum", "dep:serde_json", "dep:prometheus"]
 
 [profile.release]
 debug-assertions = false
