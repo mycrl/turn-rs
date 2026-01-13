@@ -97,6 +97,24 @@ Global timeout applied to API handlers.
 
 ---
 
+## `[prometheus]`
+
+### `prometheus.listen`
+
+-   Type: string (`"IP:PORT"`)
+-   Default: `"127.0.0.1:9090"`
+
+Bind address for the Prometheus metrics exporter endpoint. Only enabled when the `prometheus` feature is compiled.
+
+### `[prometheus.ssl]`
+
+-   Keys: `private-key`, `certificate-chain`
+-   Optional TLS configuration for the API endpoint.
+
+> **Security note:** the management gRPC endpoint ships without authentication or TLS. Enable the SSL settings above or terminate TLS behind a proxy before exposing it to untrusted networks.
+
+---
+
 ## `[hooks]`
 
 ### `hooks.endpoint`

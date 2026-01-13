@@ -281,14 +281,14 @@ impl Default for LogLevel {
     }
 }
 
-impl LogLevel {
-    pub fn as_level(&self) -> log::Level {
-        match *self {
-            Self::Error => log::Level::Error,
-            Self::Debug => log::Level::Debug,
-            Self::Trace => log::Level::Trace,
-            Self::Warn => log::Level::Warn,
-            Self::Info => log::Level::Info,
+impl Into<log::LevelFilter> for LogLevel {
+    fn into(self) -> log::LevelFilter {
+        match self {
+            Self::Error => log::LevelFilter::Error,
+            Self::Debug => log::LevelFilter::Debug,
+            Self::Trace => log::LevelFilter::Trace,
+            Self::Warn => log::LevelFilter::Warn,
+            Self::Info => log::LevelFilter::Info,
         }
     }
 }
@@ -303,6 +303,24 @@ pub struct Log {
     ///
     #[serde(default)]
     pub level: LogLevel,
+    /// log to stdout
+    ///
+    /// This option can be used to log to stdout.
+    ///
+    #[serde(default = "Log::stdout")]
+    pub stdout: bool,
+    /// log to file directory
+    ///
+    /// This option can be used to log to a file directory.
+    ///
+    #[serde(default)]
+    pub file_directory: Option<String>,
+}
+
+impl Log {
+    fn stdout() -> bool {
+        true
+    }
 }
 
 #[derive(Deserialize, Debug, Default, Clone)]
