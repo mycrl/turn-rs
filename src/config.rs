@@ -237,12 +237,12 @@ pub struct Prometheus {
 
 impl Prometheus {
     fn bind() -> SocketAddr {
-        "127.0.0.1:9090".parse().unwrap()
+        "127.0.0.1:9184".parse().unwrap()
     }
 }
 
 impl Default for Prometheus {
-    fn default() -> Self {
+fn default() -> Self {
         Self {
             listen: Self::bind(),
             ssl: None,
