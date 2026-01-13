@@ -215,6 +215,41 @@ impl Default for Api {
     }
 }
 
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct Prometheus {
+    ///
+    /// prometheus server listen
+    ///
+    /// This option specifies the prometheus server binding address used to expose
+    /// the metrics.
+    ///
+    #[serde(default = "Prometheus::bind")]
+    pub listen: SocketAddr,
+    ///
+    /// ssl configuration
+    ///
+    /// This option specifies the ssl configuration for the prometheus server.
+    ///
+    #[serde(default)]
+    pub ssl: Option<Ssl>,
+}
+
+impl Prometheus {
+    fn bind() -> SocketAddr {
+        "127.0.0.1:9090".parse().unwrap()
+    }
+}
+
+impl Default for Prometheus {
+    fn default() -> Self {
+        Self {
+            listen: Self::bind(),
+            ssl: None,
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
@@ -304,6 +339,8 @@ pub struct Config {
     pub server: Server,
     #[serde(default)]
     pub api: Option<Api>,
+    #[serde(default)]
+    pub prometheus: Option<Prometheus>,
     #[serde(default)]
     pub hooks: Option<Hooks>,
     #[serde(default)]

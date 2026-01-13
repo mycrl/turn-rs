@@ -97,6 +97,24 @@ mtu = 1500
 #
 #
 #
+# [prometheus]
+#
+# prometheus server listen
+#
+# This option specifies the prometheus server binding address used to expose
+# the metrics.
+#
+# listen = "127.0.0.1:9090"
+#
+#
+# ssl configuration
+#
+# [prometheus.ssl]
+# private-key = "/etc/turn-rs/tls/private.key"
+# certificate-chain = "/etc/turn-rs/tls/certificate.crt"
+#
+#
+#
 # [hooks]
 #
 # hooks server endpoint
