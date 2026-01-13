@@ -40,7 +40,7 @@ impl Number for IntCounter {
     }
 
     fn get(&self) -> usize {
-        self.get() as usize
+        IntCounter::get(self) as usize
     }
 }
 
@@ -112,7 +112,7 @@ pub async fn start_server(config: Config) -> Result<()> {
                 metrics_bytes.clear();
 
                 if generate_metrics(&mut metrics_bytes).is_err() {
-                    StatusCode::EXPECTATION_FAILED.into_response()
+                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
                 } else {
                     ([(CONTENT_TYPE, "text/plain")], metrics_bytes).into_response()
                 }
@@ -121,19 +121,18 @@ pub async fn start_server(config: Config) -> Result<()> {
 
         #[cfg(feature = "ssl")]
         if let Some(ssl) = &config.ssl {
-            axum_server::bind_rustls(
+            let server = axum_server::bind_rustls(
                 config.listen,
                 axum_server::tls_rustls::RustlsConfig::from_pem_chain_file(
                     ssl.certificate_chain.clone(),
                     ssl.private_key.clone(),
                 )
                 .await?,
-            )
-            .serve(app.into_make_service())
-            .await?;
+            );
 
             log::info!("prometheus server listening={:?}", config.listen);
 
+            server.serve(app.into_make_service()).await?;
             return Ok(());
         }
 
