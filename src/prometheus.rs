@@ -121,19 +121,18 @@ pub async fn start_server(config: Config) -> Result<()> {
 
         #[cfg(feature = "ssl")]
         if let Some(ssl) = &config.ssl {
-            axum_server::bind_rustls(
+            let server = axum_server::bind_rustls(
                 config.listen,
                 axum_server::tls_rustls::RustlsConfig::from_pem_chain_file(
                     ssl.certificate_chain.clone(),
                     ssl.private_key.clone(),
                 )
                 .await?,
-            )
-            .serve(app.into_make_service())
-            .await?;
+            );
 
             log::info!("prometheus server listening={:?}", config.listen);
 
+            server.serve(app.into_make_service()).await?;
             return Ok(());
         }
 
