@@ -146,6 +146,19 @@ Upper bound for buffered hook events.
 
 Controls verbosity of the built-in logger.
 
+### `log.stdout`
+
+-   Type: boolean
+-   Default: `true`
+
+Enable or disable logging to standard output (stdout). If set to `true`, log messages will be printed to the console in addition to (or instead of) file logging. To disable logging to the console, set this option to `false`.
+
+### `log.file-directory`
+
+-   Type: string (optional)
+
+If specified, log output will be written to this directory in a file named `turn-server-YYYY-MM-DD.log`. If not set, file logging is disabled.
+
 ---
 
 ## `[auth]`

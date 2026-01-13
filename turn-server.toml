@@ -142,6 +142,17 @@ mtu = 1500
 [log]
 level = "info"
 #
+# log to stdout
+#
+# This option can be used to log to stdout.
+#
+stdout = true
+#
+# log to file directory
+#
+# This option can be used to log to a file directory.
+#
+# file-directory = "/var/log/turn-server"
 #
 #
 [auth]
