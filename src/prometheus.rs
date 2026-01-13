@@ -112,7 +112,7 @@ pub async fn start_server(config: Config) -> Result<()> {
                 metrics_bytes.clear();
 
                 if generate_metrics(&mut metrics_bytes).is_err() {
-                    StatusCode::EXPECTATION_FAILED.into_response()
+                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
                 } else {
                     ([(CONTENT_TYPE, "text/plain")], metrics_bytes).into_response()
                 }
