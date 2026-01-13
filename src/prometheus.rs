@@ -40,7 +40,7 @@ impl Number for IntCounter {
     }
 
     fn get(&self) -> usize {
-        self.get() as usize
+        IntCounter::get(self) as usize
     }
 }
 
