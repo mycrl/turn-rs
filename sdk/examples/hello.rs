@@ -1,5 +1,5 @@
-use turn_server_sdk::{Credential, TurnHooksServer, protos::PasswordAlgorithm};
 use tonic::{Status, transport::Server};
+use turn_server_sdk::{Credential, TurnHooksServer, protos::PasswordAlgorithm};
 
 struct MyHooksServer;
 

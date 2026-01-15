@@ -6,7 +6,7 @@ use std::sync::{
 use ahash::HashMap;
 use parking_lot::RwLock;
 
-use crate::service::session::Identifier;
+use crate::{server::transport::Transport, service::session::Identifier};
 
 /// The type of information passed in the statistics channel
 #[derive(Debug, Clone, Copy)]
@@ -87,7 +87,7 @@ impl<T: Number> Counts<T> {
 pub struct Statistics(Arc<RwLock<HashMap<Identifier, Counts<Count>>>>);
 
 impl Default for Statistics {
-    #[cfg(feature = "grpc")]
+    #[cfg(feature = "api")]
     fn default() -> Self {
         use ahash::HashMapExt;
 
@@ -95,7 +95,7 @@ impl Default for Statistics {
     }
 
     // There's no need to take up so much memory when you don't have stats enabled.
-    #[cfg(not(feature = "grpc"))]
+    #[cfg(not(feature = "api"))]
     fn default() -> Self {
         Self(Default::default())
     }
@@ -112,9 +112,10 @@ impl Statistics {
     /// ```
     /// use turn_server::statistics::*;
     /// use turn_server::service::session::Identifier;
+    /// use turn_server::server::transport::Transport;
     ///
     /// let statistics = Statistics::default();
-    /// let sender = statistics.get_reporter();
+    /// let sender = statistics.get_reporter(Transport::Tcp);
     ///
     /// let identifier = Identifier::new(
     ///     "127.0.0.1:8080".parse().unwrap(),
@@ -123,9 +124,10 @@ impl Statistics {
     ///
     /// sender.send(&identifier, &[Stats::ReceivedBytes(100)]);
     /// ```
-    pub fn get_reporter(&self) -> StatisticsReporter {
+    pub fn get_reporter(&self, transport: Transport) -> StatisticsReporter {
         StatisticsReporter {
             table: self.0.clone(),
+            transport,
         }
     }
 
@@ -148,6 +150,11 @@ impl Statistics {
     /// assert_eq!(statistics.get(&identifier).is_some(), true);
     /// ```
     pub fn register(&self, identifier: Identifier) {
+        #[cfg(feature = "prometheus")]
+        {
+            crate::prometheus::METRICS.allocated.inc();
+        }
+
         self.0.write().insert(
             identifier,
             Counts {
@@ -182,6 +189,11 @@ impl Statistics {
     /// assert_eq!(statistics.get(&identifier).is_some(), false);
     /// ```
     pub fn unregister(&self, identifier: &Identifier) {
+        #[cfg(feature = "prometheus")]
+        {
+            crate::prometheus::METRICS.allocated.dec();
+        }
+
         self.0.write().remove(identifier);
     }
 
@@ -225,13 +237,21 @@ impl Statistics {
 #[allow(unused)]
 pub struct StatisticsReporter {
     table: Arc<RwLock<HashMap<Identifier, Counts<Count>>>>,
+    transport: Transport,
 }
 
 impl StatisticsReporter {
     #[allow(unused_variables)]
     pub fn send(&self, identifier: &Identifier, reports: &[Stats]) {
-        #[cfg(feature = "grpc")]
+        #[cfg(feature = "api")]
         {
+            #[cfg(feature = "prometheus")]
+            {
+                for report in reports {
+                    crate::prometheus::METRICS.add(self.transport, report);
+                }
+            }
+
             if let Some(counts) = self.table.read().get(identifier) {
                 for item in reports {
                     counts.add(item);

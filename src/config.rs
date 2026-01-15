@@ -215,6 +215,41 @@ impl Default for Api {
     }
 }
 
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct Prometheus {
+    ///
+    /// prometheus server listen
+    ///
+    /// This option specifies the prometheus server binding address used to expose
+    /// the metrics.
+    ///
+    #[serde(default = "Prometheus::bind")]
+    pub listen: SocketAddr,
+    ///
+    /// ssl configuration
+    ///
+    /// This option specifies the ssl configuration for the prometheus server.
+    ///
+    #[serde(default)]
+    pub ssl: Option<Ssl>,
+}
+
+impl Prometheus {
+    fn bind() -> SocketAddr {
+        "127.0.0.1:9184".parse().unwrap()
+    }
+}
+
+impl Default for Prometheus {
+fn default() -> Self {
+        Self {
+            listen: Self::bind(),
+            ssl: None,
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
@@ -246,14 +281,14 @@ impl Default for LogLevel {
     }
 }
 
-impl LogLevel {
-    pub fn as_level(&self) -> log::Level {
-        match *self {
-            Self::Error => log::Level::Error,
-            Self::Debug => log::Level::Debug,
-            Self::Trace => log::Level::Trace,
-            Self::Warn => log::Level::Warn,
-            Self::Info => log::Level::Info,
+impl Into<log::LevelFilter> for LogLevel {
+    fn into(self) -> log::LevelFilter {
+        match self {
+            Self::Error => log::LevelFilter::Error,
+            Self::Debug => log::LevelFilter::Debug,
+            Self::Trace => log::LevelFilter::Trace,
+            Self::Warn => log::LevelFilter::Warn,
+            Self::Info => log::LevelFilter::Info,
         }
     }
 }
@@ -268,6 +303,24 @@ pub struct Log {
     ///
     #[serde(default)]
     pub level: LogLevel,
+    /// log to stdout
+    ///
+    /// This option can be used to log to stdout.
+    ///
+    #[serde(default = "Log::stdout")]
+    pub stdout: bool,
+    /// log to file directory
+    ///
+    /// This option can be used to log to a file directory.
+    ///
+    #[serde(default)]
+    pub file_directory: Option<String>,
+}
+
+impl Log {
+    fn stdout() -> bool {
+        true
+    }
 }
 
 #[derive(Deserialize, Debug, Default, Clone)]
@@ -304,6 +357,8 @@ pub struct Config {
     pub server: Server,
     #[serde(default)]
     pub api: Option<Api>,
+    #[serde(default)]
+    pub prometheus: Option<Prometheus>,
     #[serde(default)]
     pub hooks: Option<Hooks>,
     #[serde(default)]

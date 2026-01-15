@@ -1,5 +1,8 @@
-#[cfg(feature = "grpc")]
-pub mod grpc;
+#[cfg(feature = "api")]
+pub mod api;
+
+#[cfg(feature = "prometheus")]
+pub mod prometheus;
 
 pub mod codec;
 pub mod config;
@@ -59,8 +62,11 @@ pub async fn start_server(config: Config) -> anyhow::Result<()> {
             statistics.clone(),
         ));
 
-        #[cfg(feature = "grpc")]
-        workers.spawn(grpc::start_server(config, service, statistics));
+        #[cfg(feature = "prometheus")]
+        workers.spawn(prometheus::start_server(config.clone()));
+
+        #[cfg(feature = "api")]
+        workers.spawn(api::start_server(config, service, statistics));
 
         if let Some(res) = workers.join_next().await {
             workers.abort_all();

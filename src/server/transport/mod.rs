@@ -77,7 +77,7 @@ pub trait Server: Sized + Send {
 
                 let mut receiver = exchanger.get_receiver(address);
                 let mut router = service.make_router(address, options.external);
-                let reporter = statistics.get_reporter();
+                let reporter = statistics.get_reporter(transport);
 
                 let service = service.clone();
                 let exchanger = exchanger.clone();

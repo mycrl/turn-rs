@@ -97,6 +97,24 @@ Global timeout applied to API handlers.
 
 ---
 
+## `[prometheus]`
+
+### `prometheus.listen`
+
+-   Type: string (`"IP:PORT"`)
+-   Default: `"127.0.0.1:9090"`
+
+Bind address for the Prometheus metrics exporter endpoint. Only enabled when the `prometheus` feature is compiled.
+
+### `[prometheus.ssl]`
+
+-   Keys: `private-key`, `certificate-chain`
+-   Optional TLS configuration for the API endpoint.
+
+> **Security note:** the management gRPC endpoint ships without authentication or TLS. Enable the SSL settings above or terminate TLS behind a proxy before exposing it to untrusted networks.
+
+---
+
 ## `[hooks]`
 
 ### `hooks.endpoint`
@@ -127,6 +145,19 @@ Upper bound for buffered hook events.
 -   Values: `"error" | "warn" | "info" | "debug" | "trace"`
 
 Controls verbosity of the built-in logger.
+
+### `log.stdout`
+
+-   Type: boolean
+-   Default: `true`
+
+Enable or disable logging to standard output (stdout). If set to `true`, log messages will be printed to the console in addition to (or instead of) file logging. To disable logging to the console, set this option to `false`.
+
+### `log.file-directory`
+
+-   Type: string (optional)
+
+If specified, log output will be written to this directory in a file named `turn-server-YYYY-MM-DD.log`. If not set, file logging is disabled.
 
 ---
 

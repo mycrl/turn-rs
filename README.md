@@ -126,7 +126,8 @@ If you don't need a particular feature, you can reduce the package size by enabl
 -   `udp` - (enabled by default) Enables UDP transport layer support.
 -   `tcp` - Enables TCP transport layer support.
 -   `ssl` - Enable SSL encryption support.
--   `grpc` - Enable the GRPC server feature.
+-   `api` - Enable the gRPC api server feature.
+-   `prometheus` - Enable prometheus support.
 
 All features are enabled by default.
 
