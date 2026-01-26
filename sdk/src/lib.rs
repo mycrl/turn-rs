@@ -14,7 +14,8 @@
 //! The `TurnService` client allows you to interact with a running TURN server's gRPC API:
 //!
 //! ```no_run
-//! use turn_server_sdk::{TurnService, tonic::transport::Channel};
+//! use tonic::transport::Channel;
+//! use turn_server_sdk::TurnService;
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Connect to the TURN server gRPC endpoint
@@ -48,9 +49,9 @@
 //! Implement the `TurnHooksServer` trait to provide custom authentication and handle TURN events:
 //!
 //! ```no_run
+//! use tonic::transport::Server;
 //! use turn_server_sdk::{
 //!     TurnHooksServer, Credential, protos::PasswordAlgorithm,
-//!     tonic::transport::Server
 //! };
 //!
 //! use std::net::SocketAddr;
