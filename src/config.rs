@@ -197,7 +197,9 @@ pub struct Api {
 
 impl Api {
     fn bind() -> SocketAddr {
-        "127.0.0.1:3000".parse().unwrap()
+        "127.0.0.1:3000"
+            .parse()
+            .expect("Invalid default API bind address")
     }
 
     fn timeout() -> u32 {
@@ -237,7 +239,9 @@ pub struct Prometheus {
 
 impl Prometheus {
     fn bind() -> SocketAddr {
-        "127.0.0.1:9184".parse().unwrap()
+        "127.0.0.1:9184"
+            .parse()
+            .expect("Invalid default Prometheus bind address")
     }
 }
 
@@ -281,14 +285,14 @@ impl Default for LogLevel {
     }
 }
 
-impl Into<log::LevelFilter> for LogLevel {
-    fn into(self) -> log::LevelFilter {
-        match self {
-            Self::Error => log::LevelFilter::Error,
-            Self::Debug => log::LevelFilter::Debug,
-            Self::Trace => log::LevelFilter::Trace,
-            Self::Warn => log::LevelFilter::Warn,
-            Self::Info => log::LevelFilter::Info,
+impl From<LogLevel> for log::LevelFilter {
+    fn from(val: LogLevel) -> Self {
+        match val {
+            LogLevel::Error => log::LevelFilter::Error,
+            LogLevel::Debug => log::LevelFilter::Debug,
+            LogLevel::Trace => log::LevelFilter::Trace,
+            LogLevel::Warn => log::LevelFilter::Warn,
+            LogLevel::Info => log::LevelFilter::Info,
         }
     }
 }

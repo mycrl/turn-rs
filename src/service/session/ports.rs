@@ -12,7 +12,7 @@ pub struct PortRange {
 
 impl PortRange {
     pub fn size(&self) -> usize {
-        (self.end - self.start) as usize
+        (self.end - self.start + 1) as usize
     }
 
     pub fn contains(&self, port: u16) -> bool {
@@ -155,7 +155,7 @@ pub enum Bit {
 ///     ports.insert(port);
 /// }
 ///
-/// assert_eq!(PortAllocator::default().capacity() + 1, ports.len());
+/// assert_eq!(PortAllocator::default().capacity(), ports.len());
 /// ```
 pub struct PortAllocator {
     port_range: PortRange,
@@ -174,10 +174,12 @@ impl Default for PortAllocator {
 impl PortAllocator {
     pub fn new(port_range: PortRange) -> Self {
         let capacity = port_range.size();
-        let bucket_size = (capacity as f32 / 64.0).ceil() as usize;
+        let bucket_size = (capacity + 63) / 64;
+        let tail_bits = capacity % 64;
+        let bit_len = if tail_bits == 0 { 64 } else { tail_bits } as u32;
 
         Self {
-            bit_len: (capacity as f32 % 64.0).ceil() as u32,
+            bit_len,
             buckets: vec![0; bucket_size],
             max_offset: bucket_size - 1,
             allocated: 0,
@@ -192,7 +194,7 @@ impl PortAllocator {
     /// ```
     /// use turn_server::service::session::ports::*;
     ///
-    /// assert_eq!(PortAllocator::default().capacity(), 65535 - 49152);
+    /// assert_eq!(PortAllocator::default().capacity(), 65535 - 49152 + 1);
     /// ```
     pub fn capacity(&self) -> usize {
         self.port_range.size()
@@ -263,16 +265,12 @@ impl PortAllocator {
     /// ```
     pub fn allocate(&mut self, start: Option<usize>) -> Option<u16> {
         let mut index = None;
-        let mut offset = start.unwrap_or_else(|| rand::rng().random_range(0..self.max_offset));
+        let mut offset = start.unwrap_or_else(|| rand::rng().random_range(0..=self.max_offset));
 
         // When the partition lookup has gone through the entire partition list, the
         // lookup should be stopped, and the location where it should be stopped is
         // recorded here.
-        let previous = if offset == 0 {
-            self.max_offset
-        } else {
-            offset - 1
-        };
+        let start_offset = offset;
 
         loop {
             // Finds the first high position in the partition.
@@ -283,7 +281,7 @@ impl PortAllocator {
 
                     // Check to see if the jump is beyond the partition list or the lookup exceeds
                     // the maximum length of the allocation table.
-                    if offset == self.max_offset && idx > self.bit_len {
+                    if offset == self.max_offset && idx >= self.bit_len {
                         None
                     } else {
                         Some(idx)
@@ -293,6 +291,7 @@ impl PortAllocator {
                 }
             } {
                 index = Some(i as usize);
+                
                 break;
             }
 
@@ -305,7 +304,7 @@ impl PortAllocator {
             }
 
             // Already gone through all partitions, lookup failed.
-            if offset == previous {
+            if offset == start_offset {
                 break;
             }
         }
@@ -381,18 +380,55 @@ impl PortAllocator {
 
         // Gets the bit value in the port position in the partition, if it is low, no
         // processing is required.
-        if {
-            match (self.buckets[bucket] & (1 << (63 - index))) >> (63 - index) {
-                0 => Bit::Low,
-                1 => Bit::High,
-                _ => panic!(),
-            }
-        } == Bit::Low
-        {
+        let bit = match (self.buckets[bucket] & (1 << (63 - index))) >> (63 - index) {
+            0 => Bit::Low,
+            1 => Bit::High,
+            _ => unreachable!("Bit value can only be 0 or 1"),
+        };
+        
+        if bit == Bit::Low {
             return;
         }
 
         self.set_bit(bucket, index, Bit::Low);
         self.allocated -= 1;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    use std::collections::HashSet;
+
+    #[test]
+    fn allocate_all_ports_without_gaps_includes_tail_bits() {
+        let range = PortRange::from(50000..50069);
+        let mut pool = PortAllocator::new(range);
+        let mut ports = HashSet::new();
+
+        while let Some(port) = pool.allocate(None) {
+            assert!(range.contains(port));
+            assert!(ports.insert(port));
+        }
+
+        assert_eq!(pool.capacity(), ports.len());
+        assert_eq!(range.start(), *ports.iter().min().unwrap());
+        assert_eq!(range.end(), *ports.iter().max().unwrap());
+    }
+
+    #[test]
+    fn random_allocation_varies_first_port() {
+        let range = PortRange::from(50000..50127);
+        let mut first_ports = HashSet::new();
+
+        for _ in 0..128 {
+            let mut pool = PortAllocator::new(range);
+            if let Some(port) = pool.allocate(None) {
+                first_ports.insert(port);
+            }
+        }
+
+        assert!(first_ports.len() > 1);
     }
 }

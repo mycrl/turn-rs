@@ -60,7 +60,7 @@ impl<'a> ChannelData<'a> {
         }
 
         let mut size = (u16::from_be_bytes(bytes[2..4].try_into()?) + 4) as usize;
-        if is_tcp && (size % 4) > 0 {
+        if is_tcp && !size.is_multiple_of(4) {
             size += 4 - (size % 4);
         }
 

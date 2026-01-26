@@ -87,9 +87,11 @@ enum PayloadType {
     ChannelData,
 }
 
+type ExchangerSender = UnboundedSender<(Bytes, PayloadType)>;
+
 /// Handles packet forwarding between transport protocols.
 #[derive(Clone)]
-pub struct Exchanger(Arc<RwLock<HashMap<SocketAddr, UnboundedSender<(Bytes, PayloadType)>>>>);
+pub struct Exchanger(Arc<RwLock<HashMap<SocketAddr, ExchangerSender>>>);
 
 impl Default for Exchanger {
     fn default() -> Self {

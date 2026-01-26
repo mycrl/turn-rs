@@ -32,7 +32,7 @@ macro_rules! counter {
     };
 }
 
-pub static METRICS: LazyLock<Metrics> = LazyLock::new(|| Metrics::default());
+pub static METRICS: LazyLock<Metrics> = LazyLock::new(Metrics::default);
 
 impl Number for IntCounter {
     fn add(&self, value: usize) {
