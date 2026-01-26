@@ -52,7 +52,7 @@ However, turn-rs is not a simple duplicate implementation, and this project is n
     -   [build](./docs/build.md)
     -   [start the server](./docs/start-the-server.md)
     -   [configure](./docs/configure.md)
-    -   [api](./protos/server.proto)
+    -   [api](./protos/protobufs/server.proto)
 
 ## Features
 
