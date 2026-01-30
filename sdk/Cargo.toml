@@ -1,6 +1,6 @@
 [package]
 name = "turn-server-sdk"
-version = "0.1.0-beta.5"
+version = "0.1.0"
 edition = "2024"
 description = "Client SDK for interacting with the turn-server gRPC API."
 license = "MIT"
@@ -9,7 +9,7 @@ readme = "README.md"
 
 [dependencies]
 tonic = { version = "0.14", default-features = false, features = ["transport"] }
-protos = { path = "../protos", version = "0.1.0-beta.3", package = "turn-server-protos" }
+protos = { path = "../protos", version = "0.1.0", package = "turn-server-protos" }
 md-5 = "0.10"
 sha2 = "0.10.9"
 
