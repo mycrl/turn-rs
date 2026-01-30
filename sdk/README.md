@@ -10,12 +10,10 @@ A Rust client SDK for interacting with the `turn-server` gRPC API exposed by the
 
 ## Installation
 
-Add this to your `Cargo.toml`:
+Add turn-server-sdk to your `Cargo.toml`:
 
-```toml
-[dependencies]
-turn-server-sdk = "0.1.0-beta.1"  # When published
-turn-server-protos = "0.1.0-beta.1"
+```sh
+cargo add turn-server-sdk
 ```
 
 ## Client Usage
