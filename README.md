@@ -70,7 +70,7 @@ However, turn-rs is not a simple duplicate implementation, and this project is n
 -   [RFC 5766](https://datatracker.ietf.org/doc/html/rfc5766) - base TURN specs
 -   [RFC 6062](https://datatracker.ietf.org/doc/html/rfc6062) - TCP relaying TURN extension
 -   [RFC 6156](https://datatracker.ietf.org/doc/html/rfc6156) - IPv6 extension for TURN
--   TURN REST API (http://tools.ietf.org/html/draft-uberti-behave-turn-rest-00)
+-   [TURN REST API](http://tools.ietf.org/html/draft-uberti-behave-turn-rest-00)
 
 ## Usage
 
