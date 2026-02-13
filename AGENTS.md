@@ -2,8 +2,8 @@
 
 This document targets two audiences:
 
-- LLMs/agents: quickly understand project structure, entry points, run flow, configuration, and risks.
-- Human developers/operators: follow the steps to build, configure, start, and verify the service.
+1) LLMs/agents: quickly understand project structure, entry points, run flow, configuration, and risks.
+2) Human developers/operators: follow the steps to build, configure, start, and verify the service.
 
 ## Project Overview
 
@@ -34,52 +34,64 @@ This section explains how the server is organized internally and how the main da
 
 ### High-level runtime flow
 
-- [src/main.rs](src/main.rs) loads config, initializes logging, and builds the Tokio runtime.
-- [src/lib.rs](src/lib.rs) `start_server()` constructs `Statistics`, a `Handler`, and a `Service`, then spawns:
-	- transport servers (UDP/TCP) via [src/server](src/server)
-	- optional Prometheus exporter via [src/prometheus.rs](src/prometheus.rs)
-	- optional gRPC API via [src/api.rs](src/api.rs)
+1) [src/main.rs](src/main.rs) loads config, initializes logging, and builds the Tokio runtime.
+
+2) [src/lib.rs](src/lib.rs) `start_server()` constructs `Statistics`, a `Handler`, and a `Service`, then spawns:
+
+- transport servers (UDP/TCP) via [src/server](src/server)
+- optional Prometheus exporter via [src/prometheus.rs](src/prometheus.rs)
+- optional gRPC API via [src/api.rs](src/api.rs)
 
 ### Core modules
-- [src/service](src/service): TURN service core, shared state, and routing glue.
-	- `Service` holds realm, interfaces, session manager, and handler, and creates per-connection routers.
-	- `ServiceHandler` defines the hooks the protocol layer uses for auth and lifecycle callbacks.
-	- [src/service/routing.rs](src/service/routing.rs) parses STUN/TURN messages and dispatches by method.
 
-- [src/service/session](src/service/session): Session state, allocation, permissions, and channel bindings.
-	- `Identifier` (source + interface) is the primary session key.
-	- `SessionManager` owns sessions, port mappings, permissions, and channel relay tables.
-	- `Session` tracks authentication state, nonce, allocated port, channels, permissions, and expiry.
-	- [src/service/session/ports.rs](src/service/session/ports.rs) provides `PortAllocator` and `PortRange`.
+1) [src/service](src/service): TURN service core, shared state, and routing glue.
 
-- [src/server](src/server): Transport orchestration and cross-protocol forwarding.
-	- Spawns TCP/UDP listeners per configured interface.
-	- `Exchanger` maps interface address to internal channels for forwarding packets between sockets.
-	- Uses the `Server` trait to share TCP/UDP accept/read/write logic.
+- `Service` holds realm, interfaces, session manager, and handler, and creates per-connection routers.
+- `ServiceHandler` defines the hooks the protocol layer uses for auth and lifecycle callbacks.
+- [src/service/routing.rs](src/service/routing.rs) parses STUN/TURN messages and dispatches by method.
 
-- [src/server/transport](src/server/transport): Transport abstraction and server loop.
-	- `Server::start` binds sockets, spawns per-connection tasks, routes packets, and handles idle timeout.
-	- `Transport` (TCP/UDP) drives stats reporting and channel-data padding rules for TCP.
+2) [src/service/session](src/service/session): Session state, allocation, permissions, and channel bindings.
 
-- [src/handler.rs](src/handler.rs): Implements `ServiceHandler`.
-	- Auth flow: static credentials -> static auth secret -> optional Hook `GetPassword`.
-	- Lifecycle events: allocation, channel bind, permission create, refresh, destroy (sent to Hook service when enabled).
+- `Identifier` (source + interface) is the primary session key.
+- `SessionManager` owns sessions, port mappings, permissions, and channel relay tables.
+- `Session` tracks authentication state, nonce, allocated port, channels, permissions, and expiry.
+- [src/service/session/ports.rs](src/service/session/ports.rs) provides `PortAllocator` and `PortRange`.
 
-- [src/api.rs](src/api.rs): gRPC management API and Hook client implementation.
-	- `TurnService` exposes GetInfo/GetSession/GetSessionStatistics/DestroySession.
-	- `RpcHooksService` maintains a client + buffered event channel to the external Hook service.
+3) [src/server](src/server): Transport orchestration and cross-protocol forwarding.
 
-- [src/codec](src/codec): STUN/TURN codec and crypto.
-	- Decoder differentiates STUN messages vs. ChannelData.
-	- Message encoder/decoder handles attributes, integrity, and fingerprint.
-	- `crypto` contains HMAC and password derivation helpers.
+- Spawns TCP/UDP listeners per configured interface.
+- `Exchanger` maps interface address to internal channels for forwarding packets between sockets.
+- Uses the `Server` trait to share TCP/UDP accept/read/write logic.
 
-- [src/statistics.rs](src/statistics.rs): Per-session counters and reporting.
-	- `StatisticsReporter` aggregates per-session bytes/packets and error counts.
-	- Integrates with Prometheus metrics when enabled.
+4) [src/server/transport](src/server/transport): Transport abstraction and server loop.
 
-- [src/prometheus.rs](src/prometheus.rs): HTTP metrics endpoint.
-	- Exposes `/metrics`, tracks global + per-transport counts and allocated sessions.
+- `Server::start` binds sockets, spawns per-connection tasks, routes packets, and handles idle timeout.
+- `Transport` (TCP/UDP) drives stats reporting and channel-data padding rules for TCP.
+
+5) [src/handler.rs](src/handler.rs): Implements `ServiceHandler`.
+
+- Auth flow: static credentials -> static auth secret -> optional Hook `GetPassword`.
+- Lifecycle events: allocation, channel bind, permission create, refresh, destroy (sent to Hook service when enabled).
+
+6) [src/api.rs](src/api.rs): gRPC management API and Hook client implementation.
+
+- `TurnService` exposes GetInfo/GetSession/GetSessionStatistics/DestroySession.
+- `RpcHooksService` maintains a client + buffered event channel to the external Hook service.
+
+7) [src/codec](src/codec): STUN/TURN codec and crypto.
+
+- Decoder differentiates STUN messages vs. ChannelData.
+- Message encoder/decoder handles attributes, integrity, and fingerprint.
+- `crypto` contains HMAC and password derivation helpers.
+
+8) [src/statistics.rs](src/statistics.rs): Per-session counters and reporting.
+
+- `StatisticsReporter` aggregates per-session bytes/packets and error counts.
+- Integrates with Prometheus metrics when enabled.
+
+9) [src/prometheus.rs](src/prometheus.rs): HTTP metrics endpoint.
+
+- Exposes `/metrics`, tracks global + per-transport counts and allocated sessions.
 
 ### Design notes and key decisions
 
@@ -93,9 +105,9 @@ This section explains how the server is organized internally and how the main da
 
 ### Option 1: Release Binary
 
-- Download the binary from GitHub Releases for your platform.
-- Prepare a config file (see [turn-server.toml](turn-server.toml)).
-- Start the server:
+1) Download the binary from GitHub Releases for your platform.
+2) Prepare a config file (see [turn-server.toml](turn-server.toml)).
+3) Start the server:
 
 ```bash
 turn-server --config ./turn-server.toml
@@ -152,6 +164,7 @@ See [docs/install.md](docs/install.md) for details.
 ## Build Features (Optional)
 
 You can reduce the binary by compiling with specific features:
+
 - udp: UDP transport (default on)
 - tcp: TCP transport
 - ssl: TLS support
