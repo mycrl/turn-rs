@@ -42,6 +42,8 @@ However, turn-rs is not a simple duplicate implementation, and this project is n
 
 ## Table of contents
 
+For detailed information, please read directly the documentation: [AGENTS.md](./AGENTS.md)
+
 -   [features](#features)
 -   [usage](#usage)
     -   [docker](#docker)
