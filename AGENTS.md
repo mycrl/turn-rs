@@ -127,17 +127,16 @@ The binary will be in the target/release directory.
 
 The config file uses TOML. Full reference: [docs/configure.md](docs/configure.md).
 
-Common fields:
+### Configuration capabilities (feature-oriented)
 
-- server.realm: Realm announced to TURN/STUN clients.
-- server.port-range: Relay port range.
-- server.interfaces: listen address, transport, external address, TLS.
-- auth.static-credentials: static username/password map.
-- auth.static-auth-secret: TURN REST shared secret.
-- hooks.*: dynamic auth and event callbacks.
-- api.*: gRPC management API.
-- prometheus.*: metrics exporter.
-- log.*: logging.
+- `server.*` defines reachability and transport surfaces: `server.interfaces` supports multi-NIC and multi-transport (`udp`/`tcp`) listeners, `listen` binds the local address, and `external` advertises the public address to clients behind NAT or load balancers. `server.port-range` limits relay port allocation, `server.max-threads` caps runtime workers, and `server.realm` is a key input for long-term credential auth.
+- `server.interfaces.idle-timeout` and `server.interfaces.mtu` protect connection lifecycle and path stability: the former reclaims idle resources, the latter reduces fragmentation risk when relaying. The MTU setting applies to UDP transport only.
+- TLS is enabled per surface: data plane via `server.interfaces.ssl.*` (TCP transport only), management plane via `api.ssl.*`, and metrics plane via `prometheus.ssl.*`. This lets you secure exposed endpoints while keeping internal ones lightweight.
+- Auth strategy is defined by `auth.*`: `auth.static-credentials` provides local static users, `auth.static-auth-secret` enables TURN REST-style shared secrets; for dynamic auth, combine `auth.enable-hooks-auth` with `hooks.*` so an external Hook service can provide passwords and handle session events. Priority is static users first, then shared secret, then Hooks.
+- `hooks.*` enables external integrations for dynamic auth and lifecycle callbacks (allocation, refresh, destroy, and more). `hooks.max-channel-size` and `hooks.timeout` control backpressure and timeouts so Hooks do not impact the main data path.
+- `api.*` enables the gRPC management interface for querying server info, session state, statistics, and destroying sessions.
+- `prometheus.*` exposes Prometheus metrics (requires the `prometheus` feature at build time).
+- `log.*` controls observability output: `log.level` sets verbosity, `log.stdout` fits container or systemd aggregation, and `log.file-directory` enables local log retention.
 
 ## Start the Server
 
