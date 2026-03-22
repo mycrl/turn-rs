@@ -31,12 +31,12 @@ num_cpus = "1.17.0"
 tonic = { version = "0.14", features = ["deflate"], optional = true }
 protos = { path = "./protos", version = "0.1.0", package = "turn-server-protos", optional = true }
 prometheus = { version = "0.14.0", optional = true }
-url = { version = "2.5.7", optional = true }
+url = { version = "2.5", optional = true }
 base64 = "0.22"
 num_enum = "0.7"
-aws-lc-rs = { version = "1.14", features = ["prebuilt-nasm"] }
+aws-lc-rs = { version = "1.16", features = ["prebuilt-nasm"] }
 md-5 = "0.10"
-crc32fast = "1.5.0"
+crc32fast = "1.5"
 rand = "0.9"
 
 [dev-dependencies]
