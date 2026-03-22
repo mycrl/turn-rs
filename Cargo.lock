@@ -2358,7 +2358,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "turn-server"
-version = "4.0.0"
+version = "4.0.1"
 dependencies = [
  "ahash",
  "anyhow",
