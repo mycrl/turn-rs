@@ -142,4 +142,4 @@ After the compilation is complete, you can find the binary file in the `"target/
 ## License
 
 [MIT](./LICENSE)
-Copyright (c) 2022 Mr.Panda.
+Copyright (c) 2022 Mycrl.
