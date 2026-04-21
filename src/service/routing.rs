@@ -393,7 +393,7 @@ where
         return reject(req, ErrorType::BadRequest);
     };
 
-    if !(0x4000..=0x7FFF).contains(&number) {
+    if !(0x4000..=0x4FFF).contains(&number) {
         return reject(req, ErrorType::BadRequest);
     }
 
@@ -682,6 +682,10 @@ fn channel_data<'a, T>(
 where
     T: ServiceHandler,
 {
+    if !(0x5000..=0xFFFF).contains(&req.payload.number()) {
+        return None;
+    }
+
     let relay = req
         .state
         .manager
