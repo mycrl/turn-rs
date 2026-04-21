@@ -682,7 +682,7 @@ fn channel_data<'a, T>(
 where
     T: ServiceHandler,
 {
-    if !(0x5000..=0xFFFF).contains(&req.payload.number()) {
+    if (0x5000..=0xFFFF).contains(&req.payload.number()) {
         return None;
     }
 
