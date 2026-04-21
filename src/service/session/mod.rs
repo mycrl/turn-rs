@@ -986,6 +986,15 @@ where
             .copied()
     }
 
+    pub fn find_peer_channel(&self, peer: &Identifier, target: SocketAddr) -> Option<u16> {
+        let table = self.channel_relay_table.read();
+        let peer_map = table.get(peer)?;
+        peer_map
+            .iter()
+            .find(|(_, ep)| ep.source() == target)
+            .map(|(ch, _)| *ch)
+    }
+
     /// Get the address of the port binding.
     ///
     /// # Test

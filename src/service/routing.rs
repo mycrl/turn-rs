@@ -681,6 +681,30 @@ where
         .manager
         .get_channel_relay_address(req.id, req.payload.number())?;
 
+    let peer_id = Identifier::new(relay.source(), req.id.interface());
+    let peer_channel = req
+        .state
+        .manager
+        .find_peer_channel(&peer_id, req.id.source());
+
+    let target = Target {
+        relay: Some(relay.source()),
+        endpoint: if req.state.endpoint != relay.endpoint() {
+            Some(relay.endpoint())
+        } else {
+            None
+        },
+    };
+
+    if let Some(channel) = peer_channel {
+        ChannelData::new(channel, req.payload.bytes()).encode(req.encode_buffer);
+        return Some(Response {
+            method: None,
+            bytes: req.encode_buffer,
+            target,
+        });
+    }
+
     let local_port = {
         let lock = req.state.manager.get_session(req.id);
         match lock.get_ref()? {
@@ -692,28 +716,15 @@ where
         }
     };
 
-    {
-        let transaction_id: [u8; 12] = rand::random();
-        let mut message =
-            MessageEncoder::new(DATA_INDICATION, &transaction_id, req.encode_buffer);
-        message.append::<XorPeerAddress>(SocketAddr::new(
-            req.state.interface.ip(),
-            local_port,
-        ));
-        message.append::<Data>(req.payload.bytes());
-        message.flush(None).ok()?;
-    }
+    let transaction_id: [u8; 12] = rand::random();
+    let mut message = MessageEncoder::new(DATA_INDICATION, &transaction_id, req.encode_buffer);
+    message.append::<XorPeerAddress>(SocketAddr::new(req.state.interface.ip(), local_port));
+    message.append::<Data>(req.payload.bytes());
+    message.flush(None).ok()?;
 
     Some(Response {
         method: Some(DATA_INDICATION),
         bytes: req.encode_buffer,
-        target: Target {
-            relay: Some(relay.source()),
-            endpoint: if req.state.endpoint != relay.endpoint() {
-                Some(relay.endpoint())
-            } else {
-                None
-            },
-        },
+        target,
     })
 }
