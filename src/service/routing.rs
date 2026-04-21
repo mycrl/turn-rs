@@ -192,15 +192,12 @@ where
         }
 
         Ok(match self.decoder.decode(bytes)? {
-            DecodeResult::ChannelData(channel) => channel_data(
-                bytes,
-                Request {
-                    id: &self.current_id,
-                    state: &self.state,
-                    encode_buffer: &mut self.bytes,
-                    payload: &channel,
-                },
-            ),
+            DecodeResult::ChannelData(channel) => channel_data(Request {
+                id: &self.current_id,
+                state: &self.state,
+                encode_buffer: &mut self.bytes,
+                payload: &channel,
+            }),
             DecodeResult::Message(message) => {
                 let req = Request {
                     id: &self.current_id,
@@ -675,10 +672,7 @@ where
 /// the Length field in the ChannelData message is 0, then there will be
 /// no data in the UDP datagram, but the UDP datagram is still formed and
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
-fn channel_data<'a, T>(
-    bytes: &'a [u8],
-    req: Request<'_, 'a, T, ChannelData<'_>>,
-) -> Option<Response<'a>>
+fn channel_data<'a, T>(req: Request<'_, 'a, T, ChannelData<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
@@ -687,8 +681,32 @@ where
         .manager
         .get_channel_relay_address(req.id, req.payload.number())?;
 
+    let local_port = {
+        let lock = req.state.manager.get_session(req.id);
+        match lock.get_ref()? {
+            Session::Authenticated {
+                allocate_port: Some(port),
+                ..
+            } => *port,
+            _ => return None,
+        }
+    };
+
+    {
+        let transaction_id: [u8; 12] = rand::random();
+        let mut message =
+            MessageEncoder::new(DATA_INDICATION, &transaction_id, req.encode_buffer);
+        message.append::<XorPeerAddress>(SocketAddr::new(
+            req.state.interface.ip(),
+            local_port,
+        ));
+        message.append::<Data>(req.payload.bytes());
+        message.flush(None).ok()?;
+    }
+
     Some(Response {
-        bytes,
+        method: Some(DATA_INDICATION),
+        bytes: req.encode_buffer,
         target: Target {
             relay: Some(relay.source()),
             endpoint: if req.state.endpoint != relay.endpoint() {
@@ -697,6 +715,5 @@ where
                 None
             },
         },
-        method: None,
     })
 }

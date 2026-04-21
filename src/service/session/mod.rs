@@ -892,13 +892,13 @@ where
         // Create channel forwarding mapping relationships for peers.
         self.channel_relay_table
             .write()
-            .entry(peer)
+            .entry(*identifier)
             .or_insert_with(|| HashMap::with_capacity(10))
             .insert(
                 channel,
                 Endpoint {
-                    source: identifier.source,
-                    endpoint: *endpoint,
+                    source: peer.source(),
+                    endpoint: peer.source(),
                 },
             );
 
@@ -963,7 +963,7 @@ where
     ///         .get_channel_relay_address(&identifier, 0x4000)
     ///         .unwrap()
     ///         .endpoint(),
-    ///     endpoint
+    ///     peer_identifier.source()
     /// );
     ///
     /// assert_eq!(
@@ -971,7 +971,7 @@ where
     ///         .get_channel_relay_address(&peer_identifier, 0x4000)
     ///         .unwrap()
     ///         .endpoint(),
-    ///     endpoint
+    ///     identifier.source()
     /// );
     /// ```
     pub fn get_channel_relay_address(
