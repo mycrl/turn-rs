@@ -1,7 +1,7 @@
 pub mod ports;
 
 use super::{
-    ServiceHandler,
+    ServiceHandler, Transport,
     session::ports::{PortAllocator, PortRange},
 };
 
@@ -29,71 +29,10 @@ use rand::{Rng, distr::Alphanumeric};
 /// information: the source address, and the transport protocol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Identifier {
-    source: SocketAddr,
-    interface: SocketAddr,
-}
-
-impl Identifier {
-    #[inline]
-    pub fn new(source: SocketAddr, interface: SocketAddr) -> Self {
-        Self { source, interface }
-    }
-
-    #[inline]
-    pub fn source(&self) -> SocketAddr {
-        self.source
-    }
-
-    #[inline]
-    pub fn interface(&self) -> SocketAddr {
-        self.interface
-    }
-
-    #[inline]
-    pub fn source_mut(&mut self) -> &mut SocketAddr {
-        &mut self.source
-    }
-
-    #[inline]
-    pub fn interface_mut(&mut self) -> &mut SocketAddr {
-        &mut self.interface
-    }
-}
-
-/// The endpoint used to record the current session.
-///
-/// This is used when forwarding data.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Endpoint {
-    source: SocketAddr,
-    endpoint: SocketAddr,
-}
-
-impl Endpoint {
-    #[inline]
-    pub fn new(source: SocketAddr, endpoint: SocketAddr) -> Self {
-        Self { source, endpoint }
-    }
-
-    #[inline]
-    pub fn source(&self) -> SocketAddr {
-        self.source
-    }
-
-    #[inline]
-    pub fn endpoint(&self) -> SocketAddr {
-        self.endpoint
-    }
-
-    #[inline]
-    pub fn source_mut(&mut self) -> &mut SocketAddr {
-        &mut self.source
-    }
-
-    #[inline]
-    pub fn endpoint_mut(&mut self) -> &mut SocketAddr {
-        &mut self.endpoint
-    }
+    pub source: SocketAddr,
+    pub external: SocketAddr,
+    pub interface: SocketAddr,
+    pub transport: Transport,
 }
 
 /// The default HashMap is created without allocating capacity. To improve
@@ -198,9 +137,9 @@ pub enum Session {
         /// Assignment information for the session.
         ///
         /// SessionManager are all bound to only one port and one channel.
-        allocate_port: Option<u16>,
-        allocate_channels: Vec<u16>,
+        allocated_port: Option<u16>,
         permissions: Vec<u16>,
+        bind_channels: Vec<u16>,
         expires: u64,
     },
 }
@@ -238,9 +177,9 @@ pub struct SessionManager<T> {
     // Stores the address to which the session should be forwarded when it sends indication to a
     // port. This is written when permissions are created to allow a certain address to be
     // forwarded to the current session.
-    port_relay_table: RwLock<Table<Identifier, HashMap</* port */ u16, Endpoint>>>,
+    port_relay_table: RwLock<Table<Identifier, HashMap</* port */ u16, Identifier>>>,
     // Indicates to which session the data sent by a session to a channel should be forwarded.
-    channel_relay_table: RwLock<Table<Identifier, HashMap</* channel */ u16, Endpoint>>>,
+    channel_relay_table: RwLock<Table<Identifier, HashMap</* channel */ u16, Identifier>>>,
     timer: Timer,
     handler: T,
 }
@@ -311,14 +250,14 @@ where
             channel_relay_table.remove(k);
 
             if let Some(Session::Authenticated {
-                allocate_port,
+                allocated_port,
                 username,
                 ..
             }) = sessions.remove(k)
             {
                 // Removes the session-bound port from the port binding table and
                 // releases the port back into the allocation pool.
-                if let Some(port) = allocate_port {
+                if let Some(port) = allocated_port {
                     port_mapping_table.remove(&port);
                     port_allocator.deallocate(port);
                 }
@@ -404,11 +343,9 @@ where
     ) -> ReadLock<'b, 'a, Identifier, Table<Identifier, Session>> {
         {
             let lock = self.sessions.read();
+
             if lock.contains_key(key) {
-                return ReadLock {
-                    lock: self.sessions.read(),
-                    key,
-                };
+                return ReadLock { lock, key };
             }
         }
 
@@ -511,11 +448,15 @@ where
 
         // Get the current user's password from an external handler and create a
         // digest.
-        let password = self.handler.get_password(username, algorithm).await?;
+        let password = self
+            .handler
+            .get_password(identifier, username, algorithm)
+            .await?;
 
         // Record a new session.
         {
             let mut lock = self.sessions.write();
+
             let nonce = if let Some(Session::New { nonce, .. }) = lock.remove(identifier) {
                 nonce
             } else {
@@ -525,11 +466,11 @@ where
             lock.insert(
                 *identifier,
                 Session::Authenticated {
-                    allocate_channels: Vec::with_capacity(10),
                     permissions: Vec::with_capacity(10),
+                    bind_channels: Vec::with_capacity(10),
                     expires: self.timer.get() + DEFAULT_SESSION_LIFETIME,
                     username: username.to_string(),
-                    allocate_port: None,
+                    allocated_port: None,
                     password,
                     nonce,
                 },
@@ -617,19 +558,19 @@ where
         let mut lock = self.sessions.write();
 
         if let Some(Session::Authenticated {
-            allocate_port,
+            allocated_port,
             expires,
             ..
         }) = lock.get_mut(identifier)
         {
             // If the port has already been allocated, re-allocation is not allowed.
-            if let Some(port) = allocate_port {
+            if let Some(port) = allocated_port {
                 return Some(*port);
             }
 
             // Records the port assigned to the current session and resets the alive time.
             let port = self.port_allocator.lock().allocate(None)?;
-            *allocate_port = Some(port);
+            *allocated_port = Some(port);
             *expires =
                 self.timer.get() + (lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32) as u64);
 
@@ -698,27 +639,20 @@ where
     /// assert!(!sessions.create_permission(&peer_identifier, &endpoint, &[peer_port]));
     /// assert!(sessions.create_permission(&peer_identifier, &endpoint, &[port]));
     /// ```
-    pub fn create_permission(
-        &self,
-        identifier: &Identifier,
-        endpoint: &SocketAddr,
-        ports: &[u16],
-    ) -> bool {
+    pub fn create_permission(&self, identifier: &Identifier, ports: &[u16]) -> bool {
         let mut sessions = self.sessions.write();
         let mut port_relay_table = self.port_relay_table.write();
         let port_mapping_table = self.port_mapping_table.read();
 
         // Finds information about the current session.
         if let Some(Session::Authenticated {
-            allocate_port,
+            allocated_port,
             permissions,
             ..
         }) = sessions.get_mut(identifier)
         {
             // The port number assigned to the current session.
-            let local_port = if let Some(it) = allocate_port {
-                *it
-            } else {
+            let Some(local_port) = *allocated_port else {
                 return false;
             };
 
@@ -742,13 +676,7 @@ where
                 port_relay_table
                     .entry(*peer)
                     .or_insert_with(|| HashMap::with_capacity(20))
-                    .insert(
-                        local_port,
-                        Endpoint {
-                            source: identifier.source,
-                            endpoint: *endpoint,
-                        },
-                    );
+                    .insert(local_port, *identifier);
 
                 // Do not store the same peer ports to the permission list over and over again.
                 if !permissions.contains(&port) {
@@ -855,29 +783,19 @@ where
     ///     );
     /// }
     /// ```
-    pub fn bind_channel(
-        &self,
-        identifier: &Identifier,
-        endpoint: &SocketAddr,
-        port: u16,
-        channel: u16,
-    ) -> bool {
+    pub fn bind_channel(&self, identifier: &Identifier, port: u16, channel: u16) -> bool {
         // Finds the address of the bound opposing port.
-        let peer = if let Some(it) = self.port_mapping_table.read().get(&port) {
-            *it
-        } else {
+        let Some(peer) = self.port_mapping_table.read().get(&port).copied() else {
             return false;
         };
 
         // Records the channel used for the current session.
         {
-            let mut lock = self.sessions.write();
-            if let Some(Session::Authenticated {
-                allocate_channels, ..
-            }) = lock.get_mut(identifier)
+            if let Some(Session::Authenticated { bind_channels, .. }) =
+                self.sessions.write().get_mut(identifier)
             {
-                if !allocate_channels.contains(&channel) {
-                    allocate_channels.push(channel);
+                if !bind_channels.contains(&channel) {
+                    bind_channels.push(channel);
                 }
             } else {
                 return false;
@@ -885,22 +803,16 @@ where
         }
 
         // Binding ports also creates permissions.
-        if !self.create_permission(identifier, endpoint, &[port]) {
+        if !self.create_permission(identifier, &[port]) {
             return false;
         }
 
         // Create channel forwarding mapping relationships for peers.
         self.channel_relay_table
             .write()
-            .entry(peer)
+            .entry(*identifier)
             .or_insert_with(|| HashMap::with_capacity(10))
-            .insert(
-                channel,
-                Endpoint {
-                    source: identifier.source,
-                    endpoint: *endpoint,
-                },
-            );
+            .insert(channel, peer);
 
         true
     }
@@ -978,7 +890,7 @@ where
         &self,
         identifier: &Identifier,
         channel: u16,
-    ) -> Option<Endpoint> {
+    ) -> Option<Identifier> {
         self.channel_relay_table
             .read()
             .get(identifier)?
@@ -1056,7 +968,7 @@ where
     ///     endpoint
     /// );
     /// ```
-    pub fn get_relay_address(&self, identifier: &Identifier, port: u16) -> Option<Endpoint> {
+    pub fn get_relay_address(&self, identifier: &Identifier, port: u16) -> Option<Identifier> {
         self.port_relay_table
             .read()
             .get(identifier)?

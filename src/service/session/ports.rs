@@ -291,7 +291,7 @@ impl PortAllocator {
                 }
             } {
                 index = Some(i as usize);
-                
+
                 break;
             }
 
@@ -385,7 +385,7 @@ impl PortAllocator {
             1 => Bit::High,
             _ => unreachable!("Bit value can only be 0 or 1"),
         };
-        
+
         if bit == Bit::Low {
             return;
         }
@@ -398,7 +398,7 @@ impl PortAllocator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     use std::collections::HashSet;
 
     #[test]

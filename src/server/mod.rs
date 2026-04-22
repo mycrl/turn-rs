@@ -1,6 +1,6 @@
 pub mod transport;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
 use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
@@ -14,9 +14,9 @@ use tokio::{
 
 use crate::{
     Service,
-    codec::message::methods::Method,
     config::{Config, Interface},
-    server::transport::{Server, ServerOptions, Transport, tcp::TcpServer, udp::UdpServer},
+    server::transport::{Server, ServerOptions, tcp::TcpServer, udp::UdpServer},
+    service::{Transport, session::Identifier},
     statistics::Statistics,
 };
 
@@ -81,17 +81,11 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
     Ok(())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum PayloadType {
-    Message(Method),
-    ChannelData,
-}
-
-type ExchangerSender = UnboundedSender<(Bytes, PayloadType)>;
+type ExchangerSender = UnboundedSender<Bytes>;
 
 /// Handles packet forwarding between transport protocols.
 #[derive(Clone)]
-pub struct Exchanger(Arc<RwLock<HashMap<SocketAddr, ExchangerSender>>>);
+pub struct Exchanger(Arc<RwLock<HashMap<Identifier, ExchangerSender>>>);
 
 impl Default for Exchanger {
     fn default() -> Self {
@@ -104,9 +98,9 @@ impl Exchanger {
     ///
     /// Each transport protocol is layered according to its own socket, and
     /// the data forwarded to this socket can be obtained by routing.
-    fn get_receiver(&self, interface: SocketAddr) -> UnboundedReceiver<(Bytes, PayloadType)> {
+    fn get_receiver(&self, id: Identifier) -> UnboundedReceiver<Bytes> {
         let (sender, receiver) = unbounded_channel();
-        self.0.write().insert(interface, sender);
+        self.0.write().insert(id, sender);
 
         receiver
     }
@@ -117,24 +111,24 @@ impl Exchanger {
     /// is forwarded to the corresponding socket. However, it should be noted
     /// that calling this function will not notify whether the socket exists.
     /// If it does not exist, the data will be discarded by default.
-    fn send(&self, interface: &SocketAddr, ty: PayloadType, data: Bytes) {
+    fn send(&self, id: &Identifier, data: Bytes) {
         let mut is_destroy = false;
 
         {
-            if let Some(sender) = self.0.read().get(interface)
-                && sender.send((data, ty)).is_err()
+            if let Some(sender) = self.0.read().get(id)
+                && sender.send(data).is_err()
             {
                 is_destroy = true;
             }
         }
 
         if is_destroy {
-            self.remove(interface);
+            self.remove(id);
         }
     }
 
     /// delete socket.
-    pub fn remove(&self, interface: &SocketAddr) {
-        drop(self.0.write().remove(interface))
+    pub fn remove(&self, id: &Identifier) {
+        drop(self.0.write().remove(id))
     }
 }

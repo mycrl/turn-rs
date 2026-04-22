@@ -10,9 +10,25 @@ use self::{
     session::{Identifier, SessionManager, SessionManagerOptions, ports::PortRange},
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Transport {
+    Udp,
+    Tcp,
+}
+
+impl ToString for Transport {
+    fn to_string(&self) -> String {
+        match self {
+            Transport::Udp => "UDP".to_string(),
+            Transport::Tcp => "TCP".to_string(),
+        }
+    }
+}
+
 pub trait ServiceHandler: Send + Sync + 'static {
     fn get_password(
         &self,
+        id: &Identifier,
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> impl Future<Output = Option<Password>> + Send;
@@ -198,8 +214,8 @@ where
     }
 
     /// create a router.
-    pub fn make_router(&self, endpoint: SocketAddr, interface: SocketAddr) -> Router<T> {
-        Router::new(self, endpoint, interface)
+    pub fn make_router(&self, id: Identifier) -> Router<T> {
+        Router::new(self, id)
     }
 
     pub fn get_session_manager(&self) -> &SessionManager<T> {

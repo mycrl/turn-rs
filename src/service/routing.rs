@@ -22,7 +22,6 @@ struct Request<'a, 'b, T, M>
 where
     T: ServiceHandler,
 {
-    id: &'a Identifier,
     encode_buffer: &'b mut BytesMut,
     state: &'a RouterState<T>,
     payload: &'a M,
@@ -103,7 +102,7 @@ where
         let password = self
             .state
             .manager
-            .get_password(self.id, username, algorithm)
+            .get_password(&self.state.id, username, algorithm)
             .await?;
 
         if self.payload.verify(&password).is_err() {
@@ -114,13 +113,6 @@ where
     }
 }
 
-/// The target of the response.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Target {
-    pub endpoint: Option<SocketAddr>,
-    pub relay: Option<SocketAddr>,
-}
-
 /// The response.
 #[derive(Debug)]
 pub struct Response<'a> {
@@ -128,19 +120,18 @@ pub struct Response<'a> {
     pub method: Option<Method>,
     /// the bytes of the response
     pub bytes: &'a [u8],
-    /// the target of the response
-    pub target: Target,
+    /// the relay target of the response
+    pub relay: Option<Identifier>,
 }
 
 pub(crate) struct RouterState<T>
 where
     T: ServiceHandler,
 {
+    pub id: Identifier,
     pub realm: String,
     pub software: String,
     pub manager: Arc<SessionManager<T>>,
-    pub endpoint: SocketAddr,
-    pub interface: SocketAddr,
     pub interfaces: Arc<Vec<SocketAddr>>,
     pub handler: T,
 }
@@ -149,7 +140,6 @@ pub struct Router<T>
 where
     T: ServiceHandler,
 {
-    current_id: Identifier,
     state: RouterState<T>,
     decoder: Decoder,
     bytes: BytesMut,
@@ -159,25 +149,17 @@ impl<T> Router<T>
 where
     T: ServiceHandler + Clone,
 {
-    pub fn new(service: &Service<T>, endpoint: SocketAddr, interface: SocketAddr) -> Self {
+    pub fn new(service: &Service<T>, id: Identifier) -> Self {
         Self {
             bytes: BytesMut::with_capacity(4096),
             decoder: Decoder::default(),
-            // This is a placeholder address that will be updated on first route call
-            current_id: Identifier::new(
-                "0.0.0.0:0"
-                    .parse()
-                    .expect("Failed to parse placeholder address"),
-                interface,
-            ),
             state: RouterState {
                 interfaces: service.interfaces.clone(),
                 software: service.software.clone(),
                 handler: service.handler.clone(),
                 manager: service.manager.clone(),
                 realm: service.realm.clone(),
-                interface,
-                endpoint,
+                id,
             },
         }
     }
@@ -185,17 +167,11 @@ where
     pub async fn route<'a, 'b: 'a>(
         &'b mut self,
         bytes: &'b [u8],
-        address: SocketAddr,
     ) -> Result<Option<Response<'a>>, crate::codec::Error> {
-        {
-            *self.current_id.source_mut() = address;
-        }
-
         Ok(match self.decoder.decode(bytes)? {
             DecodeResult::ChannelData(channel) => channel_data(
                 bytes,
                 Request {
-                    id: &self.current_id,
                     state: &self.state,
                     encode_buffer: &mut self.bytes,
                     payload: &channel,
@@ -203,7 +179,6 @@ where
             ),
             DecodeResult::Message(message) => {
                 let req = Request {
-                    id: &self.current_id,
                     state: &self.state,
                     encode_buffer: &mut self.bytes,
                     payload: &message,
@@ -238,7 +213,7 @@ where
             message.append::<Nonce>(
                 req.state
                     .manager
-                    .get_session_or_default(req.id)
+                    .get_session_or_default(&req.state.id)
                     .get_ref()?
                     .nonce(),
             );
@@ -253,9 +228,9 @@ where
     }
 
     Some(Response {
-        target: Target::default(),
         bytes: req.encode_buffer,
         method: Some(method),
+        relay: None,
     })
 }
 
@@ -285,17 +260,17 @@ where
 {
     {
         let mut message = MessageEncoder::extend(BINDING_RESPONSE, req.payload, req.encode_buffer);
-        message.append::<XorMappedAddress>(req.id.source());
-        message.append::<MappedAddress>(req.id.source());
-        message.append::<ResponseOrigin>(req.state.interface);
+        message.append::<XorMappedAddress>(req.state.id.source);
+        message.append::<MappedAddress>(req.state.id.source);
+        message.append::<ResponseOrigin>(req.state.id.external);
         message.append::<Software>(&req.state.software);
         message.flush(None).ok()?;
     }
 
     Some(Response {
         method: Some(BINDING_RESPONSE),
-        target: Target::default(),
         bytes: req.encode_buffer,
+        relay: None,
     })
 }
 
@@ -327,25 +302,27 @@ where
 
     let lifetime = req.payload.get::<Lifetime>();
 
-    let Some(port) = req.state.manager.allocate(req.id, lifetime) else {
+    let Some(port) = req.state.manager.allocate(&req.state.id, lifetime) else {
         return reject(req, ErrorType::AllocationQuotaReached);
     };
 
-    req.state.handler.on_allocated(req.id, username, port);
+    req.state
+        .handler
+        .on_allocated(&req.state.id, username, port);
 
     {
         let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.encode_buffer);
-        message.append::<XorRelayedAddress>(SocketAddr::new(req.state.interface.ip(), port));
-        message.append::<XorMappedAddress>(req.id.source());
+        message.append::<XorRelayedAddress>(SocketAddr::new(req.state.id.external.ip(), port));
+        message.append::<XorMappedAddress>(req.state.id.source);
         message.append::<Lifetime>(lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32));
         message.append::<Software>(&req.state.software);
         message.flush(Some(&password)).ok()?;
     }
 
     Some(Response {
-        target: Target::default(),
         method: Some(ALLOCATE_RESPONSE),
         bytes: req.encode_buffer,
+        relay: None,
     })
 }
 
@@ -393,7 +370,7 @@ where
         return reject(req, ErrorType::BadRequest);
     };
 
-    if !(0x4000..=0x4FFF).contains(&number) {
+    if !(0x4000..=0xFFFF).contains(&number) {
         return reject(req, ErrorType::BadRequest);
     }
 
@@ -404,12 +381,14 @@ where
     if !req
         .state
         .manager
-        .bind_channel(req.id, &req.state.endpoint, peer.port(), number)
+        .bind_channel(&req.state.id, peer.port(), number)
     {
         return reject(req, ErrorType::Forbidden);
     }
 
-    req.state.handler.on_channel_bind(req.id, username, number);
+    req.state
+        .handler
+        .on_channel_bind(&req.state.id, username, number);
 
     {
         MessageEncoder::extend(CHANNEL_BIND_RESPONSE, req.payload, req.encode_buffer)
@@ -418,9 +397,9 @@ where
     }
 
     Some(Response {
-        target: Target::default(),
         method: Some(CHANNEL_BIND_RESPONSE),
         bytes: req.encode_buffer,
+        relay: None,
     })
 }
 
@@ -478,17 +457,13 @@ where
         ports.push(it.port());
     }
 
-    if !req
-        .state
-        .manager
-        .create_permission(req.id, &req.state.endpoint, &ports)
-    {
+    if !req.state.manager.create_permission(&req.state.id, &ports) {
         return reject(req, ErrorType::Forbidden);
     }
 
     req.state
         .handler
-        .on_create_permission(req.id, username, &ports);
+        .on_create_permission(&req.state.id, username, &ports);
 
     {
         MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.encode_buffer)
@@ -498,8 +473,8 @@ where
 
     Some(Response {
         method: Some(CREATE_PERMISSION_RESPONSE),
-        target: Target::default(),
         bytes: req.encode_buffer,
+        relay: None,
     })
 }
 
@@ -553,14 +528,14 @@ where
     let peer = req.payload.get::<XorPeerAddress>()?;
     let data = req.payload.get::<Data>()?;
 
-    if let Some(Session::Authenticated { allocate_port, .. }) =
-        req.state.manager.get_session(req.id).get_ref() && let Some(local_port) = *allocate_port
+    if let Some(Session::Authenticated { allocated_port, .. }) =
+        req.state.manager.get_session(&req.state.id).get_ref() && let Some(local_port) = *allocated_port
     {
-        let relay = req.state.manager.get_relay_address(req.id, peer.port())?;
+        let relay = req.state.manager.get_relay_address(&req.state.id, peer.port())?;
 
         {
             let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.encode_buffer);
-            message.append::<XorPeerAddress>(SocketAddr::new(req.state.interface.ip(), local_port));
+            message.append::<XorPeerAddress>(SocketAddr::new(req.state.id.external.ip(), local_port));
             message.append::<Data>(data);
             message.flush(None).ok()?;
         }
@@ -568,14 +543,7 @@ where
         return Some(Response {
             method: Some(DATA_INDICATION),
             bytes: req.encode_buffer,
-            target: Target {
-                relay: Some(relay.source()),
-                endpoint: if req.state.endpoint != relay.endpoint() {
-                    Some(relay.endpoint())
-                } else {
-                    None
-                },
-            },
+            relay: Some(relay),
         });
     }
 
@@ -630,11 +598,13 @@ where
         .payload
         .get::<Lifetime>()
         .unwrap_or(DEFAULT_SESSION_LIFETIME as u32);
-    if !req.state.manager.refresh(req.id, lifetime) {
+    if !req.state.manager.refresh(&req.state.id, lifetime) {
         return reject(req, ErrorType::AllocationMismatch);
     }
 
-    req.state.handler.on_refresh(req.id, username, lifetime);
+    req.state
+        .handler
+        .on_refresh(&req.state.id, username, lifetime);
 
     {
         let mut message = MessageEncoder::extend(REFRESH_RESPONSE, req.payload, req.encode_buffer);
@@ -643,9 +613,9 @@ where
     }
 
     Some(Response {
-        target: Target::default(),
         method: Some(REFRESH_RESPONSE),
         bytes: req.encode_buffer,
+        relay: None,
     })
 }
 
@@ -682,25 +652,14 @@ fn channel_data<'a, T>(
 where
     T: ServiceHandler,
 {
-    if (0x5000..=0xFFFF).contains(&req.payload.number()) {
-        return None;
-    }
-
     let relay = req
         .state
         .manager
-        .get_channel_relay_address(req.id, req.payload.number())?;
+        .get_channel_relay_address(&req.state.id, req.payload.number())?;
 
     Some(Response {
-        bytes,
-        target: Target {
-            relay: Some(relay.source()),
-            endpoint: if req.state.endpoint != relay.endpoint() {
-                Some(relay.endpoint())
-            } else {
-                None
-            },
-        },
+        relay: Some(relay),
         method: None,
+        bytes,
     })
 }

@@ -4,25 +4,18 @@ pub mod udp;
 use std::{net::SocketAddr, time::Duration};
 
 use anyhow::Result;
-use bytes::Bytes;
-
+use bytes::{Bytes, BytesMut};
 use tokio::time::interval;
 
 use crate::{
     Service,
     config::Ssl,
-    server::{Exchanger, PayloadType},
-    service::session::Identifier,
+    server::Exchanger,
+    service::{Transport, session::Identifier},
     statistics::{Statistics, Stats},
 };
 
 pub const MAX_MESSAGE_SIZE: usize = 4096;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Transport {
-    Udp,
-    Tcp,
-}
 
 pub trait Socket: Send + 'static {
     fn read(&mut self) -> impl Future<Output = Option<Bytes>> + Send;
@@ -73,10 +66,15 @@ pub trait Server: Sized + Send {
             );
 
             while let Some((mut socket, address)) = listener.accept().await {
-                let id = Identifier::new(address, options.external);
+                let id = Identifier {
+                    source: address,
+                    interface: local_addr,
+                    external: options.external,
+                    transport: options.transport,
+                };
 
-                let mut receiver = exchanger.get_receiver(address);
-                let mut router = service.make_router(address, options.external);
+                let mut router = service.make_router(id);
+                let mut receiver = exchanger.get_receiver(id);
                 let reporter = statistics.get_reporter(transport);
 
                 let service = service.clone();
@@ -91,53 +89,48 @@ pub trait Server: Sized + Send {
                             Some(buffer) = socket.read() => {
                                 read_delay = 0;
 
-                                if let Ok(res) = router.route(&buffer, address).await
+                                if let Ok(Some(res)) = router.route(&buffer).await
                                 {
-                                    let (ty, bytes, target) = if let Some(it) = res {
-                                        (
-                                            it.method.map(PayloadType::Message).unwrap_or(PayloadType::ChannelData),
-                                            it.bytes,
-                                            it.target,
-                                        )
-                                    } else {
-                                        continue;
-                                    };
 
-                                    if let Some(endpoint) = target.endpoint {
-                                        exchanger.send(&endpoint, ty, Bytes::copy_from_slice(bytes));
+                                    if let Some(relay) = res.relay {
+                                        let mut bytes = BytesMut::with_capacity(res.bytes.len() + 4);
+
+                                        bytes.extend_from_slice(res.bytes);
+
+                                        // The channel data needs to be aligned in multiples of 4 in
+                                        // tcp. If the channel data is forwarded to tcp, the alignment
+                                        // bit needs to be filled, because if the channel data comes
+                                        // from udp, it is not guaranteed to be aligned and needs to be
+                                        // checked.
+                                        if relay.transport == Transport::Tcp && res.method.is_none() {
+                                            let pad = res.bytes.len() % 4;
+                                            if pad > 0 {
+                                                bytes.extend_from_slice(&[0u8; 8][..(4 - pad)]);
+                                            }
+                                        }
+
+                                        exchanger.send(&relay, bytes.freeze());
                                     } else {
-                                        if socket.write(bytes).await.is_err() {
+                                        if socket.write(res.bytes).await.is_err() {
                                             break;
                                         }
 
                                         reporter.send(
                                             &id,
-                                            &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)],
+                                            &[Stats::SendBytes(res.bytes.len()), Stats::SendPkts(1)],
                                         );
 
-                                        if let PayloadType::Message(method) = ty && method.is_error() {
+                                        if let Some(method) = res.method && method.is_error() {
                                             reporter.send(&id, &[Stats::ErrorPkts(1)]);
                                         }
                                     }
                                 }
                             }
-                            Some((bytes, method)) = receiver.recv() => {
+                            Some(bytes) = receiver.recv() => {
                                 if socket.write(&bytes).await.is_err() {
                                     break;
                                 } else {
                                     reporter.send(&id, &[Stats::SendBytes(bytes.len()), Stats::SendPkts(1)]);
-                                }
-
-                                // The channel data needs to be aligned in multiples of 4 in
-                                // tcp. If the channel data is forwarded to tcp, the alignment
-                                // bit needs to be filled, because if the channel data comes
-                                // from udp, it is not guaranteed to be aligned and needs to be
-                                // checked.
-                                if transport == Transport::Tcp && method == PayloadType::ChannelData {
-                                    let pad = bytes.len() % 4;
-                                    if pad > 0 && socket.write(&[0u8; 8][..(4 - pad)]).await.is_err() {
-                                        break;
-                                    }
                                 }
                             }
                             _ = interval.tick() => {
@@ -162,7 +155,7 @@ pub trait Server: Sized + Send {
                     // process.
                     service.get_session_manager().refresh(&id, 0);
 
-                    exchanger.remove(&address);
+                    exchanger.remove(&id);
 
                     log::info!(
                         "socket disconnect: addr={address:?}, interface={local_addr:?}, transport={transport:?}"
