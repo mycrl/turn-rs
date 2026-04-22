@@ -2358,7 +2358,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "turn-server"
-version = "4.0.1"
+version = "4.1.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -2393,7 +2393,7 @@ dependencies = [
 
 [[package]]
 name = "turn-server-protos"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "prost",
  "prost-types",
@@ -2404,7 +2404,7 @@ dependencies = [
 
 [[package]]
 name = "turn-server-sdk"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "md-5",
  "sha2",

@@ -7,12 +7,12 @@ use crate::{
         message::attributes::PasswordAlgorithm,
     },
     config::Config,
-    service::{ServiceHandler, session::Identifier},
+    service::{ServiceHandler, Transport, session::Identifier},
     statistics::Statistics,
 };
 
 #[cfg(feature = "api")]
-use crate::api::{HooksEvent, IdString, RpcHooksService};
+use crate::api::{HooksEvent, RpcHooksService};
 
 use anyhow::Result;
 
@@ -21,6 +21,22 @@ use protos::{
     TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
     TurnRefreshEvent,
 };
+
+#[cfg(feature = "api")]
+impl Into<protos::Identifier> for &Identifier {
+    fn into(self) -> protos::Identifier {
+        protos::Identifier {
+            source: self.source.to_string(),
+            external: self.external.to_string(),
+            interface: self.interface.to_string(),
+            transport: match self.transport {
+                Transport::Udp => protos::Transport::Udp,
+                Transport::Tcp => protos::Transport::Tcp,
+            }
+            .into(),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Handler {
@@ -45,7 +61,12 @@ impl Handler {
 }
 
 impl ServiceHandler for Handler {
-    async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    async fn get_password(
+        &self,
+        id: &Identifier,
+        username: &str,
+        algorithm: PasswordAlgorithm,
+    ) -> Option<Password> {
         // Match the static authentication information first.
         if let Some(password) = self.config.auth.static_credentials.get(username) {
             return Some(generate_password(
@@ -70,7 +91,7 @@ impl ServiceHandler for Handler {
         if self.config.auth.enable_hooks_auth {
             return self
                 .rpc
-                .get_password(&self.config.server.realm, username, algorithm)
+                .get_password(id.into(), &self.config.server.realm, username, algorithm)
                 .await;
         }
 
@@ -95,9 +116,10 @@ impl ServiceHandler for Handler {
     /// standard services.
     fn on_allocated(&self, id: &Identifier, username: &str, port: u16) {
         log::info!(
-            "allocate: address={:?}, interface={:?}, username={:?}, port={}",
-            id.source(),
-            id.interface(),
+            "allocate: address={:?}, interface={:?}, transport={:?}, username={:?}, port={}",
+            id.source,
+            id.interface,
+            id.transport,
             username,
             port
         );
@@ -108,7 +130,7 @@ impl ServiceHandler for Handler {
 
             self.rpc
                 .send_event(HooksEvent::Allocated(TurnAllocatedEvent {
-                    id: id.to_string(),
+                    id: Some(id.into()),
                     username: username.to_string(),
                     port: port as i32,
                 }));
@@ -147,9 +169,10 @@ impl ServiceHandler for Handler {
     /// retransmission.
     fn on_channel_bind(&self, id: &Identifier, username: &str, channel: u16) {
         log::info!(
-            "channel bind: address={:?}, interface={:?}, username={:?}, channel={}",
-            id.source(),
-            id.interface(),
+            "channel bind: address={:?}, interface={:?}, transport={:?}, username={:?}, channel={}",
+            id.source,
+            id.interface,
+            id.transport,
             username,
             channel
         );
@@ -158,7 +181,7 @@ impl ServiceHandler for Handler {
         {
             self.rpc
                 .send_event(HooksEvent::ChannelBind(TurnChannelBindEvent {
-                    id: id.to_string(),
+                    id: Some(id.into()),
                     username: username.to_string(),
                     channel: channel as i32,
                 }));
@@ -206,9 +229,10 @@ impl ServiceHandler for Handler {
     /// requests will simply refresh the permissions.
     fn on_create_permission(&self, id: &Identifier, username: &str, ports: &[u16]) {
         log::info!(
-            "create permission: address={:?}, interface={:?}, username={:?}, ports={:?}",
-            id.source(),
-            id.interface(),
+            "create permission: address={:?}, interface={:?}, transport={:?}, username={:?}, ports={:?}",
+            id.source,
+            id.interface,
+            id.transport,
             username,
             ports
         );
@@ -217,7 +241,7 @@ impl ServiceHandler for Handler {
         {
             self.rpc
                 .send_event(HooksEvent::CreatePermission(TurnCreatePermissionEvent {
-                    id: id.to_string(),
+                    id: Some(id.into()),
                     username: username.to_string(),
                     ports: ports.iter().map(|p| *p as i32).collect(),
                 }));
@@ -265,9 +289,10 @@ impl ServiceHandler for Handler {
     /// this as equivalent to a success response (see below).
     fn on_refresh(&self, id: &Identifier, username: &str, lifetime: u32) {
         log::info!(
-            "refresh: address={:?}, interface={:?}, username={:?}, lifetime={}",
-            id.source(),
-            id.interface(),
+            "refresh: address={:?}, interface={:?}, transport={:?}, username={:?}, lifetime={}",
+            id.source,
+            id.interface,
+            id.transport,
             username,
             lifetime
         );
@@ -275,7 +300,7 @@ impl ServiceHandler for Handler {
         #[cfg(feature = "api")]
         {
             self.rpc.send_event(HooksEvent::Refresh(TurnRefreshEvent {
-                id: id.to_string(),
+                id: Some(id.into()),
                 username: username.to_string(),
                 lifetime: lifetime as i32,
             }));
@@ -289,9 +314,10 @@ impl ServiceHandler for Handler {
     /// exit of the session.
     fn on_destroy(&self, id: &Identifier, username: &str) {
         log::info!(
-            "closed: address={:?}, interface={:?}, username={:?}",
-            id.source(),
-            id.interface(),
+            "closed: address={:?}, interface={:?}, transport={:?}, username={:?}",
+            id.source,
+            id.interface,
+            id.transport,
             username
         );
 
@@ -300,7 +326,7 @@ impl ServiceHandler for Handler {
             self.statistics.unregister(id);
 
             self.rpc.send_event(HooksEvent::Destroy(TurnDestroyEvent {
-                id: id.to_string(),
+                id: Some(id.into()),
                 username: username.to_string(),
             }));
         }

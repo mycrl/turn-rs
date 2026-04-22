@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    net::SocketAddr,
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
 use tokio::sync::{
@@ -15,59 +18,60 @@ use tonic::{
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 
 use protos::{
-    GetTurnPasswordRequest, PasswordAlgorithm as ProtoPasswordAlgorithm, SessionQueryParams,
-    TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
-    TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
+    GetTurnPasswordRequest, Identifier, PasswordAlgorithm, Transport, TurnAllocatedEvent,
+    TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent,
+    TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_client::TurnHooksServiceClient,
     turn_service_server::{TurnService, TurnServiceServer},
 };
 
 use crate::{
     Service,
-    codec::{crypto::Password, message::attributes::PasswordAlgorithm},
+    codec::{crypto::Password, message::attributes::PasswordAlgorithm as InnerPasswordAlgorithm},
     config::Config,
-    service::session::{Identifier, Session},
+    service::{
+        Transport as InnerTransport,
+        session::{Identifier as InnerIdentifier, Session},
+    },
     statistics::Statistics,
 };
 
-impl From<PasswordAlgorithm> for ProtoPasswordAlgorithm {
-    fn from(val: PasswordAlgorithm) -> Self {
-        match val {
-            PasswordAlgorithm::Md5 => Self::Md5,
-            PasswordAlgorithm::Sha256 => Self::Sha256,
+impl Into<PasswordAlgorithm> for InnerPasswordAlgorithm {
+    fn into(self) -> PasswordAlgorithm {
+        match self {
+            Self::Md5 => PasswordAlgorithm::Md5,
+            Self::Sha256 => PasswordAlgorithm::Sha256,
         }
     }
 }
 
-pub trait IdString {
-    type Error;
-
-    fn to_string(&self) -> String;
-    fn from_string(s: String) -> Result<Self, Self::Error>
-    where
-        Self: Sized;
-}
-
-impl IdString for Identifier {
+impl TryFrom<Identifier> for InnerIdentifier {
     type Error = Status;
 
-    fn to_string(&self) -> String {
-        format!("{}/{}", self.source(), self.interface())
-    }
-
-    fn from_string(s: String) -> Result<Self, Self::Error> {
-        let (source, interface) = s
-            .split_once('/')
-            .ok_or(Status::invalid_argument("Invalid identifier"))?;
-
-        Ok(Self::new(
-            source
-                .parse()
-                .map_err(|_| Status::invalid_argument("Invalid source address"))?,
-            interface
-                .parse()
-                .map_err(|_| Status::invalid_argument("Invalid interface address"))?,
-        ))
+    fn try_from(value: Identifier) -> Result<Self, Self::Error> {
+        Ok(InnerIdentifier {
+            source: value
+                .source
+                .parse::<SocketAddr>()
+                .map_err(|e| Status::invalid_argument(e.to_string()))?,
+            external: value
+                .external
+                .parse::<SocketAddr>()
+                .map_err(|e| Status::invalid_argument(e.to_string()))?,
+            interface: value
+                .interface
+                .parse::<SocketAddr>()
+                .map_err(|e| Status::invalid_argument(e.to_string()))?,
+            transport: match Transport::try_from(value.transport)
+                .map_err(|e| Status::invalid_argument(e.to_string()))?
+            {
+                Transport::Udp => InnerTransport::Udp,
+                Transport::Tcp => InnerTransport::Tcp,
+                Transport::Unspecified => {
+                    return Err(Status::invalid_argument("transport is unspecified"));
+                }
+            },
+        })
     }
 }
 
@@ -98,26 +102,26 @@ impl TurnService for RpcService {
 
     async fn get_session(
         &self,
-        request: Request<SessionQueryParams>,
+        request: Request<Identifier>,
     ) -> Result<Response<TurnSession>, Status> {
         if let Some(Session::Authenticated {
             username,
-            allocate_port,
-            allocate_channels,
+            allocated_port,
+            bind_channels,
             permissions,
             expires,
             ..
         }) = self
             .service
             .get_session_manager()
-            .get_session(&Identifier::from_string(request.into_inner().id)?)
+            .get_session(&InnerIdentifier::try_from(request.into_inner())?)
             .get_ref()
         {
             Ok(Response::new(TurnSession {
                 username: username.to_string(),
                 permissions: permissions.iter().map(|p| *p as i32).collect(),
-                channels: allocate_channels.iter().map(|p| *p as i32).collect(),
-                port: allocate_port.map(|p| p as i32),
+                bind_channels: bind_channels.iter().map(|p| *p as i32).collect(),
+                allocated_port: allocated_port.map(|p| p as i32),
                 expires: *expires as i64,
             }))
         } else {
@@ -127,11 +131,11 @@ impl TurnService for RpcService {
 
     async fn get_session_statistics(
         &self,
-        request: Request<SessionQueryParams>,
+        request: Request<Identifier>,
     ) -> Result<Response<TurnSessionStatistics>, Status> {
         if let Some(counts) = self
             .statistics
-            .get(&Identifier::from_string(request.into_inner().id)?)
+            .get(&InnerIdentifier::try_from(request.into_inner())?)
         {
             Ok(Response::new(TurnSessionStatistics {
                 received_bytes: counts.received_bytes as u64,
@@ -145,14 +149,11 @@ impl TurnService for RpcService {
         }
     }
 
-    async fn destroy_session(
-        &self,
-        request: Request<SessionQueryParams>,
-    ) -> Result<Response<()>, Status> {
+    async fn destroy_session(&self, request: Request<Identifier>) -> Result<Response<()>, Status> {
         if self
             .service
             .get_session_manager()
-            .refresh(&Identifier::from_string(request.into_inner().id)?, 0)
+            .refresh(&InnerIdentifier::try_from(request.into_inner())?, 0)
         {
             Ok(Response::new(()))
         } else {
@@ -258,17 +259,19 @@ impl RpcHooksService {
 
     pub async fn get_password(
         &self,
+        id: Identifier,
         realm: &str,
         username: &str,
-        algorithm: PasswordAlgorithm,
+        algorithm: InnerPasswordAlgorithm,
     ) -> Option<Password> {
         if let Some(inner) = &self.0 {
-            let algorithm: ProtoPasswordAlgorithm = algorithm.into();
+            let algorithm: PasswordAlgorithm = algorithm.into();
             let password = inner
                 .client
                 .lock()
                 .await
                 .get_password(Request::new(GetTurnPasswordRequest {
+                    id: Some(id),
                     realm: realm.to_string(),
                     username: username.to_string(),
                     algorithm: algorithm as i32,
@@ -279,9 +282,9 @@ impl RpcHooksService {
                 .password;
 
             return Some(match algorithm {
-                ProtoPasswordAlgorithm::Md5 => Password::Md5(password.try_into().ok()?),
-                ProtoPasswordAlgorithm::Sha256 => Password::Sha256(password.try_into().ok()?),
-                ProtoPasswordAlgorithm::Unspecified => unreachable!(),
+                PasswordAlgorithm::Md5 => Password::Md5(password.try_into().ok()?),
+                PasswordAlgorithm::Sha256 => Password::Sha256(password.try_into().ok()?),
+                PasswordAlgorithm::Unspecified => unreachable!(),
             });
         }
 

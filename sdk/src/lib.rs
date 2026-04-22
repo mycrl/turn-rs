@@ -177,7 +177,7 @@ use tonic::{
 };
 
 use protos::{
-    GetTurnPasswordRequest, GetTurnPasswordResponse, PasswordAlgorithm, SessionQueryParams,
+    GetTurnPasswordRequest, GetTurnPasswordResponse, Identifier, PasswordAlgorithm,
     TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
     TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_server::{TurnHooksService, TurnHooksServiceServer},
@@ -201,33 +201,25 @@ impl TurnService {
     }
 
     /// get the session
-    pub async fn get_session(&mut self, id: String) -> Result<TurnSession, Status> {
-        Ok(self
-            .0
-            .get_session(Request::new(SessionQueryParams { id }))
-            .await?
-            .into_inner())
+    pub async fn get_session(&mut self, id: Identifier) -> Result<TurnSession, Status> {
+        Ok(self.0.get_session(Request::new(id)).await?.into_inner())
     }
 
     /// get the session statistics
     pub async fn get_session_statistics(
         &mut self,
-        id: String,
+        id: Identifier,
     ) -> Result<TurnSessionStatistics, Status> {
         Ok(self
             .0
-            .get_session_statistics(Request::new(SessionQueryParams { id }))
+            .get_session_statistics(Request::new(id))
             .await?
             .into_inner())
     }
 
     /// destroy the session
-    pub async fn destroy_session(&mut self, id: String) -> Result<(), Status> {
-        Ok(self
-            .0
-            .destroy_session(Request::new(SessionQueryParams { id }))
-            .await?
-            .into_inner())
+    pub async fn destroy_session(&mut self, id: Identifier) -> Result<(), Status> {
+        Ok(self.0.destroy_session(Request::new(id)).await?.into_inner())
     }
 }
 
@@ -298,7 +290,14 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
 
         if let Ok(credential) = self
             .0
-            .get_password(&request.realm, &request.username, algorithm)
+            .get_password(
+                request
+                    .id
+                    .ok_or_else(|| Status::invalid_argument("identifier is None"))?,
+                &request.realm,
+                &request.username,
+                algorithm,
+            )
             .await
         {
             Ok(Response::new(GetTurnPasswordResponse {
@@ -321,7 +320,13 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
     ) -> Result<Response<()>, Status> {
         let request = request.into_inner();
         self.0
-            .on_allocated(request.id, request.username, request.port as u16)
+            .on_allocated(
+                request
+                    .id
+                    .ok_or_else(|| Status::invalid_argument("identifier is None"))?,
+                request.username,
+                request.port as u16,
+            )
             .await;
 
         Ok(Response::new(()))
@@ -333,7 +338,13 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
     ) -> Result<Response<()>, Status> {
         let request = request.into_inner();
         self.0
-            .on_channel_bind(request.id, request.username, request.channel as u16)
+            .on_channel_bind(
+                request
+                    .id
+                    .ok_or_else(|| Status::invalid_argument("identifier is None"))?,
+                request.username,
+                request.channel as u16,
+            )
             .await;
 
         Ok(Response::new(()))
@@ -346,7 +357,9 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
         let request = request.into_inner();
         self.0
             .on_create_permission(
-                request.id,
+                request
+                    .id
+                    .ok_or_else(|| Status::invalid_argument("identifier is None"))?,
                 request.username,
                 request.ports.iter().map(|p| *p as u16).collect(),
             )
@@ -361,7 +374,13 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
     ) -> Result<Response<()>, Status> {
         let request = request.into_inner();
         self.0
-            .on_refresh(request.id, request.username, request.lifetime as u32)
+            .on_refresh(
+                request
+                    .id
+                    .ok_or_else(|| Status::invalid_argument("identifier is None"))?,
+                request.username,
+                request.lifetime as u32,
+            )
             .await;
 
         Ok(Response::new(()))
@@ -372,7 +391,14 @@ impl<T: TurnHooksServer + 'static> TurnHooksService for TurnHooksServerInner<T> 
         request: Request<TurnDestroyEvent>,
     ) -> Result<Response<()>, Status> {
         let request = request.into_inner();
-        self.0.on_destroy(request.id, request.username).await;
+        self.0
+            .on_destroy(
+                request
+                    .id
+                    .ok_or_else(|| Status::invalid_argument("identifier is None"))?,
+                request.username,
+            )
+            .await;
 
         Ok(Response::new(()))
     }
@@ -383,6 +409,7 @@ pub trait TurnHooksServer: Send + Sync {
     #[allow(unused_variables)]
     async fn get_password(
         &self,
+        id: Identifier,
         realm: &str,
         username: &str,
         algorithm: PasswordAlgorithm,
@@ -407,7 +434,7 @@ pub trait TurnHooksServer: Send + Sync {
     /// Known Port range) to discourage clients from using TURN to run
     /// standard services.
     #[allow(unused_variables)]
-    async fn on_allocated(&self, id: String, username: String, port: u16) {}
+    async fn on_allocated(&self, id: Identifier, username: String, port: u16) {}
 
     /// channel bind request
     ///
@@ -421,7 +448,7 @@ pub trait TurnHooksServer: Send + Sync {
     /// There are no required attributes in a successful ChannelBind
     /// response.
     #[allow(unused_variables)]
-    async fn on_channel_bind(&self, id: String, username: String, channel: u16) {}
+    async fn on_channel_bind(&self, id: Identifier, username: String, channel: u16) {}
 
     /// create permission request
     ///
@@ -435,7 +462,7 @@ pub trait TurnHooksServer: Send + Sync {
     /// There are no required attributes in a successful ChannelBind
     /// response.
     #[allow(unused_variables)]
-    async fn on_create_permission(&self, id: String, username: String, ports: Vec<u16>) {}
+    async fn on_create_permission(&self, id: Identifier, username: String, ports: Vec<u16>) {}
 
     /// refresh request
     ///
@@ -449,7 +476,7 @@ pub trait TurnHooksServer: Send + Sync {
     /// There are no required attributes in a successful ChannelBind
     /// response.
     #[allow(unused_variables)]
-    async fn on_refresh(&self, id: String, username: String, lifetime: u32) {}
+    async fn on_refresh(&self, id: Identifier, username: String, lifetime: u32) {}
 
     /// session closed
     ///
@@ -457,7 +484,7 @@ pub trait TurnHooksServer: Send + Sync {
     /// session life cycle has expired, external active deletion, or active
     /// exit of the session.
     #[allow(unused_variables)]
-    async fn on_destroy(&self, id: String, username: String) {}
+    async fn on_destroy(&self, id: Identifier, username: String) {}
 
     /// start the turn hooks server
     ///

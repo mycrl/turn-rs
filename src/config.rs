@@ -246,7 +246,7 @@ impl Prometheus {
 }
 
 impl Default for Prometheus {
-fn default() -> Self {
+    fn default() -> Self {
         Self {
             listen: Self::bind(),
             ssl: None,

@@ -16,7 +16,7 @@ use tokio::net::TcpListener;
 
 use crate::{
     config::Config,
-    server::transport::Transport,
+    service::Transport,
     statistics::{Counts, Number, Stats},
 };
 

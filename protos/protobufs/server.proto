@@ -4,6 +4,21 @@ package turn.server;
 
 import "google/protobuf/empty.proto";
 
+// connection transport protocol
+enum Transport {
+    TRANSPORT_UNSPECIFIED = 0;
+    TRANSPORT_UDP = 1;
+    TRANSPORT_TCP = 2;
+}
+
+// connection identifier
+message Identifier {
+    string source = 1;
+    string external = 2;
+    string interface = 3;
+    Transport transport = 4;
+}
+
 // turn server info
 message TurnServerInfo {
     // software info
@@ -18,20 +33,15 @@ message TurnServerInfo {
     uint32 port_allocated = 5;
 }
 
-// session query params
-message SessionQueryParams {
-    string id = 1;
-}
-
 // turn session
 message TurnSession {
     string username = 1;
     // permissions port
     repeated int32 permissions = 2;
     // channels number
-    repeated int32 channels = 3;
+    repeated int32 bind_channels = 3;
     // allocated port number
-    optional int32 port = 4;
+    optional int32 allocated_port = 4;
     // expires seconds
     int64 expires = 6;
 }
@@ -55,58 +65,59 @@ service TurnService {
     // get server info
     rpc GetInfo(google.protobuf.Empty) returns (TurnServerInfo);
     // get session
-    rpc GetSession(SessionQueryParams) returns (TurnSession);
+    rpc GetSession(Identifier) returns (TurnSession);
     // get session statistics
-    rpc GetSessionStatistics(SessionQueryParams) returns (TurnSessionStatistics);
+    rpc GetSessionStatistics(Identifier) returns (TurnSessionStatistics);
     // destroy session
-    rpc DestroySession(SessionQueryParams) returns (google.protobuf.Empty);
+    rpc DestroySession(Identifier) returns (google.protobuf.Empty);
 }
 
 // turn allocated event
 message TurnAllocatedEvent {
-    string id = 1;
+    Identifier id = 1;
     string username = 2;
     int32 port = 3;
 }
 
 // turn channel bind event
 message TurnChannelBindEvent {
-    string id = 1;
+    Identifier id = 1;
     string username = 2;
     int32 channel = 3;
 }
 
 // turn create permission event
 message TurnCreatePermissionEvent {
-    string id = 1;
+    Identifier id = 1;
     string username = 2;
     repeated int32 ports = 3;
 }
 
 // turn refresh event
 message TurnRefreshEvent {
-    string id = 1;
+    Identifier id = 1;
     string username = 2;
     int32 lifetime = 3;
 }
 
 // turn destroy event
 message TurnDestroyEvent {
-    string id = 1;
+    Identifier id = 1;
     string username = 2;
 }
 
 enum PasswordAlgorithm {
-    UNSPECIFIED = 0;
-    MD5 = 1;
-    SHA256 = 2;
+    PASSWORD_ALGORITHM_UNSPECIFIED = 0;
+    PASSWORD_ALGORITHM_MD5 = 1;
+    PASSWORD_ALGORITHM_SHA256 = 2;
 }
 
 // get turn message integrity request
 message GetTurnPasswordRequest {
-    PasswordAlgorithm algorithm = 1;
-    string username = 2;
-    string realm = 3;
+    Identifier id = 1;
+    PasswordAlgorithm algorithm = 2;
+    string username = 3;
+    string realm = 4;
 }
 
 // get turn message integrity response

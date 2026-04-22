@@ -1,5 +1,8 @@
 use tonic::{Status, transport::Server};
-use turn_server_sdk::{Credential, TurnHooksServer, protos::PasswordAlgorithm};
+use turn_server_sdk::{
+    Credential, TurnHooksServer,
+    protos::{Identifier, PasswordAlgorithm},
+};
 
 struct MyHooksServer;
 
@@ -7,13 +10,14 @@ struct MyHooksServer;
 impl TurnHooksServer for MyHooksServer {
     async fn get_password(
         &self,
+        id: Identifier,
         realm: &str,
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> Result<Credential, Status> {
         println!(
-            "Getting password for realm={}, username={}, algorithm={:?}",
-            realm, username, algorithm
+            "Getting password for id={:?}, realm={}, username={}, algorithm={:?}",
+            id, realm, username, algorithm
         );
 
         // Implement your authentication logic here
@@ -24,37 +28,37 @@ impl TurnHooksServer for MyHooksServer {
         })
     }
 
-    async fn on_allocated(&self, id: String, username: String, port: u16) {
+    async fn on_allocated(&self, id: Identifier, username: String, port: u16) {
         println!(
-            "Session allocated: id={}, username={}, port={}",
+            "Session allocated: id={:?}, username={}, port={}",
             id, username, port
         );
         // Handle allocation event (e.g., log to database, update metrics)
     }
 
-    async fn on_channel_bind(&self, id: String, username: String, channel: u16) {
+    async fn on_channel_bind(&self, id: Identifier, username: String, channel: u16) {
         println!(
-            "Channel bound: id={}, username={}, channel={}",
+            "Channel bound: id={:?}, username={}, channel={}",
             id, username, channel
         );
     }
 
-    async fn on_create_permission(&self, id: String, username: String, ports: Vec<u16>) {
+    async fn on_create_permission(&self, id: Identifier, username: String, ports: Vec<u16>) {
         println!(
-            "Permission created: id={}, username={}, ports={:?}",
+            "Permission created: id={:?}, username={}, ports={:?}",
             id, username, ports
         );
     }
 
-    async fn on_refresh(&self, id: String, username: String, lifetime: u32) {
+    async fn on_refresh(&self, id: Identifier, username: String, lifetime: u32) {
         println!(
-            "Session refreshed: id={}, username={}, lifetime={}",
+            "Session refreshed: id={:?}, username={}, lifetime={}",
             id, username, lifetime
         );
     }
 
-    async fn on_destroy(&self, id: String, username: String) {
-        println!("Session destroyed: id={}, username={}", id, username);
+    async fn on_destroy(&self, id: Identifier, username: String) {
+        println!("Session destroyed: id={:?}, username={}", id, username);
         // Handle session destruction (e.g., cleanup resources)
     }
 }
