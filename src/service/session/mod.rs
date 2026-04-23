@@ -1,4 +1,4 @@
-pub mod ports;
+﻿pub mod ports;
 
 use super::{
     ServiceHandler, Transport,
@@ -274,7 +274,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -283,10 +283,12 @@ where
     ///     }
     /// }
     ///
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -319,10 +321,10 @@ where
     ///     let lock = sessions.get_session(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
-    ///         Session::Authenticated { username, allocate_port, allocate_channels, .. } => {
+    ///         Session::Authenticated { username, allocated_port, channel_relay_table, .. } => {
     ///             assert_eq!(username, "test");
-    ///             assert_eq!(allocate_port, &None);
-    ///             assert_eq!(allocate_channels.len(), 0);
+    ///             assert_eq!(allocated_port, &None);
+    ///             assert_eq!(channel_relay_table.len(), 0);
     ///         }
     ///         _ => panic!("Expected authenticated session"),
     ///     }
@@ -383,7 +385,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -392,10 +394,12 @@ where
     ///     }
     /// }
     ///
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -490,7 +494,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -499,10 +503,12 @@ where
     ///     }
     /// }
     ///
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -520,10 +526,10 @@ where
     ///     let lock = sessions.get_session(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
-    ///         Session::Authenticated { username, allocate_port, allocate_channels, .. } => {
+    ///         Session::Authenticated { username, allocated_port, channel_relay_table, .. } => {
     ///             assert_eq!(username, "test");
-    ///             assert_eq!(allocate_port, &None);
-    ///             assert_eq!(allocate_channels.len(), 0);
+    ///             assert_eq!(allocated_port, &None);
+    ///             assert_eq!(channel_relay_table.len(), 0);
     ///         }
     ///         _ => panic!("Expected authenticated session"),
     ///     }
@@ -534,10 +540,10 @@ where
     ///     let lock = sessions.get_session(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
-    ///         Session::Authenticated { username, allocate_port, allocate_channels, .. } => {
+    ///         Session::Authenticated { username, allocated_port, channel_relay_table, .. } => {
     ///             assert_eq!(username, "test");
-    ///             assert_eq!(allocate_port, &Some(port));
-    ///             assert_eq!(allocate_channels.len(), 0);
+    ///             assert_eq!(allocated_port, &Some(port));
+    ///             assert_eq!(channel_relay_table.len(), 0);
     ///         }
     ///         _ => panic!("Expected authenticated session"),
     ///     }
@@ -588,7 +594,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -597,16 +603,19 @@ where
     ///     }
     /// }
     ///
-    /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
-    /// let peer_identifier = Identifier::new(
-    ///     "127.0.0.1:8081".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let peer_identifier = Identifier {
+    ///     source: "127.0.0.1:8081".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -624,11 +633,11 @@ where
     /// let port = sessions.allocate(&identifier, None).unwrap();
     /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
     ///
-    /// assert!(!sessions.create_permission(&identifier, &endpoint, &[port]));
-    /// assert!(sessions.create_permission(&identifier, &endpoint, &[peer_port]));
+    /// assert!(!sessions.create_permission(&identifier, &[port]));
+    /// assert!(sessions.create_permission(&identifier, &[peer_port]));
     ///
-    /// assert!(!sessions.create_permission(&peer_identifier, &endpoint, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_identifier, &endpoint, &[port]));
+    /// assert!(!sessions.create_permission(&peer_identifier, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_identifier, &[port]));
     /// ```
     pub fn create_permission(&self, identifier: &Identifier, ports: &[u16]) -> bool {
         // Finds information about the current session.
@@ -684,7 +693,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -693,16 +702,19 @@ where
     ///     }
     /// }
     ///
-    /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
-    /// let peer_identifier = Identifier::new(
-    ///     "127.0.0.1:8081".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let peer_identifier = Identifier {
+    ///     source: "127.0.0.1:8081".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -722,7 +734,7 @@ where
     /// {
     ///     assert_eq!(
     ///         match sessions.get_session(&identifier).get_ref().unwrap() {
-    ///             Session::Authenticated { allocate_channels, .. } => allocate_channels.len(),
+    ///             Session::Authenticated { channel_relay_table, .. } => channel_relay_table.len(),
     ///             _ => panic!("Expected authenticated session"),
     ///         },
     ///         0
@@ -732,33 +744,31 @@ where
     /// {
     ///     assert_eq!(
     ///         match sessions.get_session(&peer_identifier).get_ref().unwrap() {
-    ///             Session::Authenticated { allocate_channels, .. } => allocate_channels.len(),
+    ///             Session::Authenticated { channel_relay_table, .. } => channel_relay_table.len(),
     ///             _ => panic!("Expected authenticated session"),
     ///         },
     ///         0
     ///     );
     /// }
     ///
-    /// assert!(sessions.bind_channel(&identifier, &endpoint, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_identifier, &endpoint, port, 0x4000));
+    /// assert!(sessions.bind_channel(&identifier, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_identifier, port, 0x4000));
     ///
     /// {
-    ///     assert_eq!(
+    ///     assert!(
     ///         match sessions.get_session(&identifier).get_ref().unwrap() {
-    ///             Session::Authenticated { allocate_channels, .. } => allocate_channels.clone(),
+    ///             Session::Authenticated { channel_relay_table, .. } => channel_relay_table.contains_key(&0x4000),
     ///             _ => panic!("Expected authenticated session"),
-    ///         },
-    ///         vec![0x4000]
+    ///         }
     ///     );
     /// }
     ///
     /// {
-    ///     assert_eq!(
+    ///     assert!(
     ///         match sessions.get_session(&peer_identifier).get_ref().unwrap() {
-    ///             Session::Authenticated { allocate_channels, .. } => allocate_channels.clone(),
+    ///             Session::Authenticated { channel_relay_table, .. } => channel_relay_table.contains_key(&0x4000),
     ///             _ => panic!("Expected authenticated session"),
-    ///         },
-    ///         vec![0x4000]
+    ///         }
     ///     );
     /// }
     /// ```
@@ -812,7 +822,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -822,15 +832,19 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
-    /// let peer_identifier = Identifier::new(
-    ///     "127.0.0.1:8081".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let peer_identifier = Identifier {
+    ///     source: "127.0.0.1:8081".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -848,13 +862,14 @@ where
     /// let port = sessions.allocate(&identifier, None).unwrap();
     /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
     ///
-    /// assert!(sessions.bind_channel(&identifier, &endpoint, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_identifier, &endpoint, port, 0x4000));
+    /// assert!(sessions.bind_channel(&identifier, peer_port, 0x4000));
+    /// assert!(sessions.bind_channel(&peer_identifier, port, 0x4000));
     /// assert_eq!(
     ///     sessions
     ///         .get_channel_relay_address(&identifier, 0x4000)
     ///         .unwrap()
-    ///         .endpoint(),
+    ///         .1
+    ///         .interface,
     ///     endpoint
     /// );
     ///
@@ -862,7 +877,8 @@ where
     ///     sessions
     ///         .get_channel_relay_address(&peer_identifier, 0x4000)
     ///         .unwrap()
-    ///         .endpoint(),
+    ///         .1
+    ///         .interface,
     ///     endpoint
     /// );
     /// ```
@@ -913,7 +929,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -923,15 +939,19 @@ where
     /// }
     ///
     /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
-    /// let peer_identifier = Identifier::new(
-    ///     "127.0.0.1:8081".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let peer_identifier = Identifier {
+    ///     source: "127.0.0.1:8081".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
@@ -949,22 +969,24 @@ where
     /// let port = sessions.allocate(&identifier, None).unwrap();
     /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
     ///
-    /// assert!(sessions.create_permission(&identifier, &endpoint, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_identifier, &endpoint, &[port]));
+    /// assert!(sessions.create_permission(&identifier, &[peer_port]));
+    /// assert!(sessions.create_permission(&peer_identifier, &[port]));
     ///
     /// assert_eq!(
     ///     sessions
     ///         .get_port_relay_address(&identifier, peer_port)
     ///         .unwrap()
-    ///         .endpoint(),
+    ///         .1
+    ///         .interface,
     ///     endpoint
     /// );
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_relay_address(&peer_identifier, port)
+    ///         .get_port_relay_address(&peer_identifier, port)
     ///         .unwrap()
-    ///         .endpoint(),
+    ///         .1
+    ///         .interface,
     ///     endpoint
     /// );
     /// ```
@@ -1000,7 +1022,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -1009,10 +1031,12 @@ where
     ///     }
     /// }
     ///
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// let digest = Password::Md5([
     ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,

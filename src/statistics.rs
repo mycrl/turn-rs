@@ -112,15 +112,17 @@ impl Statistics {
     /// ```
     /// use turn_server::statistics::*;
     /// use turn_server::service::session::Identifier;
-    /// use turn_server::server::transport::Transport;
+    /// use turn_server::service::Transport;
     ///
     /// let statistics = Statistics::default();
     /// let sender = statistics.get_reporter(Transport::Tcp);
     ///
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Tcp,
+    /// };
     ///
     /// sender.send(&identifier, &[Stats::ReceivedBytes(100)]);
     /// ```
@@ -138,13 +140,16 @@ impl Statistics {
     /// ```
     /// use turn_server::statistics::*;
     /// use turn_server::service::session::Identifier;
+    /// use turn_server::service::Transport;
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// statistics.register(identifier.clone());
     /// assert_eq!(statistics.get(&identifier).is_some(), true);
@@ -174,13 +179,16 @@ impl Statistics {
     /// ```
     /// use turn_server::statistics::*;
     /// use turn_server::service::session::Identifier;
+    /// use turn_server::service::Transport;
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// statistics.register(identifier.clone());
     /// assert_eq!(statistics.get(&identifier).is_some(), true);
@@ -206,13 +214,16 @@ impl Statistics {
     /// ```
     /// use turn_server::statistics::*;
     /// use turn_server::service::session::Identifier;
+    /// use turn_server::service::Transport;
     ///
     /// let statistics = Statistics::default();
     ///
-    /// let identifier = Identifier::new(
-    ///     "127.0.0.1:8080".parse().unwrap(),
-    ///     "127.0.0.1:3478".parse().unwrap(),
-    /// );
+    /// let identifier = Identifier {
+    ///     source: "127.0.0.1:8080".parse().unwrap(),
+    ///     external: "127.0.0.1:3478".parse().unwrap(),
+    ///     interface: "127.0.0.1:3478".parse().unwrap(),
+    ///     transport: Transport::Udp,
+    /// };
     ///
     /// statistics.register(identifier.clone());
     /// assert_eq!(statistics.get(&identifier).is_some(), true);
