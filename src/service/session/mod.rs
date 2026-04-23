@@ -138,8 +138,12 @@ pub enum Session {
         ///
         /// SessionManager are all bound to only one port and one channel.
         allocated_port: Option<u16>,
-        permissions: Vec<u16>,
-        bind_channels: Vec<u16>,
+        // Stores the address to which the session should be forwarded when it sends indication to a
+        // port. This is written when permissions are created to allow a certain address to be
+        // forwarded to the current session.
+        port_relay_table: HashMap</* port */ u16, Identifier>,
+        // Indicates to which session the data sent by a session to a channel should be forwarded.
+        channel_relay_table: HashMap</* channel */ u16, Identifier>,
         expires: u64,
     },
 }
@@ -174,12 +178,6 @@ pub struct SessionManager<T> {
     // Records the sessions corresponding to each assigned port, which will be needed when looking
     // up sessions assigned to this port based on the port number.
     port_mapping_table: RwLock<Table</* port */ u16, Identifier>>,
-    // Stores the address to which the session should be forwarded when it sends indication to a
-    // port. This is written when permissions are created to allow a certain address to be
-    // forwarded to the current session.
-    port_relay_table: RwLock<Table<Identifier, HashMap</* port */ u16, Identifier>>>,
-    // Indicates to which session the data sent by a session to a channel should be forwarded.
-    channel_relay_table: RwLock<Table<Identifier, HashMap</* channel */ u16, Identifier>>>,
     timer: Timer,
     handler: T,
 }
@@ -191,9 +189,7 @@ where
     pub fn new(options: SessionManagerOptions<T>) -> Arc<Self> {
         let this = Arc::new(Self {
             port_allocator: Mutex::new(PortAllocator::new(options.port_range)),
-            channel_relay_table: RwLock::new(Table::default()),
             port_mapping_table: RwLock::new(Table::default()),
-            port_relay_table: RwLock::new(Table::default()),
             sessions: RwLock::new(Table::default()),
             timer: Timer::default(),
             handler: options.handler,
@@ -242,13 +238,8 @@ where
         let mut sessions = self.sessions.write();
         let mut port_allocator = self.port_allocator.lock();
         let mut port_mapping_table = self.port_mapping_table.write();
-        let mut port_relay_table = self.port_relay_table.write();
-        let mut channel_relay_table = self.channel_relay_table.write();
 
         identifiers.iter().for_each(|k| {
-            port_relay_table.remove(k);
-            channel_relay_table.remove(k);
-
             if let Some(Session::Authenticated {
                 allocated_port,
                 username,
@@ -466,8 +457,8 @@ where
             lock.insert(
                 *identifier,
                 Session::Authenticated {
-                    permissions: Vec::with_capacity(10),
-                    bind_channels: Vec::with_capacity(10),
+                    port_relay_table: HashMap::with_capacity(10),
+                    channel_relay_table: HashMap::with_capacity(10),
                     expires: self.timer.get() + DEFAULT_SESSION_LIFETIME,
                     username: username.to_string(),
                     allocated_port: None,
@@ -640,16 +631,12 @@ where
     /// assert!(sessions.create_permission(&peer_identifier, &endpoint, &[port]));
     /// ```
     pub fn create_permission(&self, identifier: &Identifier, ports: &[u16]) -> bool {
-        let mut sessions = self.sessions.write();
-        let mut port_relay_table = self.port_relay_table.write();
-        let port_mapping_table = self.port_mapping_table.read();
-
         // Finds information about the current session.
         if let Some(Session::Authenticated {
             allocated_port,
-            permissions,
+            port_relay_table,
             ..
-        }) = sessions.get_mut(identifier)
+        }) = self.sessions.write().get_mut(identifier)
         {
             // The port number assigned to the current session.
             let Some(local_port) = *allocated_port else {
@@ -661,26 +648,18 @@ where
                 return false;
             }
 
-            // Each peer port must be present.
-            let mut peers = Vec::with_capacity(15);
             for port in ports {
-                if let Some(it) = port_mapping_table.get(port) {
-                    peers.push((it, *port));
+                if let Some(peer) = self.port_mapping_table.read().get(port) {
+                    // Check if the current port is already occupied by another client.
+                    if let Some(relay) = port_relay_table.get(&port)
+                        && relay != peer
+                    {
+                        return false;
+                    }
+
+                    port_relay_table.insert(local_port, *peer);
                 } else {
                     return false;
-                }
-            }
-
-            // Create a port forwarding mapping relationship for each peer session.
-            for (peer, port) in peers {
-                port_relay_table
-                    .entry(*peer)
-                    .or_insert_with(|| HashMap::with_capacity(20))
-                    .insert(local_port, *identifier);
-
-                // Do not store the same peer ports to the permission list over and over again.
-                if !permissions.contains(&port) {
-                    permissions.push(port);
                 }
             }
 
@@ -784,19 +763,27 @@ where
     /// }
     /// ```
     pub fn bind_channel(&self, identifier: &Identifier, port: u16, channel: u16) -> bool {
-        // Finds the address of the bound opposing port.
-        let Some(peer) = self.port_mapping_table.read().get(&port).copied() else {
-            return false;
-        };
-
         // Records the channel used for the current session.
         {
-            if let Some(Session::Authenticated { bind_channels, .. }) =
-                self.sessions.write().get_mut(identifier)
+            if let Some(Session::Authenticated {
+                channel_relay_table,
+                ..
+            }) = self.sessions.write().get_mut(identifier)
             {
-                if !bind_channels.contains(&channel) {
-                    bind_channels.push(channel);
-                }
+                // Finds the address of the bound opposing port.
+                if let Some(peer) = self.port_mapping_table.read().get(&port) {
+                    // Check if the current channel is already occupied by another client.
+                    if let Some(relay) = channel_relay_table.get(&channel)
+                        && relay != peer
+                    {
+                        return false;
+                    }
+
+                    // Create channel forwarding mapping relationships for peers.
+                    channel_relay_table.insert(channel, *peer);
+                } else {
+                    return false;
+                };
             } else {
                 return false;
             };
@@ -806,13 +793,6 @@ where
         if !self.create_permission(identifier, &[port]) {
             return false;
         }
-
-        // Create channel forwarding mapping relationships for peers.
-        self.channel_relay_table
-            .write()
-            .entry(*identifier)
-            .or_insert_with(|| HashMap::with_capacity(10))
-            .insert(channel, peer);
 
         true
     }
@@ -890,12 +870,32 @@ where
         &self,
         identifier: &Identifier,
         channel: u16,
-    ) -> Option<Identifier> {
-        self.channel_relay_table
-            .read()
-            .get(identifier)?
-            .get(&channel)
-            .copied()
+    ) -> Option<(/* peer channel */ u16, Identifier)> {
+        let session = self.sessions.read();
+
+        if let Session::Authenticated {
+            channel_relay_table,
+            ..
+        } = session.get(identifier)?
+        {
+            let peer = channel_relay_table.get(&channel)?;
+
+            if let Session::Authenticated {
+                channel_relay_table,
+                ..
+            } = session.get(peer)?
+            {
+                // Find the channel bound to the current client.
+                let (peer_channel, _) =
+                    channel_relay_table.iter().find(|(_, v)| *v == identifier)?;
+
+                Some((*peer_channel, *peer))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     /// Get the address of the port binding.
@@ -954,7 +954,7 @@ where
     ///
     /// assert_eq!(
     ///     sessions
-    ///         .get_relay_address(&identifier, peer_port)
+    ///         .get_port_relay_address(&identifier, peer_port)
     ///         .unwrap()
     ///         .endpoint(),
     ///     endpoint
@@ -968,12 +968,21 @@ where
     ///     endpoint
     /// );
     /// ```
-    pub fn get_relay_address(&self, identifier: &Identifier, port: u16) -> Option<Identifier> {
-        self.port_relay_table
-            .read()
-            .get(identifier)?
-            .get(&port)
-            .copied()
+    pub fn get_port_relay_address(
+        &self,
+        identifier: &Identifier,
+        port: u16,
+    ) -> Option<(/* local port */ u16, Identifier)> {
+        if let Session::Authenticated {
+            port_relay_table,
+            allocated_port,
+            ..
+        } = self.sessions.read().get(identifier)?
+        {
+            Some(((*allocated_port)?, port_relay_table.get(&port).copied()?))
+        } else {
+            None
+        }
     }
 
     /// Refresh the session for identifier.

@@ -4,7 +4,7 @@ use bytes::BytesMut;
 
 use super::{
     Service, ServiceHandler,
-    session::{DEFAULT_SESSION_LIFETIME, Identifier, Session, SessionManager},
+    session::{DEFAULT_SESSION_LIFETIME, Identifier, SessionManager},
 };
 
 use crate::codec::{
@@ -169,14 +169,11 @@ where
         bytes: &'b [u8],
     ) -> Result<Option<Response<'a>>, crate::codec::Error> {
         Ok(match self.decoder.decode(bytes)? {
-            DecodeResult::ChannelData(channel) => channel_data(
-                bytes,
-                Request {
-                    state: &self.state,
-                    encode_buffer: &mut self.bytes,
-                    payload: &channel,
-                },
-            ),
+            DecodeResult::ChannelData(channel) => channel_data(Request {
+                state: &self.state,
+                encode_buffer: &mut self.bytes,
+                payload: &channel,
+            }),
             DecodeResult::Message(message) => {
                 let req = Request {
                     state: &self.state,
@@ -528,26 +525,20 @@ where
     let peer = req.payload.get::<XorPeerAddress>()?;
     let data = req.payload.get::<Data>()?;
 
-    if let Some(Session::Authenticated { allocated_port, .. }) =
-        req.state.manager.get_session(&req.state.id).get_ref() && let Some(local_port) = *allocated_port
+    let (local_port, relay) = req.state.manager.get_port_relay_address(&req.state.id, peer.port())?;
+
     {
-        let relay = req.state.manager.get_relay_address(&req.state.id, peer.port())?;
-
-        {
-            let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.encode_buffer);
-            message.append::<XorPeerAddress>(SocketAddr::new(req.state.id.external.ip(), local_port));
-            message.append::<Data>(data);
-            message.flush(None).ok()?;
-        }
-
-        return Some(Response {
-            method: Some(DATA_INDICATION),
-            bytes: req.encode_buffer,
-            relay: Some(relay),
-        });
+        let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.encode_buffer);
+        message.append::<XorPeerAddress>(SocketAddr::new(req.state.id.external.ip(), local_port));
+        message.append::<Data>(data);
+        message.flush(None).ok()?;
     }
 
-    None
+    Some(Response {
+        method: Some(DATA_INDICATION),
+        bytes: req.encode_buffer,
+        relay: Some(relay),
+    })
 }
 
 /// If the server receives a Refresh Request with a REQUESTED-ADDRESS-
@@ -645,21 +636,22 @@ where
 /// the Length field in the ChannelData message is 0, then there will be
 /// no data in the UDP datagram, but the UDP datagram is still formed and
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
-fn channel_data<'a, T>(
-    bytes: &'a [u8],
-    req: Request<'_, 'a, T, ChannelData<'_>>,
-) -> Option<Response<'a>>
+fn channel_data<'a, T>(req: Request<'_, 'a, T, ChannelData<'_>>) -> Option<Response<'a>>
 where
     T: ServiceHandler,
 {
-    let relay = req
+    let (relay_channel, relay) = req
         .state
         .manager
         .get_channel_relay_address(&req.state.id, req.payload.number())?;
 
+    {
+        ChannelData::new(relay_channel, req.payload.bytes()).encode(req.encode_buffer);
+    }
+
     Some(Response {
+        bytes: req.encode_buffer,
         relay: Some(relay),
         method: None,
-        bytes,
     })
 }

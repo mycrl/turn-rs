@@ -107,8 +107,8 @@ impl TurnService for RpcService {
         if let Some(Session::Authenticated {
             username,
             allocated_port,
-            bind_channels,
-            permissions,
+            channel_relay_table,
+            port_relay_table,
             expires,
             ..
         }) = self
@@ -119,8 +119,8 @@ impl TurnService for RpcService {
         {
             Ok(Response::new(TurnSession {
                 username: username.to_string(),
-                permissions: permissions.iter().map(|p| *p as i32).collect(),
-                bind_channels: bind_channels.iter().map(|p| *p as i32).collect(),
+                permissions: port_relay_table.iter().map(|(k, _)| *k as i32).collect(),
+                bind_channels: channel_relay_table.iter().map(|(k, _)| *k as i32).collect(),
                 allocated_port: allocated_port.map(|p| p as i32),
                 expires: *expires as i64,
             }))
