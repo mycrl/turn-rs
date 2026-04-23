@@ -10,6 +10,8 @@ use turn_server::{
 
 async fn run_coturn_uclient(transport: Transport, send_indication: bool) -> Result<()> {
     let mut args = [
+        "-L",
+        "127.0.0.1",
         "-e",
         "127.0.0.1",
         "-u",
