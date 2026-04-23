@@ -15,7 +15,7 @@
 //!
 //! ```no_run
 //! use tonic::transport::Channel;
-//! use turn_server_sdk::TurnService;
+//! use turn_server_sdk::{TurnService, protos::{Identifier, Transport}};
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Connect to the TURN server gRPC endpoint
@@ -30,16 +30,23 @@
 //! let info = client.get_info().await?;
 //! println!("Server software: {}", info.software);
 //!
+//! let id = Identifier {
+//!     source: "127.0.0.1".to_string(),
+//!     external: "127.0.0.1".to_string(),
+//!     interface: "127.0.0.1".to_string(),
+//!     transport: Transport::Udp as i32,
+//! };
+//!
 //! // Query a session by ID
-//! let session = client.get_session("session-id".to_string()).await?;
+//! let session = client.get_session(id.clone()).await?;
 //! println!("Session username: {}", session.username);
 //!
 //! // Get session statistics
-//! let stats = client.get_session_statistics("session-id".to_string()).await?;
+//! let stats = client.get_session_statistics(id.clone()).await?;
 //! println!("Bytes sent: {}", stats.send_bytes);
 //!
 //! // Destroy a session
-//! client.destroy_session("session-id".to_string()).await?;
+//! client.destroy_session(id).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -51,7 +58,7 @@
 //! ```no_run
 //! use tonic::transport::Server;
 //! use turn_server_sdk::{
-//!     TurnHooksServer, Credential, protos::PasswordAlgorithm,
+//!     TurnHooksServer, Credential, protos::{PasswordAlgorithm, Identifier},
 //! };
 //!
 //! use std::net::SocketAddr;
@@ -62,6 +69,7 @@
 //! impl TurnHooksServer for MyHooksServer {
 //!     async fn get_password(
 //!         &self,
+//!         id: Identifier,
 //!         realm: &str,
 //!         username: &str,
 //!         algorithm: PasswordAlgorithm,
@@ -74,13 +82,13 @@
 //!         })
 //!     }
 //!
-//!     async fn on_allocated(&self, id: String, username: String, port: u16) {
-//!         println!("Session allocated: id={}, username={}, port={}", id, username, port);
+//!     async fn on_allocated(&self, id: Identifier, username: String, port: u16) {
+//!         println!("Session allocated: id={:?}, username={}, port={}", id, username, port);
 //!         // Handle allocation event (e.g., log to database, update metrics)
 //!     }
 //!
-//!     async fn on_destroy(&self, id: String, username: String) {
-//!         println!("Session destroyed: id={}, username={}", id, username);
+//!     async fn on_destroy(&self, id: Identifier, username: String) {
+//!         println!("Session destroyed: id={:?}, username={}", id, username);
 //!         // Handle session destruction (e.g., cleanup resources)
 //!     }
 //! }
