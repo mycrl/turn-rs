@@ -657,7 +657,7 @@ where
                         return false;
                     }
 
-                    port_relay_table.insert(local_port, *peer);
+                    port_relay_table.insert(*port, *peer);
                 } else {
                     return false;
                 }
