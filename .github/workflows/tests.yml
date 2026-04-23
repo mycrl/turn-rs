@@ -32,6 +32,7 @@ jobs:
                   sudo apt install -y protobuf-compiler coturn
                   cargo install cargo-hack --force
                   echo "COTURN_UCLIENT_PATH=$(which turnutils_uclient)" >> $GITHUB_ENV
+                  sudo service coturn stop
             - name: Run tests for all features
               run: cargo test --workspace
               env:
