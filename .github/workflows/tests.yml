@@ -5,6 +5,7 @@ on:
     push:
         branches:
             - main
+            - draft
         paths-ignore:
             - "**/*.md"
     pull_request:
