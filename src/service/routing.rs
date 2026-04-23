@@ -1,21 +1,25 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use bytes::BytesMut;
+use rand::seq::IteratorRandom;
 
 use super::{
-    Service, ServiceHandler,
+    InterfaceAddr, Service, ServiceHandler,
     session::{DEFAULT_SESSION_LIFETIME, Identifier, SessionManager},
 };
 
-use crate::codec::{
-    DecodeResult, Decoder,
-    channel_data::ChannelData,
-    crypto::Password,
-    message::{
-        Message, MessageEncoder,
-        attributes::{error::ErrorType, *},
-        methods::*,
+use crate::{
+    codec::{
+        DecodeResult, Decoder,
+        channel_data::ChannelData,
+        crypto::Password,
+        message::{
+            Message, MessageEncoder,
+            attributes::{address::IpAddrExt, error::ErrorType, *},
+            methods::*,
+        },
     },
+    service::Transport,
 };
 
 struct Request<'a, 'b, T, M>
@@ -43,7 +47,7 @@ where
         self.state
             .interfaces
             .iter()
-            .any(|item| item.ip() == address.ip())
+            .any(|item| item.external.ip() == address.ip())
     }
 
     // The key for the HMAC depends on whether long-term or short-term
@@ -132,7 +136,7 @@ where
     pub realm: String,
     pub software: String,
     pub manager: Arc<SessionManager<T>>,
-    pub interfaces: Arc<Vec<SocketAddr>>,
+    pub interfaces: Arc<Vec<InterfaceAddr>>,
     pub handler: T,
 }
 
@@ -289,9 +293,53 @@ async fn allocate<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Respons
 where
     T: ServiceHandler,
 {
-    if req.payload.get::<RequestedTransport>().is_none() {
-        return reject(req, ErrorType::ServerError);
-    }
+    let xor_relayed_ip = {
+        let mut ip = req.state.id.external.ip();
+
+        let request_transport = if let Some(it) = req.payload.get::<RequestedTransport>() {
+            match it {
+                RequestedTransport::Tcp => Transport::Tcp,
+                RequestedTransport::Udp => Transport::Udp,
+            }
+        } else {
+            return reject(req, ErrorType::BadRequest);
+        };
+
+        let request_family = req
+            .payload
+            .get::<RequestedAddressFamily>()
+            .unwrap_or_else(|| ip.family());
+
+        // If the requested transport protocol or address family does not match the
+        // address assigned by the server, a different address must be selected.
+        // Both conditions must be checked independently: even when request_family
+        // is present, a transport mismatch also requires selecting a new interface.
+        if request_transport != req.state.id.transport || request_family != ip.family() {
+            if let Some(addr) = req
+                .state
+                .interfaces
+                .iter()
+                .filter(|addr| {
+                    addr.transport == request_transport
+                        && addr.external.ip().family() == request_family
+                })
+                .choose(&mut rand::rng())
+            {
+                ip = addr.external.ip();
+            } else {
+                return reject(
+                    req,
+                    if request_family != ip.family() {
+                        ErrorType::AddressFamilyNotSupported
+                    } else {
+                        ErrorType::UnsupportedTransportAddress
+                    },
+                );
+            }
+        }
+
+        ip
+    };
 
     let Some((username, password)) = req.verify().await else {
         return reject(req, ErrorType::Unauthorized);
@@ -309,7 +357,7 @@ where
 
     {
         let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.encode_buffer);
-        message.append::<XorRelayedAddress>(SocketAddr::new(req.state.id.external.ip(), port));
+        message.append::<XorRelayedAddress>(SocketAddr::new(xor_relayed_ip, port));
         message.append::<XorMappedAddress>(req.state.id.source);
         message.append::<Lifetime>(lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32));
         message.append::<Software>(&req.state.software);
@@ -318,6 +366,81 @@ where
 
     Some(Response {
         method: Some(ALLOCATE_RESPONSE),
+        bytes: req.encode_buffer,
+        relay: None,
+    })
+}
+
+/// [rfc8489](https://tools.ietf.org/html/rfc8489)
+///
+/// When the server receives the CreatePermission request, it processes
+/// as per [Section 5](https://tools.ietf.org/html/rfc8656#section-5)
+/// plus the specific rules mentioned here.
+///
+/// The message is checked for validity.  The CreatePermission request
+/// MUST contain at least one XOR-PEER-ADDRESS attribute and MAY contain
+/// multiple such attributes.  If no such attribute exists, or if any of
+/// these attributes are invalid, then a 400 (Bad Request) error is
+/// returned.  If the request is valid, but the server is unable to
+/// satisfy the request due to some capacity limit or similar, then a 508
+/// (Insufficient Capacity) error is returned.
+///
+/// If an XOR-PEER-ADDRESS attribute contains an address of an address
+/// family that is not the same as that of a relayed transport address
+/// for the allocation, the server MUST generate an error response with
+/// the 443 (Peer Address Family Mismatch) response code.
+///
+/// The server MAY impose restrictions on the IP address allowed in the
+/// XOR-PEER-ADDRESS attribute; if a value is not allowed, the server
+/// rejects the request with a 403 (Forbidden) error.
+///
+/// If the message is valid and the server is capable of carrying out the
+/// request, then the server installs or refreshes a permission for the
+/// IP address contained in each XOR-PEER-ADDRESS attribute as described
+/// in [Section 9](https://tools.ietf.org/html/rfc8656#section-9).  
+/// The port portion of each attribute is ignored and may be any arbitrary
+/// value.
+///
+/// The server then responds with a CreatePermission success response.
+/// There are no mandatory attributes in the success response.
+///
+/// NOTE: A server need not do anything special to implement idempotency of
+/// CreatePermission requests over UDP using the "stateless stack approach".
+/// Retransmitted CreatePermission requests will simply refresh the
+/// permissions.
+async fn create_permission<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+where
+    T: ServiceHandler,
+{
+    let Some((username, password)) = req.verify().await else {
+        return reject(req, ErrorType::Unauthorized);
+    };
+
+    let mut ports = Vec::with_capacity(15);
+    for it in req.payload.get_all::<XorPeerAddress>() {
+        if !req.verify_ip(&it) {
+            return reject(req, ErrorType::PeerAddressFamilyMismatch);
+        }
+
+        ports.push(it.port());
+    }
+
+    if !req.state.manager.create_permission(&req.state.id, &ports) {
+        return reject(req, ErrorType::Forbidden);
+    }
+
+    req.state
+        .handler
+        .on_create_permission(&req.state.id, username, &ports);
+
+    {
+        MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.encode_buffer)
+            .flush(Some(&password))
+            .ok()?;
+    }
+
+    Some(Response {
+        method: Some(CREATE_PERMISSION_RESPONSE),
         bytes: req.encode_buffer,
         relay: None,
     })
@@ -395,81 +518,6 @@ where
 
     Some(Response {
         method: Some(CHANNEL_BIND_RESPONSE),
-        bytes: req.encode_buffer,
-        relay: None,
-    })
-}
-
-/// [rfc8489](https://tools.ietf.org/html/rfc8489)
-///
-/// When the server receives the CreatePermission request, it processes
-/// as per [Section 5](https://tools.ietf.org/html/rfc8656#section-5)
-/// plus the specific rules mentioned here.
-///
-/// The message is checked for validity.  The CreatePermission request
-/// MUST contain at least one XOR-PEER-ADDRESS attribute and MAY contain
-/// multiple such attributes.  If no such attribute exists, or if any of
-/// these attributes are invalid, then a 400 (Bad Request) error is
-/// returned.  If the request is valid, but the server is unable to
-/// satisfy the request due to some capacity limit or similar, then a 508
-/// (Insufficient Capacity) error is returned.
-///
-/// If an XOR-PEER-ADDRESS attribute contains an address of an address
-/// family that is not the same as that of a relayed transport address
-/// for the allocation, the server MUST generate an error response with
-/// the 443 (Peer Address Family Mismatch) response code.
-///
-/// The server MAY impose restrictions on the IP address allowed in the
-/// XOR-PEER-ADDRESS attribute; if a value is not allowed, the server
-/// rejects the request with a 403 (Forbidden) error.
-///
-/// If the message is valid and the server is capable of carrying out the
-/// request, then the server installs or refreshes a permission for the
-/// IP address contained in each XOR-PEER-ADDRESS attribute as described
-/// in [Section 9](https://tools.ietf.org/html/rfc8656#section-9).  
-/// The port portion of each attribute is ignored and may be any arbitrary
-/// value.
-///
-/// The server then responds with a CreatePermission success response.
-/// There are no mandatory attributes in the success response.
-///
-/// NOTE: A server need not do anything special to implement idempotency of
-/// CreatePermission requests over UDP using the "stateless stack approach".
-/// Retransmitted CreatePermission requests will simply refresh the
-/// permissions.
-async fn create_permission<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
-where
-    T: ServiceHandler,
-{
-    let Some((username, password)) = req.verify().await else {
-        return reject(req, ErrorType::Unauthorized);
-    };
-
-    let mut ports = Vec::with_capacity(15);
-    for it in req.payload.get_all::<XorPeerAddress>() {
-        if !req.verify_ip(&it) {
-            return reject(req, ErrorType::PeerAddressFamilyMismatch);
-        }
-
-        ports.push(it.port());
-    }
-
-    if !req.state.manager.create_permission(&req.state.id, &ports) {
-        return reject(req, ErrorType::Forbidden);
-    }
-
-    req.state
-        .handler
-        .on_create_permission(&req.state.id, username, &ports);
-
-    {
-        MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.encode_buffer)
-            .flush(Some(&password))
-            .ok()?;
-    }
-
-    Some(Response {
-        method: Some(CREATE_PERMISSION_RESPONSE),
         bytes: req.encode_buffer,
         relay: None,
     })

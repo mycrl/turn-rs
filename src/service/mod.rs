@@ -25,6 +25,13 @@ impl ToString for Transport {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct InterfaceAddr {
+    pub addr: SocketAddr,
+    pub external: SocketAddr,
+    pub transport: Transport,
+}
+
 pub trait ServiceHandler: Send + Sync + 'static {
     fn get_password(
         &self,
@@ -181,14 +188,14 @@ pub trait ServiceHandler: Send + Sync + 'static {
 pub struct ServiceOptions<T> {
     pub port_range: PortRange,
     pub realm: String,
-    pub interfaces: Vec<SocketAddr>,
+    pub interfaces: Vec<InterfaceAddr>,
     pub handler: T,
 }
 
 /// Turn service.
 #[derive(Clone)]
 pub struct Service<T> {
-    interfaces: Arc<Vec<SocketAddr>>,
+    interfaces: Arc<Vec<InterfaceAddr>>,
     manager: Arc<SessionManager<T>>,
     software: String,
     realm: String,

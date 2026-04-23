@@ -102,7 +102,7 @@ impl ServiceHandler for Handler {
         if self.config.auth.enable_hooks_auth {
             return self
                 .rpc
-                .get_password(id.into(), &self.config.server.realm, username, algorithm)
+                .get_password(id, &self.config.server.realm, username, algorithm)
                 .await;
         }
 

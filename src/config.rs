@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-use crate::service::session::ports::PortRange;
+use crate::service::{InterfaceAddr, Transport, session::ports::PortRange};
 
 /// SSL configuration
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -120,12 +120,24 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn get_external_addresses(&self) -> Vec<SocketAddr> {
+    pub fn get_interface_addrs(&self) -> Vec<InterfaceAddr> {
         self.interfaces
             .iter()
             .map(|item| match item {
-                Interface::Tcp { external, .. } => *external,
-                Interface::Udp { external, .. } => *external,
+                Interface::Tcp {
+                    listen, external, ..
+                } => InterfaceAddr {
+                    addr: *listen,
+                    external: *external,
+                    transport: Transport::Tcp,
+                },
+                Interface::Udp {
+                    listen, external, ..
+                } => InterfaceAddr {
+                    addr: *listen,
+                    external: *external,
+                    transport: Transport::Udp,
+                },
             })
             .collect()
     }

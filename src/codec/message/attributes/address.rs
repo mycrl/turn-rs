@@ -12,6 +12,19 @@ pub enum IpFamily {
     V6 = 0x02,
 }
 
+pub trait IpAddrExt {
+    fn family(&self) -> IpFamily;
+}
+
+impl IpAddrExt for IpAddr {
+    fn family(&self) -> IpFamily {
+        match self {
+            IpAddr::V4(_) => IpFamily::V4,
+            IpAddr::V6(_) => IpFamily::V6,
+        }
+    }
+}
+
 /// [RFC3489]: https://datatracker.ietf.org/doc/html/rfc3489
 ///
 /// The Address attribute indicates a reflexive transport address

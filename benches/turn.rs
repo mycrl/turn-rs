@@ -45,7 +45,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     let service = Service::new(ServiceOptions {
         port_range: Default::default(),
         realm: "test".to_string(),
-        interfaces: vec!["127.0.0.1:3478".parse().unwrap()],
+        interfaces: vec![InterfaceAddr {
+            addr: "127.0.0.1:3478".parse().unwrap(),
+            external: "127.0.0.1:3478".parse().unwrap(),
+            transport: Transport::Udp,
+        }],
         handler: DummyHandler,
     });
 
