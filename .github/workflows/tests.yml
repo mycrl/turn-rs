@@ -29,13 +29,16 @@ jobs:
             - name: Install dependencies
               run: |
                   sudo apt update
-                  sudo apt install -y protobuf-compiler
+                  sudo apt install -y protobuf-compiler coturn
                   cargo install cargo-hack --force
+                  echo "COTURN_UCLIENT_PATH=$(which turnutils_uclient)" >> $GITHUB_ENV
             - name: Run tests for all features
               run: cargo test --workspace
               env:
                   RUSTFLAGS: "-Dwarnings"
+                  COTURN_UCLIENT_PATH: ${{ env.COTURN_UCLIENT_PATH }}
             - name: Run check all possible feature combinations
               run: cargo hack check --feature-powerset
               env:
                   RUSTFLAGS: "-Dwarnings"
+                  COTURN_UCLIENT_PATH: ${{ env.COTURN_UCLIENT_PATH }}
