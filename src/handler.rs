@@ -7,7 +7,7 @@ use crate::{
         message::attributes::PasswordAlgorithm,
     },
     config::Config,
-    service::{ServiceHandler, Transport, session::Identifier},
+    service::{ServiceHandler, session::Identifier},
     statistics::Statistics,
 };
 
@@ -25,6 +25,8 @@ use protos::{
 #[cfg(feature = "api")]
 impl Into<protos::Identifier> for &Identifier {
     fn into(self) -> protos::Identifier {
+        use crate::service::Transport;
+
         protos::Identifier {
             source: self.source.to_string(),
             external: self.external.to_string(),

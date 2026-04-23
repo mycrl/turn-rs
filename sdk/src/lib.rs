@@ -69,7 +69,7 @@
 //! impl TurnHooksServer for MyHooksServer {
 //!     async fn get_password(
 //!         &self,
-//!         id: Identifier,
+//!         _id: Identifier,
 //!         realm: &str,
 //!         username: &str,
 //!         algorithm: PasswordAlgorithm,
