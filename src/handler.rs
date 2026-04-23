@@ -69,6 +69,15 @@ impl ServiceHandler for Handler {
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> Option<Password> {
+        log::info!(
+            "get password: address={:?}, interface={:?}, transport={:?}, username={:?}, algorithm={:?}",
+            id.source,
+            id.interface,
+            id.transport,
+            username,
+            algorithm
+        );
+
         // Match the static authentication information first.
         if let Some(password) = self.config.auth.static_credentials.get(username) {
             return Some(generate_password(
