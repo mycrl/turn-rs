@@ -4,7 +4,7 @@ use ahash::{HashMap, HashMapExt};
 use anyhow::{Result, anyhow};
 use bytes::{Bytes, BytesMut};
 use tokio::{
-    net::UdpSocket as TokioUdpSocket,
+    net::UdpSocket,
     sync::mpsc::{
         Receiver, Sender, UnboundedReceiver, UnboundedSender, channel, unbounded_channel,
     },
@@ -12,14 +12,14 @@ use tokio::{
 
 use crate::server::transport::{Server, ServerOptions, Socket};
 
-pub struct UdpSocket {
+pub struct UdpSession {
     close_signal_sender: UnboundedSender<SocketAddr>,
     bytes_receiver: Receiver<Bytes>,
-    socket: Arc<TokioUdpSocket>,
+    socket: Arc<UdpSocket>,
     addr: SocketAddr,
 }
 
-impl Socket for UdpSocket {
+impl Socket for UdpSession {
     async fn read(&mut self) -> Result<Bytes> {
         self.bytes_receiver
             .recv()
@@ -48,16 +48,16 @@ impl Socket for UdpSocket {
 }
 
 pub struct UdpServer {
-    receiver: UnboundedReceiver<(UdpSocket, SocketAddr)>,
-    socket: Arc<TokioUdpSocket>,
+    receiver: UnboundedReceiver<UdpSession>,
+    socket: Arc<UdpSocket>,
 }
 
 impl Server for UdpServer {
-    type Socket = UdpSocket;
+    type Socket = UdpSession;
 
     async fn bind(options: &ServerOptions) -> Result<Self> {
-        let socket = Arc::new(TokioUdpSocket::bind(options.listen).await?);
-        let (socket_sender, socket_receiver) = unbounded_channel::<(UdpSocket, SocketAddr)>();
+        let socket = Arc::new(UdpSocket::bind(options.listen).await?);
+        let (socket_sender, socket_receiver) = unbounded_channel::<UdpSession>();
         let (close_signal_sender, mut close_signal_receiver) = unbounded_channel::<SocketAddr>();
 
         {
@@ -107,15 +107,12 @@ impl Server for UdpServer {
                                 sockets.insert(addr, tx);
 
                                 if socket_sender
-                                    .send((
-                                        UdpSocket {
-                                            close_signal_sender: close_signal_sender.clone(),
-                                            socket: socket.clone(),
-                                            bytes_receiver,
-                                            addr,
-                                        },
+                                    .send(UdpSession {
+                                        close_signal_sender: close_signal_sender.clone(),
+                                        socket: socket.clone(),
+                                        bytes_receiver,
                                         addr,
-                                    ))
+                                    })
                                     .is_err()
                                 {
                                     break;
@@ -139,13 +136,16 @@ impl Server for UdpServer {
         })
     }
 
-    async fn accept(&mut self) -> Result<Poll<(UdpSocket, SocketAddr)>> {
-        Ok(Poll::Ready(
-            self.receiver
-                .recv()
-                .await
-                .ok_or_else(|| anyhow!("channel closed"))?,
-        ))
+    async fn accept(&mut self) -> Result<Poll<(UdpSession, SocketAddr)>> {
+        let socket = self
+            .receiver
+            .recv()
+            .await
+            .ok_or_else(|| anyhow!("channel closed"))?;
+
+        let addr = socket.addr;
+
+        Ok(Poll::Ready((socket, addr)))
     }
 
     fn local_addr(&self) -> Result<SocketAddr> {
