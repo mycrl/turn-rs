@@ -1,14 +1,13 @@
-use std::{io::Error, net::SocketAddr};
+use std::{net::SocketAddr, task::Poll};
 
 #[cfg(feature = "ssl")]
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use bytes::{Bytes, BytesMut};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
-    net::{TcpListener as TokioTcpListener, TcpStream},
-    sync::mpsc::{Sender, UnboundedReceiver, channel, unbounded_channel},
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
 };
 
 #[cfg(feature = "ssl")]
@@ -26,175 +25,92 @@ use crate::{
     server::transport::{MAX_MESSAGE_SIZE, Server, ServerOptions, Socket},
 };
 
-enum MaybeSslStream {
-    #[cfg(feature = "ssl")]
-    Ssl(Box<TlsStream<TcpStream>>),
+pub enum MaybeSslStream {
     Base(TcpStream),
-}
-
-impl MaybeSslStream {
-    fn split(self) -> (Reader, Writer) {
-        use tokio::io::split;
-
-        match self {
-            Self::Base(it) => {
-                let (rx, tx) = split(it);
-
-                (Reader::Base(rx), Writer::Base(tx))
-            }
-            #[cfg(feature = "ssl")]
-            Self::Ssl(it) => {
-                let (rx, tx) = split(it);
-
-                (Reader::Ssl(rx), Writer::Ssl(tx))
-            }
-        }
-    }
-}
-
-enum Reader {
     #[cfg(feature = "ssl")]
-    Ssl(ReadHalf<Box<TlsStream<TcpStream>>>),
-    Base(ReadHalf<TcpStream>),
+    Ssl(TlsStream<TcpStream>),
 }
 
-impl Reader {
-    async fn read_buf(&mut self, buffer: &mut BytesMut) -> Result<usize, Error> {
-        match self {
-            Self::Base(it) => it.read_buf(buffer).await,
-            #[cfg(feature = "ssl")]
-            Self::Ssl(it) => it.read_buf(buffer).await,
-        }
-    }
-}
+impl Socket for MaybeSslStream {
+    async fn read(&mut self) -> Result<Bytes> {
+        let mut buffer = BytesMut::zeroed(MAX_MESSAGE_SIZE);
 
-enum Writer {
-    #[cfg(feature = "ssl")]
-    Ssl(WriteHalf<Box<TlsStream<TcpStream>>>),
-    Base(WriteHalf<TcpStream>),
-}
-
-impl Writer {
-    async fn write_all(&mut self, buffer: &[u8]) -> Result<(), Error> {
-        match self {
-            Self::Base(it) => it.write_all(buffer).await,
-            #[cfg(feature = "ssl")]
-            Self::Ssl(it) => it.write_all(buffer).await,
-        }
-    }
-}
-
-pub struct TcpSocket {
-    writer: Writer,
-    receiver: UnboundedReceiver<Bytes>,
-    close_signal_sender: Sender<()>,
-}
-
-impl TcpSocket {
-    fn new(stream: MaybeSslStream, addr: SocketAddr) -> Self {
-        let (close_signal_sender, mut close_signal_receiver) = channel::<()>(1);
-        let (tx, receiver) = unbounded_channel::<Bytes>();
-        let (mut reader, writer) = stream.split();
-
-        tokio::spawn(async move {
-            let mut buffer = BytesMut::new();
-
-            'a: loop {
-                tokio::select! {
-                    Ok(size) = reader.read_buf(&mut buffer) => {
-                        if size == 0 {
-                            break;
-                        }
-
-                        // The minimum length of a stun message will not be less
-                        // than 4.
-                        if buffer.len() < 4 {
-                            continue;
-                        }
-
-                        // Limit the maximum length of messages to 2048, this is to prevent buffer
-                        // overflow attacks.
-                        if buffer.len() > MAX_MESSAGE_SIZE * 3 {
-                            break;
-                        }
-
-                        loop {
-                            if buffer.len() <= 4 {
-                                break;
-                            }
-
-                            // Try to get the message length, if the currently
-                            // received data is less than the message length, jump
-                            // out of the current loop and continue to receive more
-                            // data.
-                            let size = match Decoder::message_size(&buffer, true) {
-                                Err(_) => break,
-                                Ok(size) => {
-                                    if size > MAX_MESSAGE_SIZE {
-                                        log::warn!(
-                                            "tcp message size too large: \
-                                                size={size}, \
-                                                max={MAX_MESSAGE_SIZE}, \
-                                                addr={addr:?}"
-                                        );
-
-                                        break 'a;
-                                    }
-
-                                    if size > buffer.len() {
-                                        break;
-                                    }
-
-                                    size
-                                }
-                            };
-
-                            if tx.send(buffer.split_to(size).freeze()).is_err() {
-                                break 'a;
-                            }
-                        }
-                    }
-                    _ = close_signal_receiver.recv() => {
-                        break;
-                    }
-                    else => {
-                        break;
-                    }
-                }
+        let size = {
+            if match self {
+                #[cfg(feature = "ssl")]
+                Self::Ssl(stream) => stream.read_exact(&mut buffer[..4]).await?,
+                Self::Base(stream) => stream.read_exact(&mut buffer[..4]).await?,
+            } < 4
+            {
+                return Err(anyhow!("failed to read the first 4 bytes of the message"));
             }
-        });
 
-        Self {
-            close_signal_sender,
-            writer,
-            receiver,
+            Decoder::message_size(&buffer[..4], true)?
+        };
+
+        // The buffer is resized to the actual size of the message, which is determined by the first 4 bytes of the message.
+        if size > MAX_MESSAGE_SIZE {
+            return Err(anyhow!(
+                "message size {} exceeds the maximum allowed size",
+                size
+            ));
         }
-    }
-}
 
-impl Socket for TcpSocket {
-    async fn read(&mut self) -> Option<Bytes> {
-        self.receiver.recv().await
+        // Read the rest of the message based on the size determined by the first 4 bytes.
+        if match self {
+            #[cfg(feature = "ssl")]
+            Self::Ssl(stream) => stream.read_exact(&mut buffer[4..size]).await?,
+            Self::Base(stream) => stream.read_exact(&mut buffer[4..size]).await?,
+        } < size - 4
+        {
+            return Err(anyhow!("failed to read the full message"));
+        }
+
+        // SAFETY: The buffer is initialized with zeroes and the length is set to
+        // the actual size of the message, which is determined by the first 4
+        // bytes of the message.
+        //
+        // The buffer is not used until it is fully initialized, so it is safe to
+        // set the length after reading the message.
+        unsafe {
+            buffer.set_len(size);
+        }
+
+        Ok(buffer.freeze())
     }
 
     async fn write(&mut self, buffer: &[u8]) -> Result<()> {
-        Ok(self.writer.write_all(buffer).await?)
+        match self {
+            #[cfg(feature = "ssl")]
+            Self::Ssl(stream) => stream.write_all(buffer).await?,
+            Self::Base(stream) => stream.write_all(buffer).await?,
+        }
+
+        Ok(())
     }
 
     async fn close(&mut self) {
-        self.receiver.close();
-
-        let _ = self.close_signal_sender.send(()).await;
+        match self {
+            #[cfg(feature = "ssl")]
+            Self::Ssl(stream) => {
+                let _ = stream.shutdown().await;
+            }
+            Self::Base(stream) => {
+                let _ = stream.shutdown().await;
+            }
+        }
     }
 }
 
 pub struct TcpServer {
-    socket_receiver: UnboundedReceiver<(TcpSocket, SocketAddr)>,
+    listener: TcpListener,
     local_addr: SocketAddr,
+    #[cfg(feature = "ssl")]
+    acceptor: Option<TlsAcceptor>,
 }
 
 impl Server for TcpServer {
-    type Socket = TcpSocket;
+    type Socket = MaybeSslStream;
 
     async fn bind(options: &ServerOptions) -> Result<Self> {
         #[cfg(feature = "ssl")]
@@ -212,52 +128,37 @@ impl Server for TcpServer {
             None
         };
 
-        let listener = TokioTcpListener::bind(options.listen).await?;
+        let listener = TcpListener::bind(options.listen).await?;
         let local_addr = listener.local_addr()?;
 
-        let (tx, socket_receiver) = unbounded_channel::<(TcpSocket, SocketAddr)>();
-        tokio::spawn(async move {
-            while let Ok((socket, addr)) = listener.accept().await {
-                // Disable the Nagle algorithm.
-                // because to maintain real-time, any received data should be processed
-                // as soon as possible.
-                if let Err(e) = socket.set_nodelay(true) {
-                    log::warn!("tls socket set nodelay failed!: addr={addr}, err={e}");
-                }
-
-                #[cfg(feature = "ssl")]
-                if let Some(acceptor) = acceptor.clone() {
-                    let tx = tx.clone();
-
-                    tokio::spawn(async move {
-                        if let Ok(socket) = acceptor.accept(socket).await {
-                            let _ = tx.send((
-                                TcpSocket::new(MaybeSslStream::Ssl(socket.into()), addr),
-                                addr,
-                            ));
-                        };
-                    });
-
-                    continue;
-                }
-
-                if tx
-                    .send((TcpSocket::new(MaybeSslStream::Base(socket), addr), addr))
-                    .is_err()
-                {
-                    break;
-                }
-            }
-        });
-
         Ok(Self {
-            socket_receiver,
+            listener,
             local_addr,
+            #[cfg(feature = "ssl")]
+            acceptor,
         })
     }
 
-    async fn accept(&mut self) -> Option<(Self::Socket, SocketAddr)> {
-        self.socket_receiver.recv().await
+    async fn accept(&mut self) -> Result<Poll<(Self::Socket, SocketAddr)>> {
+        let (socket, addr) = self.listener.accept().await?;
+
+        // Disable the Nagle algorithm.
+        // because to maintain real-time, any received data should be processed
+        // as soon as possible.
+        if let Err(e) = socket.set_nodelay(true) {
+            log::warn!("tls socket set nodelay failed!: addr={addr}, err={e}");
+        }
+
+        #[cfg(feature = "ssl")]
+        if let Some(ref acceptor) = self.acceptor {
+            return Ok(if let Ok(socket) = acceptor.accept(socket).await {
+                Poll::Ready((MaybeSslStream::Ssl(socket), addr))
+            } else {
+                Poll::Pending
+            });
+        }
+
+        Ok(Poll::Ready((MaybeSslStream::Base(socket), addr)))
     }
 
     fn local_addr(&self) -> Result<SocketAddr> {

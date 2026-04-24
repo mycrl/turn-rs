@@ -1,10 +1,10 @@
 pub mod tcp;
 pub mod udp;
 
-use std::{net::SocketAddr, time::Duration};
+use std::{net::SocketAddr, task::Poll, time::Duration};
 
 use anyhow::Result;
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use tokio::time::interval;
 
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
 pub const MAX_MESSAGE_SIZE: usize = 4096;
 
 pub trait Socket: Send + 'static {
-    fn read(&mut self) -> impl Future<Output = Option<Bytes>> + Send;
+    fn read(&mut self) -> impl Future<Output = Result<Bytes>> + Send;
     fn write(&mut self, buffer: &[u8]) -> impl Future<Output = Result<()>> + Send;
     fn close(&mut self) -> impl Future<Output = ()> + Send;
 }
@@ -40,7 +40,7 @@ pub trait Server: Sized + Send {
     fn bind(options: &ServerOptions) -> impl Future<Output = Result<Self>> + Send;
 
     /// Accept a new connection.
-    fn accept(&mut self) -> impl Future<Output = Option<(Self::Socket, SocketAddr)>> + Send;
+    fn accept(&mut self) -> impl Future<Output = Result<Poll<(Self::Socket, SocketAddr)>>> + Send;
 
     /// Get the local address of the listener.
     fn local_addr(&self) -> Result<SocketAddr>;
@@ -65,7 +65,11 @@ pub trait Server: Sized + Send {
                 options.external,
             );
 
-            while let Some((mut socket, address)) = listener.accept().await {
+            while let Ok(poll) = listener.accept().await {
+                let Poll::Ready((mut socket, address)) = poll else {
+                    continue;
+                };
+
                 let id = Identifier {
                     source: address,
                     interface: local_addr,
@@ -86,16 +90,14 @@ pub trait Server: Sized + Send {
 
                     loop {
                         tokio::select! {
-                            Some(buffer) = socket.read() => {
+                            Ok(buffer) = socket.read() => {
                                 read_delay = 0;
 
                                 if let Ok(Some(res)) = router.route(&buffer).await
                                 {
 
                                     if let Some(relay) = res.relay {
-                                        let mut bytes = BytesMut::with_capacity(res.bytes.len() + 4);
-
-                                        bytes.extend_from_slice(res.bytes);
+                                        exchanger.send(&relay, res.bytes);
 
                                         // The channel data needs to be aligned in multiples of 4 in
                                         // tcp. If the channel data is forwarded to tcp, the alignment
@@ -105,11 +107,9 @@ pub trait Server: Sized + Send {
                                         if relay.transport == Transport::Tcp && res.method.is_none() {
                                             let pad = res.bytes.len() % 4;
                                             if pad > 0 {
-                                                bytes.extend_from_slice(&[0u8; 8][..(4 - pad)]);
+                                                exchanger.send(&relay, &[0u8; 8][..(4 - pad)]);
                                             }
                                         }
-
-                                        exchanger.send(&relay, bytes.freeze());
                                     } else {
                                         if socket.write(res.bytes).await.is_err() {
                                             break;

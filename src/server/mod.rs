@@ -111,12 +111,12 @@ impl Exchanger {
     /// is forwarded to the corresponding socket. However, it should be noted
     /// that calling this function will not notify whether the socket exists.
     /// If it does not exist, the data will be discarded by default.
-    fn send(&self, id: &Identifier, data: Bytes) {
+    fn send(&self, id: &Identifier, data: &[u8]) {
         let mut is_destroy = false;
 
         {
             if let Some(sender) = self.0.read().get(id)
-                && sender.send(data).is_err()
+                && sender.send(Bytes::copy_from_slice(data)).is_err()
             {
                 is_destroy = true;
             }

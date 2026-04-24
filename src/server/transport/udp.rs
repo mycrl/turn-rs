@@ -1,7 +1,7 @@
-use std::{io::ErrorKind, net::SocketAddr, sync::Arc};
+use std::{io::ErrorKind, net::SocketAddr, sync::Arc, task::Poll};
 
 use ahash::{HashMap, HashMapExt};
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use bytes::{Bytes, BytesMut};
 use tokio::{
     net::UdpSocket as TokioUdpSocket,
@@ -20,8 +20,11 @@ pub struct UdpSocket {
 }
 
 impl Socket for UdpSocket {
-    async fn read(&mut self) -> Option<Bytes> {
-        self.bytes_receiver.recv().await
+    async fn read(&mut self) -> Result<Bytes> {
+        self.bytes_receiver
+            .recv()
+            .await
+            .ok_or_else(|| anyhow!("channel closed"))
     }
 
     async fn write(&mut self, buffer: &[u8]) -> Result<()> {
@@ -136,8 +139,13 @@ impl Server for UdpServer {
         })
     }
 
-    async fn accept(&mut self) -> Option<(UdpSocket, SocketAddr)> {
-        self.receiver.recv().await
+    async fn accept(&mut self) -> Result<Poll<(UdpSocket, SocketAddr)>> {
+        Ok(Poll::Ready(
+            self.receiver
+                .recv()
+                .await
+                .ok_or_else(|| anyhow!("channel closed"))?,
+        ))
     }
 
     fn local_addr(&self) -> Result<SocketAddr> {
