@@ -49,7 +49,7 @@ pub async fn start_server(config: Config) -> anyhow::Result<()> {
     let service = service::Service::new(ServiceOptions {
         realm: config.server.realm.clone(),
         port_range: config.server.port_range,
-        interfaces: config.server.get_external_addresses(),
+        interfaces: config.server.get_interface_addrs(),
         handler: Handler::new(config.clone(), statistics.clone()).await?,
     });
 

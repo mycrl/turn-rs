@@ -575,7 +575,7 @@ impl<'a> Message<'a> {
     /// assert_eq!(size, 20);
     /// ```
     pub fn message_size(buffer: &[u8]) -> Result<usize, Error> {
-        if buffer[0] >> 6 != 0 || buffer.len() < 20 {
+        if buffer[0] >> 6 != 0 || buffer.len() < 4 {
             return Err(Error::InvalidInput);
         }
 

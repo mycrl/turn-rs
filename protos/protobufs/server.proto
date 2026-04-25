@@ -4,11 +4,18 @@ package turn.server;
 
 import "google/protobuf/empty.proto";
 
-// connection transport protocol
+// transport protocol
 enum Transport {
     TRANSPORT_UNSPECIFIED = 0;
     TRANSPORT_UDP = 1;
     TRANSPORT_TCP = 2;
+}
+
+// network interface
+message Interface {
+    string address = 1;
+    string external = 2;
+    Transport transport = 3;
 }
 
 // connection identifier
@@ -19,6 +26,12 @@ message Identifier {
     Transport transport = 4;
 }
 
+// port or channel bind address
+message BindAddress {
+    int32 key = 2;
+    Identifier value = 1;
+}
+
 // turn server info
 message TurnServerInfo {
     // software info
@@ -26,7 +39,7 @@ message TurnServerInfo {
     // uptime seconds
     uint64 uptime = 2;
     // interfaces
-    repeated string interfaces = 3;
+    repeated Interface interfaces = 3;
     // port capacity size
     uint32 port_capacity = 4;
     // port allocated size
@@ -36,14 +49,14 @@ message TurnServerInfo {
 // turn session
 message TurnSession {
     string username = 1;
-    // permissions port
-    repeated int32 permissions = 2;
-    // channels number
-    repeated int32 bind_channels = 3;
     // allocated port number
-    optional int32 allocated_port = 4;
+    optional int32 allocated_port = 2;
     // expires seconds
-    int64 expires = 6;
+    int64 expires = 3;
+    // permissions port bind addresses
+    repeated BindAddress permissions = 4;
+    // channels number bind addresses
+    repeated BindAddress channels = 5;
 }
 
 // turn session statistics

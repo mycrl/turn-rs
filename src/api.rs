@@ -1,9 +1,14 @@
-use std::{
-    net::SocketAddr,
-    time::{Duration, Instant},
+use std::time::{Duration, Instant};
+
+use crate::{
+    Service,
+    codec::{crypto::Password, message::attributes::PasswordAlgorithm},
+    config::Config,
+    service::session::{Identifier, Session},
+    statistics::Statistics,
 };
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use tokio::sync::{
     Mutex,
     mpsc::{Sender, channel},
@@ -18,26 +23,42 @@ use tonic::{
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 
 use protos::{
-    GetTurnPasswordRequest, Identifier, PasswordAlgorithm, Transport, TurnAllocatedEvent,
-    TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent,
-    TurnServerInfo, TurnSession, TurnSessionStatistics,
+    BindAddress, GetTurnPasswordRequest, TurnAllocatedEvent, TurnChannelBindEvent,
+    TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent, TurnServerInfo, TurnSession,
+    TurnSessionStatistics,
     turn_hooks_service_client::TurnHooksServiceClient,
     turn_service_server::{TurnService, TurnServiceServer},
 };
 
-use crate::{
-    Service,
-    codec::{crypto::Password, message::attributes::PasswordAlgorithm as InnerPasswordAlgorithm},
-    config::Config,
-    service::{
-        Transport as InnerTransport,
-        session::{Identifier as InnerIdentifier, Session},
-    },
-    statistics::Statistics,
-};
+impl Into<protos::Transport> for crate::service::Transport {
+    fn into(self) -> protos::Transport {
+        use protos::Transport;
 
-impl Into<PasswordAlgorithm> for InnerPasswordAlgorithm {
-    fn into(self) -> PasswordAlgorithm {
+        match self {
+            Self::Udp => Transport::Udp,
+            Self::Tcp => Transport::Tcp,
+        }
+    }
+}
+
+impl TryFrom<protos::Transport> for crate::service::Transport {
+    type Error = anyhow::Error;
+
+    fn try_from(value: protos::Transport) -> Result<Self, Self::Error> {
+        use protos::Transport;
+
+        match value {
+            Transport::Udp => Ok(Self::Udp),
+            Transport::Tcp => Ok(Self::Tcp),
+            Transport::Unspecified => Err(anyhow!("transport is unspecified")),
+        }
+    }
+}
+
+impl Into<protos::PasswordAlgorithm> for crate::codec::message::attributes::PasswordAlgorithm {
+    fn into(self) -> protos::PasswordAlgorithm {
+        use protos::PasswordAlgorithm;
+
         match self {
             Self::Md5 => PasswordAlgorithm::Md5,
             Self::Sha256 => PasswordAlgorithm::Sha256,
@@ -45,33 +66,39 @@ impl Into<PasswordAlgorithm> for InnerPasswordAlgorithm {
     }
 }
 
-impl TryFrom<Identifier> for InnerIdentifier {
-    type Error = Status;
+impl Into<protos::Identifier> for Identifier {
+    fn into(self) -> protos::Identifier {
+        protos::Identifier {
+            source: self.source.to_string(),
+            external: self.external.to_string(),
+            interface: self.interface.to_string(),
+            transport: Into::<protos::Transport>::into(self.transport) as i32,
+        }
+    }
+}
 
-    fn try_from(value: Identifier) -> Result<Self, Self::Error> {
-        Ok(InnerIdentifier {
-            source: value
-                .source
-                .parse::<SocketAddr>()
-                .map_err(|e| Status::invalid_argument(e.to_string()))?,
-            external: value
-                .external
-                .parse::<SocketAddr>()
-                .map_err(|e| Status::invalid_argument(e.to_string()))?,
-            interface: value
-                .interface
-                .parse::<SocketAddr>()
-                .map_err(|e| Status::invalid_argument(e.to_string()))?,
-            transport: match Transport::try_from(value.transport)
-                .map_err(|e| Status::invalid_argument(e.to_string()))?
-            {
-                Transport::Udp => InnerTransport::Udp,
-                Transport::Tcp => InnerTransport::Tcp,
-                Transport::Unspecified => {
-                    return Err(Status::invalid_argument("transport is unspecified"));
-                }
-            },
+impl TryFrom<protos::Identifier> for crate::service::session::Identifier {
+    type Error = anyhow::Error;
+
+    fn try_from(value: protos::Identifier) -> Result<Self, Self::Error> {
+        use crate::service::{Transport, session::Identifier};
+
+        Ok(Identifier {
+            source: value.source.parse()?,
+            external: value.external.parse()?,
+            interface: value.interface.parse()?,
+            transport: Transport::try_from(protos::Transport::try_from(value.transport)?)?,
         })
+    }
+}
+
+impl Into<protos::Interface> for &crate::service::InterfaceAddr {
+    fn into(self) -> protos::Interface {
+        protos::Interface {
+            address: self.addr.to_string(),
+            external: self.external.to_string(),
+            transport: Into::<protos::Transport>::into(self.transport) as i32,
+        }
     }
 }
 
@@ -91,9 +118,9 @@ impl TurnService for RpcService {
             interfaces: self
                 .config
                 .server
-                .get_external_addresses()
+                .get_interface_addrs()
                 .iter()
-                .map(|addr| addr.to_string())
+                .map(|it| it.into())
                 .collect(),
             port_capacity: self.config.server.port_range.size() as u32,
             port_allocated: self.service.get_session_manager().allocated() as u32,
@@ -102,7 +129,7 @@ impl TurnService for RpcService {
 
     async fn get_session(
         &self,
-        request: Request<Identifier>,
+        request: Request<protos::Identifier>,
     ) -> Result<Response<TurnSession>, Status> {
         if let Some(Session::Authenticated {
             username,
@@ -114,15 +141,30 @@ impl TurnService for RpcService {
         }) = self
             .service
             .get_session_manager()
-            .get_session(&InnerIdentifier::try_from(request.into_inner())?)
+            .get_session(
+                &Identifier::try_from(request.into_inner())
+                    .map_err(|e| Status::internal(e.to_string()))?,
+            )
             .get_ref()
         {
             Ok(Response::new(TurnSession {
                 username: username.to_string(),
-                permissions: port_relay_table.iter().map(|(k, _)| *k as i32).collect(),
-                bind_channels: channel_relay_table.iter().map(|(k, _)| *k as i32).collect(),
                 allocated_port: allocated_port.map(|p| p as i32),
                 expires: *expires as i64,
+                permissions: port_relay_table
+                    .iter()
+                    .map(|(k, v)| BindAddress {
+                        key: *k as i32,
+                        value: Some(v.clone().into()),
+                    })
+                    .collect(),
+                channels: channel_relay_table
+                    .iter()
+                    .map(|(k, v)| BindAddress {
+                        key: *k as i32,
+                        value: Some(v.clone().into()),
+                    })
+                    .collect(),
             }))
         } else {
             Err(Status::not_found("Session not found"))
@@ -131,12 +173,12 @@ impl TurnService for RpcService {
 
     async fn get_session_statistics(
         &self,
-        request: Request<Identifier>,
+        request: Request<protos::Identifier>,
     ) -> Result<Response<TurnSessionStatistics>, Status> {
-        if let Some(counts) = self
-            .statistics
-            .get(&InnerIdentifier::try_from(request.into_inner())?)
-        {
+        if let Some(counts) = self.statistics.get(
+            &Identifier::try_from(request.into_inner())
+                .map_err(|e| Status::internal(e.to_string()))?,
+        ) {
             Ok(Response::new(TurnSessionStatistics {
                 received_bytes: counts.received_bytes as u64,
                 send_bytes: counts.send_bytes as u64,
@@ -149,12 +191,15 @@ impl TurnService for RpcService {
         }
     }
 
-    async fn destroy_session(&self, request: Request<Identifier>) -> Result<Response<()>, Status> {
-        if self
-            .service
-            .get_session_manager()
-            .refresh(&InnerIdentifier::try_from(request.into_inner())?, 0)
-        {
+    async fn destroy_session(
+        &self,
+        request: Request<protos::Identifier>,
+    ) -> Result<Response<()>, Status> {
+        if self.service.get_session_manager().refresh(
+            &Identifier::try_from(request.into_inner())
+                .map_err(|e| Status::internal(e.to_string()))?,
+            0,
+        ) {
             Ok(Response::new(()))
         } else {
             Err(Status::failed_precondition("Session not found"))
@@ -259,19 +304,22 @@ impl RpcHooksService {
 
     pub async fn get_password(
         &self,
-        id: Identifier,
+        id: &Identifier,
         realm: &str,
         username: &str,
-        algorithm: InnerPasswordAlgorithm,
+        algorithm: PasswordAlgorithm,
     ) -> Option<Password> {
         if let Some(inner) = &self.0 {
+            use protos::PasswordAlgorithm;
+
             let algorithm: PasswordAlgorithm = algorithm.into();
+
             let password = inner
                 .client
                 .lock()
                 .await
                 .get_password(Request::new(GetTurnPasswordRequest {
-                    id: Some(id),
+                    id: Some(id.into()),
                     realm: realm.to_string(),
                     username: username.to_string(),
                     algorithm: algorithm as i32,
