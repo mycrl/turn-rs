@@ -48,10 +48,6 @@ proptest = "1.4"
 name = "stun"
 harness = false
 
-[[bench]]
-name = "turn"
-harness = false
-
 [features]
 default = ["udp", "tcp", "ssl", "api", "prometheus"]
 tcp = []
