@@ -22,7 +22,7 @@ struct Request<'a, 'b, T, M>
 where
     T: ServiceHandler,
 {
-    encode_buffer: &'b mut BytesMut,
+    response_buffer: &'b mut BytesMut,
     state: &'a RouterState<T>,
     payload: &'a M,
 }
@@ -113,13 +113,11 @@ where
     }
 }
 
-/// The response.
+/// The route result.
 #[derive(Debug)]
-pub struct Response<'a> {
+pub struct RouteResult {
     /// if the method is None, the response is a channel data response
     pub method: Option<Method>,
-    /// the bytes of the response
-    pub bytes: &'a [u8],
     /// the relay target of the response
     pub relay: Option<Identifier>,
 }
@@ -142,7 +140,6 @@ where
 {
     state: RouterState<T>,
     decoder: Decoder,
-    bytes: BytesMut,
 }
 
 impl<T> Router<T>
@@ -151,7 +148,6 @@ where
 {
     pub fn new(service: &Service<T>, id: Identifier) -> Self {
         Self {
-            bytes: BytesMut::with_capacity(4096),
             decoder: Decoder::default(),
             state: RouterState {
                 interfaces: service.interfaces.clone(),
@@ -164,21 +160,22 @@ where
         }
     }
 
-    pub async fn route<'a, 'b: 'a>(
-        &'b mut self,
-        bytes: &'b [u8],
-    ) -> Result<Option<Response<'a>>, crate::codec::Error> {
+    pub async fn route(
+        &mut self,
+        bytes: &[u8],
+        response_buffer: &mut BytesMut,
+    ) -> Result<Option<RouteResult>, crate::codec::Error> {
         Ok(match self.decoder.decode(bytes)? {
             DecodeResult::ChannelData(channel) => channel_data(Request {
                 state: &self.state,
-                encode_buffer: &mut self.bytes,
                 payload: &channel,
+                response_buffer,
             }),
             DecodeResult::Message(message) => {
                 let req = Request {
                     state: &self.state,
-                    encode_buffer: &mut self.bytes,
                     payload: &message,
+                    response_buffer,
                 };
 
                 match req.payload.method() {
@@ -195,14 +192,15 @@ where
     }
 }
 
-fn reject<'a, T>(req: Request<'_, 'a, T, Message<'_>>, error: ErrorType) -> Option<Response<'a>>
+fn reject<T>(req: Request<'_, '_, T, Message<'_>>, error: ErrorType) -> Option<RouteResult>
 where
     T: ServiceHandler,
 {
     let method = req.payload.method().error()?;
 
     {
-        let mut message = MessageEncoder::extend(method, req.payload, req.encode_buffer);
+        let mut message = MessageEncoder::extend(method, req.payload, req.response_buffer);
+
         message.append::<ErrorCode>(ErrorCode::from(error));
 
         if error == ErrorType::Unauthorized {
@@ -224,8 +222,7 @@ where
         message.flush(None).ok()?;
     }
 
-    Some(Response {
-        bytes: req.encode_buffer,
+    Some(RouteResult {
         method: Some(method),
         relay: None,
     })
@@ -251,12 +248,14 @@ where
 /// attribute within the body of the STUN response will remain untouched.
 /// In this way, the client can learn its reflexive transport address
 /// allocated by the outermost NAT with respect to the STUN server.
-fn binding<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+fn binding<T>(req: Request<'_, '_, T, Message<'_>>) -> Option<RouteResult>
 where
     T: ServiceHandler,
 {
     {
-        let mut message = MessageEncoder::extend(BINDING_RESPONSE, req.payload, req.encode_buffer);
+        let mut message =
+            MessageEncoder::extend(BINDING_RESPONSE, req.payload, req.response_buffer);
+
         message.append::<XorMappedAddress>(req.state.id.source);
         message.append::<MappedAddress>(req.state.id.source);
         message.append::<ResponseOrigin>(req.state.id.external);
@@ -264,9 +263,8 @@ where
         message.flush(None).ok()?;
     }
 
-    Some(Response {
+    Some(RouteResult {
         method: Some(BINDING_RESPONSE),
-        bytes: req.encode_buffer,
         relay: None,
     })
 }
@@ -285,7 +283,7 @@ where
 /// server SHOULD NOT allocate ports in the range 0 - 1023 (the Well-
 /// Known Port range) to discourage clients from using TURN to run
 /// standard contexts.
-async fn allocate<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+async fn allocate<T>(req: Request<'_, '_, T, Message<'_>>) -> Option<RouteResult>
 where
     T: ServiceHandler,
 {
@@ -308,7 +306,9 @@ where
         .on_allocated(&req.state.id, username, port);
 
     {
-        let mut message = MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.encode_buffer);
+        let mut message =
+            MessageEncoder::extend(ALLOCATE_RESPONSE, req.payload, req.response_buffer);
+
         message.append::<XorRelayedAddress>(SocketAddr::new(req.state.id.external.ip(), port));
         message.append::<XorMappedAddress>(req.state.id.source);
         message.append::<Lifetime>(lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32));
@@ -316,9 +316,82 @@ where
         message.flush(Some(&password)).ok()?;
     }
 
-    Some(Response {
+    Some(RouteResult {
         method: Some(ALLOCATE_RESPONSE),
-        bytes: req.encode_buffer,
+        relay: None,
+    })
+}
+
+/// [rfc8489](https://tools.ietf.org/html/rfc8489)
+///
+/// When the server receives the CreatePermission request, it processes
+/// as per [Section 5](https://tools.ietf.org/html/rfc8656#section-5)
+/// plus the specific rules mentioned here.
+///
+/// The message is checked for validity.  The CreatePermission request
+/// MUST contain at least one XOR-PEER-ADDRESS attribute and MAY contain
+/// multiple such attributes.  If no such attribute exists, or if any of
+/// these attributes are invalid, then a 400 (Bad Request) error is
+/// returned.  If the request is valid, but the server is unable to
+/// satisfy the request due to some capacity limit or similar, then a 508
+/// (Insufficient Capacity) error is returned.
+///
+/// If an XOR-PEER-ADDRESS attribute contains an address of an address
+/// family that is not the same as that of a relayed transport address
+/// for the allocation, the server MUST generate an error response with
+/// the 443 (Peer Address Family Mismatch) response code.
+///
+/// The server MAY impose restrictions on the IP address allowed in the
+/// XOR-PEER-ADDRESS attribute; if a value is not allowed, the server
+/// rejects the request with a 403 (Forbidden) error.
+///
+/// If the message is valid and the server is capable of carrying out the
+/// request, then the server installs or refreshes a permission for the
+/// IP address contained in each XOR-PEER-ADDRESS attribute as described
+/// in [Section 9](https://tools.ietf.org/html/rfc8656#section-9).  
+/// The port portion of each attribute is ignored and may be any arbitrary
+/// value.
+///
+/// The server then responds with a CreatePermission success response.
+/// There are no mandatory attributes in the success response.
+///
+/// NOTE: A server need not do anything special to implement idempotency of
+/// CreatePermission requests over UDP using the "stateless stack approach".
+/// Retransmitted CreatePermission requests will simply refresh the
+/// permissions.
+async fn create_permission<T>(req: Request<'_, '_, T, Message<'_>>) -> Option<RouteResult>
+where
+    T: ServiceHandler,
+{
+    let Some((username, password)) = req.verify().await else {
+        return reject(req, ErrorType::Unauthorized);
+    };
+
+    let mut ports = Vec::with_capacity(15);
+    for it in req.payload.get_all::<XorPeerAddress>() {
+        if !req.verify_ip(&it) {
+            return reject(req, ErrorType::PeerAddressFamilyMismatch);
+        }
+
+        ports.push(it.port());
+    }
+
+    if !req.state.manager.create_permission(&req.state.id, &ports) {
+        return reject(req, ErrorType::Forbidden);
+    }
+
+    req.state
+        .handler
+        .on_create_permission(&req.state.id, username, &ports);
+
+    {
+        MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.response_buffer)
+            .flush(Some(&password))
+            .ok()?;
+    }
+
+    Some(RouteResult {
+        method: Some(CREATE_PERMISSION_RESPONSE),
         relay: None,
     })
 }
@@ -351,7 +424,7 @@ where
 /// different channel, eliminating the possibility that the
 /// transaction would initially fail but succeed on a
 /// retransmission.
-async fn channel_bind<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+async fn channel_bind<T>(req: Request<'_, '_, T, Message<'_>>) -> Option<RouteResult>
 where
     T: ServiceHandler,
 {
@@ -388,14 +461,13 @@ where
         .on_channel_bind(&req.state.id, username, number);
 
     {
-        MessageEncoder::extend(CHANNEL_BIND_RESPONSE, req.payload, req.encode_buffer)
+        MessageEncoder::extend(CHANNEL_BIND_RESPONSE, req.payload, req.response_buffer)
             .flush(Some(&password))
             .ok()?;
     }
 
-    Some(Response {
+    Some(RouteResult {
         method: Some(CHANNEL_BIND_RESPONSE),
-        bytes: req.encode_buffer,
         relay: None,
     })
 }
@@ -518,7 +590,7 @@ where
 ///
 /// The resulting UDP datagram is then sent to the peer.
 #[rustfmt::skip]
-fn indication<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+fn indication<T>(req: Request<'_, '_, T, Message<'_>>) -> Option<RouteResult>
 where
     T: ServiceHandler,
 {
@@ -528,15 +600,15 @@ where
     let (local_port, relay) = req.state.manager.get_port_relay_address(&req.state.id, peer.port())?;
 
     {
-        let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.encode_buffer);
+        let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.response_buffer);
+
         message.append::<XorPeerAddress>(SocketAddr::new(req.state.id.external.ip(), local_port));
         message.append::<Data>(data);
         message.flush(None).ok()?;
     }
 
-    Some(Response {
+    Some(RouteResult {
         method: Some(DATA_INDICATION),
-        bytes: req.encode_buffer,
         relay: Some(relay),
     })
 }
@@ -577,7 +649,7 @@ where
 /// will cause a 437 (Allocation Mismatch) response if the
 /// allocation has already been deleted, but the client will treat
 /// this as equivalent to a success response (see below).
-async fn refresh<'a, T>(req: Request<'_, 'a, T, Message<'_>>) -> Option<Response<'a>>
+async fn refresh<T>(req: Request<'_, '_, T, Message<'_>>) -> Option<RouteResult>
 where
     T: ServiceHandler,
 {
@@ -598,14 +670,15 @@ where
         .on_refresh(&req.state.id, username, lifetime);
 
     {
-        let mut message = MessageEncoder::extend(REFRESH_RESPONSE, req.payload, req.encode_buffer);
+        let mut message =
+            MessageEncoder::extend(REFRESH_RESPONSE, req.payload, req.response_buffer);
+
         message.append::<Lifetime>(lifetime);
         message.flush(Some(&password)).ok()?;
     }
 
-    Some(Response {
+    Some(RouteResult {
         method: Some(REFRESH_RESPONSE),
-        bytes: req.encode_buffer,
         relay: None,
     })
 }
@@ -636,7 +709,7 @@ where
 /// the Length field in the ChannelData message is 0, then there will be
 /// no data in the UDP datagram, but the UDP datagram is still formed and
 /// sent [(Section 4.1 of [RFC6263])](https://tools.ietf.org/html/rfc6263#section-4.1).
-fn channel_data<'a, T>(req: Request<'_, 'a, T, ChannelData<'_>>) -> Option<Response<'a>>
+fn channel_data<T>(req: Request<'_, '_, T, ChannelData<'_>>) -> Option<RouteResult>
 where
     T: ServiceHandler,
 {
@@ -646,11 +719,10 @@ where
         .get_channel_relay_address(&req.state.id, req.payload.number())?;
 
     {
-        ChannelData::new(relay_channel, req.payload.bytes()).encode(req.encode_buffer);
+        ChannelData::new(relay_channel, req.payload.bytes()).encode(req.response_buffer);
     }
 
-    Some(Response {
-        bytes: req.encode_buffer,
+    Some(RouteResult {
         relay: Some(relay),
         method: None,
     })

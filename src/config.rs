@@ -67,6 +67,7 @@ pub enum Interface {
         /// for a long time.
         #[serde(default = "Interface::idle_timeout")]
         idle_timeout: u32,
+        /// !Deprecated
         ///
         /// Maximum Transmission Unit (MTU) size for network packets.
         ///
