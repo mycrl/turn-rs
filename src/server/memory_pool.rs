@@ -9,7 +9,7 @@ use std::{
 
 use bytes::BytesMut;
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use tokio::time::sleep;
+use tokio::time::interval;
 
 static MEMORY_POOL: LazyLock<MemoryPool> = LazyLock::new(|| MemoryPool::new());
 
@@ -62,28 +62,6 @@ impl Drop for Buffer {
     }
 }
 
-/// Pool observe interval in seconds.
-const OBSERVE_INTERVAL_SECS: u64 = 10;
-
-/// Start shrinking only after about 1 minute of continuous low usage.
-const LOW_USAGE_WINDOW_TICKS: u32 = 6;
-
-/// Do not shrink below this idle size so burst traffic can still be
-/// absorbed quickly.
-const MIN_IDLE_KEEP: usize = 256;
-
-/// Low usage condition: acquired <= idle / 4.
-const LOW_USAGE_RATIO_NUM: usize = 1;
-const LOW_USAGE_RATIO_DEN: usize = 4;
-
-/// Cooldown between two shrink operations to avoid overly aggressive reclaim.
-const SHRINK_COOLDOWN_TICKS: u32 = 2;
-
-/// Stair-step shrink parameters.
-const SHRINK_DIVISOR: usize = 4;
-const SHRINK_MIN_STEP: usize = 32;
-const SHRINK_MAX_STEP: usize = 512;
-
 /// A simple memory pool for reusing buffers. The pool is implemented using a
 /// channel, and the buffers are returned to the pool when they are dropped.
 pub struct MemoryPool {
@@ -107,90 +85,59 @@ impl MemoryPool {
         let (sender, receiver) = unbounded::<BytesMut>();
         let receiver = Arc::new(receiver);
 
+        // A background cleanup thread that periodically scans and, based on
+        // conditions, gradually shrinks the buffer.
         {
             let receiver_ = receiver.clone();
 
             tokio::spawn(async move {
-                // Number of consecutive observe ticks that satisfy "low usage".
-                // Once this reaches LOW_USAGE_WINDOW_TICKS (~1 minute), we
-                // start reclaiming idle buffers in steps.
-                let mut low_usage_ticks = 0u32;
+                let mut interval = interval(Duration::from_secs(10));
 
-                // Cooldown prevents shrinking on every tick. This keeps the
-                // curve smooth and avoids over-reacting to temporary dips.
-                let mut shrink_cooldown = 0u32;
+                let mut continuous_decline = false;
+                let mut tick_steps = 0;
 
                 loop {
-                    sleep(Duration::from_secs(OBSERVE_INTERVAL_SECS)).await;
+                    interval.tick().await;
 
                     let acquire_size = ACQUIRE_BUFFER_NUM.load(Ordering::SeqCst);
                     let buffer_size = receiver_.len();
 
-                    // Low usage means: a large idle inventory exists while the
-                    // in-flight demand stays relatively small (<= idle / 4).
-                    // We also require idle > MIN_IDLE_KEEP so the pool always
-                    // keeps a burst-friendly baseline.
-                    let low_usage = buffer_size > MIN_IDLE_KEEP
-                        && acquire_size.saturating_mul(LOW_USAGE_RATIO_DEN)
-                            <= buffer_size.saturating_mul(LOW_USAGE_RATIO_NUM);
-
-                    if low_usage {
-                        low_usage_ticks = low_usage_ticks.saturating_add(1);
+                    // If the number of idle buffers is more than 3 times the
+                    //  number of acquired buffers, we consider it as a potential
+                    // memory leak and start to track the decline of idle buffers.
+                    //
+                    // If the decline continues for 1 minute (6 ticks), we will
+                    // try to shrink the pool by dropping some idle buffers.
+                    if buffer_size >= acquire_size * 3 {
+                        if tick_steps == 0 {
+                            continuous_decline = true;
+                        }
                     } else {
-                        low_usage_ticks = 0;
-                        shrink_cooldown = 0;
+                        continuous_decline = false;
                     }
 
-                    if shrink_cooldown > 0 {
-                        shrink_cooldown -= 1;
-                    }
+                    tick_steps += 1;
 
-                    // Reclaim only after sustained low usage and cooldown passed.
-                    // This is the key to "step-down" behavior instead of a sudden
-                    // aggressive drop that could hurt the next traffic burst.
-                    if low_usage_ticks >= LOW_USAGE_WINDOW_TICKS && shrink_cooldown == 0 {
-                        let excess = buffer_size.saturating_sub(MIN_IDLE_KEEP);
-                        if excess > 0 {
-                            // Shrink proportionally to excess inventory, but clamp
-                            // with min/max bounds so each reclaim round is bounded.
-                            let step = (excess / SHRINK_DIVISOR)
-                                .clamp(SHRINK_MIN_STEP, SHRINK_MAX_STEP)
-                                .min(excess);
+                    if tick_steps >= 6 {
+                        tick_steps = 0;
 
-                            // Drain from the idle channel and drop immediately,
-                            // releasing these buffers back to the allocator.
-                            let mut reclaimed = 0usize;
-                            for _ in 0..step {
-                                if receiver_.try_recv().is_ok() {
-                                    reclaimed += 1;
-                                } else {
+                        if continuous_decline {
+                            continuous_decline = false;
+
+                            // The shrink strategy is simple: if the number of
+                            // idle buffers is more than 3, we will drop 2/3 of
+                            // the idle buffers; otherwise, we will drop all
+                            // idle buffers.
+                            for _ in 0..if buffer_size <= 3 {
+                                buffer_size
+                            } else {
+                                buffer_size / 3
+                            } {
+                                if receiver_.try_recv().is_err() {
                                     break;
                                 }
                             }
-
-                            if reclaimed > 0 {
-                                log::debug!(
-                                    "memory pool shrink: reclaimed={}, idle_before={}, idle_after={}, acquired={}",
-                                    reclaimed,
-                                    buffer_size,
-                                    buffer_size.saturating_sub(reclaimed),
-                                    acquire_size,
-                                );
-                            }
-
-                            // Enter cooldown before the next reclaim cycle.
-                            shrink_cooldown = SHRINK_COOLDOWN_TICKS;
                         }
-                    }
-
-                    // Warning signal: live demand is notably larger than idle
-                    // inventory. This helps detect burst pressure and tune pool
-                    // thresholds if needed.
-                    if acquire_size > buffer_size * 2 {
-                        log::debug!(
-                            "memory pool is running low: acquire_size={}, buffer_size={buffer_size}",
-                            acquire_size,
-                        );
                     }
                 }
             });
