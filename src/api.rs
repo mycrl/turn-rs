@@ -22,7 +22,7 @@ use tonic::{
 #[cfg(feature = "ssl")]
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 
-use protos::{
+use sdk::protos::{
     BindAddress, GetTurnPasswordRequest, TurnAllocatedEvent, TurnChannelBindEvent,
     TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent, TurnServerInfo, TurnSession,
     TurnSessionStatistics,
@@ -30,9 +30,9 @@ use protos::{
     turn_service_server::{TurnService, TurnServiceServer},
 };
 
-impl Into<protos::Transport> for crate::service::Transport {
-    fn into(self) -> protos::Transport {
-        use protos::Transport;
+impl Into<sdk::protos::Transport> for crate::service::Transport {
+    fn into(self) -> sdk::protos::Transport {
+        use sdk::protos::Transport;
 
         match self {
             Self::Udp => Transport::Udp,
@@ -41,11 +41,11 @@ impl Into<protos::Transport> for crate::service::Transport {
     }
 }
 
-impl TryFrom<protos::Transport> for crate::service::Transport {
+impl TryFrom<sdk::protos::Transport> for crate::service::Transport {
     type Error = anyhow::Error;
 
-    fn try_from(value: protos::Transport) -> Result<Self, Self::Error> {
-        use protos::Transport;
+    fn try_from(value: sdk::protos::Transport) -> Result<Self, Self::Error> {
+        use sdk::protos::Transport;
 
         match value {
             Transport::Udp => Ok(Self::Udp),
@@ -55,9 +55,9 @@ impl TryFrom<protos::Transport> for crate::service::Transport {
     }
 }
 
-impl Into<protos::PasswordAlgorithm> for crate::codec::message::attributes::PasswordAlgorithm {
-    fn into(self) -> protos::PasswordAlgorithm {
-        use protos::PasswordAlgorithm;
+impl Into<sdk::protos::PasswordAlgorithm> for crate::codec::message::attributes::PasswordAlgorithm {
+    fn into(self) -> sdk::protos::PasswordAlgorithm {
+        use sdk::protos::PasswordAlgorithm;
 
         match self {
             Self::Md5 => PasswordAlgorithm::Md5,
@@ -66,38 +66,38 @@ impl Into<protos::PasswordAlgorithm> for crate::codec::message::attributes::Pass
     }
 }
 
-impl Into<protos::Identifier> for Identifier {
-    fn into(self) -> protos::Identifier {
-        protos::Identifier {
+impl Into<sdk::protos::Identifier> for Identifier {
+    fn into(self) -> sdk::protos::Identifier {
+        sdk::protos::Identifier {
             source: self.source.to_string(),
             external: self.external.to_string(),
             interface: self.interface.to_string(),
-            transport: Into::<protos::Transport>::into(self.transport) as i32,
+            transport: Into::<sdk::protos::Transport>::into(self.transport) as i32,
         }
     }
 }
 
-impl TryFrom<protos::Identifier> for crate::service::session::Identifier {
+impl TryFrom<sdk::protos::Identifier> for crate::service::session::Identifier {
     type Error = anyhow::Error;
 
-    fn try_from(value: protos::Identifier) -> Result<Self, Self::Error> {
+    fn try_from(value: sdk::protos::Identifier) -> Result<Self, Self::Error> {
         use crate::service::{Transport, session::Identifier};
 
         Ok(Identifier {
             source: value.source.parse()?,
             external: value.external.parse()?,
             interface: value.interface.parse()?,
-            transport: Transport::try_from(protos::Transport::try_from(value.transport)?)?,
+            transport: Transport::try_from(sdk::protos::Transport::try_from(value.transport)?)?,
         })
     }
 }
 
-impl Into<protos::Interface> for &crate::service::InterfaceAddr {
-    fn into(self) -> protos::Interface {
-        protos::Interface {
+impl Into<sdk::protos::Interface> for &crate::service::InterfaceAddr {
+    fn into(self) -> sdk::protos::Interface {
+        sdk::protos::Interface {
             address: self.addr.to_string(),
             external: self.external.to_string(),
-            transport: Into::<protos::Transport>::into(self.transport) as i32,
+            transport: Into::<sdk::protos::Transport>::into(self.transport) as i32,
         }
     }
 }
@@ -129,7 +129,7 @@ impl TurnService for RpcService {
 
     async fn get_session(
         &self,
-        request: Request<protos::Identifier>,
+        request: Request<sdk::protos::Identifier>,
     ) -> Result<Response<TurnSession>, Status> {
         if let Some(Session::Authenticated {
             username,
@@ -173,7 +173,7 @@ impl TurnService for RpcService {
 
     async fn get_session_statistics(
         &self,
-        request: Request<protos::Identifier>,
+        request: Request<sdk::protos::Identifier>,
     ) -> Result<Response<TurnSessionStatistics>, Status> {
         if let Some(counts) = self.statistics.get(
             &Identifier::try_from(request.into_inner())
@@ -193,7 +193,7 @@ impl TurnService for RpcService {
 
     async fn destroy_session(
         &self,
-        request: Request<protos::Identifier>,
+        request: Request<sdk::protos::Identifier>,
     ) -> Result<Response<()>, Status> {
         if self.service.get_session_manager().refresh(
             &Identifier::try_from(request.into_inner())
@@ -310,7 +310,7 @@ impl RpcHooksService {
         algorithm: PasswordAlgorithm,
     ) -> Option<Password> {
         if let Some(inner) = &self.0 {
-            use protos::PasswordAlgorithm;
+            use sdk::protos::PasswordAlgorithm;
 
             let algorithm: PasswordAlgorithm = algorithm.into();
 

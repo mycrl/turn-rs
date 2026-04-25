@@ -2397,19 +2397,8 @@ dependencies = [
  "tokio-rustls",
  "toml",
  "tonic",
- "turn-server-protos",
+ "turn-server-sdk",
  "url",
-]
-
-[[package]]
-name = "turn-server-protos"
-version = "0.3.0"
-dependencies = [
- "prost",
- "prost-types",
- "tonic",
- "tonic-prost",
- "tonic-prost-build",
 ]
 
 [[package]]
@@ -2417,10 +2406,13 @@ name = "turn-server-sdk"
 version = "0.3.0"
 dependencies = [
  "md-5",
+ "prost",
+ "prost-types",
  "sha2",
  "tokio",
  "tonic",
- "turn-server-protos",
+ "tonic-prost",
+ "tonic-prost-build",
 ]
 
 [[package]]

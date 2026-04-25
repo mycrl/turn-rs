@@ -173,18 +173,20 @@
 //! - [RFC 8489](https://tools.ietf.org/html/rfc8489) - Session Traversal Utilities for NAT (STUN)
 //! - [RFC 8656](https://tools.ietf.org/html/rfc8656) - Traversal Using Relays around NAT (TURN)
 
-pub use protos;
-use sha2::Sha256;
+pub mod protos {
+    tonic::include_proto!("turn.server");
+}
 
 use std::{net::SocketAddr, ops::Deref};
 
 use md5::{Digest, Md5};
+use sha2::Sha256;
 use tonic::{
     Request, Response, Status,
     transport::{Channel, Server},
 };
 
-use protos::{
+use self::protos::{
     GetTurnPasswordRequest, GetTurnPasswordResponse, Identifier, PasswordAlgorithm,
     TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
     TurnRefreshEvent, TurnServerInfo, TurnSession, TurnSessionStatistics,

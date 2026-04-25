@@ -30,7 +30,7 @@ tokio = { version = "1", features = ["full"] }
 tokio-rustls = { version = "0.26", features = ["aws-lc-rs"], optional = true }
 num_cpus = "1.17.0"
 tonic = { version = "0.14", features = ["deflate"], optional = true }
-protos = { path = "./protos", version = "0.3.0", package = "turn-server-protos", optional = true }
+sdk = { path = "./sdk", version = "0.3.0", package = "turn-server-sdk", optional = true }
 prometheus = { version = "0.14.0", optional = true }
 url = { version = "2.5", optional = true }
 base64 = "0.22"
@@ -54,7 +54,7 @@ default = ["udp", "tcp", "ssl", "api", "prometheus"]
 tcp = []
 udp = []
 ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc", "dep:axum-server"]
-api = ["dep:tonic", "dep:url", "dep:protos"]
+api = ["dep:tonic", "dep:url", "dep:sdk"]
 prometheus = ["dep:axum", "dep:serde_json", "dep:prometheus"]
 
 [profile.release]
@@ -68,4 +68,4 @@ codegen-units = 1
 
 [workspace]
 resolver = "2"
-members = ["./", "./sdk", "./protos"]
+members = ["./", "./sdk"]

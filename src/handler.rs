@@ -17,23 +17,23 @@ use crate::api::{HooksEvent, RpcHooksService};
 use anyhow::Result;
 
 #[cfg(feature = "api")]
-use protos::{
+use sdk::protos::{
     TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
     TurnRefreshEvent,
 };
 
 #[cfg(feature = "api")]
-impl Into<protos::Identifier> for &Identifier {
-    fn into(self) -> protos::Identifier {
+impl Into<sdk::protos::Identifier> for &Identifier {
+    fn into(self) -> sdk::protos::Identifier {
         use crate::service::Transport;
 
-        protos::Identifier {
+        sdk::protos::Identifier {
             source: self.source.to_string(),
             external: self.external.to_string(),
             interface: self.interface.to_string(),
             transport: match self.transport {
-                Transport::Udp => protos::Transport::Udp,
-                Transport::Tcp => protos::Transport::Tcp,
+                Transport::Udp => sdk::protos::Transport::Udp,
+                Transport::Tcp => sdk::protos::Transport::Tcp,
             }
             .into(),
         }
