@@ -4,7 +4,6 @@ use std::{net::SocketAddr, task::Poll};
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
-use bytes::{Bytes, BytesMut};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -22,7 +21,10 @@ use tokio_rustls::{
 
 use crate::{
     codec::Decoder,
-    server::transport::{MAX_MESSAGE_SIZE, Server, ServerOptions, Socket},
+    server::{
+        memory_pool::{Buffer, MemoryPool},
+        provider::{ProviderServer, ProviderStream, ServerOptions},
+    },
 };
 
 pub enum MaybeSslStream {
@@ -31,9 +33,13 @@ pub enum MaybeSslStream {
     Ssl(TlsStream<TcpStream>),
 }
 
-impl Socket for MaybeSslStream {
-    async fn read(&mut self) -> Result<Bytes> {
-        let mut buffer = BytesMut::zeroed(MAX_MESSAGE_SIZE);
+impl ProviderStream for MaybeSslStream {
+    async fn read(&mut self) -> Result<Buffer> {
+        let mut buffer = MemoryPool::acquire();
+
+        unsafe {
+            buffer.set_len(4);
+        }
 
         let size = {
             if match self {
@@ -49,21 +55,11 @@ impl Socket for MaybeSslStream {
         };
 
         // The buffer is resized to the actual size of the message, which is determined by the first 4 bytes of the message.
-        if size > MAX_MESSAGE_SIZE {
+        if size > MemoryPool::MAX_MESSAGE_SIZE {
             return Err(anyhow!(
                 "message size {} exceeds the maximum allowed size",
                 size
             ));
-        }
-
-        // Read the rest of the message based on the size determined by the first 4 bytes.
-        if match self {
-            #[cfg(feature = "ssl")]
-            Self::Ssl(stream) => stream.read_exact(&mut buffer[4..size]).await?,
-            Self::Base(stream) => stream.read_exact(&mut buffer[4..size]).await?,
-        } < size - 4
-        {
-            return Err(anyhow!("failed to read the full message"));
         }
 
         // SAFETY: The buffer is initialized with zeroes and the length is set to
@@ -76,7 +72,17 @@ impl Socket for MaybeSslStream {
             buffer.set_len(size);
         }
 
-        Ok(buffer.freeze())
+        // Read the rest of the message based on the size determined by the first 4 bytes.
+        if match self {
+            #[cfg(feature = "ssl")]
+            Self::Ssl(stream) => stream.read_exact(&mut buffer[4..size]).await?,
+            Self::Base(stream) => stream.read_exact(&mut buffer[4..size]).await?,
+        } < size - 4
+        {
+            return Err(anyhow!("failed to read the full message"));
+        }
+
+        Ok(buffer)
     }
 
     async fn write(&mut self, buffer: &[u8]) -> Result<()> {
@@ -109,8 +115,8 @@ pub struct TcpServer {
     acceptor: Option<TlsAcceptor>,
 }
 
-impl Server for TcpServer {
-    type Socket = MaybeSslStream;
+impl ProviderServer for TcpServer {
+    type Stream = MaybeSslStream;
 
     async fn bind(options: &ServerOptions) -> Result<Self> {
         #[cfg(feature = "ssl")]
@@ -139,7 +145,7 @@ impl Server for TcpServer {
         })
     }
 
-    async fn accept(&mut self) -> Result<Poll<(Self::Socket, SocketAddr)>> {
+    async fn accept(&mut self) -> Result<Poll<(Self::Stream, SocketAddr)>> {
         let (socket, addr) = self.listener.accept().await?;
 
         // Disable the Nagle algorithm.

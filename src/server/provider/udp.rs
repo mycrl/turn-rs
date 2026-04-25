@@ -1,8 +1,7 @@
-use std::{io::ErrorKind, net::SocketAddr, sync::Arc, task::Poll};
+use std::{io::ErrorKind, net::SocketAddr, ops::DerefMut, sync::Arc, task::Poll};
 
 use ahash::{HashMap, HashMapExt};
 use anyhow::{Result, anyhow};
-use bytes::{Bytes, BytesMut};
 use tokio::{
     net::UdpSocket,
     sync::mpsc::{
@@ -10,17 +9,20 @@ use tokio::{
     },
 };
 
-use crate::server::transport::{Server, ServerOptions, Socket};
+use crate::server::{
+    memory_pool::{Buffer, MemoryPool},
+    provider::{ProviderServer, ProviderStream, ServerOptions},
+};
 
 pub struct UdpSession {
     close_signal_sender: UnboundedSender<SocketAddr>,
-    bytes_receiver: Receiver<Bytes>,
+    bytes_receiver: Receiver<Buffer>,
     socket: Arc<UdpSocket>,
     addr: SocketAddr,
 }
 
-impl Socket for UdpSession {
-    async fn read(&mut self) -> Result<Bytes> {
+impl ProviderStream for UdpSession {
+    async fn read(&mut self) -> Result<Buffer> {
         self.bytes_receiver
             .recv()
             .await
@@ -52,8 +54,8 @@ pub struct UdpServer {
     socket: Arc<UdpSocket>,
 }
 
-impl Server for UdpServer {
-    type Socket = UdpSession;
+impl ProviderServer for UdpServer {
+    type Stream = UdpSession;
 
     async fn bind(options: &ServerOptions) -> Result<Self> {
         let socket = Arc::new(UdpSocket::bind(options.listen).await?);
@@ -63,14 +65,14 @@ impl Server for UdpServer {
         {
             let socket = socket.clone();
 
-            let mut buffer = BytesMut::zeroed(options.mtu);
-
             tokio::spawn(async move {
-                let mut sockets = HashMap::<SocketAddr, Sender<Bytes>>::with_capacity(1024);
+                let mut sockets = HashMap::<SocketAddr, Sender<Buffer>>::with_capacity(1024);
 
                 loop {
+                    let mut buffer = MemoryPool::acquire();
+
                     tokio::select! {
-                        ret = socket.recv_from(&mut buffer) => {
+                        ret = socket.recv_buf_from(buffer.deref_mut()) => {
                             let (size, addr) = match ret {
                                 Ok(it) => it,
                                 // Note: An error will also be reported when the remote host is
@@ -92,15 +94,15 @@ impl Server for UdpServer {
                             }
 
                             if let Some(stream) = sockets.get(&addr) {
-                                if stream.try_send(Bytes::copy_from_slice(&buffer[..size])).is_err()
+                                if stream.try_send(buffer).is_err()
                                 {
                                     sockets.remove(&addr);
                                 }
                             } else {
-                                let (tx, bytes_receiver) = channel::<Bytes>(100);
+                                let (tx, bytes_receiver) = channel::<Buffer>(100);
 
                                 // Send the first packet to the new socket
-                                if tx.try_send(Bytes::copy_from_slice(&buffer[..size])).is_err() {
+                                if tx.try_send(buffer).is_err() {
                                     continue;
                                 }
 

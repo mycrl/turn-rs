@@ -4,21 +4,21 @@ pub mod udp;
 use std::{net::SocketAddr, task::Poll, time::Duration};
 
 use anyhow::Result;
-use bytes::Bytes;
 use tokio::time::interval;
 
 use crate::{
     Service,
     config::Ssl,
-    server::Exchanger,
+    server::{
+        Exchanger,
+        memory_pool::{Buffer, MemoryPool},
+    },
     service::{Transport, session::Identifier},
     statistics::{Statistics, Stats},
 };
 
-pub const MAX_MESSAGE_SIZE: usize = 4096;
-
-pub trait Socket: Send + 'static {
-    fn read(&mut self) -> impl Future<Output = Result<Bytes>> + Send;
+pub trait ProviderStream: Send + 'static {
+    fn read(&mut self) -> impl Future<Output = Result<Buffer>> + Send;
     fn write(&mut self, buffer: &[u8]) -> impl Future<Output = Result<()>> + Send;
     fn close(&mut self) -> impl Future<Output = ()> + Send;
 }
@@ -33,14 +33,14 @@ pub struct ServerOptions {
     pub mtu: usize,
 }
 
-pub trait Server: Sized + Send {
-    type Socket: Socket;
+pub trait ProviderServer: Sized + Send {
+    type Stream: ProviderStream;
 
     /// Bind the server to the specified address.
     fn bind(options: &ServerOptions) -> impl Future<Output = Result<Self>> + Send;
 
     /// Accept a new connection.
-    fn accept(&mut self) -> impl Future<Output = Result<Poll<(Self::Socket, SocketAddr)>>> + Send;
+    fn accept(&mut self) -> impl Future<Output = Result<Poll<(Self::Stream, SocketAddr)>>> + Send;
 
     /// Get the local address of the listener.
     fn local_addr(&self) -> Result<SocketAddr>;
@@ -89,35 +89,37 @@ pub trait Server: Sized + Send {
                     let mut read_delay = 0;
 
                     loop {
+                        let mut response_buffer = MemoryPool::acquire();
+
                         tokio::select! {
                             Ok(buffer) = socket.read() => {
                                 read_delay = 0;
 
-                                if let Ok(Some(res)) = router.route(&buffer).await
+                                if let Ok(Some(res)) = router.route(&buffer, &mut response_buffer).await
                                 {
 
                                     if let Some(relay) = res.relay {
-                                        exchanger.send(&relay, res.bytes);
-
                                         // The channel data needs to be aligned in multiples of 4 in
                                         // tcp. If the channel data is forwarded to tcp, the alignment
                                         // bit needs to be filled, because if the channel data comes
                                         // from udp, it is not guaranteed to be aligned and needs to be
                                         // checked.
                                         if relay.transport == Transport::Tcp && res.method.is_none() {
-                                            let pad = res.bytes.len() % 4;
+                                            let pad = response_buffer.len() % 4;
                                             if pad > 0 {
-                                                exchanger.send(&relay, &[0u8; 8][..(4 - pad)]);
+                                                response_buffer.extend_from_slice(&[0u8; 8][..(4 - pad)]);
                                             }
                                         }
+
+                                        exchanger.send(&relay, response_buffer);
                                     } else {
-                                        if socket.write(res.bytes).await.is_err() {
+                                        if socket.write(&response_buffer).await.is_err() {
                                             break;
                                         }
 
                                         reporter.send(
                                             &id,
-                                            &[Stats::SendBytes(res.bytes.len()), Stats::SendPkts(1)],
+                                            &[Stats::SendBytes(response_buffer.len()), Stats::SendPkts(1)],
                                         );
 
                                         if let Some(method) = res.method && method.is_error() {

@@ -18,6 +18,7 @@ axum = { version = "0.8", optional = true }
 axum-server = { version = "0.8", features = ["tls-rustls"], optional = true }
 bytes = "1"
 clap = { version = "4", features = ["derive"] }
+crossbeam-channel = "0.5"
 parking_lot = "0.12"
 log = "0.4"
 mimalloc = { version = "0.1", default-features = false }

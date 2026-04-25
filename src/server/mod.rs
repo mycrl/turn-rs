@@ -1,22 +1,17 @@
-pub mod transport;
+pub mod provider;
 
-use std::sync::Arc;
+mod exchanger;
+mod memory_pool;
 
-use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
-use bytes::Bytes;
-use parking_lot::RwLock;
+use tokio::task::JoinSet;
 
-use tokio::{
-    sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
-    task::JoinSet,
-};
-
+use self::exchanger::Exchanger;
 use crate::{
     Service,
     config::{Config, Interface},
-    server::transport::{Server, ServerOptions, tcp::TcpServer, udp::UdpServer},
-    service::{Transport, session::Identifier},
+    server::provider::{ProviderServer, ServerOptions, tcp::TcpServer, udp::UdpServer},
+    service::Transport,
     statistics::Statistics,
 };
 
@@ -79,56 +74,4 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
     }
 
     Ok(())
-}
-
-type ExchangerSender = UnboundedSender<Bytes>;
-
-/// Handles packet forwarding between transport protocols.
-#[derive(Clone)]
-pub struct Exchanger(Arc<RwLock<HashMap<Identifier, ExchangerSender>>>);
-
-impl Default for Exchanger {
-    fn default() -> Self {
-        Self(Arc::new(RwLock::new(HashMap::with_capacity(1024))))
-    }
-}
-
-impl Exchanger {
-    /// Get the socket reader for the route.
-    ///
-    /// Each transport protocol is layered according to its own socket, and
-    /// the data forwarded to this socket can be obtained by routing.
-    fn get_receiver(&self, id: Identifier) -> UnboundedReceiver<Bytes> {
-        let (sender, receiver) = unbounded_channel();
-        self.0.write().insert(id, sender);
-
-        receiver
-    }
-
-    /// Send data to dispatcher.
-    ///
-    /// By specifying the socket identifier and destination address, the route
-    /// is forwarded to the corresponding socket. However, it should be noted
-    /// that calling this function will not notify whether the socket exists.
-    /// If it does not exist, the data will be discarded by default.
-    fn send(&self, id: &Identifier, data: &[u8]) {
-        let mut is_destroy = false;
-
-        {
-            if let Some(sender) = self.0.read().get(id)
-                && sender.send(Bytes::copy_from_slice(data)).is_err()
-            {
-                is_destroy = true;
-            }
-        }
-
-        if is_destroy {
-            self.remove(id);
-        }
-    }
-
-    /// delete socket.
-    pub fn remove(&self, id: &Identifier) {
-        drop(self.0.write().remove(id))
-    }
 }
