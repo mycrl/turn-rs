@@ -37,6 +37,10 @@ impl ProviderStream for MaybeSslStream {
     async fn read(&mut self) -> Result<Buffer> {
         let mut buffer = MemoryPool::acquire();
 
+        unsafe {
+            buffer.set_len(4);
+        }
+
         let size = {
             if match self {
                 #[cfg(feature = "ssl")]
@@ -58,16 +62,6 @@ impl ProviderStream for MaybeSslStream {
             ));
         }
 
-        // Read the rest of the message based on the size determined by the first 4 bytes.
-        if match self {
-            #[cfg(feature = "ssl")]
-            Self::Ssl(stream) => stream.read_exact(&mut buffer[4..size]).await?,
-            Self::Base(stream) => stream.read_exact(&mut buffer[4..size]).await?,
-        } < size - 4
-        {
-            return Err(anyhow!("failed to read the full message"));
-        }
-
         // SAFETY: The buffer is initialized with zeroes and the length is set to
         // the actual size of the message, which is determined by the first 4
         // bytes of the message.
@@ -76,6 +70,16 @@ impl ProviderStream for MaybeSslStream {
         // set the length after reading the message.
         unsafe {
             buffer.set_len(size);
+        }
+
+        // Read the rest of the message based on the size determined by the first 4 bytes.
+        if match self {
+            #[cfg(feature = "ssl")]
+            Self::Ssl(stream) => stream.read_exact(&mut buffer[4..size]).await?,
+            Self::Base(stream) => stream.read_exact(&mut buffer[4..size]).await?,
+        } < size - 4
+        {
+            return Err(anyhow!("failed to read the full message"));
         }
 
         Ok(buffer)
