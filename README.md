@@ -54,7 +54,7 @@ For detailed information, please read directly the documentation: [AGENTS.md](./
     -   [build](./docs/build.md)
     -   [start the server](./docs/start-the-server.md)
     -   [configure](./docs/configure.md)
-    -   [api](./protos/protobufs/server.proto)
+    -   [api](./sdk/protos/server.proto)
 
 ## Features
 
