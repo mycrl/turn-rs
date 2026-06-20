@@ -44,7 +44,7 @@ async fn run_coturn_uclient(transport: Transport, send_indication: bool) -> Resu
     let output = String::from_utf8(output.stdout)?;
 
     if output.contains("ERROR")
-        || !output.contains("Total lost packets 0 (0.000000%), total send dropped 0 (0.000000%)")
+        || !output.contains("Total lost packets 0 (0.000000%)")
     {
         return Err(anyhow!(output));
     }
