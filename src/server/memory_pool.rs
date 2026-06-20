@@ -8,7 +8,7 @@ use std::{
 };
 
 use bytes::BytesMut;
-use crossbeam_channel::{Receiver, Sender, unbounded};
+use crossbeam_queue::ArrayQueue;
 use tokio::time::interval;
 
 static MEMORY_POOL: LazyLock<MemoryPool> = LazyLock::new(|| MemoryPool::new());
@@ -17,16 +17,13 @@ static MEMORY_POOL: LazyLock<MemoryPool> = LazyLock::new(|| MemoryPool::new());
 // for monitoring the usage of the pool.
 static ACQUIRE_BUFFER_NUM: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-pub struct Buffer {
-    sender: Arc<Sender<BytesMut>>,
-    bytes: Option<BytesMut>,
-}
+pub struct Buffer(Option<BytesMut>);
 
 impl Deref for Buffer {
     type Target = BytesMut;
 
     fn deref(&self) -> &Self::Target {
-        self.bytes
+        self.0
             .as_ref()
             .expect("buffer is already returned to the pool")
     }
@@ -34,7 +31,7 @@ impl Deref for Buffer {
 
 impl DerefMut for Buffer {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.bytes
+        self.0
             .as_mut()
             .expect("buffer is already returned to the pool")
     }
@@ -42,38 +39,26 @@ impl DerefMut for Buffer {
 
 impl Drop for Buffer {
     fn drop(&mut self) {
-        // A recycled buffer must be logically empty before it is returned.
-        // We intentionally keep the allocated capacity to avoid frequent
-        // re-allocation on the next acquire.
-        if let Some(bytes) = self.bytes.as_mut() {
-            bytes.clear();
-        }
-
-        // The pool is intentionally unbounded. Returning to the channel is a
-        // fast path, and the periodic shrink task is responsible for trimming
-        // idle inventory when traffic stays low.
-        let _ = self.sender.send(
-            self.bytes
-                .take()
-                .expect("buffer is already returned to the pool"),
-        );
-
-        ACQUIRE_BUFFER_NUM.fetch_sub(1, Ordering::SeqCst);
+        MEMORY_POOL.return_buffer(self)
     }
 }
 
 /// A simple memory pool for reusing buffers. The pool is implemented using a
 /// channel, and the buffers are returned to the pool when they are dropped.
-pub struct MemoryPool {
-    receiver: Arc<Receiver<BytesMut>>,
-    sender: Arc<Sender<BytesMut>>,
-}
+pub struct MemoryPool(Arc<ArrayQueue<BytesMut>>);
 
 impl MemoryPool {
     /// The maximum size of a message that can be read from the stream. This is
     /// determined by the first 4 bytes of the message, which indicate the size
     /// of the message.
     pub const MAX_MESSAGE_SIZE: usize = 4096;
+
+    /// The maximum size of the queue. This is the number of buffers that can be
+    /// stored in the pool.
+    ///
+    /// This is used to prevent the pool from growing too large and consuming too
+    /// much memory.
+    pub const MAX_QUEUE_SIZE: usize = 4096;
 
     /// Acquire a buffer from the pool. If the pool is empty, a new buffer will
     /// be created with a capacity of `MAX_MESSAGE_SIZE`.
@@ -82,13 +67,12 @@ impl MemoryPool {
     }
 
     fn new() -> Self {
-        let (sender, receiver) = unbounded::<BytesMut>();
-        let receiver = Arc::new(receiver);
+        let queue: Arc<ArrayQueue<BytesMut>> = ArrayQueue::new(Self::MAX_QUEUE_SIZE).into();
 
         // A background cleanup thread that periodically scans and, based on
         // conditions, gradually shrinks the buffer.
         {
-            let receiver_ = receiver.clone();
+            let queue = queue.clone();
 
             tokio::spawn(async move {
                 let mut interval = interval(Duration::from_secs(10));
@@ -99,8 +83,8 @@ impl MemoryPool {
                 loop {
                     interval.tick().await;
 
-                    let acquire_size = ACQUIRE_BUFFER_NUM.load(Ordering::SeqCst);
-                    let buffer_size = receiver_.len();
+                    let acquire_size = ACQUIRE_BUFFER_NUM.load(Ordering::Relaxed);
+                    let buffer_size = queue.len();
 
                     // If the number of idle buffers is more than 3 times the
                     //  number of acquired buffers, we consider it as a potential
@@ -133,9 +117,7 @@ impl MemoryPool {
                             } else {
                                 buffer_size / 3
                             } {
-                                if receiver_.try_recv().is_err() {
-                                    break;
-                                }
+                                let _ = queue.pop();
                             }
                         }
                     }
@@ -143,23 +125,33 @@ impl MemoryPool {
             });
         }
 
-        Self {
-            sender: Arc::new(sender),
-            receiver,
-        }
+        Self(queue)
     }
 
+    /// Acquire a buffer from the pool. If the pool is empty, a new buffer will
+    /// be created with a capacity of `MAX_MESSAGE_SIZE`.
     fn get_buffer(&self) -> Buffer {
-        ACQUIRE_BUFFER_NUM.fetch_add(1, Ordering::SeqCst);
+        ACQUIRE_BUFFER_NUM.fetch_add(1, Ordering::Relaxed);
 
-        Buffer {
-            sender: self.sender.clone(),
-            bytes: Some(
-                self.receiver
-                    .try_recv()
-                    .ok()
-                    .unwrap_or_else(|| BytesMut::with_capacity(Self::MAX_MESSAGE_SIZE)),
-            ),
+        Buffer(Some(self.0.pop().unwrap_or_else(|| {
+            BytesMut::with_capacity(Self::MAX_MESSAGE_SIZE)
+        })))
+    }
+
+    /// Return a buffer to the pool.
+    fn return_buffer(&self, buffer: &mut Buffer) {
+        if let Some(mut bytes) = buffer.0.take() {
+            ACQUIRE_BUFFER_NUM.fetch_sub(1, Ordering::Relaxed);
+
+            // A recycled buffer must be logically empty before it is returned.
+            // We intentionally keep the allocated capacity to avoid frequent
+            // re-allocation on the next acquire.
+            bytes.clear();
+
+            // The pool is intentionally unbounded. Returning to the channel is a
+            // fast path, and the periodic shrink task is responsible for trimming
+            // idle inventory when traffic stays low.
+            let _ = self.0.push(bytes);
         }
     }
 }
