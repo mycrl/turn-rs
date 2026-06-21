@@ -9,10 +9,7 @@ use tokio::time::interval;
 use crate::{
     Service,
     config::Ssl,
-    server::{
-        Exchanger,
-        memory_pool::{Buffer, MemoryPool},
-    },
+    server::{Switch, buffer::Buffer},
     service::{Transport, session::Identifier},
     statistics::{Statistics, Stats},
 };
@@ -50,7 +47,7 @@ pub trait ProviderServer: Sized + Send {
         options: ServerOptions,
         service: Service,
         statistics: Statistics,
-        exchanger: Exchanger,
+        switch: Switch,
     ) -> impl Future<Output = Result<()>> + Send {
         let transport = options.transport;
         let idle_timeout = options.idle_timeout as u64;
@@ -78,18 +75,18 @@ pub trait ProviderServer: Sized + Send {
                 };
 
                 let mut router = service.make_router(id);
-                let mut receiver = exchanger.get_receiver(id);
+                let mut receiver = switch.get_receiver(id);
                 let reporter = statistics.get_reporter(transport);
 
                 let service = service.clone();
-                let exchanger = exchanger.clone();
+                let switch = switch.clone();
 
                 tokio::spawn(async move {
                     let mut interval = interval(Duration::from_secs(1));
                     let mut read_delay = 0;
 
                     loop {
-                        let mut response_buffer = MemoryPool::acquire();
+                        let mut response_buffer = Buffer::new();
 
                         tokio::select! {
                             Ok(buffer) = socket.read() => {
@@ -111,7 +108,7 @@ pub trait ProviderServer: Sized + Send {
                                             }
                                         }
 
-                                        exchanger.send(&relay, response_buffer);
+                                        switch.send(&relay, response_buffer);
                                     } else {
                                         if socket.write(&response_buffer).await.is_err() {
                                             break;
@@ -157,7 +154,7 @@ pub trait ProviderServer: Sized + Send {
                     // process.
                     service.get_session_manager().refresh(&id, 0);
 
-                    exchanger.remove(&id);
+                    switch.remove(&id);
 
                     log::info!(
                         "socket disconnect: addr={address:?}, interface={local_addr:?}, transport={transport:?}"

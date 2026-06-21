@@ -4,21 +4,21 @@ use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 
-use crate::{server::memory_pool::Buffer, service::session::Identifier};
+use crate::{server::buffer::Buffer, service::session::Identifier};
 
-pub type ExchangerSender = UnboundedSender<Buffer>;
+pub type SwitchSender = UnboundedSender<Buffer>;
 
 /// Handles packet forwarding between transport protocols.
 #[derive(Clone)]
-pub struct Exchanger(Arc<RwLock<HashMap<Identifier, ExchangerSender>>>);
+pub struct Switch(Arc<RwLock<HashMap<Identifier, SwitchSender>>>);
 
-impl Default for Exchanger {
+impl Default for Switch {
     fn default() -> Self {
         Self(Arc::new(RwLock::new(HashMap::with_capacity(1024))))
     }
 }
 
-impl Exchanger {
+impl Switch {
     /// Get the socket reader for the route.
     ///
     /// Each transport protocol is layered according to its own socket, and

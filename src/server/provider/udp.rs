@@ -10,7 +10,7 @@ use tokio::{
 };
 
 use crate::server::{
-    memory_pool::{Buffer, MemoryPool},
+    buffer::Buffer,
     provider::{ProviderServer, ProviderStream, ServerOptions},
 };
 
@@ -69,7 +69,7 @@ impl ProviderServer for UdpServer {
                 let mut sockets = HashMap::<SocketAddr, Sender<Buffer>>::with_capacity(1024);
 
                 loop {
-                    let mut buffer = MemoryPool::acquire();
+                    let mut buffer = Buffer::new();
 
                     tokio::select! {
                         ret = socket.recv_buf_from(buffer.deref_mut()) => {

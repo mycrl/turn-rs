@@ -11,61 +11,23 @@ use bytes::BytesMut;
 use crossbeam_queue::ArrayQueue;
 use tokio::time::interval;
 
+// The memory pool for reusing buffers.
 static MEMORY_POOL: LazyLock<MemoryPool> = LazyLock::new(|| MemoryPool::new());
 
-// The number of buffers that are currently acquired from the pool. This is used
-// for monitoring the usage of the pool.
+// The number of buffers that are currently acquired from the pool.
 static ACQUIRE_BUFFER_NUM: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
-pub struct Buffer(Option<BytesMut>);
-
-impl Deref for Buffer {
-    type Target = BytesMut;
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-            .as_ref()
-            .expect("buffer is already returned to the pool")
-    }
-}
-
-impl DerefMut for Buffer {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0
-            .as_mut()
-            .expect("buffer is already returned to the pool")
-    }
-}
-
-impl Drop for Buffer {
-    fn drop(&mut self) {
-        MEMORY_POOL.return_buffer(self)
-    }
-}
-
-/// A simple memory pool for reusing buffers. The pool is implemented using a
-/// channel, and the buffers are returned to the pool when they are dropped.
-pub struct MemoryPool(Arc<ArrayQueue<BytesMut>>);
+// The memory pool for reusing buffers.
+struct MemoryPool(Arc<ArrayQueue<BytesMut>>);
 
 impl MemoryPool {
-    /// The maximum size of a message that can be read from the stream. This is
-    /// determined by the first 4 bytes of the message, which indicate the size
-    /// of the message.
-    pub const MAX_MESSAGE_SIZE: usize = 4096;
+    // The maximum size of a message that can be read from the stream.
+    const MAX_MESSAGE_SIZE: usize = 4096;
 
-    /// The maximum size of the queue. This is the number of buffers that can be
-    /// stored in the pool.
-    ///
-    /// This is used to prevent the pool from growing too large and consuming too
-    /// much memory.
-    pub const MAX_QUEUE_SIZE: usize = 4096;
+    // The maximum size of the queue.
+    const MAX_QUEUE_SIZE: usize = 4096;
 
-    /// Acquire a buffer from the pool. If the pool is empty, a new buffer will
-    /// be created with a capacity of `MAX_MESSAGE_SIZE`.
-    pub fn acquire() -> Buffer {
-        MEMORY_POOL.get_buffer()
-    }
-
+    // Create a new memory pool.
     fn new() -> Self {
         let queue: Arc<ArrayQueue<BytesMut>> = ArrayQueue::new(Self::MAX_QUEUE_SIZE).into();
 
@@ -128,30 +90,80 @@ impl MemoryPool {
         Self(queue)
     }
 
-    /// Acquire a buffer from the pool. If the pool is empty, a new buffer will
-    /// be created with a capacity of `MAX_MESSAGE_SIZE`.
-    fn get_buffer(&self) -> Buffer {
+    // Acquire a buffer from the pool. If the pool is empty, a new buffer will
+    // be created with a capacity of `MAX_MESSAGE_SIZE`.
+    fn get_buffer(&self, capacity: Option<usize>) -> Buffer {
         ACQUIRE_BUFFER_NUM.fetch_add(1, Ordering::Relaxed);
 
-        Buffer(Some(self.0.pop().unwrap_or_else(|| {
-            BytesMut::with_capacity(Self::MAX_MESSAGE_SIZE)
-        })))
+        // If the capacity is not provided, use the default capacity.
+        // If the capacity is greater than the maximum allowed size, use the
+        // maximum allowed size.
+        // Otherwise, use the provided capacity.
+        let capacity = capacity
+            .unwrap_or(Self::MAX_MESSAGE_SIZE)
+            .min(Self::MAX_MESSAGE_SIZE);
+
+        Buffer(Some(
+            self.0
+                .pop()
+                .unwrap_or_else(|| BytesMut::with_capacity(capacity)),
+        ))
     }
 
-    /// Return a buffer to the pool.
+    // Return a buffer to the pool.
     fn return_buffer(&self, buffer: &mut Buffer) {
         if let Some(mut bytes) = buffer.0.take() {
             ACQUIRE_BUFFER_NUM.fetch_sub(1, Ordering::Relaxed);
 
-            // A recycled buffer must be logically empty before it is returned.
-            // We intentionally keep the allocated capacity to avoid frequent
-            // re-allocation on the next acquire.
+            // Clear the buffer to reuse it.
             bytes.clear();
 
-            // The pool is intentionally unbounded. Returning to the channel is a
-            // fast path, and the periodic shrink task is responsible for trimming
-            // idle inventory when traffic stays low.
+            // Push the buffer back to the pool.
             let _ = self.0.push(bytes);
         }
+    }
+}
+
+pub struct Buffer(Option<BytesMut>);
+
+impl Buffer {
+    // The maximum size of a message that can be read from the stream.
+    pub const MAX_MESSAGE_SIZE: usize = MemoryPool::MAX_MESSAGE_SIZE;
+
+    /// Acquire a buffer from the pool.
+    ///
+    /// The capacity of the buffer will be determined by the maximum allowed size.
+    /// If the capacity is not provided, the default capacity will be used.
+    pub fn new() -> Self {
+        MEMORY_POOL.get_buffer(None)
+    }
+
+    /// Acquire a buffer from the pool with a specific capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        MEMORY_POOL.get_buffer(Some(capacity))
+    }
+}
+
+impl Deref for Buffer {
+    type Target = BytesMut;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
+            .as_ref()
+            .expect("buffer is already returned to the pool")
+    }
+}
+
+impl DerefMut for Buffer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0
+            .as_mut()
+            .expect("buffer is already returned to the pool")
+    }
+}
+
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        MEMORY_POOL.return_buffer(self)
     }
 }

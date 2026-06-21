@@ -22,9 +22,9 @@ turn-rs is a TURN/STUN server implemented in Rust for WebRTC NAT traversal and m
 - Library entry: [src/lib.rs](src/lib.rs)
 - Service and session logic: [src/service](src/service)
 - Protocol handling and codecs: [src/codec](src/codec)
-- Transport layer: [src/server/transport](src/server/transport)
+- Transport providers (UDP/TCP): [src/server/provider](src/server/provider)
 - Config and logging: [src/config.rs](src/config.rs), [src/logger.rs](src/logger.rs)
-- gRPC API: [protos/protobufs/server.proto](protos/protobufs/server.proto)
+- gRPC API and client SDK: [sdk/protos/server.proto](sdk/protos/server.proto), [sdk/src/lib.rs](sdk/src/lib.rs)
 - Sample config: [turn-server.toml](turn-server.toml)
 - Docs entry: [docs/README.md](docs/README.md)
 
@@ -59,14 +59,15 @@ This section explains how the server is organized internally and how the main da
 
 3) [src/server](src/server): Transport orchestration and cross-protocol forwarding.
 
-- Spawns TCP/UDP listeners per configured interface.
-- `Exchanger` maps interface address to internal channels for forwarding packets between sockets.
-- Uses the `Server` trait to share TCP/UDP accept/read/write logic.
+- [src/server/mod.rs](src/server/mod.rs) `start_server()` spawns TCP/UDP listeners per configured interface and aborts all servers if any one exits.
+- [src/server/switch.rs](src/server/switch.rs) `Switch` maps each session `Identifier` to an internal channel for forwarding relayed packets between sockets; missing destinations are dropped silently.
+- [src/server/buffer.rs](src/server/buffer.rs) provides a global memory pool (`Buffer`) backed by a lock-free `crossbeam_queue::ArrayQueue` with a background task that shrinks idle buffers to avoid leaks.
 
-4) [src/server/transport](src/server/transport): Transport abstraction and server loop.
+4) [src/server/provider](src/server/provider): Transport abstraction and server loop.
 
-- `Server::start` binds sockets, spawns per-connection tasks, routes packets, and handles idle timeout.
-- `Transport` (TCP/UDP) drives stats reporting and channel-data padding rules for TCP.
+- [src/server/provider/mod.rs](src/server/provider/mod.rs) defines the `ProviderServer`/`ProviderStream` traits and `ServerOptions`. `ProviderServer::start` binds sockets, spawns per-connection tasks, routes packets, applies TCP channel-data padding, drives stats reporting, and handles idle timeout.
+- [src/server/provider/udp.rs](src/server/provider/udp.rs) implements `UdpServer`/`UdpSession` (a single shared socket demultiplexed into per-peer channels).
+- [src/server/provider/tcp.rs](src/server/provider/tcp.rs) implements `TcpServer` with an optional TLS (`MaybeSslStream`) accept path.
 
 5) [src/handler.rs](src/handler.rs): Implements `ServiceHandler`.
 
@@ -77,6 +78,7 @@ This section explains how the server is organized internally and how the main da
 
 - `TurnService` exposes GetInfo/GetSession/GetSessionStatistics/DestroySession.
 - `RpcHooksService` maintains a client + buffered event channel to the external Hook service.
+- The protobuf definitions and generated types now live in the `turn-server-sdk` crate; this module consumes them via `sdk::protos::*`.
 
 7) [src/codec](src/codec): STUN/TURN codec and crypto.
 
@@ -93,13 +95,21 @@ This section explains how the server is organized internally and how the main da
 
 - Exposes `/metrics`, tracks global + per-transport counts and allocated sessions.
 
+10) [sdk](sdk): `turn-server-sdk` workspace crate (gRPC client/server utilities).
+
+- Owns [sdk/protos/server.proto](sdk/protos/server.proto) and its generated types (built via [sdk/build.rs](sdk/build.rs)).
+- Provides `TurnService` client, `TurnHooksServer`, and password-generation helpers for integrators.
+- Consumed by the main binary through the `api` feature; published independently for external clients.
+
 ### Design notes and key decisions
 
 - Long-term credentials are the primary auth model; Hook auth is optional and pluggable.
 - Port allocation is a pre-sized bitset allocator for fast random relay port selection.
 - Session tables are pre-sized HashMaps for performance under load.
 - Router validates peer addresses against local interfaces by default to reduce abuse risk.
-- Transport loop is unified with a trait, but TCP/UDP sockets have their own implementations.
+- Transport loop is unified with the `ProviderServer`/`ProviderStream` traits, but TCP/UDP sockets have their own implementations.
+- Read buffers come from a global, self-shrinking memory pool (`server::buffer::Buffer`) to reduce allocation pressure on the hot path.
+- The `Switch` does not require relay sends to succeed: if a destination session is gone, the packet is dropped and the entry is reclaimed.
 
 ## Quick Start
 
@@ -130,7 +140,7 @@ The config file uses TOML. Full reference: [docs/configure.md](docs/configure.md
 ### Configuration capabilities (feature-oriented)
 
 - `server.*` defines reachability and transport surfaces: `server.interfaces` supports multi-NIC and multi-transport (`udp`/`tcp`) listeners, `listen` binds the local address, and `external` advertises the public address to clients behind NAT or load balancers. `server.port-range` limits relay port allocation, `server.max-threads` caps runtime workers, and `server.realm` is a key input for long-term credential auth.
-- `server.interfaces.idle-timeout` and `server.interfaces.mtu` protect connection lifecycle and path stability: the former reclaims idle resources, the latter reduces fragmentation risk when relaying. The MTU setting applies to UDP transport only.
+- `server.interfaces.idle-timeout` reclaims idle connection resources. Note: `server.interfaces.mtu` is deprecated and no longer affects relaying; it is retained only for config compatibility.
 - TLS is enabled per surface: data plane via `server.interfaces.ssl.*` (TCP transport only), management plane via `api.ssl.*`, and metrics plane via `prometheus.ssl.*`. This lets you secure exposed endpoints while keeping internal ones lightweight.
 - Auth strategy is defined by `auth.*`: `auth.static-credentials` provides local static users, `auth.static-auth-secret` enables TURN REST-style shared secrets; for dynamic auth, combine `auth.enable-hooks-auth` with `hooks.*` so an external Hook service can provide passwords and handle session events. Priority is static users first, then shared secret, then Hooks.
 - `hooks.*` enables external integrations for dynamic auth and lifecycle callbacks (allocation, refresh, destroy, and more). `hooks.max-channel-size` and `hooks.timeout` control backpressure and timeouts so Hooks do not impact the main data path.
@@ -184,7 +194,7 @@ The following section explains how these capabilities work and what they provide
 
 Purpose: allow external systems to query server status, inspect sessions, collect stats, and destroy sessions.
 
-Protocol and fields: [protos/protobufs/server.proto](protos/protobufs/server.proto). Core RPCs:
+Protocol and fields: [sdk/protos/server.proto](sdk/protos/server.proto). Core RPCs:
 
 - `GetInfo`: returns software info, uptime, listening interfaces, port capacity, and allocated ports.
 - `GetSession`: query a session by `id`, returns username, permissions, channels, allocated port, and expiry.
@@ -201,7 +211,7 @@ Enablement and security:
 
 Purpose: dynamic authentication and event callbacks. At specific moments, turn-rs calls the external Hook service. The external service can decide whether to allow access and can record or integrate lifecycle events.
 
-Protocol and fields: [protos/protobufs/server.proto](protos/protobufs/server.proto). Two categories:
+Protocol and fields: [sdk/protos/server.proto](sdk/protos/server.proto). Two categories:
 
 1) Dynamic authentication
 
@@ -275,5 +285,5 @@ cargo bench
 
 - Entry logic is in [src/main.rs](src/main.rs) and [src/service](src/service).
 - Config structs are in [src/config.rs](src/config.rs); update [docs/configure.md](docs/configure.md) and [turn-server.toml](turn-server.toml) when adding fields.
-- gRPC API changes must update [protos/protobufs/server.proto](protos/protobufs/server.proto) and any generated code.
-- Transport changes are in [src/server/transport](src/server/transport).
+- gRPC API changes must update [sdk/protos/server.proto](sdk/protos/server.proto) and regenerate the `turn-server-sdk` types ([sdk/build.rs](sdk/build.rs)).
+- Transport changes are in [src/server/provider](src/server/provider); shared forwarding/buffer logic is in [src/server/switch.rs](src/server/switch.rs) and [src/server/buffer.rs](src/server/buffer.rs).

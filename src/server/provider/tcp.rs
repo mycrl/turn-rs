@@ -22,7 +22,7 @@ use tokio_rustls::{
 use crate::{
     codec::Decoder,
     server::{
-        memory_pool::{Buffer, MemoryPool},
+        buffer::Buffer,
         provider::{ProviderServer, ProviderStream, ServerOptions},
     },
 };
@@ -35,7 +35,7 @@ pub enum MaybeSslStream {
 
 impl ProviderStream for MaybeSslStream {
     async fn read(&mut self) -> Result<Buffer> {
-        let mut buffer = MemoryPool::acquire();
+        let mut buffer = Buffer::new();
 
         unsafe {
             buffer.set_len(4);
@@ -55,7 +55,7 @@ impl ProviderStream for MaybeSslStream {
         };
 
         // The buffer is resized to the actual size of the message, which is determined by the first 4 bytes of the message.
-        if size > MemoryPool::MAX_MESSAGE_SIZE {
+        if size > Buffer::MAX_MESSAGE_SIZE {
             return Err(anyhow!(
                 "message size {} exceeds the maximum allowed size",
                 size

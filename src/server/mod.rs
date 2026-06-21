@@ -1,12 +1,12 @@
 pub mod provider;
 
-mod exchanger;
-mod memory_pool;
+mod buffer;
+mod switch;
 
 use anyhow::Result;
 use tokio::task::JoinSet;
 
-use self::exchanger::Exchanger;
+use self::switch::Switch;
 use crate::{
     Service,
     config::{Config, Interface},
@@ -16,7 +16,7 @@ use crate::{
 };
 
 pub async fn start_server(config: Config, service: Service, statistics: Statistics) -> Result<()> {
-    let exchanger = Exchanger::default();
+    let switch = Switch::default();
 
     let mut servers = JoinSet::new();
 
@@ -39,7 +39,7 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                     },
                     service.clone(),
                     statistics.clone(),
-                    exchanger.clone(),
+                    switch.clone(),
                 ));
             }
             Interface::Tcp {
@@ -59,7 +59,7 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                     },
                     service.clone(),
                     statistics.clone(),
-                    exchanger.clone(),
+                    switch.clone(),
                 ));
             }
         };
