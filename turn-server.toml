@@ -56,6 +56,10 @@ mtu = 1500
 #
 # ssl configuration
 #
+# Enabling ssl on a TCP interface turns it into TLS. Only the TCP transport
+# supports ssl; the UDP transport does not accept this option, so this block
+# only applies when `transport = "tcp"`.
+#
 # [server.interfaces.ssl]
 # private-key = "/etc/turn-rs/tls/private.key"
 # certificate-chain = "/etc/turn-rs/tls/certificate.crt"

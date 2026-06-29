@@ -29,7 +29,7 @@ If you don't need a particular feature, you can reduce the package size by enabl
 
 -   `udp` - (enabled by default) Enables UDP transport layer support.
 -   `tcp` - Enables TCP transport layer support.
--   `ssl` - Enable SSL encryption support.
+-   `ssl` - Enable TLS encryption support. For the data plane, enabling `server.interfaces.ssl` on a TCP interface turns it into TLS; the UDP transport does not support ssl.
 -   `grpc` - Enable the GRPC server feature.
 
 All features are enabled by default.

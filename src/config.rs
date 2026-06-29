@@ -7,6 +7,11 @@ use serde::{Deserialize, Serialize};
 use crate::service::{InterfaceAddr, Transport, session::ports::PortRange};
 
 /// SSL configuration
+///
+/// Used by the TCP data-plane interface (`server.interfaces.ssl`), the
+/// management API, the Prometheus exporter, and the hook client. For the data
+/// plane, enabling this on a TCP interface turns it into TLS; the UDP transport
+/// does not support `ssl`.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Ssl {
@@ -44,6 +49,10 @@ pub enum Interface {
         idle_timeout: u32,
         ///
         /// SSL configuration
+        ///
+        /// Enabling this on a TCP interface turns the interface into TLS.
+        /// Only the TCP transport supports `ssl`; the UDP interface does not
+        /// expose this option.
         ///
         #[serde(default)]
         ssl: Option<Ssl>,

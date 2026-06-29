@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>turn-rs · WebRTC Demo</title>
+        <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    </head>
+
+    <body>
+        <div id="app">
+            <header class="topbar">
+                <div class="brand">
+                    <span class="dot"></span>
+                    <strong>turn-rs</strong>
+                    <span class="brand-sub">WebRTC Relay Demo</span>
+                </div>
+                <button class="start-btn" @click="start" :disabled="running">
+                    <span v-if="!running">▶ Start screen share</span>
+                    <span v-else>● Relaying…</span>
+                </button>
+            </header>
+
+            <main class="stage">
+                <section class="panel">
+                    <div class="panel-head">
+                        <span class="tag tag-local">LOCAL</span>
+                        <span class="panel-hint">Captures your screen · click video to start</span>
+                    </div>
+                    <div class="video-wrap">
+                        <video autoplay controls @click="start"></video>
+                        <div class="video-placeholder" v-if="!running">
+                            <span class="play">▶</span>
+                            <span>Click to capture & relay</span>
+                        </div>
+                    </div>
+                    <Controls @change="(it) => { localControls = it }" />
+                </section>
+
+                <section class="panel">
+                    <div class="panel-head">
+                        <span class="tag tag-remote">REMOTE</span>
+                        <span class="panel-hint">Receives the relayed stream</span>
+                    </div>
+                    <div class="video-wrap">
+                        <video autoplay controls></video>
+                        <div class="video-placeholder" v-if="!running">
+                            <span class="wave">◍</span>
+                            <span>Waiting for stream…</span>
+                        </div>
+                    </div>
+                    <Controls @change="(it) => { remoteControls = it }" />
+                </section>
+            </main>
+
+            <footer class="footbar">
+                Forced <code>relay</code> via <code>turn:&lt;server&gt;:3478</code> · credential <code>test</code>
+            </footer>
+        </div>
+    </body>
+</html>
+
+<template id="Controls">
+    <div class="controls">
+        <label class="field">
+            <span class="field-label">Server</span>
+            <input v-model="server" type="text" placeholder="127.0.0.1" />
+        </label>
+        <label class="field">
+            <span class="field-label">Transport</span>
+            <div class="select">
+                <select v-model="transport">
+                    <option value="udp">udp</option>
+                    <option value="tcp">tcp</option>
+                </select>
+            </div>
+        </label>
+        <label class="field">
+            <span class="field-label">Auth</span>
+            <div class="select">
+                <select v-model="username">
+                    <option value="user1">user1 : test</option>
+                    <option value="user2">user2 : test</option>
+                </select>
+            </div>
+        </label>
+    </div>
+</template>
+
+<script>
+    const { createApp, ref, watch } = Vue;
+
+    const app = createApp({
+        setup() {
+            const localControls = ref({});
+            const remoteControls = ref({});
+            const running = ref(false);
+
+            return {
+                localControls,
+                remoteControls,
+                running,
+                async start() {
+                    if (running.value) return;
+
+                    const localVideo = document.querySelector("#local video, .panel:first-child video");
+                    const remoteVideo = document.querySelector(".panel:last-child video");
+
+                    console.log({
+                        urls: `turn:${localControls.value.server}:3478?transport=${localControls.value.transport}`,
+                        username: localControls.value.username,
+                        credential: "test",
+                    });
+
+                    /**
+                     * This is a local RTC connection that forces the use of forwarding.
+                     * you can configure the ice server parameters yourself.
+                     */
+                    let localRtc = new RTCPeerConnection({
+                        iceTransportPolicy: "relay",
+                        iceServers: [
+                            {
+                                urls: `turn:${localControls.value.server}:3478?transport=${localControls.value.transport}`,
+                                username: localControls.value.username,
+                                credential: "test",
+                            },
+                        ],
+                    });
+                    /**
+                     * This is a remote RTC connection that forces the use of forwarding.
+                     * you can configure the parameters of the ice server yourself.
+                     */
+                    let remoteRtc = new RTCPeerConnection({
+                        iceTransportPolicy: "relay",
+                        iceServers: [
+                            {
+                                urls: `turn:${remoteControls.value.server}:3478?transport=${remoteControls.value.transport}`,
+                                username: remoteControls.value.username,
+                                credential: "test",
+                            },
+                        ],
+                    });
+                    /**
+                     * The local ice candidate is added to the remote session.
+                     */
+                    localRtc.addEventListener("icecandidate", async (event) => {
+                        await remoteRtc.addIceCandidate(event.candidate);
+                    });
+                    /**
+                     * The remote ice candidate is added to the local session.
+                     */
+                    remoteRtc.addEventListener("icecandidate", async (event) => {
+                        await localRtc.addIceCandidate(event.candidate);
+                    });
+                    /**
+                     * Create a media stream and add all audio and video tracks received
+                     * by the remote session to this media stream.
+                     */
+                    {
+                        const remoteStream = new MediaStream();
+                        remoteVideo.srcObject = remoteStream;
+                        remoteRtc.addEventListener("track", (event) => {
+                            remoteStream.addTrack(event.track);
+                        });
+                    }
+                    /**
+                     * Get the capture stream of the desktop or tab, here it is
+                     * capturing video not audio.
+                     */
+                    const stream = await navigator.mediaDevices.getDisplayMedia({
+                        video: true,
+                    });
+                    running.value = true;
+                    stream.getVideoTracks()[0].addEventListener("ended", () => {
+                        running.value = false;
+                    });
+                    /**
+                     * The local video player previews the captured stream.
+                     */
+                    localVideo.srcObject = stream;
+                    /**
+                     * The local capture streams are all added to the local RTC
+                     * session.
+                     */
+                    for (const track of stream.getTracks()) {
+                        localRtc.addTrack(track, stream);
+                    }
+                    /**
+                     * The local connection creates the OFFER to submit to the
+                     * remote connection.
+                     */
+                    const offer = await localRtc.createOffer();
+                    await localRtc.setLocalDescription(offer);
+                    await remoteRtc.setRemoteDescription(offer);
+                    /**
+                     * Remote connections create ANSWER submissions to the local
+                     * connection.
+                     */
+                    const answer = await remoteRtc.createAnswer();
+                    await remoteRtc.setLocalDescription(answer);
+                    await localRtc.setRemoteDescription(answer);
+                },
+            };
+        },
+    });
+
+    app.component("Controls", {
+        template: document.getElementById("Controls").innerHTML,
+        emits: ["change"],
+        setup(props, context) {
+            const server = ref("127.0.0.1");
+            const transport = ref("udp");
+            const username = ref("user1");
+
+            context.emit("change", { server, transport, username });
+
+            watch([server, transport, username], () => {
+                context.emit("change", { server, transport, username });
+            });
+
+            return {
+                server,
+                transport,
+                username,
+            };
+        },
+    });
+
+    app.mount("#app");
+</script>
+
+<style>
+    :root {
+        --bg: #0b1020;
+        --bg-grad-1: #14203f;
+        --bg-grad-2: #0b1020;
+        --panel: #121a30;
+        --panel-2: #0e1525;
+        --border: #233152;
+        --text: #e6ebf5;
+        --muted: #8b97b3;
+        --accent: #5b8cff;
+        --accent-2: #36d6a0;
+        --local: #5b8cff;
+        --remote: #36d6a0;
+        --radius: 14px;
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    html,
+    body {
+        height: 100%;
+    }
+
+    body {
+        font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
+            Arial, sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(1200px 600px at 80% -10%, var(--bg-grad-1), transparent 60%),
+            radial-gradient(900px 500px at -10% 110%, #1a2b22, transparent 55%),
+            var(--bg);
+    }
+
+    #app {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: 18px;
+        gap: 16px;
+    }
+
+    /* Top bar */
+    .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 6px 4px;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 18px;
+        letter-spacing: 0.2px;
+    }
+
+    .brand .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent-2);
+        box-shadow: 0 0 0 4px rgba(54, 214, 160, 0.18);
+    }
+
+    .brand strong {
+        font-weight: 700;
+    }
+
+    .brand-sub {
+        color: var(--muted);
+        font-size: 13px;
+        padding-left: 8px;
+        border-left: 1px solid var(--border);
+    }
+
+    .start-btn {
+        appearance: none;
+        border: none;
+        cursor: pointer;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 11px 18px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), #7aa2ff);
+        box-shadow: 0 8px 20px rgba(91, 140, 255, 0.35);
+        transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+    }
+
+    .start-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 26px rgba(91, 140, 255, 0.45);
+    }
+
+    .start-btn:active:not(:disabled) {
+        transform: translateY(0);
+    }
+
+    .start-btn:disabled {
+        cursor: default;
+        background: linear-gradient(135deg, #2a6b54, var(--accent-2));
+        box-shadow: 0 8px 20px rgba(54, 214, 160, 0.3);
+    }
+
+    /* Stage */
+    .stage {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        min-height: 0;
+    }
+
+    .panel {
+        background: linear-gradient(180deg, var(--panel), var(--panel-2));
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .panel-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .tag {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        padding: 4px 9px;
+        border-radius: 999px;
+    }
+
+    .tag-local {
+        color: var(--local);
+        background: rgba(91, 140, 255, 0.14);
+        border: 1px solid rgba(91, 140, 255, 0.35);
+    }
+
+    .tag-remote {
+        color: var(--remote);
+        background: rgba(54, 214, 160, 0.14);
+        border: 1px solid rgba(54, 214, 160, 0.35);
+    }
+
+    .panel-hint {
+        color: var(--muted);
+        font-size: 12px;
+    }
+
+    .video-wrap {
+        position: relative;
+        flex: 1;
+        min-height: 240px;
+        background:
+            repeating-linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.015) 0,
+                rgba(255, 255, 255, 0.015) 12px,
+                transparent 12px,
+                transparent 24px
+            ),
+            #05080f;
+    }
+
+    .video-wrap video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: transparent;
+    }
+
+    .video-placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+        pointer-events: none;
+    }
+
+    .video-placeholder .play,
+    .video-placeholder .wave {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        font-size: 22px;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+    }
+
+    .video-placeholder .wave {
+        animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%,
+        100% {
+            opacity: 0.5;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1.06);
+        }
+    }
+
+    /* Controls */
+    .controls {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr;
+        gap: 12px;
+        padding: 14px 16px;
+        border-top: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.015);
+    }
+
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .field-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--muted);
+    }
+
+    .field input,
+    .select select {
+        width: 100%;
+        color: var(--text);
+        background: #0c1322;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        padding: 9px 11px;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .field input:focus,
+    .select select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.18);
+    }
+
+    .field input::placeholder {
+        color: #57658a;
+    }
+
+    .select {
+        position: relative;
+    }
+
+    .select::after {
+        content: "▾";
+        position: absolute;
+        right: 11px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--muted);
+        pointer-events: none;
+        font-size: 12px;
+    }
+
+    .select select {
+        appearance: none;
+        cursor: pointer;
+        padding-right: 28px;
+    }
+
+    .select select option {
+        background: #0c1322;
+        color: var(--text);
+    }
+
+    /* Foot bar */
+    .footbar {
+        text-align: center;
+        color: var(--muted);
+        font-size: 12px;
+        padding: 2px 0 4px;
+    }
+
+    .footbar code {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1px 6px;
+        font-size: 11px;
+    }
+
+    /* Responsive */
+    @media (max-width: 820px) {
+        .stage {
+            grid-template-columns: 1fr;
+        }
+        .topbar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .start-btn {
+            width: 100%;
+        }
+    }
+</style>

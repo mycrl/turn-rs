@@ -1,0 +1,15 @@
+{
+    "name": "turn-rs-website",
+    "version": "1.0.0",
+    "private": true,
+    "description": "VitePress documentation site for turn-rs",
+    "type": "module",
+    "scripts": {
+        "dev": "vitepress dev .",
+        "build": "vitepress build .",
+        "preview": "vitepress preview ."
+    },
+    "devDependencies": {
+        "vitepress": "^1.6.3"
+    }
+}

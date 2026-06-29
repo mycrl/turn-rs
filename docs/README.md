@@ -4,4 +4,5 @@
 -   [Build](build.md)
 -   [Start the server](start-the-server.md)
 -   [Configure](configure.md)
+-   [Migrating from coturn](migrate-from-coturn.md)
 -   [API](../sdk/protos/server.proto)
