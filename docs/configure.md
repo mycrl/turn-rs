@@ -35,9 +35,10 @@ This document explains every option available in `turn-server.toml`. All keys ar
 | `auth.static-auth-secret`                 | string (optional)                |                        |                           | Shared secret for TURN REST authentication. When provided, the server skips secret lookups through the hook API.                                                                                                                 |
 | `auth.static-credentials`                 | table of `username = "password"` |                        |                           | Static user database used before falling back to hook authentication. Populate this map with long-term accounts that should always exist.                                                                                        |
 
-Provide the `server.interfaces.ssl.*` fields to turn the interface into TLS. This is only supported on **TCP** interfaces; the UDP transport does not accept an `ssl` option. Certificates are loaded via `tokio-rustls` (AWS-LC backend when the `ssl` feature is enabled).
-
-Optional TLS configuration applies to `api.ssl.*`, `prometheus.ssl.*`, and `hooks.ssl.*` entries.
+> [!NOTE]
+> Provide the `server.interfaces.ssl.*` fields to turn the interface into TLS. This is only supported on **TCP** interfaces; the UDP transport does not accept an `ssl` option. Certificates are loaded via `tokio-rustls` (AWS-LC backend when the `ssl` feature is enabled).
+>
+> Optional TLS configuration applies to `api.ssl.*`, `prometheus.ssl.*`, and `hooks.ssl.*` entries.
 
 ### Security note
 
