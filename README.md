@@ -62,7 +62,7 @@ For detailed information, please read directly the documentation: [AGENTS.md](./
 -   Static authentication lists can be used in configuration files.
 -   Only virtual ports are always allocated and no real system ports are occupied.
 -   The transport layer supports TCP and UDP protocols, and supports binding multiple network cards or interfaces.
--   The GRPC API can be used so that the turn server can proactively notify the external service of events, and the external can also proactively control the turn server and manage the session.
+-   The gRPC API can be used so that the turn server can proactively notify the external service of events, and the external can also proactively control the turn server and manage the session.
 
 #### RFC
 

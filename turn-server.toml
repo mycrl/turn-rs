@@ -81,7 +81,7 @@ mtu = 1500
 #
 # rpc server listen
 #
-# This option specifies the grpc server binding address used to control
+# This option specifies the gRPC server binding address used to control
 # the turn server.
 #
 # [api]
@@ -169,7 +169,7 @@ enable-hooks-auth = false
 #
 #
 # Static authentication key value (string) that applies only to the TURN REST API.
-# If set, the turn server will not request external services via the GRPC
+# If set, the turn server will not request external services via the gRPC
 # Hooks API to obtain the key.
 #
 # static-auth-secret = ""
