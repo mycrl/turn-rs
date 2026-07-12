@@ -127,9 +127,12 @@ If you don't need a particular feature, you can reduce the package size by enabl
 
 -   `udp` - (enabled by default) Enables UDP transport layer support.
 -   `tcp` - Enables TCP transport layer support.
--   `ssl` - Enable TLS encryption support. For the data plane, enabling `server.interfaces.ssl` on a TCP interface turns it into TLS; the UDP transport does not support ssl.
+-   `ssl` - Enable TLS encryption support.
 -   `api` - Enable the gRPC api server feature.
 -   `prometheus` - Enable prometheus support.
+
+> [!NOTE]
+> For the data plane, enabling `server.interfaces.ssl` on a TCP interface turns it into TLS; the UDP transport does not support ssl.
 
 All features are enabled by default.
 
