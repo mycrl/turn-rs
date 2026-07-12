@@ -27,7 +27,7 @@ export RUSTFLAGS='-C target-cpu=native'
 
 If you don't need a particular feature, you can reduce the package size by enabling only the features you require.
 
--   `udp` - (enabled by default) Enables UDP transport layer support.
+-   `udp` - Enables UDP transport layer support.
 -   `tcp` - Enables TCP transport layer support.
 -   `ssl` - Enable TLS encryption support.
 -   `api` - Enable the gRPC api server feature.
