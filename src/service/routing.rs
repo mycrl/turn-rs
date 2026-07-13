@@ -106,6 +106,14 @@ where
             .get::<PasswordAlgorithm>()
             .unwrap_or(PasswordAlgorithm::Md5);
 
+        if !self
+            .state
+            .handler
+            .allows_auth(&self.state.id, username, self.payload.method())
+        {
+            return None;
+        }
+
         let password = self
             .state
             .manager

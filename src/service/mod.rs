@@ -3,7 +3,10 @@ pub mod session;
 
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::codec::{crypto::Password, message::attributes::PasswordAlgorithm};
+use crate::codec::{
+    crypto::Password,
+    message::{attributes::PasswordAlgorithm, methods::Method},
+};
 
 use self::{
     routing::Router,
@@ -39,6 +42,15 @@ pub trait ServiceHandler: Send + Sync + 'static {
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> impl Future<Output = Option<Password>> + Send;
+
+    /// Authorizes a long-term credential for a specific TURN request method.
+    ///
+    /// This runs before the password is cached for a session, allowing applications
+    /// to apply method-sensitive credential policies such as expiry only on Allocate.
+    #[allow(unused_variables)]
+    fn allows_auth(&self, id: &Identifier, username: &str, method: Method) -> bool {
+        true
+    }
 
     /// allocate request
     ///
