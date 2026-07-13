@@ -52,6 +52,15 @@ pub trait ServiceHandler: Send + Sync + 'static {
         true
     }
 
+    /// Requests a 400 Bad Request response for an authenticated Allocate whose
+    /// username or message integrity validation fails.
+    ///
+    /// The default preserves RFC-style 401 challenges for existing users.
+    #[allow(unused_variables)]
+    fn allocate_auth_failure_is_bad_request(&self) -> bool {
+        false
+    }
+
     /// allocate request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)

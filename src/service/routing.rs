@@ -351,7 +351,12 @@ where
     };
 
     let Some((username, password)) = req.verify().await else {
-        return reject(req, ErrorType::Unauthorized);
+        let error = if req.state.handler.allocate_auth_failure_is_bad_request() {
+            ErrorType::BadRequest
+        } else {
+            ErrorType::Unauthorized
+        };
+        return reject(req, error);
     };
 
     let lifetime = req.payload.get::<Lifetime>();
