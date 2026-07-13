@@ -4,18 +4,25 @@ mod buffer;
 mod switch;
 
 use anyhow::Result;
-use tokio::task::JoinSet;
+use tokio::{sync::watch, task::JoinSet};
 
 use self::switch::Switch;
 use crate::{
-    Service,
     config::{Config, Interface},
     server::provider::{ProviderServer, ServerOptions, tcp::TcpServer, udp::UdpServer},
-    service::Transport,
+    service::{Service, ServiceHandler, Transport},
     statistics::Statistics,
 };
 
-pub async fn start_server(config: Config, service: Service, statistics: Statistics) -> Result<()> {
+pub async fn start_server<T>(
+    config: Config,
+    service: Service<T>,
+    statistics: Statistics,
+    shutdown: watch::Receiver<bool>,
+) -> Result<()>
+where
+    T: ServiceHandler + Clone,
+{
     let switch = Switch::default();
 
     let mut servers = JoinSet::new();
@@ -40,6 +47,7 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                     service.clone(),
                     statistics.clone(),
                     switch.clone(),
+                    shutdown.clone(),
                 ));
             }
             Interface::Tcp {
@@ -60,6 +68,7 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                     service.clone(),
                     statistics.clone(),
                     switch.clone(),
+                    shutdown.clone(),
                 ));
             }
         };

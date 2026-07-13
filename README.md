@@ -46,6 +46,7 @@ For detailed information, please read directly the documentation: [AGENTS.md](./
 
 -   [features](#features)
 -   [usage](#usage)
+    -   [embedding](#embedding)
     -   [docker](#docker)
     -   [linux service](#linux-service)
 -   [building](#building)
@@ -85,6 +86,22 @@ turn-server --config=/etc/turn-server/config.toml
 ```
 
 Please check the example configuration file for details: [turn-server.toml](./turn-server.toml)
+
+### Embedding
+
+Applications that need their own authentication or peer-permission policy can
+provide a [`ServiceHandler`](./src/service/mod.rs) and own the runtime
+lifecycle directly:
+
+```rust
+let server = turn_server::spawn_server_with_handler(config, handler).await?;
+
+// Later, during application shutdown:
+server.shutdown().await?;
+```
+
+`ServiceHandler::allows_peer` runs before TURN permissions and channel bindings
+are installed. Returning `false` produces a TURN `403 Forbidden` response.
 
 #### Docker
 

@@ -89,6 +89,15 @@ pub trait ServiceHandler: Send + Sync + 'static {
     /// different channel, eliminating the possibility that the
     /// transaction would initially fail but succeed on a
     /// retransmission.
+    /// Returns whether a client may create a permission or channel binding for a peer.
+    ///
+    /// The default permits peers to preserve existing server behavior. Implementations
+    /// can reject a peer before any permission or channel binding state is installed.
+    #[allow(unused_variables)]
+    fn allows_peer(&self, client: &Identifier, peer: SocketAddr) -> bool {
+        true
+    }
+
     #[allow(unused_variables)]
     fn on_channel_bind(&self, id: &Identifier, username: &str, channel: u16) {}
 
@@ -120,7 +129,7 @@ pub trait ServiceHandler: Send + Sync + 'static {
     /// If the message is valid and the server is capable of carrying out the
     /// request, then the server installs or refreshes a permission for the
     /// IP address contained in each XOR-PEER-ADDRESS attribute as described
-    /// in [Section 9](https://tools.ietf.org/html/rfc8656#section-9).  
+    /// in [Section 9](https://tools.ietf.org/html/rfc8656#section-9).
     /// The port portion of each attribute is ignored and may be any arbitrary
     /// value.
     ///

@@ -57,7 +57,10 @@ pub struct UdpServer {
 impl ProviderServer for UdpServer {
     type Stream = UdpSession;
 
-    async fn bind(options: &ServerOptions) -> Result<Self> {
+    async fn bind(
+        options: &ServerOptions,
+        mut shutdown: tokio::sync::watch::Receiver<bool>,
+    ) -> Result<Self> {
         let socket = Arc::new(UdpSocket::bind(options.listen).await?);
         let (socket_sender, socket_receiver) = unbounded_channel::<UdpSession>();
         let (close_signal_sender, mut close_signal_receiver) = unbounded_channel::<SocketAddr>();
@@ -72,6 +75,11 @@ impl ProviderServer for UdpServer {
                     let mut buffer = Buffer::new();
 
                     tokio::select! {
+                        changed = shutdown.changed() => {
+                            if changed.is_err() || *shutdown.borrow() {
+                                break;
+                            }
+                        }
                         ret = socket.recv_buf_from(buffer.deref_mut()) => {
                             let (size, addr) = match ret {
                                 Ok(it) => it,

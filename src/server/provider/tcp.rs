@@ -118,7 +118,10 @@ pub struct TcpServer {
 impl ProviderServer for TcpServer {
     type Stream = MaybeSslStream;
 
-    async fn bind(options: &ServerOptions) -> Result<Self> {
+    async fn bind(
+        options: &ServerOptions,
+        _shutdown: tokio::sync::watch::Receiver<bool>,
+    ) -> Result<Self> {
         #[cfg(feature = "ssl")]
         let acceptor = if let Some(ssl) = &options.ssl {
             Some(TlsAcceptor::from(Arc::new(

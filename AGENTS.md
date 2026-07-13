@@ -42,12 +42,15 @@ This section explains how the server is organized internally and how the main da
 - optional Prometheus exporter via [src/prometheus.rs](src/prometheus.rs)
 - optional gRPC API via [src/api.rs](src/api.rs)
 
+Embedders can instead use `spawn_server_with_handler()` to supply their own
+`ServiceHandler` and own graceful shutdown through `ServerHandle`.
+
 ### Core modules
 
 1) [src/service](src/service): TURN service core, shared state, and routing glue.
 
 - `Service` holds realm, interfaces, session manager, and handler, and creates per-connection routers.
-- `ServiceHandler` defines the hooks the protocol layer uses for auth and lifecycle callbacks.
+- `ServiceHandler` defines the hooks the protocol layer uses for auth, pre-permission peer authorization, and lifecycle callbacks.
 - [src/service/routing.rs](src/service/routing.rs) parses STUN/TURN messages and dispatches by method.
 
 2) [src/service/session](src/service/session): Session state, allocation, permissions, and channel bindings.

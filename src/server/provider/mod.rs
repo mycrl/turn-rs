@@ -4,13 +4,12 @@ pub mod udp;
 use std::{net::SocketAddr, task::Poll, time::Duration};
 
 use anyhow::Result;
-use tokio::time::interval;
+use tokio::{sync::watch, time::interval};
 
 use crate::{
-    Service,
     config::Ssl,
     server::{Switch, buffer::Buffer},
-    service::{Transport, session::Identifier},
+    service::{Service, ServiceHandler, Transport, session::Identifier},
     statistics::{Statistics, Stats},
 };
 
@@ -34,7 +33,10 @@ pub trait ProviderServer: Sized + Send {
     type Stream: ProviderStream;
 
     /// Bind the server to the specified address.
-    fn bind(options: &ServerOptions) -> impl Future<Output = Result<Self>> + Send;
+    fn bind(
+        options: &ServerOptions,
+        shutdown: watch::Receiver<bool>,
+    ) -> impl Future<Output = Result<Self>> + Send;
 
     /// Accept a new connection.
     fn accept(&mut self) -> impl Future<Output = Result<Poll<(Self::Stream, SocketAddr)>>> + Send;
@@ -43,18 +45,23 @@ pub trait ProviderServer: Sized + Send {
     fn local_addr(&self) -> Result<SocketAddr>;
 
     /// Start the server.
-    fn start(
+    fn start<T>(
         options: ServerOptions,
-        service: Service,
+        service: Service<T>,
         statistics: Statistics,
         switch: Switch,
-    ) -> impl Future<Output = Result<()>> + Send {
+        shutdown: watch::Receiver<bool>,
+    ) -> impl Future<Output = Result<()>> + Send
+    where
+        T: ServiceHandler + Clone,
+    {
         let transport = options.transport;
         let idle_timeout = options.idle_timeout as u64;
 
         async move {
-            let mut listener = Self::bind(&options).await?;
+            let mut listener = Self::bind(&options, shutdown.clone()).await?;
             let local_addr = listener.local_addr()?;
+            let mut shutdown = shutdown;
 
             log::info!(
                 "server listening: listen={}, external={}, local addr={local_addr}, transport={transport:?}",
@@ -62,7 +69,16 @@ pub trait ProviderServer: Sized + Send {
                 options.external,
             );
 
-            while let Ok(poll) = listener.accept().await {
+            loop {
+                let poll = tokio::select! {
+                    changed = shutdown.changed() => {
+                        if changed.is_err() || *shutdown.borrow() {
+                            break;
+                        }
+                        continue;
+                    }
+                    result = listener.accept() => result?,
+                };
                 let Poll::Ready((mut socket, address)) = poll else {
                     continue;
                 };
@@ -80,6 +96,7 @@ pub trait ProviderServer: Sized + Send {
 
                 let service = service.clone();
                 let switch = switch.clone();
+                let mut session_shutdown = shutdown.clone();
 
                 tokio::spawn(async move {
                     let mut interval = interval(Duration::from_secs(1));
@@ -89,6 +106,11 @@ pub trait ProviderServer: Sized + Send {
                         let mut response_buffer = Buffer::new();
 
                         tokio::select! {
+                            changed = session_shutdown.changed() => {
+                                if changed.is_err() || *session_shutdown.borrow() {
+                                    break;
+                                }
+                            }
                             Ok(buffer) = socket.read() => {
                                 read_delay = 0;
 

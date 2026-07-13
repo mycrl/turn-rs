@@ -8,6 +8,9 @@ use super::{
     session::{DEFAULT_SESSION_LIFETIME, Identifier, SessionManager},
 };
 
+#[cfg(test)]
+mod tests;
+
 use crate::{
     codec::{
         DecodeResult, Decoder,
@@ -396,7 +399,7 @@ where
 /// If the message is valid and the server is capable of carrying out the
 /// request, then the server installs or refreshes a permission for the
 /// IP address contained in each XOR-PEER-ADDRESS attribute as described
-/// in [Section 9](https://tools.ietf.org/html/rfc8656#section-9).  
+/// in [Section 9](https://tools.ietf.org/html/rfc8656#section-9).
 /// The port portion of each attribute is ignored and may be any arbitrary
 /// value.
 ///
@@ -419,6 +422,9 @@ where
     for it in req.payload.get_all::<XorPeerAddress>() {
         if !req.verify_ip(&it) {
             return reject(req, ErrorType::PeerAddressFamilyMismatch);
+        }
+        if !req.state.handler.allows_peer(&req.state.id, it) {
+            return reject(req, ErrorType::Forbidden);
         }
 
         ports.push(it.port());
@@ -482,6 +488,9 @@ where
 
     if !req.verify_ip(&peer) {
         return reject(req, ErrorType::PeerAddressFamilyMismatch);
+    }
+    if !req.state.handler.allows_peer(&req.state.id, peer) {
+        return reject(req, ErrorType::Forbidden);
     }
 
     let Some(number) = req.payload.get::<ChannelNumber>() else {
