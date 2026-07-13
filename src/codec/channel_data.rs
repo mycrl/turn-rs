@@ -122,8 +122,23 @@ impl<'a> ChannelData<'a> {
         }
 
         Ok(Self {
-            bytes: &bytes[4..],
+            bytes: &bytes[4..4 + size],
             number,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ChannelData;
+
+    #[test]
+    fn decode_ignores_trailing_channel_data_padding() {
+        let encoded = [0x40, 0x00, 0x00, 0x03, b'a', b'b', b'c', 0x00];
+
+        let channel_data = ChannelData::decode(&encoded).expect("channel data should decode");
+
+        assert_eq!(channel_data.number(), 0x4000);
+        assert_eq!(channel_data.bytes(), b"abc");
     }
 }
