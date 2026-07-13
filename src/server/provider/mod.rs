@@ -1,15 +1,23 @@
 pub mod tcp;
 pub mod udp;
 
-use std::{net::SocketAddr, task::Poll, time::Duration};
+use std::{net::SocketAddr, ops::DerefMut, task::Poll, time::Duration};
 
 use anyhow::Result;
 use tokio::{sync::watch, time::interval};
 
 use crate::{
+    codec::{
+        channel_data::ChannelData,
+        message::{
+            MessageEncoder,
+            attributes::{Data, XorPeerAddress},
+            methods::DATA_INDICATION,
+        },
+    },
     config::Ssl,
     server::{Switch, buffer::Buffer},
-    service::{Service, ServiceHandler, Transport, session::Identifier},
+    service::{Service, ServiceHandler, Transport, routing::RelayTarget, session::Identifier},
     statistics::{Statistics, Stats},
 };
 
@@ -117,34 +125,68 @@ pub trait ProviderServer: Sized + Send {
                                 if let Ok(Some(res)) = router.route(&buffer, &mut response_buffer).await
                                 {
 
-                                    if let Some(relay) = res.relay {
-                                        // The channel data needs to be aligned in multiples of 4 in
-                                        // tcp. If the channel data is forwarded to tcp, the alignment
-                                        // bit needs to be filled, because if the channel data comes
-                                        // from udp, it is not guaranteed to be aligned and needs to be
-                                        // checked.
-                                        if relay.transport == Transport::Tcp && res.method.is_none() {
-                                            let pad = response_buffer.len() % 4;
-                                            if pad > 0 {
-                                                response_buffer.extend_from_slice(&[0u8; 8][..(4 - pad)]);
+                                    if let Some(relay_socket) = res.allocation {
+                                            let relay_service = service.clone();
+                                            let relay_switch = switch.clone();
+                                            let relay_id = id;
+                                            let relay_shutdown = session_shutdown.clone();
+                                            tokio::spawn(async move {
+                                                let mut shutdown = relay_shutdown;
+                                                let mut cleanup = tokio::time::interval(Duration::from_secs(1));
+                                                loop {
+                                                    let mut packet = Buffer::new();
+                                                    tokio::select! {
+                                                        changed = shutdown.changed() => {
+                                                            if changed.is_err() || *shutdown.borrow() {
+                                                                break;
+                                                            }
+                                                        }
+                                                        _ = cleanup.tick() => {
+                                                            if relay_service.get_session_manager().relay_socket(&relay_id).is_none() {
+                                                                break;
+                                                            }
+                                                        }
+                                                        received = relay_socket.recv_buf_from(packet.deref_mut()) => {
+                                                            let Ok((_size, peer)) = received else {
+                                                                break;
+                                                            };
+                                                            let Some(inbound) = relay_service.get_session_manager().relay_from_peer(&relay_id, peer) else {
+                                                                continue;
+                                                            };
+                                                            let mut outbound = Buffer::new();
+                                                            if let Some(channel) = inbound.channel {
+                                                                ChannelData::new(channel, &packet).encode(&mut outbound);
+                                                            } else {
+                                                                let mut message = MessageEncoder::new(DATA_INDICATION, &[0; 12], &mut outbound);
+                                                                message.append::<XorPeerAddress>(peer);
+                                                                message.append::<Data>(&packet);
+                                                                if message.flush(None).is_err() {
+                                                                    continue;
+                                                                }
+                                                            }
+                                                            relay_switch.send(&relay_id, outbound);
+                                                        }
+                                                    }
+                                                }
+                                            });
+                                        }
+
+                                        if let Some(RelayTarget::Peer { socket: relay_socket, peer }) = res.relay {
+                                            let _ = relay_socket.send_to(&response_buffer, peer).await;
+                                        } else {
+                                            if socket.write(&response_buffer).await.is_err() {
+                                                break;
+                                            }
+
+                                            reporter.send(
+                                                &id,
+                                                &[Stats::SendBytes(response_buffer.len()), Stats::SendPkts(1)],
+                                            );
+
+                                            if let Some(method) = res.method && method.is_error() {
+                                                reporter.send(&id, &[Stats::ErrorPkts(1)]);
                                             }
                                         }
-
-                                        switch.send(&relay, response_buffer);
-                                    } else {
-                                        if socket.write(&response_buffer).await.is_err() {
-                                            break;
-                                        }
-
-                                        reporter.send(
-                                            &id,
-                                            &[Stats::SendBytes(response_buffer.len()), Stats::SendPkts(1)],
-                                        );
-
-                                        if let Some(method) = res.method && method.is_error() {
-                                            reporter.send(&id, &[Stats::ErrorPkts(1)]);
-                                        }
-                                    }
                                 }
                             }
                             Some(bytes) = receiver.recv() => {

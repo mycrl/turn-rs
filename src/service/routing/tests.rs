@@ -126,6 +126,12 @@ async fn denied_peer_permission_returns_forbidden() {
         response.method(),
         crate::codec::message::methods::CREATE_PERMISSION_ERROR
     );
+    assert!(
+        service
+            .get_session_manager()
+            .relay_to_peer(&client, SocketAddr::new(peer.external.ip(), peer_port))
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -156,5 +162,11 @@ async fn denied_peer_channel_bind_returns_forbidden() {
     assert_eq!(
         result.method,
         Some(crate::codec::message::methods::CHANNEL_BIND_ERROR)
+    );
+    assert!(
+        service
+            .get_session_manager()
+            .relay_to_peer(&client, SocketAddr::new(peer.external.ip(), peer_port))
+            .is_none()
     );
 }

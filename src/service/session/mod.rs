@@ -1,4 +1,4 @@
-﻿pub mod ports;
+pub mod ports;
 
 use super::{
     ServiceHandler, Transport,
@@ -9,12 +9,10 @@ use crate::codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 
 use std::{
     hash::Hash,
-    net::SocketAddr,
+    net::{IpAddr, SocketAddr},
     ops::{Deref, DerefMut},
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::Arc,
+    sync::atomic::{AtomicU64, Ordering},
     thread::{self, sleep},
     time::Duration,
 };
@@ -22,6 +20,7 @@ use std::{
 use ahash::{HashMap, HashMapExt};
 use parking_lot::{Mutex, RwLock, RwLockReadGuard};
 use rand::{Rng, distr::Alphanumeric};
+use tokio::net::UdpSocket;
 
 /// The identifier of the session.
 ///
@@ -138,12 +137,10 @@ pub enum Session {
         ///
         /// SessionManager are all bound to only one port and one channel.
         allocated_port: Option<u16>,
-        // Stores the address to which the session should be forwarded when it sends indication to a
-        // port. This is written when permissions are created to allow a certain address to be
-        // forwarded to the current session.
-        port_relay_table: HashMap</* port */ u16, Identifier>,
-        // Indicates to which session the data sent by a session to a channel should be forwarded.
-        channel_relay_table: HashMap</* channel */ u16, Identifier>,
+        relay_socket: Option<Arc<UdpSocket>>,
+        relay_started: bool,
+        permissions: HashMap<IpAddr, u64>,
+        channels: HashMap<u16, ChannelBinding>,
         expires: u64,
     },
 }
@@ -172,12 +169,20 @@ pub struct SessionManagerOptions<T> {
     pub handler: T,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ChannelBinding {
+    peer: SocketAddr,
+    expires: u64,
+}
+
+/// RFC 8656 permissions are refreshed for five minutes.
+const DEFAULT_PERMISSION_LIFETIME: u64 = 300;
+/// RFC 8656 channel bindings are refreshed for ten minutes.
+const DEFAULT_CHANNEL_LIFETIME: u64 = 600;
+
 pub struct SessionManager<T> {
     sessions: RwLock<Table<Identifier, Session>>,
     port_allocator: Mutex<PortAllocator>,
-    // Records the sessions corresponding to each assigned port, which will be needed when looking
-    // up sessions assigned to this port based on the port number.
-    port_mapping_table: RwLock<Table</* port */ u16, Identifier>>,
     timer: Timer,
     handler: T,
 }
@@ -189,7 +194,6 @@ where
     pub fn new(options: SessionManagerOptions<T>) -> Arc<Self> {
         let this = Arc::new(Self {
             port_allocator: Mutex::new(PortAllocator::new(options.port_range)),
-            port_mapping_table: RwLock::new(Table::default()),
             sessions: RwLock::new(Table::default()),
             timer: Timer::default(),
             handler: options.handler,
@@ -237,7 +241,6 @@ where
     fn remove_session(&self, identifiers: &[Identifier]) {
         let mut sessions = self.sessions.write();
         let mut port_allocator = self.port_allocator.lock();
-        let mut port_mapping_table = self.port_mapping_table.write();
 
         identifiers.iter().for_each(|k| {
             if let Some(Session::Authenticated {
@@ -249,7 +252,6 @@ where
                 // Removes the session-bound port from the port binding table and
                 // releases the port back into the allocation pool.
                 if let Some(port) = allocated_port {
-                    port_mapping_table.remove(&port);
                     port_allocator.deallocate(port);
                 }
 
@@ -461,8 +463,10 @@ where
             lock.insert(
                 *identifier,
                 Session::Authenticated {
-                    port_relay_table: HashMap::with_capacity(10),
-                    channel_relay_table: HashMap::with_capacity(10),
+                    relay_socket: None,
+                    relay_started: false,
+                    permissions: HashMap::with_capacity(10),
+                    channels: HashMap::with_capacity(10),
                     expires: self.timer.get() + DEFAULT_SESSION_LIFETIME,
                     username: username.to_string(),
                     allocated_port: None,
@@ -552,459 +556,202 @@ where
     /// assert_eq!(sessions.allocate(&identifier, None), Some(port));
     /// ```
     pub fn allocate(&self, identifier: &Identifier, lifetime: Option<u32>) -> Option<u16> {
-        let mut lock = self.sessions.write();
-
         if let Some(Session::Authenticated {
+            allocated_port: Some(port),
+            ..
+        }) = self.sessions.read().get(identifier)
+        {
+            return Some(*port);
+        }
+
+        let (port, relay_socket) = loop {
+            let port = self.port_allocator.lock().allocate(None)?;
+            let address = SocketAddr::new(identifier.interface.ip(), port);
+            let socket = match std::net::UdpSocket::bind(address) {
+                Ok(socket) => socket,
+                Err(_) => {
+                    self.port_allocator.lock().deallocate(port);
+                    continue;
+                }
+            };
+            if socket.set_nonblocking(true).is_err() {
+                self.port_allocator.lock().deallocate(port);
+                continue;
+            }
+            match UdpSocket::from_std(socket) {
+                Ok(socket) => break (port, Arc::new(socket)),
+                Err(_) => self.port_allocator.lock().deallocate(port),
+            }
+        };
+
+        let mut sessions = self.sessions.write();
+        let Some(Session::Authenticated {
             allocated_port,
+            relay_socket: session_socket,
             expires,
             ..
-        }) = lock.get_mut(identifier)
-        {
-            // If the port has already been allocated, re-allocation is not allowed.
-            if let Some(port) = allocated_port {
-                return Some(*port);
-            }
+        }) = sessions.get_mut(identifier)
+        else {
+            self.port_allocator.lock().deallocate(port);
+            return None;
+        };
 
-            // Records the port assigned to the current session and resets the alive time.
-            let port = self.port_allocator.lock().allocate(None)?;
-            *allocated_port = Some(port);
-            *expires =
-                self.timer.get() + (lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32) as u64);
-
-            // Write the allocation port binding table.
-            self.port_mapping_table.write().insert(port, *identifier);
-            Some(port)
-        } else {
-            None
+        if let Some(existing_port) = allocated_port {
+            self.port_allocator.lock().deallocate(port);
+            return Some(*existing_port);
         }
+
+        *allocated_port = Some(port);
+        *session_socket = Some(relay_socket);
+        *expires = self.timer.get() + lifetime.unwrap_or(DEFAULT_SESSION_LIFETIME as u32) as u64;
+        Some(port)
     }
 
-    /// Create permission for session.
-    ///
-    /// # Test
-    ///
-    /// ```
-    /// use turn_server::service::session::*;
-    /// use turn_server::service::*;
-    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
-    /// use turn_server::codec::crypto::Password;
-    /// use pollster::FutureExt;
-    ///
-    /// #[derive(Clone)]
-    /// struct ServiceHandlerTest;
-    ///
-    /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
-    ///         if username == "test" {
-    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     external: "127.0.0.1:3478".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::Udp,
-    /// };
-    ///
-    /// let peer_identifier = Identifier {
-    ///     source: "127.0.0.1:8081".parse().unwrap(),
-    ///     external: "127.0.0.1:3478".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::Udp,
-    /// };
-    ///
-    /// let digest = Password::Md5([
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ]);
-    ///
-    /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: (49152..65535).into(),
-    ///     handler: ServiceHandlerTest,
-    /// });
-    ///
-    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
-    /// sessions.get_password(&peer_identifier, "test", PasswordAlgorithm::Md5).block_on();
-    ///
-    /// let port = sessions.allocate(&identifier, None).unwrap();
-    /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
-    ///
-    /// assert!(!sessions.create_permission(&identifier, &[port]));
-    /// assert!(sessions.create_permission(&identifier, &[peer_port]));
-    ///
-    /// assert!(!sessions.create_permission(&peer_identifier, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_identifier, &[port]));
-    /// ```
-    pub fn create_permission(&self, identifier: &Identifier, ports: &[u16]) -> bool {
-        // Finds information about the current session.
-        if let Some(Session::Authenticated {
+    /// Installs or refreshes RFC 8656 IP-scoped permissions for an allocation.
+    pub fn create_permission(&self, identifier: &Identifier, peers: &[SocketAddr]) -> bool {
+        let now = self.timer.get();
+        let mut sessions = self.sessions.write();
+        let Some(Session::Authenticated {
             allocated_port,
-            port_relay_table,
+            permissions,
             ..
-        }) = self.sessions.write().get_mut(identifier)
-        {
-            // The port number assigned to the current session.
-            let Some(local_port) = *allocated_port else {
-                return false;
-            };
+        }) = sessions.get_mut(identifier)
+        else {
+            return false;
+        };
 
-            // You cannot create permissions for yourself.
-            if ports.contains(&local_port) {
-                return false;
-            }
-
-            for port in ports {
-                if let Some(peer) = self.port_mapping_table.read().get(port) {
-                    // Check if the current port is already occupied by another client.
-                    if let Some(relay) = port_relay_table.get(&port)
-                        && relay != peer
-                    {
-                        return false;
-                    }
-
-                    port_relay_table.insert(*port, *peer);
-                } else {
-                    return false;
-                }
-            }
-
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Binding a channel to the session.
-    ///
-    /// # Test
-    ///
-    /// ```
-    /// use turn_server::service::session::*;
-    /// use turn_server::service::*;
-    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
-    /// use turn_server::codec::crypto::Password;
-    /// use pollster::FutureExt;
-    ///
-    /// #[derive(Clone)]
-    /// struct ServiceHandlerTest;
-    ///
-    /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
-    ///         if username == "test" {
-    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     external: "127.0.0.1:3478".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::Udp,
-    /// };
-    ///
-    /// let peer_identifier = Identifier {
-    ///     source: "127.0.0.1:8081".parse().unwrap(),
-    ///     external: "127.0.0.1:3478".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::Udp,
-    /// };
-    ///
-    /// let digest = Password::Md5([
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ]);
-    ///
-    /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: (49152..65535).into(),
-    ///     handler: ServiceHandlerTest,
-    /// });
-    ///
-    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
-    /// sessions.get_password(&peer_identifier, "test", PasswordAlgorithm::Md5).block_on();
-    ///
-    /// let port = sessions.allocate(&identifier, None).unwrap();
-    /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
-    /// {
-    ///     assert_eq!(
-    ///         match sessions.get_session(&identifier).get_ref().unwrap() {
-    ///             Session::Authenticated { channel_relay_table, .. } => channel_relay_table.len(),
-    ///             _ => panic!("Expected authenticated session"),
-    ///         },
-    ///         0
-    ///     );
-    /// }
-    ///
-    /// {
-    ///     assert_eq!(
-    ///         match sessions.get_session(&peer_identifier).get_ref().unwrap() {
-    ///             Session::Authenticated { channel_relay_table, .. } => channel_relay_table.len(),
-    ///             _ => panic!("Expected authenticated session"),
-    ///         },
-    ///         0
-    ///     );
-    /// }
-    ///
-    /// assert!(sessions.bind_channel(&identifier, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_identifier, port, 0x4000));
-    ///
-    /// {
-    ///     assert!(
-    ///         match sessions.get_session(&identifier).get_ref().unwrap() {
-    ///             Session::Authenticated { channel_relay_table, .. } => channel_relay_table.contains_key(&0x4000),
-    ///             _ => panic!("Expected authenticated session"),
-    ///         }
-    ///     );
-    /// }
-    ///
-    /// {
-    ///     assert!(
-    ///         match sessions.get_session(&peer_identifier).get_ref().unwrap() {
-    ///             Session::Authenticated { channel_relay_table, .. } => channel_relay_table.contains_key(&0x4000),
-    ///             _ => panic!("Expected authenticated session"),
-    ///         }
-    ///     );
-    /// }
-    /// ```
-    pub fn bind_channel(&self, identifier: &Identifier, port: u16, channel: u16) -> bool {
-        // Records the channel used for the current session.
-        {
-            if let Some(Session::Authenticated {
-                channel_relay_table,
-                ..
-            }) = self.sessions.write().get_mut(identifier)
-            {
-                // Finds the address of the bound opposing port.
-                if let Some(peer) = self.port_mapping_table.read().get(&port) {
-                    // Check if the current channel is already occupied by another client.
-                    if let Some(relay) = channel_relay_table.get(&channel)
-                        && relay != peer
-                    {
-                        return false;
-                    }
-
-                    // Create channel forwarding mapping relationships for peers.
-                    channel_relay_table.insert(channel, *peer);
-                } else {
-                    return false;
-                };
-            } else {
-                return false;
-            };
-        }
-
-        // Binding ports also creates permissions.
-        if !self.create_permission(identifier, &[port]) {
+        if allocated_port.is_none() {
             return false;
         }
 
+        for peer in peers {
+            permissions.insert(peer.ip(), now + DEFAULT_PERMISSION_LIFETIME);
+        }
         true
     }
 
-    /// Gets the peer of the current session bound channel.
-    ///
-    /// # Test
-    ///
-    /// ```
-    /// use turn_server::service::session::*;
-    /// use turn_server::service::*;
-    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
-    /// use turn_server::codec::crypto::Password;
-    /// use pollster::FutureExt;
-    ///
-    /// #[derive(Clone)]
-    /// struct ServiceHandlerTest;
-    ///
-    /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
-    ///         if username == "test" {
-    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     external: "127.0.0.1:3478".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::Udp,
-    /// };
-    ///
-    /// let peer_identifier = Identifier {
-    ///     source: "127.0.0.1:8081".parse().unwrap(),
-    ///     external: "127.0.0.1:3478".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::Udp,
-    /// };
-    ///
-    /// let digest = Password::Md5([
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ]);
-    ///
-    /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: (49152..65535).into(),
-    ///     handler: ServiceHandlerTest,
-    /// });
-    ///
-    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
-    /// sessions.get_password(&peer_identifier, "test", PasswordAlgorithm::Md5).block_on();
-    ///
-    /// let port = sessions.allocate(&identifier, None).unwrap();
-    /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
-    ///
-    /// assert!(sessions.bind_channel(&identifier, peer_port, 0x4000));
-    /// assert!(sessions.bind_channel(&peer_identifier, port, 0x4000));
-    /// assert_eq!(
-    ///     sessions
-    ///         .get_channel_relay_address(&identifier, 0x4000)
-    ///         .unwrap()
-    ///         .1
-    ///         .interface,
-    ///     endpoint
-    /// );
-    ///
-    /// assert_eq!(
-    ///     sessions
-    ///         .get_channel_relay_address(&peer_identifier, 0x4000)
-    ///         .unwrap()
-    ///         .1
-    ///         .interface,
-    ///     endpoint
-    /// );
-    /// ```
-    pub fn get_channel_relay_address(
-        &self,
-        identifier: &Identifier,
-        channel: u16,
-    ) -> Option<(/* peer channel */ u16, Identifier)> {
-        let session = self.sessions.read();
-
-        if let Session::Authenticated {
-            channel_relay_table,
+    /// Binds a channel to a peer socket and refreshes its IP permission.
+    pub fn bind_channel(&self, identifier: &Identifier, peer: SocketAddr, channel: u16) -> bool {
+        let now = self.timer.get();
+        let mut sessions = self.sessions.write();
+        let Some(Session::Authenticated {
+            allocated_port,
+            permissions,
+            channels,
             ..
-        } = session.get(identifier)?
+        }) = sessions.get_mut(identifier)
+        else {
+            return false;
+        };
+
+        if allocated_port.is_none()
+            || channels
+                .get(&channel)
+                .is_some_and(|binding| binding.peer != peer)
+            || channels
+                .iter()
+                .any(|(number, binding)| *number != channel && binding.peer == peer)
         {
-            let peer = channel_relay_table.get(&channel)?;
-
-            if let Session::Authenticated {
-                channel_relay_table,
-                ..
-            } = session.get(peer)?
-            {
-                // Find the channel bound to the current client.
-                let (peer_channel, _) =
-                    channel_relay_table.iter().find(|(_, v)| *v == identifier)?;
-
-                Some((*peer_channel, *peer))
-            } else {
-                None
-            }
-        } else {
-            None
+            return false;
         }
+
+        permissions.insert(peer.ip(), now + DEFAULT_PERMISSION_LIFETIME);
+        channels.insert(
+            channel,
+            ChannelBinding {
+                peer,
+                expires: now + DEFAULT_CHANNEL_LIFETIME,
+            },
+        );
+        true
     }
 
-    /// Get the address of the port binding.
-    ///
-    /// # Test
-    ///
-    /// ```
-    /// use turn_server::service::session::*;
-    /// use turn_server::service::*;
-    /// use turn_server::codec::message::attributes::PasswordAlgorithm;
-    /// use turn_server::codec::crypto::Password;
-    /// use pollster::FutureExt;
-    ///
-    /// #[derive(Clone)]
-    /// struct ServiceHandlerTest;
-    ///
-    /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
-    ///         if username == "test" {
-    ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
-    ///         } else {
-    ///             None
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let endpoint = "127.0.0.1:3478".parse().unwrap();
-    /// let identifier = Identifier {
-    ///     source: "127.0.0.1:8080".parse().unwrap(),
-    ///     external: "127.0.0.1:3478".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::Udp,
-    /// };
-    ///
-    /// let peer_identifier = Identifier {
-    ///     source: "127.0.0.1:8081".parse().unwrap(),
-    ///     external: "127.0.0.1:3478".parse().unwrap(),
-    ///     interface: "127.0.0.1:3478".parse().unwrap(),
-    ///     transport: Transport::Udp,
-    /// };
-    ///
-    /// let digest = Password::Md5([
-    ///     174, 238, 187, 253, 117, 209, 73, 157, 36, 56, 143, 91, 155, 16, 224,
-    ///     239,
-    /// ]);
-    ///
-    /// let sessions = SessionManager::new(SessionManagerOptions {
-    ///     port_range: (49152..65535).into(),
-    ///     handler: ServiceHandlerTest,
-    /// });
-    ///
-    /// sessions.get_password(&identifier, "test", PasswordAlgorithm::Md5).block_on();
-    /// sessions.get_password(&peer_identifier, "test", PasswordAlgorithm::Md5).block_on();
-    ///
-    /// let port = sessions.allocate(&identifier, None).unwrap();
-    /// let peer_port = sessions.allocate(&peer_identifier, None).unwrap();
-    ///
-    /// assert!(sessions.create_permission(&identifier, &[peer_port]));
-    /// assert!(sessions.create_permission(&peer_identifier, &[port]));
-    ///
-    /// assert_eq!(
-    ///     sessions
-    ///         .get_port_relay_address(&identifier, peer_port)
-    ///         .unwrap()
-    ///         .1
-    ///         .interface,
-    ///     endpoint
-    /// );
-    ///
-    /// assert_eq!(
-    ///     sessions
-    ///         .get_port_relay_address(&peer_identifier, port)
-    ///         .unwrap()
-    ///         .1
-    ///         .interface,
-    ///     endpoint
-    /// );
-    /// ```
-    pub fn get_port_relay_address(
+    /// Returns the peer socket bound to a channel while its binding is live.
+    pub(crate) fn channel_peer(&self, identifier: &Identifier, channel: u16) -> Option<SocketAddr> {
+        let now = self.timer.get();
+        let session = self.sessions.read();
+        let Session::Authenticated { channels, .. } = session.get(identifier)? else {
+            return None;
+        };
+        let binding = channels.get(&channel)?;
+        (binding.expires > now).then_some(binding.peer)
+    }
+
+    /// Returns the allocation relay socket when a live permission authorizes a peer.
+    pub(crate) fn relay_to_peer(
         &self,
         identifier: &Identifier,
-        port: u16,
-    ) -> Option<(/* local port */ u16, Identifier)> {
-        if let Session::Authenticated {
-            port_relay_table,
-            allocated_port,
+        peer: SocketAddr,
+    ) -> Option<Arc<UdpSocket>> {
+        let now = self.timer.get();
+        let session = self.sessions.read();
+        let Session::Authenticated {
+            relay_socket,
+            permissions,
             ..
-        } = self.sessions.read().get(identifier)?
-        {
-            Some(((*allocated_port)?, port_relay_table.get(&port).copied()?))
-        } else {
-            None
+        } = session.get(identifier)?
+        else {
+            return None;
+        };
+
+        (permissions.get(&peer.ip()).copied()? > now)
+            .then(|| relay_socket.clone())
+            .flatten()
+    }
+
+    /// Looks up how an inbound relay datagram should be delivered to its client.
+    pub(crate) fn relay_from_peer(
+        &self,
+        identifier: &Identifier,
+        peer: SocketAddr,
+    ) -> Option<RelayInbound> {
+        let now = self.timer.get();
+        let session = self.sessions.read();
+        let Session::Authenticated {
+            permissions,
+            channels,
+            ..
+        } = session.get(identifier)?
+        else {
+            return None;
+        };
+
+        if permissions.get(&peer.ip()).copied()? <= now {
+            return None;
         }
+
+        let channel = channels.iter().find_map(|(number, binding)| {
+            (binding.peer == peer && binding.expires > now).then_some(*number)
+        });
+        Some(RelayInbound { channel })
+    }
+
+    /// Reports whether the allocation still owns a relay socket.
+    pub(crate) fn relay_socket(&self, identifier: &Identifier) -> Option<Arc<UdpSocket>> {
+        let session = self.sessions.read();
+        let Session::Authenticated { relay_socket, .. } = session.get(identifier)? else {
+            return None;
+        };
+        relay_socket.clone()
+    }
+
+    /// Marks a relay socket as owned by a provider worker and returns it once.
+    pub(crate) fn start_relay(&self, identifier: &Identifier) -> Option<Arc<UdpSocket>> {
+        let mut sessions = self.sessions.write();
+        let Session::Authenticated {
+            relay_socket,
+            relay_started,
+            ..
+        } = sessions.get_mut(identifier)?
+        else {
+            return None;
+        };
+        if *relay_started {
+            return None;
+        }
+        let socket = relay_socket.clone()?;
+        *relay_started = true;
+        Some(socket)
     }
 
     /// Refresh the session for identifier.
@@ -1093,6 +840,137 @@ where
         }
 
         true
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RelayInbound {
+    pub channel: Option<u16>,
+}
+
+#[cfg(test)]
+mod relay_state_tests {
+    use super::*;
+    use crate::service::Transport;
+    use tokio::time::{Duration, timeout};
+
+    #[derive(Clone)]
+    struct Handler;
+
+    impl ServiceHandler for Handler {
+        async fn get_password(
+            &self,
+            _id: &Identifier,
+            _username: &str,
+            _algorithm: PasswordAlgorithm,
+        ) -> Option<Password> {
+            Some(Password::Md5([0; 16]))
+        }
+    }
+
+    fn id(port: u16) -> Identifier {
+        Identifier {
+            source: SocketAddr::from(([127, 0, 0, 1], port)),
+            interface: SocketAddr::from(([127, 0, 0, 1], 3478)),
+            external: SocketAddr::from(([127, 0, 0, 1], 3478)),
+            transport: Transport::Udp,
+        }
+    }
+
+    #[tokio::test]
+    async fn arbitrary_peer_permission_is_ip_scoped() {
+        let manager = SessionManager::new(SessionManagerOptions {
+            port_range: (40000..40100).into(),
+            handler: Handler,
+        });
+        let client = id(50000);
+        manager
+            .get_password(&client, "user", PasswordAlgorithm::Md5)
+            .await;
+        manager
+            .allocate(&client, None)
+            .expect("allocation should succeed");
+        let peer = SocketAddr::from(([127, 0, 0, 1], 59999));
+
+        assert!(manager.create_permission(&client, &[peer]));
+        assert!(manager.relay_to_peer(&client, peer).is_some());
+        assert!(
+            manager
+                .relay_to_peer(&client, SocketAddr::from(([127, 0, 0, 1], 1)))
+                .is_some()
+        );
+    }
+
+    #[tokio::test]
+    async fn permitted_arbitrary_udp_peer_exchanges_datagrams_with_relay_socket() {
+        let manager = SessionManager::new(SessionManagerOptions {
+            port_range: (40200..40300).into(),
+            handler: Handler,
+        });
+        let client = id(50002);
+        manager
+            .get_password(&client, "user", PasswordAlgorithm::Md5)
+            .await;
+        manager
+            .allocate(&client, None)
+            .expect("allocation should succeed");
+
+        let peer = UdpSocket::bind("127.0.0.1:0")
+            .await
+            .expect("peer socket should bind");
+        let peer_address = peer.local_addr().expect("peer address should be available");
+        assert!(manager.create_permission(&client, &[peer_address]));
+
+        let relay = manager
+            .relay_to_peer(&client, peer_address)
+            .expect("permission should expose the relay socket");
+        relay
+            .send_to(b"request", peer_address)
+            .await
+            .expect("relay should send to arbitrary peer");
+
+        let mut received = [0; 32];
+        let (size, relay_address) = timeout(Duration::from_secs(1), peer.recv_from(&mut received))
+            .await
+            .expect("peer receive should not time out")
+            .expect("peer receive should succeed");
+        assert_eq!(&received[..size], b"request");
+        peer.send_to(b"response", relay_address)
+            .await
+            .expect("peer should send response to relay");
+
+        let (size, source) = timeout(Duration::from_secs(1), relay.recv_from(&mut received))
+            .await
+            .expect("relay receive should not time out")
+            .expect("relay receive should succeed");
+        assert_eq!(source, peer_address);
+        assert_eq!(&received[..size], b"response");
+    }
+
+    #[tokio::test]
+    async fn channel_binding_installs_permission_for_peer_socket() {
+        let manager = SessionManager::new(SessionManagerOptions {
+            port_range: (40100..40200).into(),
+            handler: Handler,
+        });
+        let client = id(50001);
+        manager
+            .get_password(&client, "user", PasswordAlgorithm::Md5)
+            .await;
+        manager
+            .allocate(&client, None)
+            .expect("allocation should succeed");
+        let peer = SocketAddr::from(([127, 0, 0, 1], 59998));
+
+        assert!(manager.bind_channel(&client, peer, 0x4000));
+        assert!(manager.relay_to_peer(&client, peer).is_some());
+        assert_eq!(
+            manager
+                .relay_from_peer(&client, peer)
+                .expect("peer should be permitted")
+                .channel,
+            Some(0x4000)
+        );
     }
 }
 

@@ -1,5 +1,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
+use tokio::net::UdpSocket;
+
 use bytes::BytesMut;
 use rand::seq::IteratorRandom;
 
@@ -127,8 +129,18 @@ where
 pub struct RouteResult {
     /// if the method is None, the response is a channel data response
     pub method: Option<Method>,
-    /// the relay target of the response
-    pub relay: Option<Identifier>,
+    /// The peer relay target for Send indications and ChannelData.
+    pub relay: Option<RelayTarget>,
+    /// The newly allocated UDP relay socket, if this response created one.
+    pub allocation: Option<Arc<UdpSocket>>,
+}
+
+#[derive(Debug)]
+pub enum RelayTarget {
+    Peer {
+        socket: Arc<UdpSocket>,
+        peer: SocketAddr,
+    },
 }
 
 pub(crate) struct RouterState<T>
@@ -234,6 +246,7 @@ where
     Some(RouteResult {
         method: Some(method),
         relay: None,
+        allocation: None,
     })
 }
 
@@ -275,6 +288,7 @@ where
     Some(RouteResult {
         method: Some(BINDING_RESPONSE),
         relay: None,
+        allocation: None,
     })
 }
 
@@ -378,6 +392,7 @@ where
     Some(RouteResult {
         method: Some(ALLOCATE_RESPONSE),
         relay: None,
+        allocation: req.state.manager.start_relay(&req.state.id),
     })
 }
 
@@ -426,7 +441,7 @@ where
         return reject(req, ErrorType::Unauthorized);
     };
 
-    let mut ports = Vec::with_capacity(15);
+    let mut peers = Vec::with_capacity(15);
     for it in req.payload.get_all::<XorPeerAddress>() {
         if !req.verify_ip(&it) {
             return reject(req, ErrorType::PeerAddressFamilyMismatch);
@@ -435,16 +450,18 @@ where
             return reject(req, ErrorType::Forbidden);
         }
 
-        ports.push(it.port());
+        peers.push(it);
     }
 
-    if !req.state.manager.create_permission(&req.state.id, &ports) {
+    if !req.state.manager.create_permission(&req.state.id, &peers) {
         return reject(req, ErrorType::Forbidden);
     }
 
-    req.state
-        .handler
-        .on_create_permission(&req.state.id, username, &ports);
+    req.state.handler.on_create_permission(
+        &req.state.id,
+        username,
+        &peers.iter().map(SocketAddr::port).collect::<Vec<_>>(),
+    );
 
     {
         MessageEncoder::extend(CREATE_PERMISSION_RESPONSE, req.payload, req.response_buffer)
@@ -455,6 +472,7 @@ where
     Some(RouteResult {
         method: Some(CREATE_PERMISSION_RESPONSE),
         relay: None,
+        allocation: None,
     })
 }
 
@@ -513,11 +531,7 @@ where
         return reject(req, ErrorType::Unauthorized);
     };
 
-    if !req
-        .state
-        .manager
-        .bind_channel(&req.state.id, peer.port(), number)
-    {
+    if !req.state.manager.bind_channel(&req.state.id, peer, number) {
         return reject(req, ErrorType::Forbidden);
     }
 
@@ -534,6 +548,7 @@ where
     Some(RouteResult {
         method: Some(CHANNEL_BIND_RESPONSE),
         relay: None,
+        allocation: None,
     })
 }
 
@@ -587,19 +602,13 @@ where
     let peer = req.payload.get::<XorPeerAddress>()?;
     let data = req.payload.get::<Data>()?;
 
-    let (local_port, relay) = req.state.manager.get_port_relay_address(&req.state.id, peer.port())?;
-
-    {
-        let mut message = MessageEncoder::extend(DATA_INDICATION, req.payload, req.response_buffer);
-
-        message.append::<XorPeerAddress>(SocketAddr::new(req.state.id.external.ip(), local_port));
-        message.append::<Data>(data);
-        message.flush(None).ok()?;
-    }
+    let socket = req.state.manager.relay_to_peer(&req.state.id, peer)?;
+    req.response_buffer.extend_from_slice(data);
 
     Some(RouteResult {
-        method: Some(DATA_INDICATION),
-        relay: Some(relay),
+        method: None,
+        relay: Some(RelayTarget::Peer { socket, peer }),
+        allocation: None,
     })
 }
 
@@ -670,6 +679,7 @@ where
     Some(RouteResult {
         method: Some(REFRESH_RESPONSE),
         relay: None,
+        allocation: None,
     })
 }
 
@@ -703,17 +713,16 @@ fn channel_data<T>(req: Request<'_, '_, T, ChannelData<'_>>) -> Option<RouteResu
 where
     T: ServiceHandler,
 {
-    let (relay_channel, relay) = req
+    let peer = req
         .state
         .manager
-        .get_channel_relay_address(&req.state.id, req.payload.number())?;
-
-    {
-        ChannelData::new(relay_channel, req.payload.bytes()).encode(req.response_buffer);
-    }
+        .channel_peer(&req.state.id, req.payload.number())?;
+    let socket = req.state.manager.relay_to_peer(&req.state.id, peer)?;
+    req.response_buffer.extend_from_slice(req.payload.bytes());
 
     Some(RouteResult {
-        relay: Some(relay),
+        relay: Some(RelayTarget::Peer { socket, peer }),
         method: None,
+        allocation: None,
     })
 }

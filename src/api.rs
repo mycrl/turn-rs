@@ -134,8 +134,8 @@ impl TurnService for RpcService {
         if let Some(Session::Authenticated {
             username,
             allocated_port,
-            channel_relay_table,
-            port_relay_table,
+            channels,
+            permissions,
             expires,
             ..
         }) = self
@@ -151,18 +151,22 @@ impl TurnService for RpcService {
                 username: username.to_string(),
                 allocated_port: allocated_port.map(|p| p as i32),
                 expires: *expires as i64,
-                permissions: port_relay_table
-                    .iter()
-                    .map(|(k, v)| BindAddress {
-                        key: *k as i32,
-                        value: Some(v.clone().into()),
+                // The legacy management protobuf can only represent a TURN
+                // client identifier, not an RFC 8656 peer address. Keep the
+                // peer port as the key for channel bindings and leave the
+                // obsolete identifier field unset.
+                permissions: permissions
+                    .keys()
+                    .map(|_| BindAddress {
+                        key: 0,
+                        value: None,
                     })
                     .collect(),
-                channels: channel_relay_table
+                channels: channels
                     .iter()
-                    .map(|(k, v)| BindAddress {
-                        key: *k as i32,
-                        value: Some(v.clone().into()),
+                    .map(|(number, _)| BindAddress {
+                        key: *number as i32,
+                        value: None,
                     })
                     .collect(),
             }))
