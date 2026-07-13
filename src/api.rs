@@ -224,6 +224,92 @@ impl TurnService for RpcService {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::{net::SocketAddr, time::Instant};
+
+    use super::*;
+    use crate::{
+        config::Config,
+        handler::Handler,
+        service::{Service, ServiceOptions, Transport, session::Identifier},
+    };
+
+    #[tokio::test]
+    async fn get_session_exposes_rfc_8656_peer_state() {
+        let mut config = Config::default();
+        config
+            .auth
+            .static_credentials
+            .insert("user".to_string(), "password".to_string());
+        let statistics = Statistics::default();
+        let service = Service::new(ServiceOptions {
+            realm: config.server.realm.clone(),
+            port_range: config.server.port_range,
+            interfaces: config.server.get_interface_addrs(),
+            handler: Handler::new(config.clone(), statistics.clone())
+                .await
+                .expect("test handler should initialize"),
+        });
+        let client = Identifier {
+            source: "127.0.0.1:50000"
+                .parse()
+                .expect("test client address should parse"),
+            interface: "127.0.0.1:3478"
+                .parse()
+                .expect("test interface address should parse"),
+            external: "127.0.0.1:3478"
+                .parse()
+                .expect("test external address should parse"),
+            transport: Transport::Udp,
+        };
+        let peer: SocketAddr = "127.0.0.1:50001"
+            .parse()
+            .expect("test peer address should parse");
+        let service_for_manager = service.clone();
+        let manager = service_for_manager.get_session_manager();
+
+        manager
+            .get_password(
+                &client,
+                "user",
+                crate::codec::message::attributes::PasswordAlgorithm::Md5,
+            )
+            .await
+            .expect("test client should authenticate");
+        manager
+            .allocate(&client, None)
+            .expect("test client should allocate");
+        assert!(manager.create_permission(&client, &[peer]));
+        assert!(manager.bind_channel(&client, peer, 0x4000));
+
+        let rpc = RpcService {
+            config,
+            service,
+            statistics,
+            uptime: Instant::now(),
+        };
+        let response = rpc
+            .get_session(Request::new(client.into()))
+            .await
+            .expect("authenticated session should be available")
+            .into_inner();
+
+        assert_eq!(response.peer_permissions.len(), 1);
+        assert_eq!(response.peer_permissions[0].peer_ip, "127.0.0.1");
+        assert_eq!(response.peer_channels.len(), 1);
+        assert_eq!(response.peer_channels[0].channel, 0x4000);
+        assert_eq!(response.peer_channels[0].peer, peer.to_string());
+
+        assert!(manager.refresh(&client, 0));
+        let status = rpc
+            .get_session(Request::new(client.into()))
+            .await
+            .expect_err("allocation teardown should remove management state");
+        assert_eq!(status.code(), tonic::Code::NotFound);
+    }
+}
+
 pub enum HooksEvent {
     Allocated(TurnAllocatedEvent),
     ChannelBind(TurnChannelBindEvent),

@@ -117,6 +117,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn shutdown_releases_listener_port() {
+        let reserved_socket =
+            std::net::UdpSocket::bind("127.0.0.1:0").expect("test socket should bind");
+        let address = reserved_socket
+            .local_addr()
+            .expect("test socket should have a local address");
+        drop(reserved_socket);
+
+        let mut config = test_config();
+        config.server.interfaces = vec![Interface::Udp {
+            listen: address,
+            external: address,
+            idle_timeout: 1,
+            mtu: 1500,
+        }];
+
+        spawn_server_with_handler(config, AllowAllHandler)
+            .await
+            .expect("server should bind the reserved port")
+            .shutdown()
+            .await
+            .expect("server should stop cleanly");
+
+        std::net::UdpSocket::bind(address).expect("shutdown should release the listener port");
+    }
+
+    #[tokio::test]
     async fn spawn_reports_listener_bind_failure() {
         let occupied_socket =
             std::net::UdpSocket::bind("127.0.0.1:0").expect("test socket should bind");

@@ -102,7 +102,11 @@ pub trait ProviderServer: Sized + Send {
                         }
                         continue;
                     }
-                    result = listener.accept() => result?,
+                    result = listener.accept() => match result {
+                        Ok(poll) => poll,
+                        Err(_) if *shutdown.borrow() => break,
+                        Err(error) => return Err(error),
+                    },
                 };
                 let Poll::Ready((mut socket, address)) = poll else {
                     continue;
