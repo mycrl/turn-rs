@@ -38,19 +38,13 @@ impl<'a, 'b, T> Request<'a, 'b, T, Message<'a>>
 where
     T: ServiceHandler,
 {
-    // Verify the IP address specified by the client in the request, such as the
-    // peer address used when creating permissions and binding channels. Currently,
-    // only peer addresses that are local addresses of the TURN server are allowed;
-    // arbitrary addresses are not permitted.
-    //
-    // Allowing arbitrary addresses would pose security risks, such as enabling
-    // the TURN server to forward data to any target.
+    // RFC 8656 permits arbitrary peer addresses, but requires the peer address
+    // family to match that of the relayed address. Applications enforce their
+    // own peer authorization through `ServiceHandler::allows_peer` before any
+    // permission or channel state is installed.
     #[inline(always)]
     fn verify_ip(&self, address: &SocketAddr) -> bool {
-        self.state
-            .interfaces
-            .iter()
-            .any(|item| item.external.ip() == address.ip())
+        self.state.id.external.ip().family() == address.ip().family()
     }
 
     // The key for the HMAC depends on whether long-term or short-term
