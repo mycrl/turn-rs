@@ -330,10 +330,11 @@ where
     ///     let lock = sessions.get_session(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
-    ///         Session::Authenticated { username, allocated_port, channel_relay_table, .. } => {
+    ///         Session::Authenticated { username, allocated_port, permissions, channels, .. } => {
     ///             assert_eq!(username, "test");
     ///             assert_eq!(allocated_port, &None);
-    ///             assert_eq!(channel_relay_table.len(), 0);
+    ///             assert!(permissions.is_empty());
+    ///             assert!(channels.is_empty());
     ///         }
     ///         _ => panic!("Expected authenticated session"),
     ///     }
@@ -537,24 +538,27 @@ where
     ///     let lock = sessions.get_session(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
-    ///         Session::Authenticated { username, allocated_port, channel_relay_table, .. } => {
+    ///         Session::Authenticated { username, allocated_port, permissions, channels, .. } => {
     ///             assert_eq!(username, "test");
     ///             assert_eq!(allocated_port, &None);
-    ///             assert_eq!(channel_relay_table.len(), 0);
+    ///             assert!(permissions.is_empty());
+    ///             assert!(channels.is_empty());
     ///         }
     ///         _ => panic!("Expected authenticated session"),
     ///     }
     /// }
     ///
-    /// let port = sessions.allocate(&identifier, None).unwrap();
+    /// let runtime = tokio::runtime::Runtime::new().unwrap();
+    /// let port = runtime.block_on(async { sessions.allocate(&identifier, None).unwrap() });
     /// {
     ///     let lock = sessions.get_session(&identifier);
     ///     let session = lock.get_ref().unwrap();
     ///     match session {
-    ///         Session::Authenticated { username, allocated_port, channel_relay_table, .. } => {
+    ///         Session::Authenticated { username, allocated_port, permissions, channels, .. } => {
     ///             assert_eq!(username, "test");
     ///             assert_eq!(allocated_port, &Some(port));
-    ///             assert_eq!(channel_relay_table.len(), 0);
+    ///             assert!(permissions.is_empty());
+    ///             assert!(channels.is_empty());
     ///         }
     ///         _ => panic!("Expected authenticated session"),
     ///     }
