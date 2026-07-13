@@ -46,6 +46,17 @@ message TurnServerInfo {
     uint32 port_allocated = 5;
 }
 
+// RFC 8656 peer permission.
+message PeerPermission {
+    string peer_ip = 1;
+}
+
+// RFC 8656 channel binding.
+message PeerChannelBinding {
+    uint32 channel = 1;
+    string peer = 2;
+}
+
 // turn session
 message TurnSession {
     string username = 1;
@@ -55,8 +66,12 @@ message TurnSession {
     int64 expires = 3;
     // permissions port bind addresses
     repeated BindAddress permissions = 4;
-    // channels number bind addresses
+    // channels number bind addresses. Deprecated: cannot represent RFC 8656 peers.
     repeated BindAddress channels = 5;
+    // RFC 8656 permissions keyed by peer IP address.
+    repeated PeerPermission peer_permissions = 6;
+    // RFC 8656 channel bindings keyed by channel number and full peer address.
+    repeated PeerChannelBinding peer_channels = 7;
 }
 
 // turn session statistics

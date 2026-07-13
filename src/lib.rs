@@ -37,7 +37,7 @@ use self::{
 };
 
 use tokio::{
-    sync::watch,
+    sync::{oneshot, watch},
     task::{JoinHandle, JoinSet},
 };
 
@@ -115,6 +115,29 @@ mod tests {
             .await
             .expect("server should stop cleanly");
     }
+
+    #[tokio::test]
+    async fn spawn_reports_listener_bind_failure() {
+        let occupied_socket =
+            std::net::UdpSocket::bind("127.0.0.1:0").expect("test socket should bind");
+        let mut config = test_config();
+        let occupied_address = occupied_socket
+            .local_addr()
+            .expect("test socket should have a local address");
+        config.server.interfaces = vec![Interface::Udp {
+            listen: occupied_address,
+            external: occupied_address,
+            idle_timeout: 1,
+            mtu: 1500,
+        }];
+
+        let error = match spawn_server_with_handler(config, AllowAllHandler).await {
+            Ok(_) => panic!("spawn should return the listener bind failure"),
+            Err(error) => error,
+        };
+
+        assert!(error.to_string().contains("Address already in use"));
+    }
 }
 
 /// Owns a spawned TURN server and provides graceful shutdown.
@@ -146,6 +169,7 @@ async fn run_server(
     service: Service,
     statistics: Statistics,
     shutdown: watch::Receiver<bool>,
+    startup: Option<oneshot::Sender<anyhow::Result<()>>>,
 ) -> anyhow::Result<()> {
     let mut workers = JoinSet::new();
 
@@ -154,6 +178,7 @@ async fn run_server(
         service.clone(),
         statistics.clone(),
         shutdown,
+        startup,
     ));
 
     #[cfg(feature = "prometheus")]
@@ -175,9 +200,28 @@ pub async fn spawn_server(config: Config) -> anyhow::Result<ServerHandle> {
     let statistics = Statistics::default();
     let service = build_service(&config, statistics.clone()).await?;
     let (shutdown, shutdown_rx) = watch::channel(false);
-    let task = tokio::spawn(run_server(config, service, statistics, shutdown_rx));
+    let (startup_sender, startup_receiver) = oneshot::channel();
+    let task = tokio::spawn(run_server(
+        config,
+        service,
+        statistics,
+        shutdown_rx,
+        Some(startup_sender),
+    ));
 
-    Ok(ServerHandle { shutdown, task })
+    match startup_receiver.await {
+        Ok(Ok(())) => Ok(ServerHandle { shutdown, task }),
+        Ok(Err(error)) => {
+            let _ = task.await;
+            Err(error)
+        }
+        Err(_) => {
+            let result = task.await?;
+            Err(result
+                .err()
+                .unwrap_or_else(|| anyhow::anyhow!("TURN server exited before startup")))
+        }
+    }
 }
 
 /// Starts a TURN server with an application-provided authentication and peer-policy handler.
@@ -199,14 +243,28 @@ where
         handler,
     });
     let (shutdown, shutdown_rx) = watch::channel(false);
+    let (startup_sender, startup_receiver) = oneshot::channel();
     let task = tokio::spawn(server::start_server(
         config,
         service,
         statistics,
         shutdown_rx,
+        Some(startup_sender),
     ));
 
-    Ok(ServerHandle { shutdown, task })
+    match startup_receiver.await {
+        Ok(Ok(())) => Ok(ServerHandle { shutdown, task }),
+        Ok(Err(error)) => {
+            let _ = task.await;
+            Err(error)
+        }
+        Err(_) => {
+            let result = task.await?;
+            Err(result
+                .err()
+                .unwrap_or_else(|| anyhow::anyhow!("TURN server exited before startup")))
+        }
+    }
 }
 
 /// Starts a TURN server and waits until it exits.
@@ -214,5 +272,5 @@ pub async fn start_server(config: Config) -> anyhow::Result<()> {
     let statistics = Statistics::default();
     let service = build_service(&config, statistics.clone()).await?;
     let (_shutdown, shutdown_rx) = watch::channel(false);
-    run_server(config, service, statistics, shutdown_rx).await
+    run_server(config, service, statistics, shutdown_rx, None).await
 }

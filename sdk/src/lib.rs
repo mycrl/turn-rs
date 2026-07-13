@@ -229,7 +229,8 @@ impl TurnService {
 
     /// destroy the session
     pub async fn destroy_session(&mut self, id: Identifier) -> Result<(), Status> {
-        Ok(self.0.destroy_session(Request::new(id)).await?.into_inner())
+        self.0.destroy_session(Request::new(id)).await?.into_inner();
+        Ok(())
     }
 }
 

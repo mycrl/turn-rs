@@ -23,9 +23,9 @@ use tonic::{
 use tonic::transport::{Certificate, ClientTlsConfig, Identity, ServerTlsConfig};
 
 use sdk::protos::{
-    BindAddress, GetTurnPasswordRequest, TurnAllocatedEvent, TurnChannelBindEvent,
-    TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent, TurnServerInfo, TurnSession,
-    TurnSessionStatistics,
+    BindAddress, GetTurnPasswordRequest, PeerChannelBinding, PeerPermission, TurnAllocatedEvent,
+    TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent, TurnRefreshEvent,
+    TurnServerInfo, TurnSession, TurnSessionStatistics,
     turn_hooks_service_client::TurnHooksServiceClient,
     turn_service_server::{TurnService, TurnServiceServer},
 };
@@ -167,6 +167,19 @@ impl TurnService for RpcService {
                     .map(|(number, _)| BindAddress {
                         key: *number as i32,
                         value: None,
+                    })
+                    .collect(),
+                peer_permissions: permissions
+                    .keys()
+                    .map(|peer_ip| PeerPermission {
+                        peer_ip: peer_ip.to_string(),
+                    })
+                    .collect(),
+                peer_channels: channels
+                    .iter()
+                    .map(|(number, binding)| PeerChannelBinding {
+                        channel: *number as u32,
+                        peer: binding.peer().to_string(),
                     })
                     .collect(),
             }))

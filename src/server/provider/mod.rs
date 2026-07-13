@@ -4,7 +4,10 @@ pub mod udp;
 use std::{net::SocketAddr, ops::DerefMut, task::Poll, time::Duration};
 
 use anyhow::Result;
-use tokio::{sync::watch, time::interval};
+use tokio::{
+    sync::{mpsc::UnboundedSender, watch},
+    time::interval,
+};
 
 use crate::{
     codec::{
@@ -59,6 +62,7 @@ pub trait ProviderServer: Sized + Send {
         statistics: Statistics,
         switch: Switch,
         shutdown: watch::Receiver<bool>,
+        startup: UnboundedSender<Result<()>>,
     ) -> impl Future<Output = Result<()>> + Send
     where
         T: ServiceHandler + Clone,
@@ -67,8 +71,21 @@ pub trait ProviderServer: Sized + Send {
         let idle_timeout = options.idle_timeout as u64;
 
         async move {
-            let mut listener = Self::bind(&options, shutdown.clone()).await?;
-            let local_addr = listener.local_addr()?;
+            let mut listener = match Self::bind(&options, shutdown.clone()).await {
+                Ok(listener) => listener,
+                Err(error) => {
+                    let _ = startup.send(Err(anyhow::anyhow!(error.to_string())));
+                    return Err(error);
+                }
+            };
+            let local_addr = match listener.local_addr() {
+                Ok(local_addr) => local_addr,
+                Err(error) => {
+                    let _ = startup.send(Err(anyhow::anyhow!(error.to_string())));
+                    return Err(error);
+                }
+            };
+            let _ = startup.send(Ok(()));
             let mut shutdown = shutdown;
 
             log::info!(

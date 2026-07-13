@@ -175,6 +175,13 @@ pub struct ChannelBinding {
     expires: u64,
 }
 
+impl ChannelBinding {
+    /// Returns the full peer address associated with this binding.
+    pub fn peer(&self) -> SocketAddr {
+        self.peer
+    }
+}
+
 /// RFC 8656 permissions are refreshed for five minutes.
 const DEFAULT_PERMISSION_LIFETIME: u64 = 300;
 /// RFC 8656 channel bindings are refreshed for ten minutes.
