@@ -350,8 +350,9 @@ where
         ip
     };
 
+    let has_username = req.payload.get::<UserName>().is_some();
     let Some((username, password)) = req.verify().await else {
-        let error = if req.state.handler.allocate_auth_failure_is_bad_request() {
+        let error = if has_username && req.state.handler.allocate_auth_failure_is_bad_request() {
             ErrorType::BadRequest
         } else {
             ErrorType::Unauthorized
