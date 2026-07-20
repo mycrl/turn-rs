@@ -17,12 +17,12 @@ streams it from the "local" peer to the "remote" peer entirely via TURN.
 > needed the first time.
 
 <iframe
-  src="./webrtc-demo.html"
+  src="./webrtc-demo/"
   title="turn-rs WebRTC Demo"
   style="width: 100%; height: 600px; border: 1px solid var(--vp-c-divider); border-radius: 8px; margin-top: 16px;"
   allow="display-capture; camera; microphone"
 ></iframe>
 
 <p style="margin-top: 12px;">
-  <a href="./webrtc-demo.html" target="_blank" rel="noreferrer">Open the demo in a new tab ↗</a>
+  <a href="./webrtc-demo/" target="_blank" rel="noreferrer">Open the demo in a new tab ↗</a>
 </p>

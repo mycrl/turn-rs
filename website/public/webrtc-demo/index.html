@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>turn-rs · WebRTC Demo</title>
+        <link rel="stylesheet" href="./index.css" />
+        <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    </head>
+
+    <body>
+        <div id="app">
+            <header class="topbar">
+                <div class="brand">
+                    <span class="dot"></span>
+                    <strong>turn-rs</strong>
+                    <span class="brand-sub">WebRTC Relay Demo</span>
+                </div>
+                <button class="start-btn" @click="start" :disabled="running">
+                    <span v-if="!running">▶ Start screen share</span>
+                    <span v-else>● Relaying…</span>
+                </button>
+            </header>
+
+            <main class="stage">
+                <section class="panel">
+                    <div class="panel-head">
+                        <span class="tag tag-local">LOCAL</span>
+                        <span class="panel-hint">Captures your screen · click video to start</span>
+                    </div>
+                    <div class="video-wrap">
+                        <video autoplay controls @click="start"></video>
+                        <div class="video-placeholder" v-if="!running">
+                            <span class="play">▶</span>
+                            <span>Click to capture & relay</span>
+                        </div>
+                    </div>
+                    <Controls @change="(it) => { localControls = it }" />
+                </section>
+
+                <section class="panel">
+                    <div class="panel-head">
+                        <span class="tag tag-remote">REMOTE</span>
+                        <span class="panel-hint">Receives the relayed stream</span>
+                    </div>
+                    <div class="video-wrap">
+                        <video autoplay controls></video>
+                        <div class="video-placeholder" v-if="!running">
+                            <span class="wave">◍</span>
+                            <span>Waiting for stream…</span>
+                        </div>
+                    </div>
+                    <Controls @change="(it) => { remoteControls = it }" />
+                </section>
+            </main>
+
+            <footer class="footbar">
+                Forced <code>relay</code> via <code>turn:&lt;server&gt;:3478</code> · credential <code>test</code>
+            </footer>
+        </div>
+
+        <template id="Controls">
+            <div class="controls">
+                <label class="field">
+                    <span class="field-label">Server</span>
+                    <input v-model="server" type="text" placeholder="127.0.0.1" />
+                </label>
+                <label class="field">
+                    <span class="field-label">Transport</span>
+                    <div class="select">
+                        <select v-model="transport">
+                            <option value="udp">udp</option>
+                            <option value="tcp">tcp</option>
+                        </select>
+                    </div>
+                </label>
+                <label class="field">
+                    <span class="field-label">Auth</span>
+                    <div class="select">
+                        <select v-model="username">
+                            <option value="user1">user1 : test</option>
+                            <option value="user2">user2 : test</option>
+                        </select>
+                    </div>
+                </label>
+            </div>
+        </template>
+
+        <script src="./index.js"></script>
+    </body>
+</html>
