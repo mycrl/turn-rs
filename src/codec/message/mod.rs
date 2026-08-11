@@ -12,7 +12,7 @@ use super::{
 
 use bytes::{BufMut, BytesMut};
 
-static MAGIC_NUMBER: u32 = 0x2112A442;
+static MAGIC_COOKIE: u32 = 0x2112A442;
 
 pub struct MessageEncoder<'a> {
     transaction_id: &'a [u8],
@@ -20,12 +20,23 @@ pub struct MessageEncoder<'a> {
 }
 
 impl<'a> MessageEncoder<'a> {
-    pub fn new(method: Method, transaction_id: &'a [u8; 12], bytes: &'a mut BytesMut) -> Self {
+    pub fn new(method: Method, transaction_id: &'a [u8], bytes: &'a mut BytesMut) -> Self {
+        let transaction_id_len = transaction_id.len();
+
+        assert!(
+            transaction_id_len == 12 || transaction_id_len == 16,
+            "Invalid transaction ID"
+        );
+
         bytes.clear();
         bytes.put_u16(method.into());
         bytes.put_u16(0);
-        bytes.put_u32(MAGIC_NUMBER);
-        bytes.put(transaction_id.as_slice());
+
+        if transaction_id_len == 12 {
+            bytes.put_u32(MAGIC_COOKIE);
+        }
+
+        bytes.put_slice(transaction_id);
 
         Self {
             bytes,
@@ -56,14 +67,25 @@ impl<'a> MessageEncoder<'a> {
     ///
     /// assert_eq!(&buf[..], &buffer[..]);
     /// ```
-    pub fn extend(method: Method, reader: &Message<'a>, bytes: &'a mut BytesMut) -> Self {
-        let transaction_id = reader.transaction_id();
+    pub fn extend(method: Method, message: &Message<'a>, bytes: &'a mut BytesMut) -> Self {
+        let transaction_id = message.transaction_id();
+        let transaction_id_len = transaction_id.len();
+
+        assert!(
+            transaction_id_len == 12 || transaction_id_len == 16,
+            "Invalid transaction ID"
+        );
 
         bytes.clear();
         bytes.put_u16(method.into());
         bytes.put_u16(0);
-        bytes.put_u32(MAGIC_NUMBER);
-        bytes.put(transaction_id);
+
+        if transaction_id_len == 12 {
+            bytes.put_u32(MAGIC_COOKIE);
+        }
+
+        bytes.put_slice(transaction_id);
+
         Self {
             bytes,
             transaction_id,
@@ -269,6 +291,8 @@ pub struct Message<'a> {
     method: Method,
     /// message source bytes.
     bytes: &'a [u8],
+    /// message transaction id, maybe 128 bit or 96 bit
+    transaction_id: &'a [u8],
     /// message payload size.
     size: u16,
     // message attribute list.
@@ -285,7 +309,7 @@ impl<'a> Message<'a> {
     /// message transaction id.
     #[inline]
     pub fn transaction_id(&self) -> &'a [u8] {
-        &self.bytes[8..20]
+        self.transaction_id
     }
 
     /// get attribute.
@@ -492,9 +516,12 @@ impl<'a> Message<'a> {
         }
 
         // Check whether the magic number is the same.
-        if bytes[4..8] != MAGIC_NUMBER.to_be_bytes() {
-            return Err(Error::NotFoundMagicNumber);
-        }
+        let transaction_id = if bytes[4..8] != MAGIC_COOKIE.to_be_bytes() {
+            // RFC 3489, not magic cookie
+            &bytes[4..20]
+        } else {
+            &bytes[8..20]
+        };
 
         let mut find_integrity = false;
         let mut content_len = 0;
@@ -554,6 +581,7 @@ impl<'a> Message<'a> {
 
         Ok(Self {
             size: content_len,
+            transaction_id,
             attributes,
             method,
             bytes,

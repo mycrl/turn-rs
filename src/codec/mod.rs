@@ -33,7 +33,6 @@ pub enum Error {
     SummaryFailed,
     NotFoundIntegrity,
     IntegrityFailed,
-    NotFoundMagicNumber,
     UnknownMethod,
     FatalError,
     Utf8Error(Utf8Error),
