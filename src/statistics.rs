@@ -119,10 +119,9 @@ impl Metrics {
     fn add(&self, transport: Transport, payload: &Stats) {
         self.total.add(payload);
 
-        if transport == Transport::Tcp {
-            self.tcp.add(payload);
-        } else {
-            self.udp.add(payload);
+        match transport {
+            Transport::Tcp => self.tcp.add(payload),
+            Transport::Udp => self.udp.add(payload),
         }
     }
 

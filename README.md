@@ -132,9 +132,9 @@ If you don't need a particular feature, you can reduce the package size by enabl
 - `prometheus` - Enable Prometheus metrics at `GET /metrics` on the API server (also enables `rpc`).
 
 > [!NOTE]
-> For the data plane, enabling `server.interfaces.ssl` on a TCP interface turns it into TLS; the UDP transport does not support ssl.
+> For the data plane, enabling `server.interfaces.ssl` on a TCP interface turns it into TLS. The UDP transport does not support ssl.
 
-All features are enabled by default.
+All listed features are enabled by default.
 
 ```bash
 cargo build --release

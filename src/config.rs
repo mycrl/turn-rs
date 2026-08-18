@@ -8,9 +8,9 @@ use crate::service::{InterfaceAddr, Transport, session::ports::PortRange};
 /// SSL configuration
 ///
 /// Used by the TCP data-plane interface (`server.interfaces.ssl`), the
-/// management API (including its Prometheus endpoint), and the hook client. For
-/// the data plane, enabling this on a TCP interface turns it into TLS; the UDP
-/// transport does not support `ssl`.
+/// management API (including its Prometheus endpoint), and the hook client.
+/// For the data plane, enabling this on a TCP interface turns it into TLS.
+/// The UDP transport does not support `ssl`.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Ssl {

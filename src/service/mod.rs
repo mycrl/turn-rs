@@ -16,6 +16,13 @@ pub enum Transport {
     Tcp,
 }
 
+impl Transport {
+    /// Stream transports use TURN-TCP framing and ChannelData padding.
+    pub fn is_stream(self) -> bool {
+        matches!(self, Self::Tcp)
+    }
+}
+
 impl ToString for Transport {
     fn to_string(&self) -> String {
         match self {

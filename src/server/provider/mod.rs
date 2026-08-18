@@ -99,11 +99,8 @@ pub trait ProviderServer: Sized + Send {
                                         // bit needs to be filled, because if the channel data comes
                                         // from udp, it is not guaranteed to be aligned and needs to be
                                         // checked.
-                                        if relay.transport == Transport::Tcp && res.method.is_none() {
-                                            let pad = response_buffer.len() % 4;
-                                            if pad > 0 {
-                                                response_buffer.extend_from_slice(&[0u8; 8][..(4 - pad)]);
-                                            }
+                                        if res.method.is_none() && relay.transport.is_stream() {
+                                            align_4bytes(&mut response_buffer);
                                         }
 
                                         switch.send(&relay, response_buffer);
@@ -164,5 +161,12 @@ pub trait ProviderServer: Sized + Send {
 
             Ok(())
         }
+    }
+}
+
+fn align_4bytes(buffer: &mut Buffer) {
+    let pad = buffer.len() % 4;
+    if pad > 0 {
+        buffer.extend_from_slice(&[0u8; 4][..(4 - pad)]);
     }
 }
