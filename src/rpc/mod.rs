@@ -9,20 +9,18 @@ use crate::{Service, config::Config, statistics::Statistics};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use axum::{
-    Router,
-    error_handling::HandleErrorLayer,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
-
+use axum::{Router, error_handling::HandleErrorLayer, http::StatusCode};
 use sdk::protos::turn_service_server::TurnServiceServer;
 use tokio::net::TcpListener;
 use tonic::service::Routes;
 use tower::{BoxError, ServiceBuilder, timeout::TimeoutLayer};
 
 #[cfg(feature = "prometheus")]
-use axum::{http::header::CONTENT_TYPE, routing::get};
+use axum::{
+    http::header::CONTENT_TYPE,
+    response::{IntoResponse, Response},
+    routing::get,
+};
 
 #[cfg(feature = "prometheus")]
 async fn metrics(statistics: Statistics) -> Response {
