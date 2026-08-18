@@ -1,12 +1,15 @@
+mod args;
 mod logger;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+use args::Args;
 use turn_server::config::Config;
 
 fn main() -> anyhow::Result<()> {
-    let config = Config::load()?;
+    let args = Args::parse()?;
+    let config = Config::load(&args.config)?;
 
     logger::init(&config)?;
 

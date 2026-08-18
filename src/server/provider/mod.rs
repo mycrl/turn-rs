@@ -20,14 +20,12 @@ pub trait ProviderStream: Send + 'static {
     fn close(&mut self) -> impl Future<Output = ()> + Send;
 }
 
-#[allow(unused)]
 pub struct ServerOptions {
     pub transport: Transport,
     pub idle_timeout: u32,
     pub listen: SocketAddr,
     pub external: SocketAddr,
     pub ssl: Option<Ssl>,
-    pub mtu: usize,
 }
 
 pub trait ProviderServer: Sized + Send {

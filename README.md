@@ -44,35 +44,35 @@ However, turn-rs is not a simple duplicate implementation, and this project is n
 
 For detailed information, please read directly the documentation: [AGENTS.md](./AGENTS.md)
 
--   [features](#features)
--   [usage](#usage)
-    -   [docker](#docker)
-    -   [linux service](#linux-service)
--   [building](#building)
--   [document](./docs)
-    -   [install](./docs/install.md)
-    -   [build](./docs/build.md)
-    -   [start the server](./docs/start-the-server.md)
-    -   [configure](./docs/configure.md)
-    -   [api](./sdk/protos/server.proto)
+- [features](#features)
+- [usage](#usage)
+    - [docker](#docker)
+    - [linux service](#linux-service)
+- [building](#building)
+- [document](./docs)
+    - [install](./docs/install.md)
+    - [build](./docs/build.md)
+    - [start the server](./docs/start-the-server.md)
+    - [configure](./docs/configure.md)
+    - [api](./sdk/protos/server.proto)
 
 ## Features
 
--   Only long-term credential mechanisms are used.
--   Static authentication lists can be used in configuration files.
--   Only virtual ports are always allocated and no real system ports are occupied.
--   The transport layer supports TCP and UDP protocols, and supports binding multiple network cards or interfaces.
--   The gRPC API can be used so that the turn server can proactively notify the external service of events, and the external can also proactively control the turn server and manage the session.
+- Only long-term credential mechanisms are used.
+- Static authentication lists can be used in configuration files.
+- Only virtual ports are always allocated and no real system ports are occupied.
+- The transport layer supports TCP and UDP protocols, and supports binding multiple network cards or interfaces.
+- The gRPC API can be used so that the turn server can proactively notify the external service of events, and the external can also proactively control the turn server and manage the session.
 
 #### RFC
 
--   [RFC 3489](https://datatracker.ietf.org/doc/html/rfc3489) - "classic" STUN
--   [RFC 5389](https://datatracker.ietf.org/doc/html/rfc5389) - base "new" STUN specs
--   [RFC 5769](https://datatracker.ietf.org/doc/html/rfc5769) - test vectors for STUN protocol testing
--   [RFC 5766](https://datatracker.ietf.org/doc/html/rfc5766) - base TURN specs
--   [RFC 6062](https://datatracker.ietf.org/doc/html/rfc6062) - TCP relaying TURN extension
--   [RFC 6156](https://datatracker.ietf.org/doc/html/rfc6156) - IPv6 extension for TURN
--   [TURN REST API](http://tools.ietf.org/html/draft-uberti-behave-turn-rest-00)
+- [RFC 3489](https://datatracker.ietf.org/doc/html/rfc3489) - "classic" STUN
+- [RFC 5389](https://datatracker.ietf.org/doc/html/rfc5389) - base "new" STUN specs
+- [RFC 5769](https://datatracker.ietf.org/doc/html/rfc5769) - test vectors for STUN protocol testing
+- [RFC 5766](https://datatracker.ietf.org/doc/html/rfc5766) - base TURN specs
+- [RFC 6062](https://datatracker.ietf.org/doc/html/rfc6062) - TCP relaying TURN extension
+- [RFC 6156](https://datatracker.ietf.org/doc/html/rfc6156) - IPv6 extension for TURN
+- [TURN REST API](http://tools.ietf.org/html/draft-uberti-behave-turn-rest-00)
 
 ## Usage
 
@@ -125,11 +125,11 @@ cargo build --release
 
 If you don't need a particular feature, you can reduce the package size by enabling only the features you require.
 
--   `udp` - Enables UDP transport layer support.
--   `tcp` - Enables TCP transport layer support.
--   `ssl` - Enable TLS encryption support.
--   `api` - Enable the gRPC api server feature.
--   `prometheus` - Enable prometheus support.
+- `udp` - Enables UDP transport layer support.
+- `tcp` - Enables TCP transport layer support.
+- `ssl` - Enable TLS encryption support.
+- `rpc` - Enable the gRPC server feature.
+- `prometheus` - Enable Prometheus metrics at `GET /metrics` on the API server (also enables `rpc`).
 
 > [!NOTE]
 > For the data plane, enabling `server.interfaces.ssl` on a TCP interface turns it into TLS; the UDP transport does not support ssl.

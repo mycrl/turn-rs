@@ -49,11 +49,6 @@ external = "127.0.0.1:3478"
 idle-timeout = 20
 #
 #
-# Maximum Transmission Unit (MTU) size for network packets.
-#
-mtu = 1500
-#
-#
 # ssl configuration
 #
 # Enabling ssl on a TCP interface turns it into TLS. Only the TCP transport
@@ -82,9 +77,10 @@ mtu = 1500
 # rpc server listen
 #
 # This option specifies the gRPC server binding address used to control
-# the turn server.
+# the turn server. When built with the `prometheus` feature, the same HTTP
+# server also exposes Prometheus metrics at `GET /metrics`.
 #
-# [api]
+# [rpc]
 # listen = "127.0.0.1:3000"
 #
 #
@@ -95,28 +91,9 @@ mtu = 1500
 #
 # ssl configuration
 #
-# [api.ssl]
+# [rpc.ssl]
 # private-key = "/etc/turn-rs/tls/private.key"
 # certificate-chain = "/etc/turn-rs/tls/certificate.crt"
-#
-#
-#
-# [prometheus]
-#
-# prometheus server listen
-#
-# This option specifies the prometheus server binding address used to expose
-# the metrics.
-#
-# listen = "127.0.0.1:9090"
-#
-#
-# ssl configuration
-#
-# [prometheus.ssl]
-# private-key = "/etc/turn-rs/tls/private.key"
-# certificate-chain = "/etc/turn-rs/tls/certificate.crt"
-#
 #
 #
 # [hooks]

@@ -39,8 +39,7 @@ This section explains how the server is organized internally and how the main da
 2) [src/lib.rs](src/lib.rs) `start_server()` constructs `Statistics`, a `Handler`, and a `Service`, then spawns:
 
 - transport servers (UDP/TCP) via [src/server](src/server)
-- optional Prometheus exporter via [src/prometheus.rs](src/prometheus.rs)
-- optional gRPC API via [src/api.rs](src/api.rs)
+- optional management HTTP server via [src/api](src/api), serving gRPC and `/metrics`
 
 ### Core modules
 
@@ -74,9 +73,10 @@ This section explains how the server is organized internally and how the main da
 - Auth flow: static credentials -> static auth secret -> optional Hook `GetPassword`.
 - Lifecycle events: allocation, channel bind, permission create, refresh, destroy (sent to Hook service when enabled).
 
-6) [src/api.rs](src/api.rs): gRPC management API and Hook client implementation.
+6) [src/api](src/api): Shared management HTTP server, gRPC API, and Hook client implementation.
 
 - `TurnService` exposes GetInfo/GetSession/GetSessionStatistics/DestroySession.
+- The Axum router serves Prometheus metrics at `/metrics` when enabled.
 - `RpcHooksService` maintains a client + buffered event channel to the external Hook service.
 - The protobuf definitions and generated types now live in the `turn-server-sdk` crate; this module consumes them via `sdk::protos::*`.
 
@@ -86,16 +86,12 @@ This section explains how the server is organized internally and how the main da
 - Message encoder/decoder handles attributes, integrity, and fingerprint.
 - `crypto` contains HMAC and password derivation helpers.
 
-8) [src/statistics.rs](src/statistics.rs): Per-session counters and reporting.
+8) [src/statistics.rs](src/statistics.rs): Per-session counters, reporting, and Prometheus metrics.
 
 - `StatisticsReporter` aggregates per-session bytes/packets and error counts.
-- Integrates with Prometheus metrics when enabled.
+- Owns and encodes global + per-transport Prometheus counters and allocated-session gauge when enabled.
 
-9) [src/prometheus.rs](src/prometheus.rs): HTTP metrics endpoint.
-
-- Exposes `/metrics`, tracks global + per-transport counts and allocated sessions.
-
-10) [sdk](sdk): `turn-server-sdk` workspace crate (gRPC client/server utilities).
+9) [sdk](sdk): `turn-server-sdk` workspace crate (gRPC client/server utilities).
 
 - Owns [sdk/protos/server.proto](sdk/protos/server.proto) and its generated types (built via [sdk/build.rs](sdk/build.rs)).
 - Provides `TurnService` client, `TurnHooksServer`, and password-generation helpers for integrators.
@@ -140,12 +136,12 @@ The config file uses TOML. Full reference: [docs/configure.md](docs/configure.md
 ### Configuration capabilities (feature-oriented)
 
 - `server.*` defines reachability and transport surfaces: `server.interfaces` supports multi-NIC and multi-transport (`udp`/`tcp`) listeners, `listen` binds the local address, and `external` advertises the public address to clients behind NAT or load balancers. `server.port-range` limits relay port allocation, `server.max-threads` caps runtime workers, and `server.realm` is a key input for long-term credential auth.
-- `server.interfaces.idle-timeout` reclaims idle connection resources. Note: `server.interfaces.mtu` is deprecated and no longer affects relaying; it is retained only for config compatibility.
-- TLS is enabled per surface: data plane via `server.interfaces.ssl.*` (TCP transport only), management plane via `api.ssl.*`, and metrics plane via `prometheus.ssl.*`. This lets you secure exposed endpoints while keeping internal ones lightweight.
+- `server.interfaces.idle-timeout` reclaims idle connection resources.
+- TLS is enabled per surface: data plane via `server.interfaces.ssl.*` (TCP transport only), and the shared gRPC/metrics management plane via `api.ssl.*`.
 - Auth strategy is defined by `auth.*`: `auth.static-credentials` provides local static users, `auth.static-auth-secret` enables TURN REST-style shared secrets; for dynamic auth, combine `auth.enable-hooks-auth` with `hooks.*` so an external Hook service can provide passwords and handle session events. Priority is static users first, then shared secret, then Hooks.
 - `hooks.*` enables external integrations for dynamic auth and lifecycle callbacks (allocation, refresh, destroy, and more). `hooks.max-channel-size` and `hooks.timeout` control backpressure and timeouts so Hooks do not impact the main data path.
-- `api.*` enables the gRPC management interface for querying server info, session state, statistics, and destroying sessions.
-- `prometheus.*` exposes Prometheus metrics (requires the `prometheus` feature at build time).
+- `api.*` enables the shared management HTTP server for gRPC and optional Prometheus metrics.
+- The `prometheus` feature exposes `GET /metrics` on `api.listen` and enables the `api` feature.
 - `log.*` controls observability output: `log.level` sets verbosity, `log.stdout` fits container or systemd aggregation, and `log.file-directory` enables local log retention.
 
 ## Start the Server
@@ -178,7 +174,7 @@ You can reduce the binary by compiling with specific features:
 - tcp: TCP transport
 - ssl: TLS support
 - api: gRPC management API
-- prometheus: metrics exporter
+- prometheus: metrics route on the API server (also enables `api`)
 
 Example:
 
@@ -206,6 +202,7 @@ Enablement and security:
 - This endpoint has no TLS or auth by default. If exposed beyond a trusted network, enable `api.ssl.*`.
 - Bind address is configured by `api.listen` (default 127.0.0.1:3000).
 - Timeouts are configured by `api.timeout`.
+- When built with the `prometheus` feature, `GET /metrics` is served on the same address.
 
 ### Hook Service (server calls external system)
 
@@ -244,7 +241,7 @@ Typical use cases:
 - log.level controls log verbosity.
 - log.stdout enables or disables stdout logs.
 - log.file-directory writes logs to a daily file.
-- prometheus.listen enables the metrics endpoint (requires `prometheus` feature).
+- The `prometheus` feature enables `/metrics` on `api.listen`.
 
 ## Security Notes
 

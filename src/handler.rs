@@ -1,4 +1,4 @@
-#[cfg(feature = "api")]
+#[cfg(feature = "rpc")]
 use std::sync::Arc;
 
 use crate::{
@@ -11,18 +11,18 @@ use crate::{
     statistics::Statistics,
 };
 
-#[cfg(feature = "api")]
-use crate::api::{HooksEvent, RpcHooksService};
+#[cfg(feature = "rpc")]
+use crate::rpc::{HooksEvent, RpcHooksService};
 
 use anyhow::Result;
 
-#[cfg(feature = "api")]
+#[cfg(feature = "rpc")]
 use sdk::protos::{
     TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
     TurnRefreshEvent,
 };
 
-#[cfg(feature = "api")]
+#[cfg(feature = "rpc")]
 impl Into<sdk::protos::Identifier> for &Identifier {
     fn into(self) -> sdk::protos::Identifier {
         use crate::service::Transport;
@@ -43,9 +43,9 @@ impl Into<sdk::protos::Identifier> for &Identifier {
 #[derive(Clone)]
 pub struct Handler {
     config: Config,
-    #[cfg(feature = "api")]
+    #[cfg(feature = "rpc")]
     statistics: Statistics,
-    #[cfg(feature = "api")]
+    #[cfg(feature = "rpc")]
     rpc: Arc<RpcHooksService>,
 }
 
@@ -53,9 +53,9 @@ impl Handler {
     #[allow(unused_variables)]
     pub async fn new(config: Config, statistics: Statistics) -> Result<Self> {
         Ok(Self {
-            #[cfg(feature = "api")]
+            #[cfg(feature = "rpc")]
             rpc: RpcHooksService::new(&config).await?.into(),
-            #[cfg(feature = "api")]
+            #[cfg(feature = "rpc")]
             statistics,
             config,
         })
@@ -98,7 +98,7 @@ impl ServiceHandler for Handler {
             ));
         }
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         if self.config.auth.enable_hooks_auth {
             return self
                 .rpc
@@ -135,7 +135,7 @@ impl ServiceHandler for Handler {
             port
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
             self.statistics.register(*id);
 
@@ -188,7 +188,7 @@ impl ServiceHandler for Handler {
             channel
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
             self.rpc
                 .send_event(HooksEvent::ChannelBind(TurnChannelBindEvent {
@@ -248,7 +248,7 @@ impl ServiceHandler for Handler {
             ports
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
             self.rpc
                 .send_event(HooksEvent::CreatePermission(TurnCreatePermissionEvent {
@@ -308,7 +308,7 @@ impl ServiceHandler for Handler {
             lifetime
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
             self.rpc.send_event(HooksEvent::Refresh(TurnRefreshEvent {
                 id: Some(id.into()),
@@ -332,7 +332,7 @@ impl ServiceHandler for Handler {
             username
         );
 
-        #[cfg(feature = "api")]
+        #[cfg(feature = "rpc")]
         {
             self.statistics.unregister(id);
 

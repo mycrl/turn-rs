@@ -26,7 +26,6 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                 listen,
                 external,
                 idle_timeout,
-                mtu,
             } => {
                 servers.spawn(UdpServer::start(
                     ServerOptions {
@@ -35,7 +34,6 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                         ssl: None,
                         external,
                         listen,
-                        mtu,
                     },
                     service.clone(),
                     statistics.clone(),
@@ -54,7 +52,6 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                         idle_timeout,
                         external,
                         listen,
-                        mtu: 0,
                         ssl,
                     },
                     service.clone(),

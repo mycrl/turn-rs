@@ -1,7 +1,6 @@
-use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, str::FromStr};
+use std::{collections::HashMap, fs::read_to_string, net::SocketAddr, path::Path, str::FromStr};
 
 use anyhow::Result;
-use clap::Parser;
 use serde::{Deserialize, Serialize};
 
 use crate::service::{InterfaceAddr, Transport, session::ports::PortRange};
@@ -9,9 +8,9 @@ use crate::service::{InterfaceAddr, Transport, session::ports::PortRange};
 /// SSL configuration
 ///
 /// Used by the TCP data-plane interface (`server.interfaces.ssl`), the
-/// management API, the Prometheus exporter, and the hook client. For the data
-/// plane, enabling this on a TCP interface turns it into TLS; the UDP transport
-/// does not support `ssl`.
+/// management API (including its Prometheus endpoint), and the hook client. For
+/// the data plane, enabling this on a TCP interface turns it into TLS; the UDP
+/// transport does not support `ssl`.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Ssl {
@@ -76,20 +75,10 @@ pub enum Interface {
         /// for a long time.
         #[serde(default = "Interface::idle_timeout")]
         idle_timeout: u32,
-        /// !Deprecated
-        ///
-        /// Maximum Transmission Unit (MTU) size for network packets.
-        ///
-        #[serde(default = "Interface::mtu")]
-        mtu: usize,
     },
 }
 
 impl Interface {
-    fn mtu() -> usize {
-        1500
-    }
-
     fn idle_timeout() -> u32 {
         20
     }
@@ -239,43 +228,6 @@ impl Default for Api {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub struct Prometheus {
-    ///
-    /// prometheus server listen
-    ///
-    /// This option specifies the prometheus server binding address used to expose
-    /// the metrics.
-    ///
-    #[serde(default = "Prometheus::bind")]
-    pub listen: SocketAddr,
-    ///
-    /// ssl configuration
-    ///
-    /// This option specifies the ssl configuration for the prometheus server.
-    ///
-    #[serde(default)]
-    pub ssl: Option<Ssl>,
-}
-
-impl Prometheus {
-    fn bind() -> SocketAddr {
-        "127.0.0.1:9184"
-            .parse()
-            .expect("Invalid default Prometheus bind address")
-    }
-}
-
-impl Default for Prometheus {
-    fn default() -> Self {
-        Self {
-            listen: Self::bind(),
-            ssl: None,
-        }
-    }
-}
-
 #[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
@@ -384,8 +336,6 @@ pub struct Config {
     #[serde(default)]
     pub api: Option<Api>,
     #[serde(default)]
-    pub prometheus: Option<Prometheus>,
-    #[serde(default)]
     pub hooks: Option<Hooks>,
     #[serde(default)]
     pub log: Log,
@@ -393,33 +343,9 @@ pub struct Config {
     pub auth: Auth,
 }
 
-#[derive(Parser, Debug)]
-#[command(
-    about = env!("CARGO_PKG_DESCRIPTION"),
-    version = env!("CARGO_PKG_VERSION"),
-    author = env!("CARGO_PKG_AUTHORS"),
-)]
-struct Cli {
-    ///
-    /// Specify the configuration file path
-    ///
-    /// Example: turn-server --config /etc/turn-rs/config.toml
-    ///
-    #[arg(long, short)]
-    config: String,
-}
-
 impl Config {
-    ///
-    /// Load configure from config file and command line parameters.
-    ///
-    /// Load command line parameters, if the configuration file path is specified,
-    /// the configuration is read from the configuration file, otherwise the
-    /// default configuration is used.
-    ///
-    pub fn load() -> Result<Self> {
-        Ok(toml::from_str::<Self>(&read_to_string(
-            &Cli::parse().config,
-        )?)?)
+    /// Load configure from the given file path.
+    pub fn load(path: impl AsRef<Path>) -> Result<Self> {
+        Ok(toml::from_str::<Self>(&read_to_string(path)?)?)
     }
 }

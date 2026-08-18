@@ -22,5 +22,5 @@ features:
       details: Prioritizes core functionality with minimal configuration cost. Runs great everywhere — even on a Raspberry Pi — and stays fast under heavy client load.
     - icon: 🔌
       title: Extensible & Observable
-      details: Optional gRPC management API, dynamic Hook-based auth and lifecycle events, plus a built-in Prometheus metrics exporter.
+      details: Optional gRPC management API, dynamic Hook-based auth and lifecycle events, plus built-in Prometheus metrics on the same HTTP server.
 ---

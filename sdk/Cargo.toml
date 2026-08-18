@@ -1,6 +1,6 @@
 [package]
 name = "turn-server-sdk"
-version = "0.3.0"
+version = "0.4.0-alpha.1"
 edition = "2024"
 description = "Client SDK for interacting with the turn-server gRPC API."
 license = "MIT"

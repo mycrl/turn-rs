@@ -27,11 +27,11 @@ export RUSTFLAGS='-C target-cpu=native'
 
 If you don't need a particular feature, you can reduce the package size by enabling only the features you require.
 
--   `udp` - Enables UDP transport layer support.
--   `tcp` - Enables TCP transport layer support.
--   `ssl` - Enable TLS encryption support.
--   `api` - Enable the gRPC api server feature.
--   `prometheus` - Enable prometheus support.
+- `udp` - Enables UDP transport layer support.
+- `tcp` - Enables TCP transport layer support.
+- `ssl` - Enable TLS encryption support.
+- `rpc` - Enable the gRPC rpc server feature.
+- `prometheus` - Enable Prometheus metrics at `GET /metrics` on the API server (also enables `rpc`).
 
 > [!NOTE]
 > For the data plane, enabling `server.interfaces.ssl` on a TCP interface turns it into TLS; the UDP transport does not support ssl.

@@ -27,7 +27,7 @@ coturn features that turn-rs intentionally does **not** implement.
 | Relay ports     | Binds real OS ports between `min-port`/`max-port`                 | Allocates **virtual** ports only; no real system ports are occupied                          |
 | TLS             | `tls-listening-port`, plus **DTLS** over UDP                      | TLS via `ssl` on a **TCP** interface; **no DTLS**, UDP has no encryption                     |
 | Management      | Telnet/`cli` admin console                                        | Optional **gRPC** management API                                                             |
-| Metrics         | Prometheus exporter                                               | Built-in Prometheus exporter (`prometheus` feature)                                          |
+| Metrics         | Prometheus exporter                                               | Built-in `/metrics` route on the management API (`prometheus` feature)                       |
 | Event callbacks | DB writes / logs                                                  | gRPC **hooks** (allocation, refresh, channel bind, permission, destroy)                      |
 
 ## Option mapping
