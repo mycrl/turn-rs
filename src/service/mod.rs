@@ -3,6 +3,8 @@ pub mod session;
 
 use std::{net::SocketAddr, sync::Arc};
 
+use serde::{Deserialize, Serialize};
+
 use crate::codec::{crypto::Password, message::attributes::PasswordAlgorithm};
 
 use self::{
@@ -10,7 +12,8 @@ use self::{
     session::{Identifier, SessionManager, SessionManagerOptions, ports::PortRange},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
 pub enum Transport {
     Udp,
     Tcp,
@@ -40,7 +43,7 @@ pub struct InterfaceAddr {
 }
 
 pub trait ServiceHandler: Send + Sync + 'static {
-    fn get_password(
+    fn register(
         &self,
         id: &Identifier,
         username: &str,

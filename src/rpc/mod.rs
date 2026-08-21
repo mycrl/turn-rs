@@ -69,7 +69,6 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
 
         log::info!("api server listening: listen={}", api.listen);
 
-        #[cfg(feature = "ssl")]
         if let Some(ssl) = &api.ssl {
             let tls = axum_server::tls_rustls::RustlsConfig::from_pem_chain_file(
                 ssl.certificate_chain.clone(),

@@ -12,14 +12,14 @@ use tokio::sync::{
     mpsc::{Sender, channel},
 };
 
-use tonic::{Request, transport::Channel};
-
-#[cfg(feature = "ssl")]
-use tonic::transport::{Certificate, ClientTlsConfig};
+use tonic::{
+    Request,
+    transport::{Certificate, Channel, ClientTlsConfig},
+};
 
 use sdk::protos::{
-    GetTurnPasswordRequest, TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent,
-    TurnDestroyEvent, TurnRefreshEvent, turn_hooks_service_client::TurnHooksServiceClient,
+    TurnAllocatedEvent, TurnChannelBindEvent, TurnCreatePermissionEvent, TurnDestroyEvent,
+    TurnRefreshEvent, TurnRegisterRequest, turn_hooks_service_client::TurnHooksServiceClient,
 };
 
 impl Into<sdk::protos::Transport> for crate::service::Transport {
@@ -118,7 +118,6 @@ impl RpcHooksService {
 
                 builder = builder.timeout(Duration::from_secs(hooks.timeout as u64));
 
-                #[cfg(feature = "ssl")]
                 if let Some(ssl) = &hooks.ssl {
                     builder = builder.tls_config(
                         ClientTlsConfig::new()
@@ -189,7 +188,7 @@ impl RpcHooksService {
         }
     }
 
-    pub async fn get_password(
+    pub async fn register(
         &self,
         id: &Identifier,
         realm: &str,
@@ -205,7 +204,7 @@ impl RpcHooksService {
                 .client
                 .lock()
                 .await
-                .get_password(Request::new(GetTurnPasswordRequest {
+                .register(Request::new(TurnRegisterRequest {
                     id: Some(id.into()),
                     realm: realm.to_string(),
                     username: username.to_string(),

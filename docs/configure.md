@@ -13,8 +13,6 @@ This document explains every option available in `turn-server.toml`. All keys ar
 | `server.interfaces.listen`                | string (`"IP:PORT"`)             |                        |                           | Local socket address to bind. Use a specific NIC address when the machine is multi-homed; `0.0.0.0:3478` binds to all IPv4 interfaces.                                                                                           |
 | `server.interfaces.external`              | string (`"IP:PORT"`)             |                        |                           | Publicly reachable address advertised to clients. Set this to the NAT/public IP when the bound address is not directly reachable.                                                                                                |
 | `server.interfaces.idle-timeout`          | integer (seconds)                | 20                     |                           | Maximum idle period before a transport connection is dropped.                                                                                                                                                                    |
-| `server.interfaces.ssl.private-key`       | path to PEM file                 |                        |                           | Private key file for TLS. Optional on TCP (enables TLS). Has no effect on UDP.                                                                                                                                                   |
-| `server.interfaces.ssl.certificate-chain` | path to PEM file                 |                        |                           | Certificate chain file for TLS. Optional on TCP (enables TLS). Has no effect on UDP.                                                                                                                                             |
 | `rpc.listen`                              | string (`"IP:PORT"`)             | `"127.0.0.1:3000"`     |                           | Bind address for the management HTTP server. It serves gRPC and, when built with the `prometheus` feature, `GET /metrics`.                                                                                                       |
 | `rpc.timeout`                             | integer (seconds)                | 5                      |                           | Global timeout applied to API handlers.                                                                                                                                                                                          |
 | `rpc.ssl.private-key`                     | path to PEM file                 |                        |                           | Private key file for TLS on the API endpoint.                                                                                                                                                                                    |
@@ -32,9 +30,7 @@ This document explains every option available in `turn-server.toml`. All keys ar
 | `auth.static-credentials`                 | table of `username = "password"` |                        |                           | Static user database used before falling back to hook authentication. Populate this map with long-term accounts that should always exist.                                                                                        |
 
 > [!NOTE]
-> Provide the `server.interfaces.ssl.*` fields to turn a TCP interface into TLS. The UDP transport does not accept an `ssl` option. Certificates are loaded via rustls with the AWS-LC backend.
->
-> Optional TLS configuration applies to `rpc.ssl.*` (gRPC and `/metrics`) and `hooks.ssl.*` entries.
+> Optional TLS configuration applies to `rpc.ssl.*` (gRPC and `/metrics`) and `hooks.ssl.*` entries. Certificates are loaded via rustls with the AWS-LC backend.
 
 ### Security note
 

@@ -39,7 +39,7 @@ This section explains how the server is organized internally and how the main da
 2) [src/lib.rs](src/lib.rs) `start_server()` constructs `Statistics`, a `Handler`, and a `Service`, then spawns:
 
 - transport servers (UDP/TCP) via [src/server](src/server)
-- optional management HTTP server via [src/api](src/api), serving gRPC and `/metrics`
+- optional management HTTP server via [src/rpc](src/rpc), serving gRPC and `/metrics`
 
 ### Core modules
 
@@ -66,14 +66,14 @@ This section explains how the server is organized internally and how the main da
 
 - [src/server/provider/mod.rs](src/server/provider/mod.rs) defines the `ProviderServer`/`ProviderStream` traits and `ServerOptions`. `ProviderServer::start` binds sockets, spawns per-connection tasks, routes packets, applies TCP channel-data padding, drives stats reporting, and handles idle timeout.
 - [src/server/provider/udp.rs](src/server/provider/udp.rs) implements `UdpServer`/`UdpSession` (a single shared socket demultiplexed into per-peer channels).
-- [src/server/provider/tcp.rs](src/server/provider/tcp.rs) implements `TcpServer` with an optional TLS (`MaybeSslStream`) accept path.
+- [src/server/provider/tcp.rs](src/server/provider/tcp.rs) implements `TcpServer` over plain `TcpStream`.
 
 5) [src/handler.rs](src/handler.rs): Implements `ServiceHandler`.
 
-- Auth flow: static credentials -> static auth secret -> optional Hook `GetPassword`.
+- Auth flow: static credentials -> static auth secret -> optional Hook `Register`.
 - Lifecycle events: allocation, channel bind, permission create, refresh, destroy (sent to Hook service when enabled).
 
-6) [src/api](src/api): Shared management HTTP server, gRPC API, and Hook client implementation.
+6) [src/rpc](src/rpc): Shared management HTTP server, gRPC API, and Hook client implementation.
 
 - `TurnService` exposes GetInfo/GetSession/GetSessionStatistics/DestroySession.
 - The Axum router serves Prometheus metrics at `/metrics` when enabled.
@@ -95,7 +95,7 @@ This section explains how the server is organized internally and how the main da
 
 - Owns [sdk/protos/server.proto](sdk/protos/server.proto) and its generated types (built via [sdk/build.rs](sdk/build.rs)).
 - Provides `TurnService` client, `TurnHooksServer`, and password-generation helpers for integrators.
-- Consumed by the main binary through the `api` feature; published independently for external clients.
+- Consumed by the main binary through the `rpc` feature; published independently for external clients.
 
 ### Design notes and key decisions
 
@@ -137,11 +137,11 @@ The config file uses TOML. Full reference: [docs/configure.md](docs/configure.md
 
 - `server.*` defines reachability and transport surfaces: `server.interfaces` supports multi-NIC and multi-transport (`udp`/`tcp`) listeners, `listen` binds the local address, and `external` advertises the public address to clients behind NAT or load balancers. `server.port-range` limits relay port allocation, `server.max-threads` caps runtime workers, and `server.realm` is a key input for long-term credential auth.
 - `server.interfaces.idle-timeout` reclaims idle connection resources.
-- TLS is enabled per surface: data plane via `server.interfaces.ssl.*` (TCP transport only), and the shared gRPC/metrics management plane via `api.ssl.*`.
+- TLS is available on the management plane via `rpc.ssl.*` and on the hook client via `hooks.ssl.*`.
 - Auth strategy is defined by `auth.*`: `auth.static-credentials` provides local static users, `auth.static-auth-secret` enables TURN REST-style shared secrets; for dynamic auth, combine `auth.enable-hooks-auth` with `hooks.*` so an external Hook service can provide passwords and handle session events. Priority is static users first, then shared secret, then Hooks.
 - `hooks.*` enables external integrations for dynamic auth and lifecycle callbacks (allocation, refresh, destroy, and more). `hooks.max-channel-size` and `hooks.timeout` control backpressure and timeouts so Hooks do not impact the main data path.
-- `api.*` enables the shared management HTTP server for gRPC and optional Prometheus metrics.
-- The `prometheus` feature exposes `GET /metrics` on `api.listen` and enables the `api` feature.
+- `rpc.*` enables the shared management HTTP server for gRPC and optional Prometheus metrics.
+- The `prometheus` feature exposes `GET /metrics` on `rpc.listen` and enables the `rpc` feature.
 - `log.*` controls observability output: `log.level` sets verbosity, `log.stdout` fits container or systemd aggregation, and `log.file-directory` enables local log retention.
 
 ## Start the Server
@@ -172,9 +172,8 @@ You can reduce the binary by compiling with specific features:
 
 - udp: UDP transport (default on)
 - tcp: TCP transport
-- ssl: TLS support
-- api: gRPC management API
-- prometheus: metrics route on the API server (also enables `api`)
+- rpc: gRPC management API
+- prometheus: metrics route on the API server (also enables `rpc`)
 
 Example:
 
@@ -199,9 +198,9 @@ Protocol and fields: [sdk/protos/server.proto](sdk/protos/server.proto). Core RP
 
 Enablement and security:
 
-- This endpoint has no TLS or auth by default. If exposed beyond a trusted network, enable `api.ssl.*`.
-- Bind address is configured by `api.listen` (default 127.0.0.1:3000).
-- Timeouts are configured by `api.timeout`.
+- This endpoint has no TLS or auth by default. If exposed beyond a trusted network, enable `rpc.ssl.*`.
+- Bind address is configured by `rpc.listen` (default 127.0.0.1:3000).
+- Timeouts are configured by `rpc.timeout`.
 - When built with the `prometheus` feature, `GET /metrics` is served on the same address.
 
 ### Hook Service (server calls external system)
@@ -212,7 +211,7 @@ Protocol and fields: [sdk/protos/server.proto](sdk/protos/server.proto). Two cat
 
 1) Dynamic authentication
 
-- `GetPassword`: server asks for the password used to compute TURN message integrity.
+- `Register`: server asks for the password used to compute TURN message integrity.
 - Request includes `username`, `realm`, and `algorithm` (`MD5` or `SHA256`).
 - Response returns `password` as bytes.
 
@@ -241,11 +240,11 @@ Typical use cases:
 - log.level controls log verbosity.
 - log.stdout enables or disables stdout logs.
 - log.file-directory writes logs to a daily file.
-- The `prometheus` feature enables `/metrics` on `api.listen`.
+- The `prometheus` feature enables `/metrics` on `rpc.listen`.
 
 ## Security Notes
 
-- gRPC management endpoint has no auth/TLS by default; enable `api.ssl.*` or keep it in a trusted network.
+- gRPC management endpoint has no auth/TLS by default; enable `rpc.ssl.*` or keep it in a trusted network.
 - Protect certificates, private keys, and shared secrets with filesystem permissions.
 
 ## Tests and Benchmarks

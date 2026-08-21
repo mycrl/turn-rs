@@ -21,7 +21,11 @@ cargo add turn-server-sdk
 The `TurnService` client allows you to interact with a running TURN server's gRPC API:
 
 ```rust
-use turn_server_sdk::{TurnService， tonic::transport::Channel};
+use tonic::transport::Channel;
+use turn_server_sdk::{
+    TurnService,
+    protos::{Identifier, Transport},
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,18 +39,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get server information
     let info = client.get_info().await?;
-    println!("Server version: {}", info.version);
+    println!("Server software: {}", info.software);
+
+    let id = Identifier {
+        source: "127.0.0.1".to_string(),
+        external: "127.0.0.1".to_string(),
+        interface: "127.0.0.1".to_string(),
+        transport: Transport::Udp as i32,
+    };
 
     // Query a session by ID
-    let session = client.get_session("session-id".to_string()).await?;
+    let session = client.get_session(id.clone()).await?;
     println!("Session username: {}", session.username);
 
     // Get session statistics
-    let stats = client.get_session_statistics("session-id".to_string()).await?;
+    let stats = client.get_session_statistics(id.clone()).await?;
     println!("Bytes sent: {}", stats.send_bytes);
 
     // Destroy a session
-    client.destroy_session("session-id".to_string()).await?;
+    client.destroy_session(id).await?;
 
     Ok(())
 }
@@ -54,21 +65,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Server Usage (Hooks Implementation)
 
-Implement the `TurnHooksServer` trait to provide custom authentication and handle TURN events:
+Implement the `TurnHooksServer` trait to provide custom authentication and handle TURN events. See also [`examples/simple.rs`](examples/simple.rs).
 
 ```rust
+use tonic::{Status, transport::Server};
 use turn_server_sdk::{
     Credential, TurnHooksServer,
-    protos::PasswordAlgorithm,
-    tonic::{Status, transport::Server},
+    protos::{Identifier, PasswordAlgorithm},
 };
 
 struct MyHooksServer;
 
-#[turn_server_sdk::tonic::async_trait]
+#[tonic::async_trait]
 impl TurnHooksServer for MyHooksServer {
-    async fn get_password(
+    async fn register(
         &self,
+        id: Identifier,
         realm: &str,
         username: &str,
         algorithm: PasswordAlgorithm,
@@ -81,25 +93,25 @@ impl TurnHooksServer for MyHooksServer {
         })
     }
 
-    async fn on_allocated(&self, id: String, username: String, port: u16) {
-        println!("Session allocated: id={}, username={}, port={}", id, username, port);
+    async fn on_allocated(&self, id: Identifier, username: String, port: u16) {
+        println!("Session allocated: id={:?}, username={}, port={}", id, username, port);
         // Handle allocation event (e.g., log to database, update metrics)
     }
 
-    async fn on_channel_bind(&self, id: String, username: String, channel: u16) {
-        println!("Channel bound: id={}, username={}, channel={}", id, username, channel);
+    async fn on_channel_bind(&self, id: Identifier, username: String, channel: u16) {
+        println!("Channel bound: id={:?}, username={}, channel={}", id, username, channel);
     }
 
-    async fn on_create_permission(&self, id: String, username: String, ports: Vec<u16>) {
-        println!("Permission created: id={}, username={}, ports={:?}", id, username, ports);
+    async fn on_create_permission(&self, id: Identifier, username: String, ports: Vec<u16>) {
+        println!("Permission created: id={:?}, username={}, ports={:?}", id, username, ports);
     }
 
-    async fn on_refresh(&self, id: String, username: String, lifetime: u32) {
-        println!("Session refreshed: id={}, username={}, lifetime={}", id, username, lifetime);
+    async fn on_refresh(&self, id: Identifier, username: String, lifetime: u32) {
+        println!("Session refreshed: id={:?}, username={}, lifetime={}", id, username, lifetime);
     }
 
-    async fn on_destroy(&self, id: String, username: String) {
-        println!("Session destroyed: id={}, username={}", id, username);
+    async fn on_destroy(&self, id: Identifier, username: String) {
+        println!("Session destroyed: id={:?}, username={}", id, username);
         // Handle session destruction (e.g., cleanup resources)
     }
 }
@@ -157,6 +169,7 @@ match md5_password {
 
 The `TurnHooksServer` trait provides hooks for various TURN server events:
 
+-   `register`: Called when a client authenticates; return the credential used for message integrity
 -   `on_allocated`: Called when a client allocates a relay port
 -   `on_channel_bind`: Called when a channel is bound to a peer
 -   `on_create_permission`: Called when permissions are created for peers
@@ -174,17 +187,13 @@ Most operations return `Result<T, Status>` where `Status` is a gRPC status code.
 -   `Status::unauthenticated`: Authentication failed
 -   `Status::internal`: Internal server error
 
-## Re-exports
+## Protobuf bindings
 
-This crate re-exports:
-
--   `tonic`: The gRPC framework used for communication
--   `protos`: The generated protobuf bindings for TURN server messages
-
-You can use these directly from `turn_server_sdk`:
+This crate exposes generated protobuf types under `turn_server_sdk::protos`. gRPC transport types come from the `tonic` crate:
 
 ```rust
-use turn_server_sdk::{tonic, protos};
+use tonic::transport::Channel;
+use turn_server_sdk::protos;
 ```
 
 ## Documentation

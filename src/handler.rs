@@ -63,7 +63,7 @@ impl Handler {
 }
 
 impl ServiceHandler for Handler {
-    async fn get_password(
+    async fn register(
         &self,
         id: &Identifier,
         username: &str,
@@ -102,7 +102,7 @@ impl ServiceHandler for Handler {
         if self.config.auth.enable_hooks_auth {
             return self
                 .rpc
-                .get_password(id, &self.config.server.realm, username, algorithm)
+                .register(id, &self.config.server.realm, username, algorithm)
                 .await;
         }
 

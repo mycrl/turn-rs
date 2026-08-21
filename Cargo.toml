@@ -25,10 +25,12 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.9.6"
 fern = { version = "0.7.1", features = ["date-based", "syslog-6"] }
 tokio = { version = "1", features = ["full"] }
-tokio-rustls = { version = "0.26", features = ["aws-lc-rs"], optional = true }
 tower = { version = "0.5", features = ["timeout"], optional = true }
 num_cpus = "1.17.0"
-tonic = { version = "0.14", features = ["deflate"], optional = true }
+tonic = { version = "0.14", features = [
+    "deflate",
+    "tls-aws-lc",
+], optional = true }
 sdk = { path = "./sdk", version = "0.4.0-alpha.1", package = "turn-server-sdk", optional = true }
 prometheus = { version = "0.14.0", optional = true }
 url = { version = "2.5", optional = true }
@@ -49,11 +51,17 @@ name = "stun"
 harness = false
 
 [features]
-default = ["udp", "tcp", "ssl", "rpc", "prometheus"]
+default = ["udp", "tcp", "rpc", "prometheus"]
 tcp = []
 udp = []
-ssl = ["dep:tokio-rustls", "tonic/tls-aws-lc", "dep:axum-server"]
-rpc = ["dep:axum", "dep:tonic", "dep:tower", "dep:url", "dep:sdk"]
+rpc = [
+    "dep:axum",
+    "dep:axum-server",
+    "dep:tonic",
+    "dep:tower",
+    "dep:url",
+    "dep:sdk",
+]
 prometheus = ["rpc", "dep:prometheus"]
 
 [profile.release]

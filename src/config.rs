@@ -7,10 +7,8 @@ use crate::service::{InterfaceAddr, Transport, session::ports::PortRange};
 
 /// SSL configuration
 ///
-/// Used by the TCP data-plane interface (`server.interfaces.ssl`), the
-/// management API (including its Prometheus endpoint), and the hook client.
-/// For the data plane, enabling this on a TCP interface turns it into TLS.
-/// The UDP transport does not support `ssl`.
+/// Used by the management API (including its Prometheus endpoint) and the
+/// hook client.
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Ssl {
@@ -25,57 +23,27 @@ pub struct Ssl {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(tag = "transport", rename_all = "kebab-case")]
-pub enum Interface {
-    Tcp {
-        listen: SocketAddr,
-        ///
-        /// external address
-        ///
-        /// specify the node external address and port.
-        /// for the case of exposing the service to the outside,
-        /// you need to manually specify the server external IP
-        /// address and service listening port.
-        ///
-        external: SocketAddr,
-        ///
-        /// Idle timeout
-        ///
-        /// If no packet is received within the specified number of seconds, the
-        /// connection will be closed to prevent resources from being occupied
-        /// for a long time.
-        #[serde(default = "Interface::idle_timeout")]
-        idle_timeout: u32,
-        ///
-        /// SSL configuration
-        ///
-        /// Enabling this on a TCP interface turns the interface into TLS.
-        /// Only the TCP transport supports `ssl`; the UDP interface does not
-        /// expose this option.
-        ///
-        #[serde(default)]
-        ssl: Option<Ssl>,
-    },
-    Udp {
-        listen: SocketAddr,
-        ///
-        /// external address
-        ///
-        /// specify the node external address and port.
-        /// for the case of exposing the service to the outside,
-        /// you need to manually specify the server external IP
-        /// address and service listening port.
-        ///
-        external: SocketAddr,
-        ///
-        /// Idle timeout
-        ///
-        /// If no packet is received within the specified number of seconds, the
-        /// connection will be closed to prevent resources from being occupied
-        /// for a long time.
-        #[serde(default = "Interface::idle_timeout")]
-        idle_timeout: u32,
-    },
+#[serde(rename_all = "kebab-case")]
+pub struct Interface {
+    pub transport: Transport,
+    pub listen: SocketAddr,
+    ///
+    /// external address
+    ///
+    /// specify the node external address and port.
+    /// for the case of exposing the service to the outside,
+    /// you need to manually specify the server external IP
+    /// address and service listening port.
+    ///
+    pub external: SocketAddr,
+    ///
+    /// Idle timeout
+    ///
+    /// If no packet is received within the specified number of seconds, the
+    /// connection will be closed to prevent resources from being occupied
+    /// for a long time.
+    #[serde(default = "Interface::idle_timeout")]
+    pub idle_timeout: u32,
 }
 
 impl Interface {
@@ -122,21 +90,10 @@ impl Server {
     pub fn get_interface_addrs(&self) -> Vec<InterfaceAddr> {
         self.interfaces
             .iter()
-            .map(|item| match item {
-                Interface::Tcp {
-                    listen, external, ..
-                } => InterfaceAddr {
-                    addr: *listen,
-                    external: *external,
-                    transport: Transport::Tcp,
-                },
-                Interface::Udp {
-                    listen, external, ..
-                } => InterfaceAddr {
-                    addr: *listen,
-                    external: *external,
-                    transport: Transport::Udp,
-                },
+            .map(|item| InterfaceAddr {
+                addr: item.listen,
+                external: item.external,
+                transport: item.transport,
             })
             .collect()
     }

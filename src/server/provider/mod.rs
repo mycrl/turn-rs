@@ -8,7 +8,6 @@ use tokio::time::interval;
 
 use crate::{
     Service,
-    config::Ssl,
     server::{Switch, buffer::Buffer},
     service::{Transport, session::Identifier},
     statistics::{Statistics, Stats},
@@ -25,7 +24,6 @@ pub struct ServerOptions {
     pub idle_timeout: u32,
     pub listen: SocketAddr,
     pub external: SocketAddr,
-    pub ssl: Option<Ssl>,
 }
 
 pub trait ProviderServer: Sized + Send {

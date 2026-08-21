@@ -274,7 +274,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn register(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -385,7 +385,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn register(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -445,7 +445,7 @@ where
         // digest.
         let password = self
             .handler
-            .get_password(identifier, username, algorithm)
+            .register(identifier, username, algorithm)
             .await?;
 
         // Record a new session.
@@ -494,7 +494,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn register(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -594,7 +594,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn register(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -693,7 +693,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn register(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -822,7 +822,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn register(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -929,7 +929,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn register(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {
@@ -1022,7 +1022,7 @@ where
     /// struct ServiceHandlerTest;
     ///
     /// impl ServiceHandler for ServiceHandlerTest {
-    ///     async fn get_password(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
+    ///     async fn register(&self, id: &Identifier, username: &str, algorithm: PasswordAlgorithm) -> Option<Password> {
     ///         if username == "test" {
     ///             Some(turn_server::codec::crypto::generate_password(username, "test", "test", algorithm))
     ///         } else {

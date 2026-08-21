@@ -127,12 +127,11 @@ If you don't need a particular feature, you can reduce the package size by enabl
 
 - `udp` - Enables UDP transport layer support.
 - `tcp` - Enables TCP transport layer support.
-- `ssl` - Enable TLS encryption support.
 - `rpc` - Enable the gRPC server feature.
 - `prometheus` - Enable Prometheus metrics at `GET /metrics` on the API server (also enables `rpc`).
 
 > [!NOTE]
-> For the data plane, enabling `server.interfaces.ssl` on a TCP interface turns it into TLS. The UDP transport does not support ssl.
+> TLS is available on the management API (`rpc.ssl`) and the hook client (`hooks.ssl`).
 
 All listed features are enabled by default.
 

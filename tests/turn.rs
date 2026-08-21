@@ -62,16 +62,17 @@ async fn integration_testing_with_coturn_uclient() -> Result<()> {
                 server: Server {
                     realm: "test".to_string(),
                     interfaces: vec![
-                        Interface::Udp {
+                        Interface {
+                            transport: Transport::Udp,
                             external: "127.0.0.1:3478".parse().unwrap(),
                             listen: "127.0.0.1:3478".parse().unwrap(),
                             idle_timeout: 30,
                         },
-                        Interface::Tcp {
+                        Interface {
+                            transport: Transport::Tcp,
                             external: "127.0.0.1:3478".parse().unwrap(),
                             listen: "127.0.0.1:3478".parse().unwrap(),
                             idle_timeout: 30,
-                            ssl: None,
                         },
                     ],
                     ..Default::default()

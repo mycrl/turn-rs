@@ -25,7 +25,6 @@ coturn features that turn-rs intentionally does **not** implement.
 | Auth mechanisms | Long-term and short-term credentials                              | **Long-term credentials only**                                                               |
 | User database   | Static `user=`, plus SQLite / Redis / PostgreSQL / MySQL backends | Static users in config, TURN REST shared secret, or a gRPC **hook** service for dynamic auth |
 | Relay ports     | Binds real OS ports between `min-port`/`max-port`                 | Allocates **virtual** ports only; no real system ports are occupied                          |
-| TLS             | `tls-listening-port`, plus **DTLS** over UDP                      | TLS via `ssl` on a **TCP** interface; **no DTLS**, UDP has no encryption                     |
 | Management      | Telnet/`cli` admin console                                        | Optional **gRPC** management API                                                             |
 | Metrics         | Prometheus exporter                                               | Built-in `/metrics` route on the management API (`prometheus` feature)                       |
 | Event callbacks | DB writes / logs                                                  | gRPC **hooks** (allocation, refresh, channel bind, permission, destroy)                      |
@@ -54,16 +53,7 @@ coturn features that turn-rs intentionally does **not** implement.
 | `use-auth-secret` + `static-auth-secret=…`                 | `static-auth-secret = "…"` (under `[auth]`)      | TURN REST / time-limited credentials.                                                                            |
 | `userdb` / `redis-userdb` / `psql-userdb` / `mysql-userdb` | `enable-hooks-auth = true` + a `[hooks]` service | Replace DB backends with a gRPC hook service that returns passwords. See [hooks](#dynamic-authentication-hooks). |
 
-> Authentication priority in turn-rs: **static credentials → static auth secret → hook `GetPassword`**.
-
-### TLS
-
-| coturn                       | turn-rs                                                                  | Notes                                                            |
-| ---------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| `cert=/path/fullchain.pem`   | `certificate-chain = "/path/fullchain.pem"` in `[server.interfaces.ssl]` |                                                                  |
-| `pkey=/path/privkey.pem`     | `private-key = "/path/privkey.pem"` in `[server.interfaces.ssl]`         |                                                                  |
-| `tls-listening-port=5349`    | A `[[server.interfaces]]` with `transport = "tcp"` + `ssl`               | Enabling `ssl` on a TCP interface turns that interface into TLS. |
-| `dtls-listening-port` / DTLS | _(not supported)_                                                        | turn-rs has no DTLS; UDP interfaces cannot be encrypted.         |
+> Authentication priority in turn-rs: **static credentials → static auth secret → hook `Register`**.
 
 ### Logging
 
@@ -79,7 +69,6 @@ A typical coturn `turnserver.conf`:
 
 ```ini
 listening-port=3478
-tls-listening-port=5349
 listening-ip=0.0.0.0
 external-ip=203.0.113.10
 min-port=49152
@@ -88,8 +77,6 @@ realm=example.com
 lt-cred-mech
 user=alice:s3cret
 user=bob:hunter2
-cert=/etc/turn/fullchain.pem
-pkey=/etc/turn/privkey.pem
 log-file=/var/log/turnserver.log
 ```
 
@@ -112,16 +99,6 @@ transport = "tcp"
 listen = "0.0.0.0:3478"
 external = "203.0.113.10:3478"
 
-# TLS listener: a TCP interface with `ssl` becomes TLS (coturn's 5349).
-[[server.interfaces]]
-transport = "tcp"
-listen = "0.0.0.0:5349"
-external = "203.0.113.10:5349"
-
-[server.interfaces.ssl]
-certificate-chain = "/etc/turn/fullchain.pem"
-private-key = "/etc/turn/privkey.pem"
-
 [log]
 level = "info"
 file-directory = "/var/log/turn-server"
@@ -131,8 +108,7 @@ alice = "s3cret"
 bob = "hunter2"
 ```
 
-> Note how each coturn listener line becomes its own `[[server.interfaces]]` table,
-> and the TLS port is just a TCP interface that carries an `ssl` block.
+> Note how each coturn listener line becomes its own `[[server.interfaces]]` table.
 
 ## Dynamic authentication (hooks)
 
@@ -148,7 +124,7 @@ enable-hooks-auth = true
 endpoint = "http://127.0.0.1:8080"
 ```
 
-Your hook service implements `GetPassword` to return the credential for a given
+Your hook service implements `Register` to return the credential for a given
 `username` + `realm`, and may receive lifecycle events (`OnAllocatedEvent`,
 `OnRefreshEvent`, `OnChannelBindEvent`, `OnCreatePermissionEvent`, `OnDestroyEvent`).
 See the protobuf definition in `sdk/protos/server.proto`.
@@ -160,19 +136,19 @@ management API instead (`GetInfo`, `GetSession`, `GetSessionStatistics`,
 `DestroySession`):
 
 ```toml
-[api]
+[rpc]
 listen = "127.0.0.1:3000"
 ```
 
 > The management endpoint has no auth/TLS by default — keep it on a trusted network
-> or enable `api.ssl.*`.
+> or enable `rpc.ssl.*`.
 
 ## Unsupported features
 
 turn-rs deliberately keeps a small surface. The following coturn capabilities are
 **not** available; if you depend on them, plan accordingly:
 
-- **DTLS** (encrypted UDP). Use TLS over TCP instead.
+- **DTLS** (encrypted UDP).
 - **Short-term credentials** — only long-term credentials are supported.
 - **Built-in user databases** (SQLite/Redis/PostgreSQL/MySQL) — use a gRPC hook service.
 - **Per-user / per-realm quotas and bandwidth limiting** (`user-quota`, `total-quota`, `bps-capacity`).
@@ -184,7 +160,6 @@ turn-rs deliberately keeps a small surface. The following coturn capabilities ar
 
 1. Inventory your `turnserver.conf` and identify any [unsupported features](#unsupported-features).
 2. Translate listeners into `[[server.interfaces]]` tables (one per transport/NIC).
-3. Move TLS (`cert`/`pkey`) onto a TCP interface via `[server.interfaces.ssl]`.
-4. Recreate static users under `[auth.static-credentials]`, or wire up a hook service for dynamic auth.
-5. Set `realm`, `port-range`, and logging to match your current behavior.
-6. Validate with a WebRTC client (see the [WebRTC demo](https://mycrl.github.io/turn-rs/demo)) before cutting over production traffic.
+3. Recreate static users under `[auth.static-credentials]`, or wire up a hook service for dynamic auth.
+4. Set `realm`, `port-range`, and logging to match your current behavior.
+5. Validate with a WebRTC client (see the [WebRTC demo](https://mycrl.github.io/turn-rs/demo)) before cutting over production traffic.

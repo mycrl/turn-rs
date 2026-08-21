@@ -2309,7 +2309,6 @@ dependencies = [
  "rand",
  "serde",
  "tokio",
- "tokio-rustls",
  "toml",
  "tonic",
  "tower",

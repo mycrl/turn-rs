@@ -8,7 +8,7 @@ struct MyHooksServer;
 
 #[tonic::async_trait]
 impl TurnHooksServer for MyHooksServer {
-    async fn get_password(
+    async fn register(
         &self,
         id: Identifier,
         realm: &str,
@@ -16,7 +16,7 @@ impl TurnHooksServer for MyHooksServer {
         algorithm: PasswordAlgorithm,
     ) -> Result<Credential, Status> {
         println!(
-            "Getting password for id={:?}, realm={}, username={}, algorithm={:?}",
+            "Registering id={:?}, realm={}, username={}, algorithm={:?}",
             id, realm, username, algorithm
         );
 
