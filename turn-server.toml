@@ -122,7 +122,8 @@ stdout = true
 #
 # This option can be used to log to a file directory.
 #
-# file-directory = "/var/log/turn-server"
+# [log.file]
+# directory = "/var/log/turn-server"
 #
 #
 # Send logs to Vector as newline-delimited JSON over TCP.

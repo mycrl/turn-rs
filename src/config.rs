@@ -249,7 +249,7 @@ pub struct Log {
     /// This option can be used to log to a file directory.
     ///
     #[serde(default)]
-    pub file_directory: Option<String>,
+    pub file: Option<LogFile>,
     ///
     /// Vector endpoint
     ///
@@ -258,12 +258,18 @@ pub struct Log {
     /// `decoding.codec = "json"`).
     ///
     #[serde(default)]
-    pub vector: Option<Vector>,
+    pub vector: Option<LogVector>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub struct Vector {
+pub struct LogFile {
+    pub directory: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct LogVector {
     pub endpoint: SocketAddr,
 }
 

@@ -1,15 +1,11 @@
-use std::{
-    fmt::Arguments,
-    fs::{create_dir_all, metadata},
-    net::SocketAddr,
-    time::Duration,
-};
+use std::{fmt::Arguments, net::SocketAddr, time::Duration};
 
 use anyhow::Result;
 use fern::{DateBased, Dispatch, FormatCallback};
 use log::Record;
 use serde::Serialize;
 use tokio::{
+    fs::{create_dir_all, metadata},
     io::AsyncWriteExt,
     net::TcpStream,
     sync::mpsc::{Sender, channel},
@@ -84,15 +80,15 @@ pub async fn init_with_config(config: &Config) -> Result<()> {
         logger = logger.chain(Dispatch::new().format(text_format).chain(std::io::stdout()));
     }
 
-    if let Some(path) = &config.log.file_directory {
-        if metadata(path).is_err() {
-            create_dir_all(path)?;
+    if let Some(file) = &config.log.file {
+        if metadata(&file.directory).await.is_err() {
+            create_dir_all(&file.directory).await?;
         }
 
         logger = logger.chain(
             Dispatch::new()
                 .format(text_format)
-                .chain(DateBased::new(path, "turn-server-%Y-%m-%d.log")),
+                .chain(DateBased::new(&file.directory, "turn-server-%Y-%m-%d.log")),
         );
     }
 
