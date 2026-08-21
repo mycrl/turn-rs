@@ -1,21 +1,28 @@
 use std::{
     fmt::Arguments,
     fs::{create_dir_all, metadata},
-    io::Write,
-    net::{SocketAddr, TcpStream},
-    time::{Duration, Instant},
+    net::SocketAddr,
+    time::Duration,
 };
 
 use anyhow::Result;
 use fern::{DateBased, Dispatch, FormatCallback};
 use log::Record;
-use parking_lot::Mutex;
 use serde::Serialize;
+use tokio::{
+    io::AsyncWriteExt,
+    net::TcpStream,
+    sync::mpsc::{Sender, channel},
+    time::timeout,
+};
+
 use turn_server::config::Config;
 
+/// Timeout for connecting to the Vector endpoint.
 const VECTOR_CONNECT_TIMEOUT: Duration = Duration::from_millis(100);
-const VECTOR_WRITE_TIMEOUT: Duration = Duration::from_millis(100);
-const VECTOR_RETRY_INTERVAL: Duration = Duration::from_secs(2);
+
+/// Capacity for the Vector channel.
+const VECTOR_CHANNEL_CAPACITY: usize = 1024;
 
 #[derive(Serialize)]
 struct VectorEvent<'a> {
@@ -26,68 +33,38 @@ struct VectorEvent<'a> {
 }
 
 struct VectorSink {
-    endpoint: SocketAddr,
-    inner: Mutex<VectorSinkInner>,
-}
-
-struct VectorSinkInner {
-    stream: Option<TcpStream>,
-    last_error: Option<Instant>,
+    sender: Sender<Vec<u8>>,
 }
 
 impl VectorSink {
-    fn new(endpoint: SocketAddr) -> Self {
-        Self {
-            endpoint,
-            inner: Mutex::new(VectorSinkInner {
-                stream: None,
-                last_error: None,
-            }),
-        }
+    async fn new(endpoint: SocketAddr) -> Result<Self> {
+        let mut stream = timeout(VECTOR_CONNECT_TIMEOUT, TcpStream::connect(endpoint)).await??;
+        stream.set_nodelay(true)?;
+
+        let (sender, mut receiver) = channel::<Vec<u8>>(VECTOR_CHANNEL_CAPACITY);
+
+        tokio::spawn(async move {
+            while let Some(payload) = receiver.recv().await {
+                if stream.write_all(&payload).await.is_err() {
+                    break;
+                }
+            }
+        });
+
+        Ok(Self { sender })
     }
 
     fn emit(&self, record: &log::Record) {
-        let Ok(mut payload) = serde_json::to_vec(&VectorEvent {
+        if let Ok(mut payload) = serde_json::to_vec(&VectorEvent {
             message: record.args().to_string(),
             level: record.level().as_str(),
             target: record.target(),
             file: record.file_static().unwrap_or("*"),
-        }) else {
-            return;
+        }) {
+            payload.push(b'\n');
+
+            let _ = self.sender.try_send(payload);
         };
-
-        payload.push(b'\n');
-
-        let mut inner = self.inner.lock();
-
-        if inner.stream.is_none() {
-            if inner
-                .last_error
-                .is_some_and(|at| at.elapsed() < VECTOR_RETRY_INTERVAL)
-            {
-                return;
-            }
-
-            match TcpStream::connect_timeout(&self.endpoint, VECTOR_CONNECT_TIMEOUT) {
-                Ok(stream) => {
-                    let _ = stream.set_nodelay(true);
-                    let _ = stream.set_write_timeout(Some(VECTOR_WRITE_TIMEOUT));
-                    inner.stream = Some(stream);
-                    inner.last_error = None;
-                }
-                Err(_) => {
-                    inner.last_error = Some(Instant::now());
-                    return;
-                }
-            }
-        }
-
-        if let Some(stream) = inner.stream.as_mut()
-            && stream.write_all(&payload).is_err()
-        {
-            inner.stream = None;
-            inner.last_error = Some(Instant::now());
-        }
     }
 }
 
@@ -100,7 +77,7 @@ fn text_format(out: FormatCallback, message: &Arguments, record: &Record) {
     ))
 }
 
-pub fn init(config: &Config) -> Result<()> {
+pub async fn init_with_config(config: &Config) -> Result<()> {
     let mut logger = Dispatch::new().level(config.log.level.into());
 
     if config.log.stdout {
@@ -120,7 +97,9 @@ pub fn init(config: &Config) -> Result<()> {
     }
 
     if let Some(vector) = &config.log.vector {
-        let sink = VectorSink::new(vector.endpoint);
+        // Vector has no application SDK; the integration surface is a source.
+        // This sink speaks newline-delimited JSON to the `socket` source.
+        let sink = VectorSink::new(vector.endpoint).await?;
 
         logger = logger.chain(fern::Output::call(move |record| sink.emit(record)));
     }
