@@ -38,8 +38,8 @@ async fn metrics(statistics: Statistics) -> Response {
 }
 
 pub async fn start_server(config: Config, service: Service, statistics: Statistics) -> Result<()> {
-    if let Some(api) = &config.api {
-        let timeout_duration = Duration::from_secs(api.timeout as u64);
+    if let Some(rpc) = &config.rpc {
+        let timeout_duration = Duration::from_secs(rpc.timeout as u64);
         let mut app: Router = Routes::new(TurnServiceServer::new(RpcServer {
             config: config.clone(),
             uptime: Instant::now(),
@@ -67,23 +67,23 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                 .layer(TimeoutLayer::new(timeout_duration)),
         );
 
-        log::info!("api server listening: listen={}", api.listen);
+        log::info!("rpc server listening: listen={}", rpc.listen);
 
-        if let Some(ssl) = &api.ssl {
+        if let Some(ssl) = &rpc.ssl {
             let tls = axum_server::tls_rustls::RustlsConfig::from_pem_chain_file(
                 ssl.certificate_chain.clone(),
                 ssl.private_key.clone(),
             )
             .await?;
 
-            axum_server::bind_rustls(api.listen, tls)
+            axum_server::bind_rustls(rpc.listen, tls)
                 .serve(app.into_make_service())
                 .await?;
 
             return Ok(());
         }
 
-        let listener = TcpListener::bind(api.listen).await?;
+        let listener = TcpListener::bind(rpc.listen).await?;
         axum::serve(listener, app).await?;
     } else {
         std::future::pending().await

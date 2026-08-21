@@ -148,22 +148,22 @@ impl Hooks {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub struct Api {
+pub struct Rpc {
     ///
     /// rpc server listen
     ///
     /// This option specifies the rpc server binding address used to control
     /// the turn server.
     ///
-    #[serde(default = "Api::bind")]
+    #[serde(default = "Rpc::bind")]
     pub listen: SocketAddr,
     #[serde(default)]
     pub ssl: Option<Ssl>,
-    #[serde(default = "Api::timeout")]
+    #[serde(default = "Rpc::timeout")]
     pub timeout: u32,
 }
 
-impl Api {
+impl Rpc {
     fn bind() -> SocketAddr {
         "127.0.0.1:3000"
             .parse()
@@ -175,7 +175,7 @@ impl Api {
     }
 }
 
-impl Default for Api {
+impl Default for Rpc {
     fn default() -> Self {
         Self {
             timeout: Self::timeout(),
@@ -312,7 +312,7 @@ pub struct Config {
     #[serde(default)]
     pub server: Server,
     #[serde(default)]
-    pub api: Option<Api>,
+    pub rpc: Option<Rpc>,
     #[serde(default)]
     pub hooks: Option<Hooks>,
     #[serde(default)]
