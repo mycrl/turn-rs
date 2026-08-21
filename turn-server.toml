@@ -125,6 +125,21 @@ stdout = true
 # file-directory = "/var/log/turn-server"
 #
 #
+# Send logs to Vector as newline-delimited JSON over TCP.
+# Pair with a Vector socket source:
+#
+#   sources:
+#     turn_server:
+#       type: socket
+#       address: "0.0.0.0:9000"
+#       mode: tcp
+#       decoding:
+#         codec: json
+#
+# [log.vector]
+# endpoint = "127.0.0.1:9000"
+#
+#
 [auth]
 #
 # Enable hooks authentication.

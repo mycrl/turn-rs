@@ -250,6 +250,21 @@ pub struct Log {
     ///
     #[serde(default)]
     pub file_directory: Option<String>,
+    ///
+    /// Vector endpoint
+    ///
+    /// When set, logs are also sent to Vector as newline-delimited JSON over
+    /// TCP. Pair this with a Vector `socket` source (`mode = "tcp"`,
+    /// `decoding.codec = "json"`).
+    ///
+    #[serde(default)]
+    pub vector: Option<Vector>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct Vector {
+    pub endpoint: SocketAddr,
 }
 
 impl Log {

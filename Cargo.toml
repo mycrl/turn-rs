@@ -23,6 +23,7 @@ log = "0.4"
 mimalloc = { version = "0.1", default-features = false }
 serde = { version = "1", features = ["derive"] }
 toml = "0.9.6"
+serde_json = "1"
 fern = { version = "0.7.1", features = ["date-based", "syslog-6"] }
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["timeout"], optional = true }

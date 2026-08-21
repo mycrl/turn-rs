@@ -2308,6 +2308,7 @@ dependencies = [
  "proptest",
  "rand",
  "serde",
+ "serde_json",
  "tokio",
  "toml",
  "tonic",

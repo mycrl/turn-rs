@@ -142,7 +142,7 @@ The config file uses TOML. Full reference: [docs/configure.md](docs/configure.md
 - `hooks.*` enables external integrations for dynamic auth and lifecycle callbacks (allocation, refresh, destroy, and more). `hooks.max-channel-size` and `hooks.timeout` control backpressure and timeouts so Hooks do not impact the main data path.
 - `rpc.*` enables the shared management HTTP server for gRPC and optional Prometheus metrics.
 - The `prometheus` feature exposes `GET /metrics` on `rpc.listen` and enables the `rpc` feature.
-- `log.*` controls observability output: `log.level` sets verbosity, `log.stdout` fits container or systemd aggregation, and `log.file-directory` enables local log retention.
+- `log.*` controls observability output: `log.level` sets verbosity, `log.stdout` fits container or systemd aggregation, `log.file-directory` enables local log retention, and `log.vector.endpoint` ships JSON logs to a [Vector](https://vector.dev/) `socket` source.
 
 ## Start the Server
 
@@ -240,6 +240,7 @@ Typical use cases:
 - log.level controls log verbosity.
 - log.stdout enables or disables stdout logs.
 - log.file-directory writes logs to a daily file.
+- log.vector.endpoint sends newline-delimited JSON logs to Vector over TCP.
 - The `prometheus` feature enables `/metrics` on `rpc.listen`.
 
 ## Security Notes
