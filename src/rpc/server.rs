@@ -37,6 +37,7 @@ impl TurnService for RpcServer {
                 .collect(),
             port_capacity: self.config.server.port_range.size() as u32,
             port_allocated: self.service.get_session_manager().allocated() as u32,
+            realm: self.config.server.realm.clone(),
         }))
     }
 

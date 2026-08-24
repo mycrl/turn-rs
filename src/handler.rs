@@ -141,6 +141,7 @@ impl ServiceHandler for Handler {
 
             self.rpc
                 .send_event(HooksEvent::Allocated(TurnAllocatedEvent {
+                    realm: self.config.server.realm.clone(),
                     id: Some(id.into()),
                     username: username.to_string(),
                     port: port as i32,
@@ -192,6 +193,7 @@ impl ServiceHandler for Handler {
         {
             self.rpc
                 .send_event(HooksEvent::ChannelBind(TurnChannelBindEvent {
+                    realm: self.config.server.realm.clone(),
                     id: Some(id.into()),
                     username: username.to_string(),
                     channel: channel as i32,
@@ -252,6 +254,7 @@ impl ServiceHandler for Handler {
         {
             self.rpc
                 .send_event(HooksEvent::CreatePermission(TurnCreatePermissionEvent {
+                    realm: self.config.server.realm.clone(),
                     id: Some(id.into()),
                     username: username.to_string(),
                     ports: ports.iter().map(|p| *p as i32).collect(),
@@ -311,6 +314,7 @@ impl ServiceHandler for Handler {
         #[cfg(feature = "rpc")]
         {
             self.rpc.send_event(HooksEvent::Refresh(TurnRefreshEvent {
+                realm: self.config.server.realm.clone(),
                 id: Some(id.into()),
                 username: username.to_string(),
                 lifetime: lifetime as i32,
@@ -337,6 +341,7 @@ impl ServiceHandler for Handler {
             self.statistics.unregister(id);
 
             self.rpc.send_event(HooksEvent::Destroy(TurnDestroyEvent {
+                realm: self.config.server.realm.clone(),
                 id: Some(id.into()),
                 username: username.to_string(),
             }));

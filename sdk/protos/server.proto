@@ -44,6 +44,8 @@ message TurnServerInfo {
     uint32 port_capacity = 4;
     // port allocated size
     uint32 port_allocated = 5;
+    // server realm
+    string realm = 6;
 }
 
 // turn session
@@ -87,36 +89,41 @@ service TurnService {
 
 // turn allocated event
 message TurnAllocatedEvent {
-    Identifier id = 1;
-    string username = 2;
-    int32 port = 3;
+    string realm = 1;
+    Identifier id = 2;
+    string username = 3;
+    int32 port = 4;
 }
 
 // turn channel bind event
 message TurnChannelBindEvent {
-    Identifier id = 1;
-    string username = 2;
-    int32 channel = 3;
+    string realm = 1;
+    Identifier id = 2;
+    string username = 3;
+    int32 channel = 4;
 }
 
 // turn create permission event
 message TurnCreatePermissionEvent {
-    Identifier id = 1;
-    string username = 2;
-    repeated int32 ports = 3;
+    string realm = 1;
+    Identifier id = 2;
+    string username = 3;
+    repeated int32 ports = 4;
 }
 
 // turn refresh event
 message TurnRefreshEvent {
-    Identifier id = 1;
-    string username = 2;
-    int32 lifetime = 3;
+    string realm = 1;
+    Identifier id = 2;
+    string username = 3;
+    int32 lifetime = 4;
 }
 
 // turn destroy event
 message TurnDestroyEvent {
-    Identifier id = 1;
-    string username = 2;
+    string realm = 1;
+    Identifier id = 2;
+    string username = 3;
 }
 
 enum PasswordAlgorithm {
@@ -127,10 +134,10 @@ enum PasswordAlgorithm {
 
 // register request
 message TurnRegisterRequest {
-    Identifier id = 1;
-    PasswordAlgorithm algorithm = 2;
-    string username = 3;
-    string realm = 4;
+    string realm = 1;
+    Identifier id = 2;
+    PasswordAlgorithm algorithm = 3;
+    string username = 4;
 }
 
 // register response

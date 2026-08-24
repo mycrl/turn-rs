@@ -11,55 +11,51 @@ impl TurnHooksServer for MyHooksServer {
     async fn register(
         &self,
         id: Identifier,
-        realm: &str,
-        username: &str,
+        realm: String,
+        username: String,
         algorithm: PasswordAlgorithm,
     ) -> Result<Credential, Status> {
         println!(
-            "Registering id={:?}, realm={}, username={}, algorithm={:?}",
-            id, realm, username, algorithm
+            "Registering id={id:?}, realm={realm}, username={username}, algorithm={algorithm:?}"
         );
 
         // Implement your authentication logic here
         // For example, look up the user in a database
         Ok(Credential {
             password: "test".to_string(),
-            realm: realm.to_string(),
+            realm,
         })
     }
 
-    async fn on_allocated(&self, id: Identifier, username: String, port: u16) {
-        println!(
-            "Session allocated: id={:?}, username={}, port={}",
-            id, username, port
-        );
+    async fn on_allocated(&self, realm: String, id: Identifier, username: String, port: u16) {
+        println!("Session allocated: realm={realm}, id={id:?}, username={username}, port={port}");
         // Handle allocation event (e.g., log to database, update metrics)
     }
 
-    async fn on_channel_bind(&self, id: Identifier, username: String, channel: u16) {
+    async fn on_channel_bind(&self, realm: String, id: Identifier, username: String, channel: u16) {
+        println!("Channel bound: realm={realm}, id={id:?}, username={username}, channel={channel}");
+    }
+
+    async fn on_create_permission(
+        &self,
+        realm: String,
+        id: Identifier,
+        username: String,
+        ports: Vec<u16>,
+    ) {
         println!(
-            "Channel bound: id={:?}, username={}, channel={}",
-            id, username, channel
+            "Permission created: realm={realm}, id={id:?}, username={username}, ports={ports:?}",
         );
     }
 
-    async fn on_create_permission(&self, id: Identifier, username: String, ports: Vec<u16>) {
+    async fn on_refresh(&self, realm: String, id: Identifier, username: String, lifetime: u32) {
         println!(
-            "Permission created: id={:?}, username={}, ports={:?}",
-            id, username, ports
+            "Session refreshed: realm={realm}, id={id:?}, username={username}, lifetime={lifetime}"
         );
     }
 
-    async fn on_refresh(&self, id: Identifier, username: String, lifetime: u32) {
-        println!(
-            "Session refreshed: id={:?}, username={}, lifetime={}",
-            id, username, lifetime
-        );
-    }
-
-    async fn on_destroy(&self, id: Identifier, username: String) {
-        println!("Session destroyed: id={:?}, username={}", id, username);
-        // Handle session destruction (e.g., cleanup resources)
+    async fn on_destroy(&self, realm: String, id: Identifier, username: String) {
+        println!("Session destroyed: realm={realm}, id={id:?}, username={username}");
     }
 }
 
