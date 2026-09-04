@@ -109,6 +109,10 @@ impl ServiceHandler for Handler {
         None
     }
 
+    fn create_relay_server(&self, interface: Interface, port: u16) -> Result<()> {
+        self.server.relay().create(interface, port)
+    }
+
     /// allocate request
     ///
     /// [rfc8489](https://tools.ietf.org/html/rfc8489)

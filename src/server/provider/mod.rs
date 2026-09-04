@@ -14,8 +14,13 @@ use crate::{
 };
 
 pub trait ProviderStream: Send + 'static {
+    /// Read data from the stream.
     fn read(&mut self) -> impl Future<Output = Result<Buffer>> + Send;
+
+    /// Write data to the stream.
     fn write(&mut self, buffer: &[u8]) -> impl Future<Output = Result<()>> + Send;
+
+    /// Close the stream.
     fn close(&mut self) -> impl Future<Output = ()> + Send;
 }
 
@@ -40,6 +45,7 @@ pub trait ProviderServer: Sized + Send {
 
     /// Start the server.
     fn start(
+        mut self,
         options: ServerOptions,
         service: Service,
         statistics: Statistics,
@@ -49,8 +55,7 @@ pub trait ProviderServer: Sized + Send {
         let idle_timeout = options.idle_timeout as u64;
 
         async move {
-            let mut listener = Self::bind(&options).await?;
-            let local_addr = listener.local_addr()?;
+            let local_addr = self.local_addr()?;
 
             log::info!(
                 "server listening: listen={}, external={}, local addr={local_addr}, transport={transport:?}",
@@ -58,7 +63,7 @@ pub trait ProviderServer: Sized + Send {
                 options.external,
             );
 
-            while let Ok(poll) = listener.accept().await {
+            while let Ok(poll) = self.accept().await {
                 let Poll::Ready((mut socket, address)) = poll else {
                     continue;
                 };

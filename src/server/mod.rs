@@ -1,7 +1,7 @@
+pub mod buffer;
 pub mod provider;
-
-mod buffer;
-mod switch;
+pub mod relay;
+pub mod switch;
 
 use anyhow::Result;
 use tokio::task::JoinSet;
@@ -30,7 +30,7 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
 
         match interface.transport {
             Transport::Udp => {
-                servers.spawn(UdpServer::start(
+                servers.spawn(UdpServer::bind(&options).await?.start(
                     options,
                     service.clone(),
                     statistics.clone(),
@@ -38,7 +38,7 @@ pub async fn start_server(config: Config, service: Service, statistics: Statisti
                 ));
             }
             Transport::Tcp => {
-                servers.spawn(TcpServer::start(
+                servers.spawn(TcpServer::bind(&options).await?.start(
                     options,
                     service.clone(),
                     statistics.clone(),

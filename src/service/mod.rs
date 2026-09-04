@@ -5,7 +5,10 @@ use std::{net::SocketAddr, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::codec::{crypto::Password, message::attributes::PasswordAlgorithm};
+use crate::{
+    codec::{crypto::Password, message::attributes::PasswordAlgorithm},
+    config::Interface,
+};
 
 use self::{
     routing::Router,
@@ -49,6 +52,12 @@ pub trait ServiceHandler: Send + Sync + 'static {
         username: &str,
         algorithm: PasswordAlgorithm,
     ) -> impl Future<Output = Option<Password>> + Send;
+
+    fn create_relay_server(
+        &self,
+        interface: Interface,
+        port: u16,
+    ) -> impl Future<Output = bool> + Send;
 
     /// allocate request
     ///
