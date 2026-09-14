@@ -105,6 +105,13 @@ impl<'a> ChannelData<'a> {
     ///
     /// assert_eq!(ret.number(), 16384);
     /// assert_eq!(ret.bytes(), &data[..]);
+    ///
+    /// // Over TCP/TLS the frame is padded to a 4-byte boundary (RFC 5766 §11.5); the padding is
+    /// // not application data and must not be forwarded to the peer.
+    /// let padded: [u8; 8] = [0x40, 0x00, 0x00, 0x01, 0xAA, 0x00, 0x00, 0x00];
+    /// let ret = ChannelData::decode(&padded[..]).unwrap();
+    ///
+    /// assert_eq!(ret.bytes(), &[0xAA][..]);
     /// ```
     pub fn decode(bytes: &'a [u8]) -> Result<Self, Error> {
         if bytes.len() < 4 {
@@ -121,8 +128,9 @@ impl<'a> ChannelData<'a> {
             return Err(Error::InvalidInput);
         }
 
+        // Length field, not the buffer: a TCP/TLS read includes the 4-byte padding.
         Ok(Self {
-            bytes: &bytes[4..],
+            bytes: &bytes[4..4 + size],
             number,
         })
     }
